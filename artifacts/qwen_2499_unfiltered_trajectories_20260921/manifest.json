@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "kind": "qwen-unfiltered-rollout-trajectories",
+  "coverage": {
+    "canonical_tasks": 2499,
+    "raw_records": 2625,
+    "superseded_retry_records": 126,
+    "positive_reward_tasks": 1562,
+    "zero_reward_tasks": 873,
+    "error_tasks": 64,
+    "providers_are_disjoint": true,
+    "all_outcomes_retained": true,
+    "sft_rows_expanded": false
+  },
+  "compression": {
+    "codec": "zstd",
+    "zstd_version": "1.5.5",
+    "level": 19,
+    "long_distance_window_log": 31,
+    "chunk_limit_bytes": 50331648,
+    "raw_bytes": 2183550892,
+    "compressed_bytes": 154413416,
+    "size_reduction_fraction": 0.929283344589891
+  },
+  "sources": [
+    {
+      "name": "qwen_vmvm_epoch3_results.jsonl",
+      "provider": "vmvm",
+      "raw_records": 1392,
+      "canonical_tasks": 1266,
+      "superseded_retry_records": 126,
+      "canonical_outcomes": {
+        "positive_reward": 749,
+        "zero_reward": 517,
+        "error": 0
+      },
+      "raw_bytes": 1639982734,
+      "raw_sha256": "4b4221826019fc7e0615393246e05620b605b3c19a2be35f26afb8adc085a641",
+      "compressed_bytes": 108286550,
+      "compressed_sha256": "aed524fc33acf69e5c8928a29dd729cb7dd99f1877b0e1eb1145de5cf96e1601",
+      "chunks": [
+        {
+          "path": "qwen_vmvm_epoch3_results.jsonl.zst.part-000",
+          "bytes": 50331648,
+          "sha256": "f844325484c06e52011b9eb0875d7046e8f35161e733de48dffa5bb1d89d30d9"
+        },
+        {
+          "path": "qwen_vmvm_epoch3_results.jsonl.zst.part-001",
+          "bytes": 50331648,
+          "sha256": "c295fc0ed309169c43695ad93563afc9fb79254c8e83bd6afc823b0e79a1c497"
+        },
+        {
+          "path": "qwen_vmvm_epoch3_results.jsonl.zst.part-002",
+          "bytes": 7623254,
+          "sha256": "ad1ef4e560a553c74f8be094cd0d2cd8cd50f899a2d1d6e8831c2b518a6f7c86"
+        }
+      ]
+    },
+    {
+      "name": "qwen_sandoq_continuation_results.jsonl",
+      "provider": "sandoq",
+      "raw_records": 1233,
+      "canonical_tasks": 1233,
+      "superseded_retry_records": 0,
+      "canonical_outcomes": {
+        "positive_reward": 813,
+        "zero_reward": 356,
+        "error": 64
+      },
+      "raw_bytes": 543568158,
+      "raw_sha256": "465ada70ad4eefbfebbd0fc7f33a30a8dfb89e2ab8b6ff6d9b5dda4a05e6b4f7",
+      "compressed_bytes": 46126866,
+      "compressed_sha256": "c1e1326abb69515ea7166ebf084f69e0e5b81e8109767b1b66b64f445b4d2585",
+      "chunks": [
+        {
+          "path": "qwen_sandoq_continuation_results.jsonl.zst.part-000",
+          "bytes": 46126866,
+          "sha256": "c1e1326abb69515ea7166ebf084f69e0e5b81e8109767b1b66b64f445b4d2585"
+        }
+      ]
+    }
+  ]
+}
