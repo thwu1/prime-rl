@@ -160,6 +160,13 @@ Mini-SWE-Agent 2.4.6 only with a separately sealed Firecracker host-network
 profile and the native Sandoq reverse tunnel; never treat the no-network smoke
 receipt as evidence for that distinct runtime contract.
 
+Use `probe_model_endpoint.py --profile qwen38-2p4t` for the reusable
+credential-safe Qwen endpoint check. It reads the deployment-local proxy
+metadata directly, disables ambient proxies, sends `X-Session-ID`, requests
+128 tokens with a five-minute ceiling, and emits only endpoint hashes,
+statuses, latencies, byte count, and reasoning/content presence flags. Never
+log the loaded URL, API key, session value, or response body.
+
 ## Terminal Bench Kimi scored smoke
 
 The server-scoped Kimi TB4 smoke must use

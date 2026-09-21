@@ -1007,6 +1007,22 @@ a separate, independently certified Firecracker host-network profile with the
 native Sandoq reverse tunnel; the no-network receipt above does not certify
 that profile.
 
+Before any sandbox launch, the bounded host-side endpoint probe can validate
+the default Qwen deployment without exposing its URL or API key:
+
+```bash
+install -d -m 700 /checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/qwen-endpoint
+uv run --no-project python3 user/tianhaowu/terminal_bench_vmvm/probe_model_endpoint.py \
+  --profile qwen38-2p4t \
+  --output /checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/qwen-endpoint/model-endpoint-probe.json
+```
+
+The named profile reads the credential only from the deployment-local
+`proxy_info.json`, bypasses all ambient HTTP proxies, sends one stable
+`X-Session-ID`, and requests exactly 128 tokens with a five-minute bound. Its
+stdout and optional private mode-0600 receipt contain only hashes, status,
+latency, size, and content/reasoning-presence flags.
+
 ## Direct Kimi Sandoq scored smoke
 
 The server-scoped Kimi smoke uses one reviewed non-security TB4 task through a
