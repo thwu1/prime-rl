@@ -87,6 +87,47 @@ def _audit(
     )
 
 
+def test_historical_run_validator_receives_size_compatibility_view(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    snapshot = pass_only.launch.ArtifactSnapshot(
+        sha256="a" * 64,
+        size_bytes=17,
+        identity=(1, 2, 3),
+    )
+    snapshots = {"results.jsonl": snapshot}
+    observed: dict[str, object] = {}
+
+    def validate(**kwargs: object) -> tuple[dict, dict, dict]:
+        expected = kwargs["expected_snapshots"]
+        assert isinstance(expected, dict)
+        compatibility = expected["results.jsonl"]
+        observed["size"] = compatibility.size
+        observed["sha256"] = compatibility.sha256
+        observed["identity"] = compatibility.identity
+        observed["snapshot_retained"] = compatibility.snapshot is snapshot
+        return {}, {}, {}
+
+    monkeypatch.setattr(pass_only.launch, "_validate_run_identity", validate)
+
+    result = pass_only._validate_historical_run_identity(
+        run=Path("/run"),
+        root=object(),  # type: ignore[arg-type]
+        validated=object(),  # type: ignore[arg-type]
+        expected_snapshots=snapshots,
+    )
+
+    assert result == ({}, {}, {})
+    assert observed == {
+        "size": 17,
+        "sha256": "a" * 64,
+        "identity": (1, 2, 3),
+        "snapshot_retained": True,
+    }
+    assert snapshot.size_bytes == 17
+    assert not hasattr(snapshot, "size")
+
+
 def test_audit_classifies_nonexported_rows_and_validates_only_positive(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

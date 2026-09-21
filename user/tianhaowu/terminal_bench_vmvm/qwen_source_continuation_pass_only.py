@@ -77,6 +77,23 @@ class Artifact:
 
 
 @dataclass(frozen=True, slots=True)
+class _HistoricalArtifactSnapshotView:
+    snapshot: launch.ArtifactSnapshot
+
+    @property
+    def sha256(self) -> str:
+        return self.snapshot.sha256
+
+    @property
+    def size(self) -> int:
+        return self.snapshot.size_bytes
+
+    @property
+    def identity(self) -> tuple[int, ...]:
+        return self.snapshot.identity
+
+
+@dataclass(frozen=True, slots=True)
 class TraceIndex:
     offset: int
     length: int
@@ -284,6 +301,25 @@ def _historical_code_binding() -> Iterator[None]:
     finally:
         launch._canonical_paths = original_canonical_paths
         launch._code_binding = original_code_binding
+
+
+def _validate_historical_run_identity(
+    *,
+    run: Path,
+    root: launch.PrivateDirectory,
+    validated: launch.ValidatedPlan,
+    expected_snapshots: Mapping[str, launch.ArtifactSnapshot],
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    """Expose the snapshot field names consumed by the frozen run validator."""
+    historical_snapshots = {
+        relative: _HistoricalArtifactSnapshotView(snapshot) for relative, snapshot in expected_snapshots.items()
+    }
+    return launch._validate_run_identity(  # type: ignore[arg-type]
+        run=run,
+        root=root,
+        validated=validated,
+        expected_snapshots=historical_snapshots,
+    )
 
 
 def _task_members(body: bytes, *, expected_count: int) -> tuple[str, ...]:
@@ -630,7 +666,7 @@ def certify(*, plan: Path, plan_sha256: str, run: Path, output: Path) -> dict[st
                     run_root.lock(".writer.lock", locks, "run_lock_invalid")
                     before = launch._run_evidence_snapshots(run_root)
                     try:
-                        envelope, shared, execution = launch._validate_run_identity(
+                        envelope, shared, execution = _validate_historical_run_identity(
                             run=run,
                             root=run_root,
                             validated=validated,
@@ -1361,7 +1397,7 @@ def export_merge(
                         expected_sha256=certificate_sha256,
                         expected_code=code,
                     )
-                    envelope, shared, execution = launch._validate_run_identity(
+                    envelope, shared, execution = _validate_historical_run_identity(
                         run=run,
                         root=run_root,
                         validated=validated,
