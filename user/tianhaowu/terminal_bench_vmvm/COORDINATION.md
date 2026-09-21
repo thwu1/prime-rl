@@ -1,6 +1,6 @@
 # VMVM sandbox coordination
 
-Last updated: 2026-09-21 02:06 UTC
+Last updated: 2026-09-21 02:14 UTC
 
 ## First message to the next teammate
 
@@ -47,24 +47,18 @@ Add new rows below this line; do not overwrite another owner's row.
 
 ## Open coordination requests
 
-- **2026-09-21 02:06 UTC, sc-3 tokenizer-only handoff requested for the
-  use2-1 Qwen SFT preflight:** use2-1 rollout `1514358` remains healthy and
-  must not be touched.  Its pass-only post-run render attestation pins
-  `nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16` at revision
-  `d51eab0d1f979ebc26b546e634a04f450d99158e`, but use2-1 cannot reach the
-  model registry and cannot see sc-3's
-  `/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface` mount.  The sc-3 owner
-  is asked to load that exact revision from the existing local cache and call
-  `save_pretrained` into the shared, fresh path
-  `/storage/home/tianhaowu/.cache/terminal_bench_vmvm/tokenizers/nemotron3_super_120b_d51eab0_sc3_handoff`.
-  Publish real regular files only (no symlinks or hardlinks), directories mode
-  `0500`, files mode `0400`, and a mode-`0600` sibling JSON receipt containing
-  the repository, exact revision, file count, byte count, and deterministic
-  tree SHA-256.  Re-open the destination with `local_files_only=True` before
-  publishing the receipt.  Do not copy weights, credentials, cache symlinks,
-  task data, or response content.  Record the aggregate result and receipt
-  path here; use2-1 will independently re-fingerprint it before binding the
-  queued SFT preflight.
+- **2026-09-21 02:14 UTC, tokenizer-only handoff resolved locally; no sc-3
+  action required:** use2-1 bypassed its blocked compute-node egress on the
+  login host, saved only the exact pinned tokenizer, and independently loaded
+  and fingerprinted the immutable snapshot on x86.  Snapshot job `1514991`
+  completed `0:0`; import/fingerprint smoke `1514995` completed `0:0` with
+  three regular files, 17,088,647 bytes, no links, directory/file modes
+  `0500`/`0400`, and tree SHA-256
+  `6e82696905f27ce4a339468accfd19d347c7f5c8c08bac688196f49a010c89eb`.
+  The replacement pass-only chain is `1514996` -> `1514999` -> `1515006`,
+  dependency-held behind the still-healthy use2-1 rollout `1514358`.  The old
+  captured-script chain was canceled before execution.  Do not touch these
+  jobs or duplicate the handoff.
 
 - **2026-09-20 11:46 UTC, fresh VMVM and Kimi canaries consumed with bounded
   classifications:** the rotated VMVM authorization creator canonicalized the
