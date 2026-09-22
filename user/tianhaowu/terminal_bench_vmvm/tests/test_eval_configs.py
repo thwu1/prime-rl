@@ -326,12 +326,7 @@ def test_mobius_qwen_production_retention_and_concurrency() -> None:
 
 
 def test_mobius_qwen_sandoq_contract_is_explicit_and_digest_pinned() -> None:
-    config = tomllib.loads(
-        (
-            CONFIG_DIR
-            / "shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml"
-        ).read_text()
-    )
+    config = tomllib.loads((CONFIG_DIR / "shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml").read_text())
 
     assert config["num_tasks"] == 2_500
     assert config["max_concurrent"] == config["multiplex"] == 64
@@ -352,9 +347,7 @@ def test_mobius_qwen_sandoq_contract_is_explicit_and_digest_pinned() -> None:
     assert config["sampling"]["reasoning_effort"] == "medium"
     assert set(config["retries"]["rollout"]["include"]) == QWEN_ROLLOUT_RETRY_ERRORS
 
-    resolved = _resolved_eval_config(
-        "shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml"
-    )
+    resolved = _resolved_eval_config("shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml")
     _contract(
         resolved,
         "Qwen3.8-2.4T-A95B",
@@ -563,9 +556,7 @@ def test_direct_kimi_sandoq_scored_smoke_is_bounded() -> None:
 
 
 def test_direct_kimi_sandoq_scored_smoke_rejects_legacy_profile_for_fresh_run() -> None:
-    config = _resolved_eval_config(
-        "servers/cpu-132-021_8103/tb4_kimi_k3_sandoq_smoke.toml"
-    )
+    config = _resolved_eval_config("servers/cpu-132-021_8103/tb4_kimi_k3_sandoq_smoke.toml")
     config["client"]["timeout"] = 43_200
     config["client"]["max_retries"] = 10
     config["harness"]["request_timeout_seconds"] = 15_000
@@ -622,11 +613,100 @@ def test_direct_kimi_sandoq_scored_smoke_launcher_is_pinned() -> None:
     assert "tb4_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_${stage}" in launcher
     assert "--direct-router-policy consistent_hash" in stage
     assert "--direct-request-id-headers x-session-id" in stage
-    assert "--direct-provider-concurrency 24" in stage
+    assert '--direct-provider-concurrency "$direct_router_concurrency"' in stage
     assert "--direct-retries 0" in stage
     assert "--direct-worker-count 24" in stage
     assert "from eval_run_identity import _vmvm_source_sha256" in stage
     assert 'sha256sum "$project_dir"/environments/vmvm_tb_v2' not in stage
+
+
+def test_direct_kimi_tb4_miniswe246_host_tunnel_lane_is_pinned() -> None:
+    relative = "servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_sandoq_pass1.toml"
+    config = _resolved_eval_config(relative)
+    contract, execution = _contract(
+        config,
+        "Kimi-K3",
+        role="kimi-direct-tb4",
+        sandbox_provider="sandoq",
+    )
+    runtime = execution["runtime"]
+    launcher = (
+        CONFIG_DIR / "servers/cpu-132-021_8103/run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch"
+    ).read_text()
+    stage = (CONFIG_DIR.parents[1] / "run_direct_kimi_sandoq_stage.sh").read_text()
+
+    assert contract["harness"] == {
+        "id": "mini-swe-agent",
+        "version": "2.4.6",
+        "placement": "sandbox",
+        "step_limit": 200,
+        "request_timeout_seconds": 43_200,
+        "request_max_retries": 0,
+    }
+    assert runtime["network_access"] is True
+    assert runtime["host_tunnel"] == "sandoq"
+    assert runtime["guest_tunnel_url"] == "http://127.0.0.1:8485"
+    assert runtime["tunnel_pool_size"] == 4
+    assert runtime["expected_environment"] == "oci-runner-firecracker"
+    assert "tb4-miniswe" in launcher
+    assert '"$stage" == tb4-miniswe && "$preflight_only" != 1' in launcher
+    assert "resource-capable tunnel environment certificate" in launcher
+    assert "kimi_sandoq_firecracker_host.json" in launcher
+    assert "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df" in launcher
+    assert "cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220" in launcher
+    assert "sandoq_tunnel_policy=native-sandoq-reverse-tunnel" in stage
+    assert 'eval_log="$output_dir/control/evaluator.private.log"' in stage
+
+
+def test_direct_kimi_miniswe246_smoke_matches_full_tunnel_lane() -> None:
+    config = _resolved_eval_config("servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_sandoq_smoke.toml")
+    contract, execution = _contract(
+        config,
+        "Kimi-K3",
+        role="kimi-direct-smoke",
+        sandbox_provider="sandoq",
+    )
+    launcher = (
+        CONFIG_DIR / "servers/cpu-132-021_8103/run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch"
+    ).read_text()
+
+    assert contract["harness"] == {
+        "id": "mini-swe-agent",
+        "version": "2.4.6",
+        "placement": "sandbox",
+        "step_limit": 3,
+        "request_timeout_seconds": 43_200,
+        "request_max_retries": 0,
+    }
+    assert execution["runtime"]["expected_environment"] == "oci-runner-firecracker"
+    assert execution["runtime"]["host_tunnel"] == "sandoq"
+    assert config["taskset"]["enable_compose"] is False
+    assert config["taskset"]["resource_multiplier"] == 1.0
+    assert 'prepare_kimi_tb4_miniswe246_union.py" verify-smoke' in launcher
+    assert '"$stage" == miniswe-smoke' in launcher
+    assert "expected_smoke_wall_limit=1:00:00" in launcher
+
+
+def test_miniswe246_tb4_union_lanes_are_plan_bound_and_separately_certified() -> None:
+    launcher = (
+        CONFIG_DIR / "servers/cpu-132-021_8103/run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch"
+    ).read_text()
+    finalizer = (
+        CONFIG_DIR / "servers/cpu-132-021_8103/finalize_tb4_kimi_k3_miniswe246_union_cpu-132-021_8103.sbatch"
+    ).read_text()
+
+    assert "tb4-miniswe246-sandoq-union" in launcher
+    assert "tb4-miniswe246-vmvm-union" in launcher
+    assert 'prepare_kimi_tb4_miniswe246_union.py" verify' in launcher
+    assert 'verified_union=$(\n        PYTHONPATH="$workflow_dir:' in launcher
+    assert 'certify_kimi_tb4_miniswe246_union.py" certify-lane' in launcher
+    assert 'direct_kimi_workers.py" snapshot-source' in launcher
+    assert "kimi_sandoq_firecracker_host.json" in launcher
+    assert '"$stage" == tb4-miniswe && "$preflight_only" != 1' in launcher
+    assert 'certify_kimi_tb4_miniswe246_union.py" merge' in finalizer
+    assert "KIMI_TB4_UNION_SANDOQ_CERTIFICATE" in finalizer
+    assert "KIMI_TB4_UNION_VMVM_CERTIFICATE" in finalizer
+    assert "PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64" in finalizer
 
 
 def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> None:
@@ -739,9 +819,7 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert '.writer.lock"' in driver
     assert "Direct Qwen driver received a forbidden generic-eval override" in driver
     assert '[[ "$sandbox_provider" == sandoq && -n "$resume_dir" ]]' in driver
-    provider_context = (
-        workflow_dir / "terminal_bench_vmvm/sandoq_provider_context.py"
-    ).read_text()
+    provider_context = (workflow_dir / "terminal_bench_vmvm/sandoq_provider_context.py").read_text()
     assert 'ENVIRONMENT = "oci-runner"' in provider_context
     assert "SANDOQ_EFFECTIVE_TASK_NETWORK" in driver
     assert "sandoq_site_sha256" in driver
@@ -764,7 +842,10 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert '"$canonical_dataset"' in driver
     assert '--canonical-dataset "$canonical_dataset"' in wrapper
     assert "validate_predecessor" in driver
-    assert 'sandoq_host_harness_sha256=$(\n        sha256sum -- "$workflow_dir/terminal_bench_vmvm/sandoq_host_harness.py"' in driver
+    assert (
+        'sandoq_host_harness_sha256=$(\n        sha256sum -- "$workflow_dir/terminal_bench_vmvm/sandoq_host_harness.py"'
+        in driver
+    )
     assert '"sandoq_host_harness_sha256", "sandoq_client_version"' in driver
     assert "sys.argv[13:24]" in driver
     assert "verify_references=True" in driver

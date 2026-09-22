@@ -35,7 +35,9 @@ x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 eval_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals
 generation_dir="$eval_root/kimi_k3_direct_generation_cpu-132-021_8103_${SLURM_JOB_ID}"
-if [[ "$stage" == mobius-smoke ]]; then
+if [[ "$stage" == miniswe-smoke ]]; then
+    output_dir="$eval_root/tb4_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_miniswe_smoke"
+elif [[ "$stage" == mobius-smoke ]]; then
     output_dir="$eval_root/mobius_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_smoke"
 elif [[ "$stage" == capacity-smoke ]]; then
     output_dir="$eval_root/mobius_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_capacity64"
@@ -53,7 +55,18 @@ urls_file="$generation_dir/worker_urls.private.txt"
 ports_file="$generation_dir/router_ports.private.txt"
 router_log="$generation_dir/direct_router.log"
 router_stats="$generation_dir/direct_router_stats.private.json"
+deployment_snapshot="$generation_dir/deployment_source"
 provider_profile="$server_dir/sandoq_use2.json"
+provider_profile_sha256=965511eb9578aa303d287491a7414e145241d6dbbf61469d13abbe801980a95a
+miniswe_compatibility_receipt=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/qwen-miniswe246-sandoq-3step-20260921/run-1537041/receipt.json
+miniswe_compatibility_sha256=cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220
+native_miniswe_stage=0
+if [[ "$stage" == miniswe-smoke || "$stage" == tb4-miniswe || "$stage" == capacity-smoke \
+    || "$stage" == tb4-miniswe246-sandoq-union ]]; then
+    native_miniswe_stage=1
+    provider_profile="$workflow_dir/configs/provider_context/use2/kimi_sandoq_firecracker_host.json"
+    provider_profile_sha256=7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df
+fi
 router_pid=
 
 cleanup() {
@@ -67,7 +80,11 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-if [[ "$stage" != smoke && "$stage" != mobius-smoke && "$stage" != capacity-smoke && "$stage" != tb4 \
+if [[ "$stage" != smoke && "$stage" != miniswe-smoke && "$stage" != mobius-smoke \
+    && "$stage" != capacity-smoke && "$stage" != tb4 \
+    && "$stage" != tb4-miniswe \
+    && "$stage" != tb4-miniswe246-sandoq-union \
+    && "$stage" != tb4-miniswe246-vmvm-union \
     && "$stage" != provider-split-legacy \
     && "$stage" != provider-split-large \
     && "$stage" != sandoq-fallback-memory-8g \
@@ -80,15 +97,22 @@ if [[ "$stage" == capacity-smoke && "$sandbox_provider" != sandoq ]]; then
     exit 2
 fi
 if [[ "$sandbox_provider" != sandoq && "$sandbox_provider" != vmvm ]] \
-    || [[ "$stage" == provider-split-large && "$sandbox_provider" != vmvm ]] \
-    || [[ "$stage" != provider-split-large && "$sandbox_provider" != sandoq ]]; then
+    || [[ "$stage" == tb4-miniswe246-sandoq-union && "$sandbox_provider" != sandoq ]] \
+    || [[ "$stage" == tb4-miniswe246-vmvm-union && "$sandbox_provider" != vmvm ]] \
+    || [[ ( "$stage" == provider-split-large || "$stage" == tb4-miniswe246-vmvm-union ) \
+        && "$sandbox_provider" != vmvm ]] \
+    || [[ "$stage" != provider-split-large && "$stage" != tb4-miniswe246-vmvm-union \
+        && "$sandbox_provider" != sandoq ]]; then
     printf 'Direct Kimi stage/provider pairing is invalid\n' >&2
     exit 2
 fi
-if [[ "$stage" == smoke || "$stage" == mobius-smoke || "$stage" == capacity-smoke ]]; then
+if [[ "$stage" == smoke || "$stage" == miniswe-smoke \
+    || "$stage" == mobius-smoke || "$stage" == capacity-smoke ]]; then
     smoke_wall_limit=$(squeue -h -j "$SLURM_JOB_ID" -o '%l')
     expected_smoke_wall_limit=4:00:00
-    if [[ "$stage" == mobius-smoke ]]; then
+    if [[ "$stage" == miniswe-smoke ]]; then
+        expected_smoke_wall_limit=1:00:00
+    elif [[ "$stage" == mobius-smoke ]]; then
         expected_smoke_wall_limit=12:00
     elif [[ "$stage" == capacity-smoke ]]; then
         expected_smoke_wall_limit=2:00:00
@@ -100,6 +124,10 @@ if [[ "$stage" == smoke || "$stage" == mobius-smoke || "$stage" == capacity-smok
 fi
 if [[ "$preflight_only" != 0 && "$preflight_only" != 1 ]]; then
     printf 'KIMI_SANDOQ_PREFLIGHT_ONLY must be 0 or 1\n' >&2
+    exit 2
+fi
+if [[ "$stage" == tb4-miniswe && "$preflight_only" != 1 ]]; then
+    printf 'TB4 MiniSWE requires a resource-capable tunnel environment certificate\n' >&2
     exit 2
 fi
 if [[ "$execution_mode" != certified && "$preflight_only" != 0 ]]; then
@@ -119,9 +147,16 @@ if [[ ! -d "$x86_site/pydantic" || ! -x "$x86_uv" \
     exit 2
 fi
 if [[ "$sandbox_provider" == sandoq ]] \
-    && [[ "$(sha256sum "$provider_profile" | cut -d' ' -f1)" \
-    != 965511eb9578aa303d287491a7414e145241d6dbbf61469d13abbe801980a95a ]]; then
+    && [[ "$(sha256sum "$provider_profile" | cut -d' ' -f1)" != "$provider_profile_sha256" ]]; then
     printf 'Direct Kimi provider profile digest mismatch\n' >&2
+    exit 2
+fi
+if [[ "$native_miniswe_stage" == 1 ]] && {
+    [[ ! -f "$miniswe_compatibility_receipt" || -L "$miniswe_compatibility_receipt" ]] \
+        || [[ "$(stat -c '%a:%h:%u' -- "$miniswe_compatibility_receipt")" != "600:1:$(id -u)" ]] \
+        || [[ "$(sha256sum -- "$miniswe_compatibility_receipt" | cut -d' ' -f1)" != "$miniswe_compatibility_sha256" ]];
+}; then
+    printf 'MiniSWE compatibility receipt is unavailable or changed\n' >&2
     exit 2
 fi
 
@@ -213,19 +248,54 @@ elif [[ -n ${KIMI_PROVIDER_LAUNCH_PLAN:-} || -n ${KIMI_PROVIDER_LAUNCH_PLAN_SHA2
     exit 2
 fi
 
-if [[ "$stage" == capacity-smoke ]]; then
+if [[ "$stage" == tb4-miniswe246-sandoq-union || "$stage" == tb4-miniswe246-vmvm-union ]]; then
+    [[ "$execution_mode" == certified ]] || { printf 'MiniSWE union lanes require certified mode\n' >&2; exit 2; }
+    union_launch_plan=${KIMI_TB4_MINISWE_UNION_PLAN:?Set KIMI_TB4_MINISWE_UNION_PLAN}
+    union_launch_plan_sha256=${KIMI_TB4_MINISWE_UNION_PLAN_SHA256:?Set KIMI_TB4_MINISWE_UNION_PLAN_SHA256}
+    union_role=sandoq_firecracker
+    if [[ "$stage" == tb4-miniswe246-vmvm-union ]]; then
+        union_role=vmvm_cpu
+    fi
+    verified_union=$(
+        PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:$sandoq_site:$x86_site" \
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/prepare_kimi_tb4_miniswe246_union.py" verify \
+            --launch-plan "$union_launch_plan" \
+            --launch-plan-sha256 "$union_launch_plan_sha256" \
+            --role "$union_role" --format tsv
+    )
+    IFS=$'\t' read -r verified_stage verified_provider eval_config eval_config_sha256 task_file \
+        task_sha256 task_count stage_capacity output_dir resource_manifest \
+        resource_manifest_sha256 verified_adapter verified_extra <<< "$verified_union"
+    if [[ -n "$verified_extra" || "$verified_union" == *$'\n'* \
+        || "$verified_stage" != "$stage" || "$verified_provider" != "$sandbox_provider" \
+        || "$verified_adapter" != kimi-tb4-miniswe246-provider-union-v1 ]]; then
+        printf 'MiniSWE union plan binding failed\n' >&2
+        exit 2
+    fi
+    partition_dir=$(dirname -- "$union_launch_plan")
+    identity_role=kimi-direct-tb4
+    certificate_mode=miniswe-union
+    smoke_checkpoint=${KIMI_SANDOQ_SMOKE_CHECKPOINT:?Set KIMI_SANDOQ_SMOKE_CHECKPOINT}
+    smoke_checkpoint_sha256=${KIMI_SANDOQ_SMOKE_CHECKPOINT_SHA256:?Set KIMI_SANDOQ_SMOKE_CHECKPOINT_SHA256}
+elif [[ "$stage" == capacity-smoke ]]; then
     eval_config=${KIMI_SANDOQ_CAPACITY_EVAL_CONFIG:?Set KIMI_SANDOQ_CAPACITY_EVAL_CONFIG}
     eval_config_sha256=${KIMI_SANDOQ_CAPACITY_EVAL_CONFIG_SHA256:?Set KIMI_SANDOQ_CAPACITY_EVAL_CONFIG_SHA256}
     task_file=${KIMI_SANDOQ_CAPACITY_TASK_FILE:?Set KIMI_SANDOQ_CAPACITY_TASK_FILE}
     task_sha256=${KIMI_SANDOQ_CAPACITY_TASK_FILE_SHA256:?Set KIMI_SANDOQ_CAPACITY_TASK_FILE_SHA256}
+    capacity_selector_receipt=${KIMI_SANDOQ_CAPACITY_SELECTOR_RECEIPT:?Set KIMI_SANDOQ_CAPACITY_SELECTOR_RECEIPT}
+    capacity_selector_receipt_sha256=${KIMI_SANDOQ_CAPACITY_SELECTOR_RECEIPT_SHA256:?Set KIMI_SANDOQ_CAPACITY_SELECTOR_RECEIPT_SHA256}
     task_count=64
     stage_capacity=64
     identity_role=kimi-direct-capacity-smoke
     certificate_mode=capacity
     router_capacity_profile=sandoq-c64-v1
     endpoint_identifier=cpu-132-021_8103
-elif [[ "$stage" == smoke ]]; then
+elif [[ "$stage" == smoke || "$stage" == miniswe-smoke ]]; then
     eval_config="$server_dir/tb4_kimi_k3_sandoq_smoke.toml"
+    if [[ "$stage" == miniswe-smoke ]]; then
+        eval_config="$server_dir/tb4_kimi_k3_miniswe246_sandoq_smoke.toml"
+    fi
     # Exact one-task authorization derived ID-blind from the reviewed
     # non-security TB4 smoke set. Never print its task identifier.
     task_file="$workflow_dir/configs/eval/tb4_kimi_k3_short_smoke.tasks.txt"
@@ -242,8 +312,11 @@ elif [[ "$stage" == mobius-smoke ]]; then
     stage_capacity=1
     identity_role=kimi-direct-smoke
     certificate_mode=smoke
-elif [[ "$stage" == tb4 ]]; then
+elif [[ "$stage" == tb4 || "$stage" == tb4-miniswe ]]; then
     eval_config="$server_dir/tb4_kimi_k3_sandoq_pass1.toml"
+    if [[ "$stage" == tb4-miniswe ]]; then
+        eval_config="$server_dir/tb4_kimi_k3_miniswe246_sandoq_pass1.toml"
+    fi
     task_file="$workflow_dir/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt"
     task_sha256=9485011ac4a953f4a4a1c7c5e78550b6d7de6f760a3859dac15a3610cf4ad892
     task_count=66
@@ -302,6 +375,15 @@ else
         fi
     fi
 fi
+if [[ "$stage" == miniswe-smoke ]]; then
+    resource_manifest=${KIMI_RESOURCE_MANIFEST:?Set KIMI_RESOURCE_MANIFEST}
+    resource_manifest_sha256=${KIMI_RESOURCE_MANIFEST_SHA256:?Set KIMI_RESOURCE_MANIFEST_SHA256}
+    PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:$sandoq_site:$x86_site" \
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/prepare_kimi_tb4_miniswe246_union.py" verify-smoke \
+        --manifest "$resource_manifest" --manifest-sha256 "$resource_manifest_sha256" \
+        --selector "$task_file" --selector-sha256 "$task_sha256" >/dev/null
+fi
 if [[ -e "$generation_dir" || -L "$generation_dir" || -e "$output_dir" || -L "$output_dir" ]]; then
     printf 'Direct Kimi output namespace is not fresh\n' >&2
     exit 2
@@ -312,6 +394,15 @@ for path in "$eval_config" "$task_file"; do
         exit 2
     fi
 done
+if [[ "$stage" == capacity-smoke ]] && {
+    [[ ! -f "$capacity_selector_receipt" || -L "$capacity_selector_receipt" ]] \
+        || [[ "$(stat -c '%a:%h:%u' -- "$capacity_selector_receipt")" != "600:1:$(id -u)" ]] \
+        || [[ "$(sha256sum -- "$capacity_selector_receipt" | cut -d' ' -f1)" \
+            != "$capacity_selector_receipt_sha256" ]];
+}; then
+    printf 'Opaque capacity selector receipt is unavailable or changed\n' >&2
+    exit 2
+fi
 if [[ "$(sha256sum "$task_file" | cut -d' ' -f1)" != "$task_sha256" ]]; then
     printf 'Direct Kimi approved task set changed\n' >&2
     exit 2
@@ -337,8 +428,11 @@ if [[ -n ${endpoint_identifier:-} ]]; then
     router_profile_args+=(--endpoint-identifier "$endpoint_identifier")
 fi
 "$x86_uv" run --no-project --offline --python "$python_bin" \
+    python3 "$workflow_dir/direct_kimi_workers.py" snapshot-source \
+    --deployment-root "$deployment_root" --output-root "$deployment_snapshot" >/dev/null
+"$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" prepare \
-    --deployment-root "$deployment_root" --output-root "$generation_dir" \
+    --deployment-root "$deployment_snapshot" --output-root "$generation_dir" \
     --manifest "$manifest" --urls-output "$urls_file" --ports-output "$ports_file" --probe \
     "${router_profile_args[@]}"
 manifest_sha256=$(sha256sum "$manifest" | cut -d' ' -f1)
@@ -410,6 +504,11 @@ stage_env=(
     DIRECT_KIMI_ROUTER_CAPACITY_PROFILE="${router_capacity_profile:-legacy-c24}"
     DIRECT_KIMI_ENDPOINT_IDENTIFIER="${endpoint_identifier:-}"
 )
+if [[ "$native_miniswe_stage" == 1 ]]; then
+    stage_env+=(
+        DIRECT_KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256="$miniswe_compatibility_sha256"
+    )
+fi
 if [[ "$identity_role" == kimi-direct-tb4 ]]; then
     stage_env+=(
         DIRECT_KIMI_SMOKE_CHECKPOINT="$smoke_checkpoint"
@@ -437,7 +536,8 @@ elif [[ "$execution_mode" == diagnostic ]]; then
 fi
 if [[ "$sandbox_provider" == sandoq ]]; then
     sandoq_lease_profile=standard
-    if [[ "$stage" == tb4 || "$stage" == provider-split-legacy \
+    if [[ "$stage" == tb4 || "$stage" == tb4-miniswe \
+        || "$stage" == tb4-miniswe246-sandoq-union || "$stage" == provider-split-legacy \
         || "$stage" == sandoq-fallback-memory-8g \
         || "$stage" == sandoq-fallback-memory-16g ]]; then
         sandoq_lease_profile=kimi-tb4-long
@@ -446,7 +546,7 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         "$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 "$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py" supervise \
         --profile "$provider_profile" \
-        --profile-sha256 965511eb9578aa303d287491a7414e145241d6dbbf61469d13abbe801980a95a \
+        --profile-sha256 "$provider_profile_sha256" \
         --concurrency "$stage_capacity" \
         --lease-create-cap "$(( stage_capacity < 4 ? stage_capacity : 4 ))" \
         --startup-timeout-seconds 3600 \
@@ -507,7 +607,29 @@ chmod 0600 "$router_stats"
     --provenance "$output_dir/provenance.txt" \
     --output "$output_dir/direct_kimi_router_final.json"
 
-if [[ ( "$stage" == provider-split-legacy || "$stage" == provider-split-large ) \
+if [[ "$stage" == tb4-miniswe246-sandoq-union || "$stage" == tb4-miniswe246-vmvm-union ]]; then
+    kill -TERM -- "-$router_pid"
+    wait "$router_pid" 2>/dev/null || true
+    router_pid=
+    flock -u 8
+    union_certificate_args=()
+    if [[ "$stage" == tb4-miniswe246-vmvm-union ]]; then
+        capacity_public_key="$server_dir/vmvm_capacity_attestor_ed25519.pub.pem"
+        capacity_receipt="$output_dir/control/vmvm_capacity_receipt.json"
+        union_certificate_args=(
+            --capacity-receipt "$capacity_receipt"
+            --capacity-receipt-sha256 "$(sha256sum "$capacity_receipt" | cut -d' ' -f1)"
+            --capacity-public-key "$capacity_public_key"
+            --capacity-public-key-sha256 "$(sha256sum "$capacity_public_key" | cut -d' ' -f1)"
+        )
+    fi
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/certify_kimi_tb4_miniswe246_union.py" certify-lane \
+        --role "$union_role" --run-dir "$output_dir" \
+        --launch-plan "$union_launch_plan" --launch-plan-sha256 "$union_launch_plan_sha256" \
+        --output "$output_dir/provider_partition_certificate.json" \
+        "${union_certificate_args[@]}"
+elif [[ ( "$stage" == provider-split-legacy || "$stage" == provider-split-large ) \
     && "$execution_mode" == certified ]]; then
     kill -TERM -- "-$router_pid"
     wait "$router_pid" 2>/dev/null || true
@@ -544,6 +666,8 @@ elif [[ "$stage" == capacity-smoke ]]; then
         --run-dir "$output_dir" \
         --expected-task-file "$task_file" \
         --expected-task-file-sha256 "$task_sha256" \
+        --capacity-selector-receipt "$capacity_selector_receipt" \
+        --capacity-selector-receipt-sha256 "$capacity_selector_receipt_sha256" \
         --capacity-probe "$output_dir/control/direct_kimi_capacity_probe.json" \
         --output "$output_dir/direct_kimi_capacity_certificate.json"
 elif [[ "$execution_mode" == certified ]]; then
@@ -552,7 +676,8 @@ elif [[ "$execution_mode" == certified ]]; then
         --run-dir "$output_dir"
         --expected-task-file "$task_file"
         --expected-task-file-sha256 "$task_sha256"
-        --output "$output_dir/$([[ "$stage" == smoke ]] && printf smoke_checkpoint.json || printf checkpoint.json)"
+        --output "$output_dir/$([[ "$stage" == smoke || "$stage" == miniswe-smoke ]] \
+            && printf smoke_checkpoint.json || printf checkpoint.json)"
     )
     if [[ "$identity_role" == kimi-direct-tb4 ]]; then
         certificate_args+=(
@@ -564,7 +689,7 @@ elif [[ "$execution_mode" == certified ]]; then
 fi
 if [[ "$stage" == capacity-smoke ]]; then
     printf '{"job_id":"%s","stage":"%s","state":"capacity-qualified"}\n' "$SLURM_JOB_ID" "$stage"
-elif [[ "$stage" == smoke || "$stage" == mobius-smoke ]]; then
+elif [[ "$stage" == smoke || "$stage" == miniswe-smoke || "$stage" == mobius-smoke ]]; then
     printf '{"job_id":"%s","stage":"%s","state":"capacity-limited-passed"}\n' "$SLURM_JOB_ID" "$stage"
 elif [[ "$execution_mode" != certified ]]; then
     printf '{"certification_eligible":false,"job_id":"%s","stage":"%s","state":"diagnostic-completed","trace_rollout_eligible":false}\n' "$SLURM_JOB_ID" "$stage"
