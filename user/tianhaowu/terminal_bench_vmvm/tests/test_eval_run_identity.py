@@ -901,7 +901,7 @@ def test_direct_kimi_fallback_config_binds_lossy_resource_semantics(
         eval_run_identity._validate_direct_kimi_fallback_config(standard, "kimi-direct-tb4-diagnostic", 31)
 
 
-def test_direct_kimi_diagnostic_identity_requires_plan_approved_config_digest() -> None:
+def test_direct_kimi_plan_identity_binds_approved_config_digest() -> None:
     digest = "a" * 64
     source_config = {"path": "/run/inputs/source_config.toml", "sha256": digest}
     for role in ("kimi-direct-tb4-diagnostic", "kimi-direct-tb4-sandoq-fallback-diagnostic"):
@@ -911,6 +911,10 @@ def test_direct_kimi_diagnostic_identity_requires_plan_approved_config_digest() 
     eval_run_identity._validate_direct_kimi_approved_config(source_config, "kimi-direct-mobius", digest)
     with pytest.raises(EvalIdentityError, match="direct_kimi_approved_config_mismatch"):
         eval_run_identity._validate_direct_kimi_approved_config(source_config, "kimi-direct-mobius", "b" * 64)
+    eval_run_identity._validate_direct_kimi_approved_config(source_config, "kimi-direct-tb4", None)
+    eval_run_identity._validate_direct_kimi_approved_config(source_config, "kimi-direct-tb4", digest)
+    with pytest.raises(EvalIdentityError, match="direct_kimi_approved_config_mismatch"):
+        eval_run_identity._validate_direct_kimi_approved_config(source_config, "kimi-direct-tb4", "b" * 64)
     with pytest.raises(EvalIdentityError, match="direct_kimi_approved_config_role_invalid"):
         eval_run_identity._validate_direct_kimi_approved_config(source_config, "kimi-direct-smoke", digest)
 

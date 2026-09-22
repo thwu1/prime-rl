@@ -303,8 +303,14 @@ def _validate_direct_kimi_approved_config(
         KIMI_CAPACITY_SMOKE_ROLE,
         KIMI_PRODUCTION_ROLE,
     }
+    optionally_hash_bound_roles = {"kimi-direct-tb4"}
     if role in hash_bound_roles:
         if SHA256_RE.fullmatch(approved_sha256 or "") is None or source_config["sha256"] != approved_sha256:
+            raise EvalIdentityError("direct_kimi_approved_config_mismatch")
+    elif role in optionally_hash_bound_roles:
+        if approved_sha256 is not None and (
+            SHA256_RE.fullmatch(approved_sha256) is None or source_config["sha256"] != approved_sha256
+        ):
             raise EvalIdentityError("direct_kimi_approved_config_mismatch")
     elif approved_sha256 is not None:
         raise EvalIdentityError("direct_kimi_approved_config_role_invalid")
