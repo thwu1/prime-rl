@@ -13,6 +13,7 @@
 #SBATCH --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/oracle_%j.log
 
 set -euo pipefail
+umask 077
 
 project_dir=${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
@@ -20,6 +21,7 @@ dataset_dir=${DATASET_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/dataset
 dataset_revision=${DATASET_REVISION:-}
 dataset_archive=${DATASET_ARCHIVE:-}
 dataset_archive_sha256=${DATASET_ARCHIVE_SHA256:-}
+dataset_tree_sha256=${DATASET_TREE_SHA256:-}
 image_prefix=${IMAGE_PREFIX:-vmvm-registry.fbinfra.net/terminal_bench}
 image_tag=${IMAGE_TAG:-mobius-9b6988a3faf0}
 image_manifest=${IMAGE_MANIFEST:-}
@@ -31,10 +33,12 @@ task_file=${TASK_FILE:-}
 task_file_sha256=${TASK_FILE_SHA256:-}
 output_dir=${OUTPUT_DIR:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/oracle/run_${SLURM_JOB_ID}}
 max_concurrent=${MAX_CONCURRENT:-64}
+sandbox_provider=${SANDBOX_PROVIDER:-vmvm}
 oracle_solution_network_mode=${ORACLE_SOLUTION_NETWORK_MODE:-declared}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
+sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
 vacli_lease_retries=${VACLI_LEASE_RETRIES:-20}
 vacli_max_concurrent_leases=${VACLI_MAX_CONCURRENT_LEASES:-32}
 vacli_max_pull_retries=${VACLI_MAX_PULL_RETRIES:-20}
@@ -63,13 +67,20 @@ if [[ ( -n "$dataset_archive" && -z "$dataset_archive_sha256" ) \
     printf 'DATASET_ARCHIVE and DATASET_ARCHIVE_SHA256 must be supplied together\n' >&2
     exit 2
 fi
-if [[ ( -n "$dataset_revision" && -n "$dataset_archive" ) \
-    || ( -z "$dataset_revision" && -z "$dataset_archive" ) ]]; then
-    printf 'Supply exactly one dataset authority: DATASET_REVISION or DATASET_ARCHIVE pair\n' >&2
+dataset_authorities=0
+[[ -n "$dataset_revision" ]] && dataset_authorities=$((dataset_authorities + 1))
+[[ -n "$dataset_archive" ]] && dataset_authorities=$((dataset_authorities + 1))
+[[ -n "$dataset_tree_sha256" ]] && dataset_authorities=$((dataset_authorities + 1))
+if (( dataset_authorities != 1 )); then
+    printf 'Supply exactly one dataset authority: DATASET_REVISION, DATASET_ARCHIVE pair, or DATASET_TREE_SHA256\n' >&2
+    exit 2
+fi
+if [[ -n "$dataset_tree_sha256" && ! "$dataset_tree_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+    printf 'DATASET_TREE_SHA256 must be a lowercase SHA-256\n' >&2
     exit 2
 fi
 if [[ "${USE_DECLARED_IMAGES:-0}" != 1 && -z "$dataset_revision" ]]; then
-    printf 'DATASET_REVISION is required for image-manifest oracle promotion\n' >&2
+    printf 'Content-pinned datasets require declared immutable images\n' >&2
     exit 2
 fi
 if [[ -z "$image_manifest" && "${USE_DECLARED_IMAGES:-0}" != 1 \
@@ -127,6 +138,14 @@ if [[ ! -x "$x86_uv" ]]; then
     printf 'Missing x86_64 uv binary: %s\n' "$x86_uv" >&2
     exit 2
 fi
+if [[ "$sandbox_provider" != vmvm && "$sandbox_provider" != sandoq ]]; then
+    printf 'SANDBOX_PROVIDER must be vmvm or sandoq\n' >&2
+    exit 2
+fi
+if [[ "$sandbox_provider" == sandoq && ! -d "$sandoq_site/sandoq_client" ]]; then
+    printf 'Missing staged Sandoq client: %s\n' "$sandoq_site" >&2
+    exit 2
+fi
 
 prime_rl_status=$(git status --porcelain=v1 --untracked-files=all)
 if [[ -n "$prime_rl_status" ]]; then
@@ -149,7 +168,7 @@ mkdir -p "$output_dir" /checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs
 
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
 export PYTHONDONTWRITEBYTECODE=1
-export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/extensions/sandoq:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$sandoq_site:$x86_site${PYTHONPATH:+:$PYTHONPATH}"
 export VACLI_LEASE_RETRIES="$vacli_lease_retries"
 export VACLI_MAX_CONCURRENT_LEASES="$vacli_max_concurrent_leases"
 export VACLI_MAX_PULL_RETRIES="$vacli_max_pull_retries"
@@ -162,6 +181,7 @@ args=(
     --image-prefix "$image_prefix"
     --image-tag "$image_tag"
     --max-concurrent "$max_concurrent"
+    --sandbox-provider "$sandbox_provider"
     --infra-retries "${INFRA_RETRIES:-2}"
     --setup-timeout "${SETUP_TIMEOUT:-3600}"
     --validate-timeout "${VALIDATE_TIMEOUT:-10800}"
@@ -185,8 +205,10 @@ args=(
 )
 if [[ -n "$dataset_revision" ]]; then
     args+=(--dataset-revision "$dataset_revision")
-else
+elif [[ -n "$dataset_archive" ]]; then
     args+=(--dataset-archive "$dataset_archive" --dataset-archive-sha256 "$dataset_archive_sha256")
+else
+    args+=(--dataset-tree-sha256 "$dataset_tree_sha256")
 fi
 if [[ -n "$task_file" ]]; then
     args+=(--task-file "$task_file" --task-file-sha256 "$task_file_sha256")
@@ -216,6 +238,37 @@ fi
 if [[ "${ENABLE_COMPOSE:-0}" == 1 ]]; then
     args+=(--enable-compose)
 fi
+if [[ "$sandbox_provider" == sandoq ]]; then
+    ecr_token_file=${OCI_RUNNER_ECR_TOKEN_FILE:-/storage/home/tianhaowu/.config/oci-runner/ecr-token}
+    args+=(--sandoq-ecr-token-file "$ecr_token_file")
+fi
 
-exec "$x86_uv" run --no-project --offline --python "$python_bin" \
+oracle_command=(
+    "$x86_uv" run --no-project --offline --python "$python_bin"
     python3 "$workflow_dir/run_oracle.py" "${args[@]}"
+)
+if [[ "$sandbox_provider" == vmvm ]]; then
+    exec "${oracle_command[@]}"
+fi
+
+ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-/storage/home/tianhaowu/.config/oci-runner/ecr-rotation.state.json}
+provider_profile="$workflow_dir/configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json"
+provider_profile_sha256=53e0311216e1b27988b960a782188c5794ed941b9380cba1fbd0f29a67149a93
+if [[ "$oracle_solution_network_mode" == public ]]; then
+    provider_profile="$workflow_dir/configs/eval/servers/cpu-132-021_8103/sandoq_use2.json"
+    provider_profile_sha256=965511eb9578aa303d287491a7414e145241d6dbbf61469d13abbe801980a95a
+fi
+pool_capacity=$((max_concurrent * 2))
+(( pool_capacity > 64 )) && pool_capacity=64
+export PRIME_RL_OUTPUT_DIR="$output_dir"
+export OCI_RUNNER_ECR_AUXILIARY_REGISTRIES=588845226011.dkr.ecr.us-east-2.amazonaws.com
+export OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES='{"588845226011.dkr.ecr.us-east-2.amazonaws.com":"/storage/home/tianhaowu/.config/oci-runner/ecr-dev-token"}'
+exec "$x86_uv" run --no-project --offline --python "$python_bin" \
+    python3 "$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py" supervise \
+    --profile "$provider_profile" --profile-sha256 "$provider_profile_sha256" \
+    --concurrency "$pool_capacity" \
+    --lease-create-cap "$((pool_capacity < 4 ? pool_capacity : 4))" \
+    --startup-timeout-seconds 3600 --lease-profile standard \
+    --ecr-token-file "$ecr_token_file" --ecr-token-metadata "$ecr_token_metadata" \
+    --project-root "$project_dir" --sandoq-site "$sandoq_site" \
+    -- "${oracle_command[@]}"

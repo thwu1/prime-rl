@@ -26,6 +26,7 @@ def _identity_args(tmp_path: Path) -> SimpleNamespace:
         dataset_revision="a" * 40,
         dataset_archive=None,
         dataset_archive_sha256=None,
+        dataset_tree_sha256=None,
         task_file=task_file,
         task_file_sha256=hashlib.sha256(task_file.read_bytes()).hexdigest(),
         image_prefix="registry.example/tasks",
@@ -45,6 +46,8 @@ def _identity_args(tmp_path: Path) -> SimpleNamespace:
         vmvm_tb_v2_sha256="d" * 64,
         oracle_solution_network_mode="public",
         max_concurrent=32,
+        sandbox_provider="vmvm",
+        sandoq_ecr_token_file=None,
         infra_retries=2,
         setup_timeout=3600.0,
         validate_timeout=10800.0,
@@ -419,7 +422,7 @@ def test_oracle_dataset_authority_is_mutually_exclusive(tmp_path: Path) -> None:
     args.dataset_archive = tmp_path / "dataset.tar.gz"
     args.dataset_archive_sha256 = "e" * 64
 
-    with pytest.raises(SystemExit, match="exactly one dataset revision or archive"):
+    with pytest.raises(SystemExit, match="exactly one dataset revision, archive, or tree SHA-256"):
         run_oracle._validate_identity_inputs(args)
 
 

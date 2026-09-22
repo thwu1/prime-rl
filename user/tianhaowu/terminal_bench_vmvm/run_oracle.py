@@ -35,7 +35,7 @@ from terminal_bench_vmvm.taskset import (
 )
 from verifiers.v1.env import resolve_runtime_config
 from verifiers.v1.errors import SandboxError
-from verifiers.v1.runtimes import VMVMConfig, make_runtime
+from verifiers.v1.runtimes import RuntimeConfig, SandoqConfig, VMVMConfig, make_runtime
 
 logger = logging.getLogger("terminal_bench_vmvm.oracle")
 
@@ -53,6 +53,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--dataset-revision")
     parser.add_argument("--dataset-archive", type=Path)
     parser.add_argument("--dataset-archive-sha256")
+    parser.add_argument("--dataset-tree-sha256")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--image-prefix", required=True)
     parser.add_argument("--image-tag", required=True)
@@ -69,6 +70,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--offset", type=int, default=0)
     parser.add_argument("--limit", type=int)
     parser.add_argument("--max-concurrent", type=int, default=64)
+    parser.add_argument("--sandbox-provider", choices=("vmvm", "sandoq"), default="vmvm")
+    parser.add_argument("--sandoq-ecr-token-file", type=Path)
     parser.add_argument("--infra-retries", type=int, default=2)
     parser.add_argument("--setup-timeout", type=float, default=1800)
     parser.add_argument("--validate-timeout", type=float, default=10800)
@@ -116,14 +119,23 @@ def _parse_args() -> argparse.Namespace:
         parser.error("--minimum-valid cannot be negative")
     if args.timeout_multiplier <= 0 or args.resource_multiplier <= 0:
         parser.error("timeout and resource multipliers must be positive")
+    if args.sandbox_provider == "sandoq" and args.sandoq_ecr_token_file is None:
+        parser.error("--sandoq-ecr-token-file is required with --sandbox-provider=sandoq")
+    if args.sandbox_provider == "vmvm" and args.sandoq_ecr_token_file is not None:
+        parser.error("--sandoq-ecr-token-file is only valid with --sandbox-provider=sandoq")
     if args.dataset_revision is not None and REVISION_RE.fullmatch(args.dataset_revision) is None:
         parser.error("--dataset-revision must be an exact lowercase 40-hex commit")
     if (args.dataset_archive is None) != (args.dataset_archive_sha256 is None):
         parser.error("--dataset-archive and --dataset-archive-sha256 must be supplied together")
     if args.dataset_archive_sha256 is not None and SHA256_RE.fullmatch(args.dataset_archive_sha256) is None:
         parser.error("--dataset-archive-sha256 must be a lowercase SHA-256")
-    if (args.dataset_revision is None) == (args.dataset_archive is None):
-        parser.error("supply exactly one of --dataset-revision or --dataset-archive")
+    authorities = sum(
+        value is not None for value in (args.dataset_revision, args.dataset_archive, args.dataset_tree_sha256)
+    )
+    if authorities != 1:
+        parser.error("supply exactly one dataset authority: revision, archive, or tree SHA-256")
+    if args.dataset_tree_sha256 is not None and SHA256_RE.fullmatch(args.dataset_tree_sha256) is None:
+        parser.error("--dataset-tree-sha256 must be a lowercase SHA-256")
     for option, value in (
         ("--prime-rl-commit", args.prime_rl_commit),
         ("--verifiers-commit", args.verifiers_commit),
@@ -315,6 +327,14 @@ def _archive_tasks_tree_digest(path: Path) -> str:
 def _validated_dataset_content_sha256(args: argparse.Namespace) -> str | None:
     if args.dataset_revision is not None:
         return None
+    if args.dataset_tree_sha256 is not None:
+        observed = _filesystem_tree_digest(args.dataset_dir.resolve())
+        if observed != args.dataset_tree_sha256:
+            raise SystemExit(
+                "dataset tree SHA-256 mismatch: "
+                f"expected {args.dataset_tree_sha256}, observed {observed}"
+            )
+        return observed
     assert args.dataset_archive is not None
     assert args.dataset_archive_sha256 is not None
     archive_path = args.dataset_archive.resolve()
@@ -357,16 +377,25 @@ def _validated_dataset_content_sha256(args: argparse.Namespace) -> str | None:
 
 
 def _validate_identity_inputs(args: argparse.Namespace) -> None:
+    if args.sandbox_provider == "sandoq" and args.sandoq_ecr_token_file is None:
+        raise SystemExit("Sandoq oracle requires an ECR token file")
+    if args.sandbox_provider == "vmvm" and args.sandoq_ecr_token_file is not None:
+        raise SystemExit("Sandoq ECR token file is invalid for a VMVM oracle")
     if args.dataset_revision is not None and REVISION_RE.fullmatch(args.dataset_revision) is None:
         raise SystemExit("dataset revision must be an exact lowercase 40-hex commit")
     if (args.dataset_archive is None) != (args.dataset_archive_sha256 is None):
         raise SystemExit("dataset archive and its SHA-256 must be supplied together")
     if args.dataset_archive_sha256 is not None and SHA256_RE.fullmatch(args.dataset_archive_sha256) is None:
         raise SystemExit("dataset archive SHA-256 must be lowercase hexadecimal")
-    if (args.dataset_revision is None) == (args.dataset_archive is None):
-        raise SystemExit("exactly one dataset revision or archive must be supplied")
-    if args.dataset_archive is not None and not args.use_declared_images:
-        raise SystemExit("archive-pinned datasets require declared immutable task images")
+    authorities = sum(
+        value is not None for value in (args.dataset_revision, args.dataset_archive, args.dataset_tree_sha256)
+    )
+    if authorities != 1:
+        raise SystemExit("exactly one dataset revision, archive, or tree SHA-256 must be supplied")
+    if args.dataset_tree_sha256 is not None and SHA256_RE.fullmatch(args.dataset_tree_sha256) is None:
+        raise SystemExit("dataset tree SHA-256 must be lowercase hexadecimal")
+    if (args.dataset_archive is not None or args.dataset_tree_sha256 is not None) and not args.use_declared_images:
+        raise SystemExit("content-pinned datasets require declared immutable task images")
     if REVISION_RE.fullmatch(args.prime_rl_commit) is None:
         raise SystemExit("Prime RL revision must be an exact lowercase 40-hex commit")
     if REVISION_RE.fullmatch(args.verifiers_commit) is None:
@@ -409,7 +438,7 @@ def _run_identity(
     dataset_content_sha256: str | None,
 ) -> dict:
     _validate_identity_inputs(args)
-    if args.dataset_archive is None:
+    if args.dataset_archive is None and args.dataset_tree_sha256 is None:
         if dataset_content_sha256 is not None:
             raise SystemExit("revision-pinned datasets cannot supply an archive content digest")
     elif dataset_content_sha256 is None or SHA256_RE.fullmatch(dataset_content_sha256) is None:
@@ -477,6 +506,11 @@ def _run_identity(
             "minimum_valid": args.minimum_valid,
         },
     }
+    if args.sandbox_provider == "sandoq":
+        identity["execution"]["sandbox_provider"] = "sandoq"
+        identity["execution"]["sandoq_environment"] = (
+            "oci-runner" if args.oracle_solution_network_mode == "public" else "oci-runner-firecracker"
+        )
     if args.source_wheel_policy is not None:
         identity["source_wheel_recovery"] = {
             "schema_version": SOURCE_WHEEL_RECOVERY_SCHEMA_VERSION,
@@ -866,7 +900,7 @@ def _validate_existing_artifacts(
 async def _attempt(
     taskset: TerminalBenchVMVMTaskset,
     task: TerminalBenchTask,
-    runtime_config: VMVMConfig,
+    runtime_config: RuntimeConfig,
     setup_timeout: float,
     validate_timeout: float,
     attempt: int,
@@ -917,7 +951,7 @@ async def _attempt(
 async def _validate_one(
     taskset: TerminalBenchVMVMTaskset,
     task: TerminalBenchTask,
-    runtime_config: VMVMConfig,
+    runtime_config: RuntimeConfig,
     args: argparse.Namespace,
 ) -> dict:
     started = time.time()
@@ -969,8 +1003,9 @@ async def _validate_one(
                 }
             delay = min(30.0, 2 ** (attempt - 1) + random.random())
             logger.warning(
-                "%s VMVM failure; retrying entire oracle in %.1fs: %s",
+                "%s %s failure; retrying entire oracle in %.1fs: %s",
                 task.name,
+                runtime_config.type,
                 delay,
                 error,
             )
@@ -1099,14 +1134,28 @@ async def _run(args: argparse.Namespace) -> int:
     if args.minimum_valid > len(tasks):
         raise SystemExit(f"--minimum-valid={args.minimum_valid} exceeds {len(tasks)} selected tasks")
 
-    runtime_config = VMVMConfig(
-        image=RUNTIME_IMAGE,
-        workdir=RUNTIME_WORKDIR,
-        session_timeout=args.session_timeout,
-        tenant_id=args.tenant_id,
-        lease_ttl=args.lease_ttl,
-        max_session_buffer_size=args.max_session_buffer_size,
-    )
+    if args.sandbox_provider == "sandoq":
+        assert args.sandoq_ecr_token_file is not None
+        public_network = args.oracle_solution_network_mode == "public"
+        runtime_config: RuntimeConfig = SandoqConfig(
+            image=RUNTIME_IMAGE,
+            workdir=RUNTIME_WORKDIR,
+            network_access=public_network,
+            mode="oci-runner",
+            session_timeout=args.session_timeout,
+            host_tunnel="none",
+            expected_environment="oci-runner" if public_network else "oci-runner-firecracker",
+            ecr_token_file=args.sandoq_ecr_token_file,
+        )
+    else:
+        runtime_config = VMVMConfig(
+            image=RUNTIME_IMAGE,
+            workdir=RUNTIME_WORKDIR,
+            session_timeout=args.session_timeout,
+            tenant_id=args.tenant_id,
+            lease_ttl=args.lease_ttl,
+            max_session_buffer_size=args.max_session_buffer_size,
+        )
     taskset.revalidate_source_wheel_attestations()
 
     identity = _run_identity(args, tasks, dataset_content_sha256)
@@ -1163,6 +1212,13 @@ async def _run(args: argparse.Namespace) -> int:
         "selected_tasks": len(tasks),
         "started_at": time.time(),
     }
+    if args.sandbox_provider == "sandoq":
+        run_config["sandbox_provider"] = "sandoq"
+        run_config["sandoq_environment"] = (
+            "oci-runner" if args.oracle_solution_network_mode == "public" else "oci-runner-firecracker"
+        )
+    if args.dataset_tree_sha256 is not None:
+        run_config["dataset_tree_sha256"] = args.dataset_tree_sha256
     if args.source_wheel_policy is not None:
         run_config["source_wheel_policy"] = str(args.source_wheel_policy.resolve())
         run_config["source_wheel_policy_sha256"] = args.source_wheel_policy_sha256

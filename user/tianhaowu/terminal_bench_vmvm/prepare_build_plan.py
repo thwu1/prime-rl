@@ -46,11 +46,23 @@ def main() -> None:
     parser.add_argument("--image-tag", required=True)
     parser.add_argument("--verifier-image-suffix", default="-verifier")
     parser.add_argument("--tasks", nargs="*")
+    parser.add_argument("--task-file", type=Path)
+    parser.add_argument(
+        "--single-repository",
+        action="store_true",
+        help="encode role and context digest in the tag instead of creating one repository per task",
+    )
     args = parser.parse_args()
     if not args.image_tag or args.image_tag == "latest":
         parser.error("--image-tag must be immutable and cannot be 'latest'")
 
     selected = set(args.tasks or [])
+    if args.task_file is not None:
+        selected.update(
+            line.strip().split("\t", 1)[0]
+            for line in args.task_file.read_text().splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        )
     dataset = args.dataset_dir.resolve()
     task_dirs = [
         path
@@ -70,13 +82,16 @@ def main() -> None:
         if not (environment / "Dockerfile").is_file():
             raise SystemExit(f"{task_dir.name}: missing environment/Dockerfile")
         agent_digest = _tree_digest(environment)
+        agent_image = f"{args.image_prefix.rstrip('/')}/{task_dir.name}:{args.image_tag}"
+        if args.single_repository:
+            agent_image = f"{args.image_prefix.rstrip('/')}:{args.image_tag}-agent-{agent_digest[:24]}"
         rows.append(
             {
                 "task": task_dir.name,
                 "role": "agent",
                 "context": str(environment),
                 "context_sha256": agent_digest,
-                "image": f"{args.image_prefix.rstrip('/')}/{task_dir.name}:{args.image_tag}",
+                "image": agent_image,
             }
         )
 
@@ -86,15 +101,21 @@ def main() -> None:
             mode = "separate" if verifier.get("environment") is not None else "shared"
         tests = task_dir / "tests"
         if mode == "separate" and (tests / "Dockerfile").is_file():
+            verifier_digest = _tree_digest(tests)
+            verifier_image = (
+                f"{args.image_prefix.rstrip('/')}/{task_dir.name}{args.verifier_image_suffix}:{args.image_tag}"
+            )
+            if args.single_repository:
+                verifier_image = (
+                    f"{args.image_prefix.rstrip('/')}:{args.image_tag}-verifier-{verifier_digest[:24]}"
+                )
             rows.append(
                 {
                     "task": task_dir.name,
                     "role": "verifier",
                     "context": str(tests),
-                    "context_sha256": _tree_digest(tests),
-                    "image": (
-                        f"{args.image_prefix.rstrip('/')}/{task_dir.name}{args.verifier_image_suffix}:{args.image_tag}"
-                    ),
+                    "context_sha256": verifier_digest,
+                    "image": verifier_image,
                 }
             )
 

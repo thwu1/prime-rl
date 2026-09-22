@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from dataclasses import fields
 from types import SimpleNamespace
@@ -112,43 +113,28 @@ def test_image_mounts_resolve_docker_hub_and_reject_root_target() -> None:
         )
 
 
-def test_auxiliary_ecr_registry_uses_its_own_read_only_credential(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_auxiliary_ecr_registry_uses_configured_token_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path,
+) -> None:
     primary = "168653207203.dkr.ecr.us-east-2.amazonaws.com"
     auxiliary = "588845226011.dkr.ecr.us-east-2.amazonaws.com"
+    token = tmp_path / "auxiliary-token"
+    token.write_text("short-lived-password\n")
+    token.chmod(0o600)
     monkeypatch.setenv("OCI_RUNNER_ECR_REGISTRY", primary)
     monkeypatch.setenv("OCI_RUNNER_ECR_AUXILIARY_REGISTRIES", f"{auxiliary},{auxiliary}")
+    monkeypatch.setenv("OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES", json.dumps({auxiliary: str(token)}))
     config = ECRConfig.from_env()
 
     assert config.authenticated_registries == (primary, auxiliary)
     assert authenticated_ecr_registry(f"{auxiliary}/team/toolbox@sha256:{'a' * 64}", config) == auxiliary
     assert authenticated_ecr_registry("registry.example/team/toolbox:1", config) is None
 
-    commands: list[list[str]] = []
-
-    def run(command: list[str], **kwargs: object) -> SimpleNamespace:
-        del kwargs
-        commands.append(command)
-        return SimpleNamespace(returncode=0, stdout="short-lived-password\n")
-
-    monkeypatch.setattr("sandoq_provider.ecr.subprocess.run", run)
     credential = ECRCredentialCache(config, auxiliary).get()
 
     assert credential["password"] == "short-lived-password"
-    assert commands == [
-        [
-            "ucloud",
-            "ecr",
-            "get-credentials",
-            "--account",
-            "588845226011",
-            "--region",
-            "us-east-2",
-            "--role",
-            "SSOContainerRegistryReadOnly",
-            "--log-level",
-            "error",
-        ]
-    ]
+    assert credential["source"] == "token_file"
 
 
 def test_auxiliary_ecr_registry_must_be_an_aws_ecr_hostname(monkeypatch: pytest.MonkeyPatch) -> None:

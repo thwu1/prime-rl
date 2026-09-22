@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import pwd
 import re
@@ -35,6 +36,7 @@ class ECRConfig:
     refresh_interval_s: float
     command_timeout_s: float
     auxiliary_registries: tuple[str, ...] = ()
+    auxiliary_token_files: dict[str, Path] | None = None
 
     @property
     def enabled(self) -> bool:
@@ -60,6 +62,22 @@ class ECRConfig:
                 if value.strip()
             )
         )
+        auxiliary_token_files: dict[str, Path] = {}
+        raw_auxiliary_tokens = os.environ.get("OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES", "").strip()
+        if raw_auxiliary_tokens:
+            try:
+                parsed_auxiliary_tokens = json.loads(raw_auxiliary_tokens)
+            except json.JSONDecodeError as error:
+                raise APIError("OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES must be valid JSON") from error
+            if not isinstance(parsed_auxiliary_tokens, dict) or not all(
+                isinstance(registry_name, str) and isinstance(path, str)
+                for registry_name, path in parsed_auxiliary_tokens.items()
+            ):
+                raise APIError("OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES must map registries to paths")
+            auxiliary_token_files = {
+                registry_name: Path(path).expanduser()
+                for registry_name, path in parsed_auxiliary_tokens.items()
+            }
         refresh_interval_s = duration_seconds(os.environ.get("OCI_RUNNER_ECR_REFRESH_INTERVAL"), 4 * 3600.0)
         command_timeout_s = duration_seconds(os.environ.get("OCI_RUNNER_ECR_CREDENTIAL_TIMEOUT"), 60.0)
         if registry is not None and not _REGISTRY.fullmatch(registry):
@@ -74,6 +92,10 @@ class ECRConfig:
             if not _AWS_ECR_REGISTRY.fullmatch(auxiliary_registry):
                 raise APIError("OCI_RUNNER_ECR_AUXILIARY_REGISTRIES must contain comma-separated AWS ECR hostnames")
         auxiliary = tuple(value for value in auxiliary if value != registry)
+        if set(auxiliary_token_files) - set(auxiliary):
+            raise APIError("OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES contains an unconfigured registry")
+        if any(not path.is_absolute() for path in auxiliary_token_files.values()):
+            raise APIError("OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES paths must be absolute")
         if "\n" in client_cert_path or "\r" in client_cert_path:
             raise APIError("OCI_RUNNER_ECR_CLIENT_CERT_PATH contains unsupported characters")
         if not 0 < refresh_interval_s < 12 * 3600:
@@ -90,6 +112,7 @@ class ECRConfig:
             refresh_interval_s=refresh_interval_s,
             command_timeout_s=command_timeout_s,
             auxiliary_registries=auxiliary,
+            auxiliary_token_files=auxiliary_token_files,
         )
 
 
@@ -176,9 +199,14 @@ class ECRCredentialCache:
         if self.registry is None:
             raise APIError("ECR authentication was requested without a registry")
         with self._lock:
-            if self.config.token_file is not None and self.registry == self.config.registry:
+            token_file = None
+            if self.registry == self.config.registry:
+                token_file = self.config.token_file
+            elif self.config.auxiliary_token_files is not None:
+                token_file = self.config.auxiliary_token_files.get(self.registry)
+            if token_file is not None:
                 now = time.monotonic()
-                password = _read_token_file(self.config.token_file)
+                password = _read_token_file(token_file)
                 reused = password == self._password
                 if not reused:
                     self._password = password
