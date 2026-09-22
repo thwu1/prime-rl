@@ -977,11 +977,11 @@ different modes which must not be conflated:
   faithfully run arbitrary per-task Harbor images unless each image has a
   reviewed deployed-environment mapping.
 - `VF_SANDBOX_PROVIDER=oci-runner` preserves each task's OCI image. The isolated
-  Firecracker variant uses `OCI_RUNNER_ENVIRONMENT=oci-runner-firecracker`,
-  `OCI_RUNNER_TASK_NETWORK=none`, and a private bearer-token file selected by
-  `OCI_RUNNER_TOKEN_FILE`. This profile is limited to host-side capacity and
-  recovery diagnostics. Public-network TB4 remains on the separate legacy
-  `oci-runner` provider profile.
+  Firecracker has distinct profiles. The diagnostic host-side lane uses
+  `oci-runner-firecracker` with task network `none`. Native Mini-SWE-Agent
+  2.4.6 Kimi lanes instead use full `oci-runner-firecracker`, provider task network
+  `host`, and the Sandoq reverse tunnel. Both use a private bearer-token file
+  selected by `OCI_RUNNER_TOKEN_FILE`.
 
 The checked-in Firecracker profile is
 `configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json`, SHA-256
@@ -995,10 +995,12 @@ starting evaluation and passes only the file path. The provider itself opens
 the file without following symlinks and revalidates owner, link count, mode,
 and single-line shape.
 
-The task-free managed-shell recovery gate now uses this Firecracker profile.
-Its schema-2 receipt binds the environment, `task_network=none`, the hash of
-the credential path (never the credential), and the supervised context
-contract hash. A legacy recovery receipt cannot promote a Firecracker run.
+The original no-network task-free smoke remains diagnostic evidence only. The
+production managed-shell recovery gate uses the schema-4 Kimi host-tunnel
+profile and binds full `oci-runner-firecracker`, provider task network `host`,
+the cleanup/tunnel receipt, the 2 CPU / 4 GiB / 10 GiB resource/tunnel receipt,
+the profile hash, sanitized Mini-SWE compatibility receipt, credential-path
+hash (never the credential), and supervised context contract hash.
 
 Mini-SWE-Agent is an in-sandbox harness. The pinned Sandoq runtime rejects it
 with this no-network profile because both model interception and PEP 723
@@ -1086,15 +1088,18 @@ this profile until it has validated a capacity certificate from the exact
 source, config, worker manifest, and endpoint namespace it will use.
 
 The checked-in `mobius_kimi_k3_sandoq_capacity64.example.toml` is a template,
-not a runnable selector. An operator must privately review exactly 64
-non-sensitive, no-network, non-Compose tasks, store that selector in a
-mode-0600 file, and materialize the run config without printing the selector:
+not a runnable selector. Materialize the 64-task selector content-blind from
+the sealed 2,499-task universe; never inspect or print membership. Keep its
+selector and receipt as single-link mode-0600 files and materialize the run
+config without printing either:
 
 ```bash
 uv run --no-project python \
   user/tianhaowu/terminal_bench_vmvm/direct_kimi_capacity.py materialize-config \
   --template "$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/mobius_kimi_k3_sandoq_capacity64.example.toml" \
   --task-file /absolute/private/capacity-selector.txt \
+  --capacity-selector-receipt /absolute/private/capacity-selector.receipt.json \
+  --capacity-selector-receipt-sha256 <sha256> \
   --output /absolute/private/mobius_kimi_k3_sandoq_capacity64.toml
 ```
 
@@ -1123,6 +1128,32 @@ uv run --no-project python \
   --worker-manifest-sha256 <sha256> \
   --config-sha256 <sha256>
 ```
+
+The gated 2,499-task production and pass-only SFT flow is documented in
+[`KIMI_SANDOQ_PRODUCTION.md`](KIMI_SANDOQ_PRODUCTION.md). It is a separate
+server-scoped lane: an official full-TB4 certificate, both long-lease recovery
+receipts, and a measured capacity certificate must be promoted before launch.
+The proven legacy TB4 result remains on public `oci-runner`. Native Mini-SWE
+recovery, capacity, and proposed 2,499-task stages use the distinct schema-4
+full `oci-runner-firecracker` profile with provider task network `host`,
+effective public network, and the native loopback reverse tunnel. This is not
+a strict no-network runtime. Requested concurrency is certificate-capped and
+is not assumed to be 64. The full environment is proven at only 2 CPU / 4 GiB /
+10 GiB. A certified TB4 MiniSWE result must union the opaque 28-task Sandoq
+partition with 35 VMVM CPU tasks and record three GPU tasks unsupported. The
+all-Sandoq `tb4-miniswe` stage stays blocked, and production requires separate
+aggregate resource coverage or a provider partition for all 2,499 tasks.
+
+Materialize the MiniSWE TB4 union with
+`prepare_kimi_tb4_miniswe246_union.py materialize`. Submit the same sealed plan
+twice through `run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch`, once
+with stage `tb4-miniswe246-sandoq-union` and provider `sandoq`, then with stage
+`tb4-miniswe246-vmvm-union` and provider `vmvm`. Each lane writes an owner-only
+`provider_partition_certificate.json`. After both are terminal, run
+`finalize_tb4_kimi_k3_miniswe246_union_cpu-132-021_8103.sbatch`; its adapter
+re-opens both runs, verifies numeric tool exit-code retention, cleanup,
+capacity, reasoning/model-I/O/request-graph capture, and emits the aggregate
+66-task certificate. Never launch the blocked all-Sandoq stage.
 
 ## Transcript capture gate
 
