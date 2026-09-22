@@ -3761,6 +3761,18 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
             "miniswe_compatibility_receipt_sha256": KIMI_MINISWE_COMPATIBILITY_SHA256,
         }
         native_tool_execution = payload.get("tool_execution")
+        native_scoring = payload.get("scoring")
+        native_score = native_scoring.get("score") if isinstance(native_scoring, dict) else None
+        native_scoring_valid = (
+            isinstance(native_scoring, dict)
+            and set(native_scoring) == {"quality_gate", "reward_key", "score", "scored"}
+            and native_scoring.get("reward_key") == "solved"
+            and native_scoring.get("scored") is True
+            and native_scoring.get("quality_gate") is False
+            and not isinstance(native_score, bool)
+            and isinstance(native_score, (int, float))
+            and native_score in (0, 1)
+        )
         native_tool_execution_valid = (
             isinstance(native_tool_execution, dict)
             and set(native_tool_execution)
@@ -3797,6 +3809,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
                 and (
                     payload.get("execution") != native_smoke_contract
                     or payload.get("task_file_sha256") != KIMI_NATIVE_MINISWE_SMOKE_SELECTOR_SHA256
+                    or not native_scoring_valid
                     or not native_tool_execution_valid
                 )
             )

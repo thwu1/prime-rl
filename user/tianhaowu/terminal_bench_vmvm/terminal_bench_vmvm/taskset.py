@@ -2526,6 +2526,14 @@ class TerminalBenchVMVMTaskset(
         payload, metadata = await self._capture_artifacts(task, runtime)
         self._artifact_payloads[trace.id] = payload
         trace.info["terminal_bench_artifacts"] = metadata
+        # Separate verification never touches the agent sandbox again: it
+        # restores the captured bytes into a fresh verifier image.  Release a
+        # Sandoq assignment before reward evaluation so a rollout wave at the
+        # provider's maximum capacity cannot deadlock waiting for verifier
+        # assignments held by those same completed agents.  stop() is
+        # idempotent, so the environment's normal teardown remains safe.
+        if isinstance(runtime, SandoqRuntime):
+            await runtime.stop()
 
     @staticmethod
     def _test_requirements(task: TerminalBenchTask) -> tuple[str, ...]:

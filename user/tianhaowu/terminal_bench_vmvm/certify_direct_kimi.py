@@ -219,6 +219,27 @@ def _native_tool_execution(traces: list[dict[str, Any]]) -> dict[str, int]:
     }
 
 
+def _native_smoke_scoring(traces: list[dict[str, Any]]) -> dict[str, Any]:
+    """Require a completed binary verifier score without gating on model quality.
+
+    The smoke qualifies the Firecracker/tunnel/harness/scorer path.  Whether
+    Kimi solves one stochastic task belongs to the full TB4 pass@1 result, not
+    to infrastructure admission; requiring ``solved == 1`` creates a circular
+    quality gate before the evaluation that measures that quality.
+    """
+
+    rewards = traces[0].get("rewards") if len(traces) == 1 and isinstance(traces[0], dict) else None
+    score = rewards.get("solved") if isinstance(rewards, dict) and set(rewards) == {"solved"} else None
+    if isinstance(score, bool) or not isinstance(score, (int, float)) or score not in (0, 1):
+        raise DirectKimiCertificateError("native_smoke_scoring_missing")
+    return {
+        "reward_key": "solved",
+        "score": float(score),
+        "scored": True,
+        "quality_gate": False,
+    }
+
+
 def _validate_identity(
     run_dir: Path,
     *,
@@ -532,11 +553,7 @@ def certify_smoke(
         )
         if failed or summary.get("model_io_turns", 0) < SMOKE_TASK_COUNT or summary.get("sampled_tokens", 0) < 1:
             raise DirectKimiCertificateError("trace_audit_failed")
-        if execution is not None:
-            rewards = traces[0].get("rewards") if len(traces) == 1 and isinstance(traces[0], dict) else None
-            score = rewards.get("solved") if isinstance(rewards, dict) and set(rewards) == {"solved"} else None
-            if isinstance(score, bool) or not isinstance(score, (int, float)) or score != 1:
-                raise DirectKimiCertificateError("native_smoke_reward_failed")
+        scoring = _native_smoke_scoring(traces) if execution is not None else None
         tool_execution = _native_tool_execution(traces) if execution is not None else None
         if _sha256(results) != before:
             raise DirectKimiCertificateError("results_changed")
@@ -570,6 +587,7 @@ def certify_smoke(
             "qualification_scope": "capacity-limited-smoke-only",
             "capacity_scope": capacity_scope,
             "execution": execution,
+            "scoring": scoring,
             "tool_execution": tool_execution,
             "full_tb4_ready": False,
             "trace_count": summary["traces"],

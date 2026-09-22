@@ -367,6 +367,44 @@ def test_separate_verifier_clones_sandoq_runtime_config() -> None:
     assert verifier.config.network_access is False
 
 
+def test_separate_verifier_releases_sandoq_agent_after_artifact_capture(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(id="terminal-bench-vmvm", dataset_dir=tmp_path)
+    )
+    runtime = SandoqRuntime(
+        SandoqConfig(
+            image="agent@sha256:" + "a" * 64,
+            workdir="/agent",
+            network_access=False,
+            host_tunnel="none",
+            expected_environment="oci-runner-firecracker",
+            ecr_token_file=Path("/run/secrets/ecr-token"),
+        )
+    )
+    events: list[str] = []
+
+    async def capture(*_args: object, **_kwargs: object) -> tuple[dict[str, bytes], dict[str, object]]:
+        events.append("capture")
+        return {"main": b"artifact"}, {"bytes": 8}
+
+    async def stop() -> None:
+        events.append("stop")
+
+    monkeypatch.setattr(taskset, "_capture_artifacts", capture)
+    monkeypatch.setattr(runtime, "stop", stop)
+    task = SimpleNamespace(verifier_mode="separate")
+    trace = SimpleNamespace(id="trace", info={})
+
+    asyncio.run(taskset.finalize(task, trace, runtime))
+
+    assert events == ["capture", "stop"]
+    assert taskset._artifact_payloads["trace"] == {"main": b"artifact"}
+    assert trace.info["terminal_bench_artifacts"] == {"bytes": 8}
+
+
 def test_environment_workdir_defaults_and_tracks_relative_updates(tmp_path: Path) -> None:
     dockerfile = tmp_path / "Dockerfile"
     dockerfile.write_text("FROM python:3.12\nWORKDIR /workspace\nWORKDIR project\n")

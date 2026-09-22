@@ -11,6 +11,7 @@ from certify_direct_kimi import (
     DirectKimiCertificateError,
     _capacity_limited_smoke_scope,
     _native_miniswe_smoke_execution,
+    _native_smoke_scoring,
     _native_tool_execution,
     _validate_cleanup,
     _validate_router_receipt,
@@ -98,6 +99,31 @@ def test_native_miniswe_smoke_requires_numeric_tool_exit_evidence() -> None:
     }
     with pytest.raises(DirectKimiCertificateError, match="native_smoke_tool_exit_invalid"):
         _native_tool_execution([{"nodes": [{"message": {"role": "tool", "content": "plain text"}}]}])
+
+
+@pytest.mark.parametrize("score", [0, 1, 0.0, 1.0])
+def test_native_smoke_scoring_accepts_completed_binary_score_without_quality_gate(score: float) -> None:
+    assert _native_smoke_scoring([{"rewards": {"solved": score}}]) == {
+        "reward_key": "solved",
+        "score": float(score),
+        "scored": True,
+        "quality_gate": False,
+    }
+
+
+@pytest.mark.parametrize(
+    "trace",
+    [
+        {},
+        {"rewards": {}},
+        {"rewards": {"solved": True}},
+        {"rewards": {"solved": 0.5}},
+        {"rewards": {"solved": 0, "other": 0}},
+    ],
+)
+def test_native_smoke_scoring_rejects_missing_or_nonbinary_score(trace: dict) -> None:
+    with pytest.raises(DirectKimiCertificateError, match="^native_smoke_scoring_missing$"):
+        _native_smoke_scoring([trace])
 
 
 def _cleanup() -> dict:
