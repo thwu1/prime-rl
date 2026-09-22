@@ -603,3 +603,133 @@ def test_background_job_status_uses_idempotent_exec() -> None:
 
     assert status.completed is False
     assert calls == [{"timeout": 30, "operation": "background_job_status"}]
+
+
+def _background_job_test_client() -> tuple[OCIRunnerAsyncSandboxClient, SimpleNamespace]:
+    client = object.__new__(OCIRunnerAsyncSandboxClient)
+    info = SimpleNamespace(
+        metadata={},
+        assignment_poisoned=False,
+        assignment_poison_reason=None,
+        shell_failure_status=None,
+    )
+    client._info = lambda _sandbox_id: info
+
+    async def start(*_args: object, **_kwargs: object) -> SimpleNamespace:
+        return SimpleNamespace(job_id="job-0123456789abcdef0123456789abcdef")
+
+    client.start_background_job = start
+    return client, info
+
+
+def test_background_job_cancellation_terminates_before_propagation() -> None:
+    async def scenario() -> None:
+        client, info = _background_job_test_client()
+        polling = asyncio.Event()
+        terminated: list[str] = []
+
+        async def get(*_args: object, **_kwargs: object) -> SimpleNamespace:
+            polling.set()
+            await asyncio.Event().wait()
+
+        async def terminate(_info: object, job_id: str, **_kwargs: object) -> bool:
+            terminated.append(job_id)
+            return True
+
+        client.get_background_job = get
+        client._terminate_background_job = terminate
+        running = asyncio.create_task(client.run_background_job("sandbox-1", "agent", timeout=3600))
+        await polling.wait()
+        running.cancel()
+
+        with pytest.raises(asyncio.CancelledError):
+            await running
+
+        assert terminated == ["job-0123456789abcdef0123456789abcdef"]
+        assert info.assignment_poisoned is False
+
+    asyncio.run(scenario())
+
+
+def test_background_job_failed_cancellation_cleanup_poisoned_and_errors() -> None:
+    async def scenario() -> None:
+        client, info = _background_job_test_client()
+        polling = asyncio.Event()
+
+        async def get(*_args: object, **_kwargs: object) -> SimpleNamespace:
+            polling.set()
+            await asyncio.Event().wait()
+
+        async def terminate(*_args: object, **_kwargs: object) -> bool:
+            return False
+
+        client.get_background_job = get
+        client._terminate_background_job = terminate
+        running = asyncio.create_task(client.run_background_job("sandbox-1", "agent", timeout=3600))
+        await polling.wait()
+        running.cancel()
+
+        with pytest.raises(
+            OCIRunnerStageError,
+            match="could not be terminated and joined",
+        ):
+            await running
+
+        assert info.assignment_poisoned is True
+        assert info.assignment_poison_reason == "command_cancellation_cleanup_unverified"
+
+    asyncio.run(scenario())
+
+
+def test_background_job_timeout_terminates_before_returning_124() -> None:
+    async def scenario() -> None:
+        client, info = _background_job_test_client()
+        terminated: list[str] = []
+
+        async def get(*_args: object, **_kwargs: object) -> SimpleNamespace:
+            return SimpleNamespace(completed=False)
+
+        async def terminate(_info: object, job_id: str, **_kwargs: object) -> bool:
+            terminated.append(job_id)
+            return True
+
+        client.get_background_job = get
+        client._terminate_background_job = terminate
+        result = await client.run_background_job("sandbox-1", "agent", timeout=0, poll_interval=0)
+
+        assert result.exit_code == 124
+        assert terminated == ["job-0123456789abcdef0123456789abcdef"]
+        assert info.metadata["timeout_category"] == "client_command_budget"
+
+    asyncio.run(scenario())
+
+
+def test_background_job_status_error_terminates_without_relaunch() -> None:
+    async def scenario() -> None:
+        client, _ = _background_job_test_client()
+        starts = 0
+        terminated: list[str] = []
+
+        async def start(*_args: object, **_kwargs: object) -> SimpleNamespace:
+            nonlocal starts
+            starts += 1
+            return SimpleNamespace(job_id="job-0123456789abcdef0123456789abcdef")
+
+        async def get(*_args: object, **_kwargs: object) -> SimpleNamespace:
+            raise RuntimeError("status unavailable")
+
+        async def terminate(_info: object, job_id: str, **_kwargs: object) -> bool:
+            terminated.append(job_id)
+            return True
+
+        client.start_background_job = start
+        client.get_background_job = get
+        client._terminate_background_job = terminate
+
+        with pytest.raises(RuntimeError, match="status unavailable"):
+            await client.run_background_job("sandbox-1", "agent", timeout=3600)
+
+        assert starts == 1
+        assert terminated == ["job-0123456789abcdef0123456789abcdef"]
+
+    asyncio.run(scenario())

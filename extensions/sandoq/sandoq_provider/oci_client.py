@@ -3079,6 +3079,19 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             )
         stdout, stdout_truncated = await self._read_outer_tail(info, f"{outer_dir}/stdout.log")
         stderr, stderr_truncated = await self._read_outer_tail(info, f"{outer_dir}/stderr.log")
+        truncated_streams = [
+            stream
+            for stream, truncated in (
+                ("stdout", stdout_truncated),
+                ("stderr", stderr_truncated),
+            )
+            if truncated
+        ]
+        if truncated_streams:
+            info.metadata.update(
+                background_output_truncated=True,
+                background_output_truncated_streams=truncated_streams,
+            )
         return BackgroundJobStatus(
             job_id=job_id,
             completed=True,
@@ -3141,6 +3154,44 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             return False
         return result.exit_code == 0 and await self._verify_shell_usable(info)
 
+    async def _finish_background_termination(
+        self,
+        info: registry.SessionInfo,
+        job_id: str,
+    ) -> tuple[bool, asyncio.CancelledError | None]:
+        """Finish one termination attempt even under repeated caller cancellation."""
+        termination = asyncio.create_task(self._terminate_background_job(info, job_id))
+        deferred_cancellation = None
+        while not termination.done():
+            try:
+                await asyncio.shield(termination)
+            except asyncio.CancelledError as error:
+                deferred_cancellation = deferred_cancellation or error
+            except Exception:
+                break
+        try:
+            terminated = termination.result()
+        except BaseException:
+            terminated = False
+        return terminated, deferred_cancellation
+
+    def _background_cleanup_error(
+        self,
+        info: registry.SessionInfo,
+        status: str,
+        message: str,
+        *,
+        failure_reason: str,
+        timeout_category: str | None = None,
+    ) -> OCIRunnerStageError:
+        return self._poisoned_shell_error(
+            info,
+            status,
+            message,
+            failure_reason=failure_reason,
+            timeout_category=timeout_category,
+        )
+
     async def run_background_job(
         self,
         sandbox_id: str,
@@ -3150,47 +3201,100 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
         env: dict | None = None,
         poll_interval: int = 3,
     ) -> CommandResponse:
-        job = await self.start_background_job(sandbox_id, command, working_dir=working_dir, env=env)
+        info = self._info(sandbox_id)
+        launch = asyncio.create_task(
+            self.start_background_job(
+                sandbox_id,
+                command,
+                working_dir=working_dir,
+                env=env,
+            )
+        )
+        launch_cancellation = None
+        while not launch.done():
+            try:
+                await asyncio.shield(launch)
+            except asyncio.CancelledError as error:
+                launch_cancellation = launch_cancellation or error
+            except Exception:
+                break
+        try:
+            job = launch.result()
+        except BaseException as error:
+            if launch_cancellation is not None:
+                raise self._background_cleanup_error(
+                    info,
+                    "background_launch_cancelled",
+                    "background launch did not settle safely after cancellation",
+                    failure_reason="command_outcome_unknown",
+                ) from error
+            raise
+        if launch_cancellation is not None:
+            terminated, _ = await self._finish_background_termination(info, str(job.job_id))
+            if not terminated:
+                raise self._background_cleanup_error(
+                    info,
+                    "background_launch_cancellation_cleanup_unverified",
+                    "cancelled background launch could not be terminated and joined",
+                    failure_reason="command_cancellation_cleanup_unverified",
+                ) from launch_cancellation
+            raise launch_cancellation
         deadline = time.monotonic() + timeout if timeout is not None else None
         delay = min(0.1, max(float(poll_interval), 0.1))
-        while True:
-            status = await self.get_background_job(sandbox_id, job, timeout=30)
-            if status.completed:
-                return CommandResponse(
-                    stdout=status.stdout or "",
-                    stderr=status.stderr or "",
-                    exit_code=status.exit_code if status.exit_code is not None else -1,
-                )
-            if deadline is not None and time.monotonic() >= deadline:
-                info = self._info(sandbox_id)
-                terminated = await self._terminate_background_job(info, str(job.job_id))
-                if not terminated:
-                    info.assignment_poisoned = True
-                    info.assignment_poison_reason = "command_timeout_cleanup_unverified"
+        try:
+            while True:
+                status = await self.get_background_job(sandbox_id, job, timeout=30)
+                if status.completed:
+                    return CommandResponse(
+                        stdout=status.stdout or "",
+                        stderr=status.stderr or "",
+                        exit_code=(status.exit_code if status.exit_code is not None else -1),
+                    )
+                if deadline is not None and time.monotonic() >= deadline:
+                    terminated, deferred_cancellation = await self._finish_background_termination(info, str(job.job_id))
+                    if not terminated:
+                        raise self._background_cleanup_error(
+                            info,
+                            "background_timeout_cleanup_unverified",
+                            "timed-out background command could not be terminated and joined",
+                            failure_reason="command_timeout_cleanup_unverified",
+                            timeout_category="client_command_budget",
+                        )
+                    if deferred_cancellation is not None:
+                        raise deferred_cancellation
                     info.metadata.update(
-                        assignment_poisoned=True,
-                        assignment_poison_reason="command_timeout_cleanup_unverified",
-                        failure_reason="command_timeout_cleanup_unverified",
+                        failure_reason="command_budget_exhausted",
                         timeout_category="client_command_budget",
                     )
-                    raise OCIRunnerCommandTimeoutError(
-                        sandbox_id,
-                        command,
-                        timeout,
-                        failure_reason="command_timeout_cleanup_unverified",
-                        timeout_category="client_command_budget",
+                    return CommandResponse(
+                        stdout="",
+                        stderr="SANDOQ_COMMAND_TIMEOUT=1\n",
+                        exit_code=124,
                     )
-                info.metadata.update(
-                    failure_reason="command_budget_exhausted",
-                    timeout_category="client_command_budget",
-                )
-                return CommandResponse(
-                    stdout="",
-                    stderr="SANDOQ_COMMAND_TIMEOUT=1\n",
-                    exit_code=124,
-                )
-            await asyncio.sleep(delay)
-            delay = min(delay * 2, max(float(poll_interval), 0.1))
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, max(float(poll_interval), 0.1))
+        except asyncio.CancelledError as cancellation:
+            terminated, _ = await self._finish_background_termination(info, str(job.job_id))
+            if not terminated:
+                raise self._background_cleanup_error(
+                    info,
+                    "background_cancellation_cleanup_unverified",
+                    "cancelled background command could not be terminated and joined",
+                    failure_reason="command_cancellation_cleanup_unverified",
+                ) from cancellation
+            raise
+        except Exception as error:
+            terminated, deferred_cancellation = await self._finish_background_termination(info, str(job.job_id))
+            if not terminated:
+                raise self._background_cleanup_error(
+                    info,
+                    "background_error_cleanup_unverified",
+                    "failed background command could not be terminated and joined",
+                    failure_reason="command_error_cleanup_unverified",
+                ) from error
+            if deferred_cancellation is not None:
+                raise deferred_cancellation
+            raise
 
     async def session_metadata(self, sandbox_id: str) -> dict[str, object]:
         return dict(self._info(sandbox_id).metadata)
