@@ -927,11 +927,17 @@ def test_sandoq_lease_profile_is_role_and_model_bound() -> None:
             "kimi-tb4-long",
             "12h",
         )
-    for role in ("smoke", "kimi-direct-smoke"):
+    for role in ("smoke",):
         assert eval_run_identity._sandoq_lease_contract("Kimi-K3", role) == (
             "standard",
             "1h",
         )
+    assert eval_run_identity._sandoq_lease_contract(
+        "Kimi-K3", "kimi-direct-smoke"
+    ) == ("standard", "1h")
+    assert eval_run_identity._sandoq_lease_contract(
+        "Kimi-K3", "kimi-direct-smoke", native_miniswe=True
+    ) == ("kimi-tb4-long", "12h")
     assert eval_run_identity._sandoq_lease_contract("Qwen3", "tb4") == ("standard", "1h")
     qwen = _sandoq_identity()
     qwen["execution"]["sandoq_environment"].update(

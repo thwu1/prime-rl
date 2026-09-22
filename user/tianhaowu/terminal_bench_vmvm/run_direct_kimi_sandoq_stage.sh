@@ -166,7 +166,8 @@ expected_sandoq_lease_profile=standard
 expected_sandoq_lease_duration=1h
 expected_managed_shell_recovery=0
 managed_shell_recovery_policy=disabled
-if [[ "$role" == kimi-direct-tb4 || "$role" == kimi-direct-tb4-diagnostic \
+if [[ "$role" == kimi-direct-smoke || "$role" == kimi-direct-tb4 \
+    || "$role" == kimi-direct-tb4-diagnostic \
     || "$role" == kimi-direct-tb4-sandoq-fallback-diagnostic ]]; then
     expected_sandoq_lease_profile=kimi-tb4-long
     expected_sandoq_lease_duration=12h

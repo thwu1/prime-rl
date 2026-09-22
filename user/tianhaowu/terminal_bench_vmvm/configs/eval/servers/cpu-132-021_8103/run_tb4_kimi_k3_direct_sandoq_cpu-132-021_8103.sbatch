@@ -536,7 +536,7 @@ elif [[ "$execution_mode" == diagnostic ]]; then
 fi
 if [[ "$sandbox_provider" == sandoq ]]; then
     sandoq_lease_profile=standard
-    if [[ "$stage" == tb4 || "$stage" == tb4-miniswe \
+    if [[ "$stage" == miniswe-smoke || "$stage" == tb4 || "$stage" == tb4-miniswe \
         || "$stage" == tb4-miniswe246-sandoq-union || "$stage" == provider-split-legacy \
         || "$stage" == sandoq-fallback-memory-8g \
         || "$stage" == sandoq-fallback-memory-16g ]]; then

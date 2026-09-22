@@ -310,8 +310,16 @@ def _validate_direct_kimi_approved_config(
         raise EvalIdentityError("direct_kimi_approved_config_role_invalid")
 
 
-def _sandoq_lease_contract(expected_model: str, role: str) -> tuple[str, str]:
-    if expected_model == "Kimi-K3" and role in KIMI_SANDOQ_LONG_LEASE_ROLES:
+def _sandoq_lease_contract(
+    expected_model: str,
+    role: str,
+    *,
+    native_miniswe: bool = False,
+) -> tuple[str, str]:
+    if expected_model == "Kimi-K3" and (
+        role in KIMI_SANDOQ_LONG_LEASE_ROLES
+        or (role == "kimi-direct-smoke" and native_miniswe)
+    ):
         return "kimi-tb4-long", "12h"
     return "standard", "1h"
 
@@ -1797,7 +1805,11 @@ def _effective_sandoq_environment(
         )
     ):
         raise EvalIdentityError("sandoq_storage_or_auth_policy_invalid")
-    lease_profile, lease_duration = _sandoq_lease_contract(args.expected_model, args.role)
+    lease_profile, lease_duration = _sandoq_lease_contract(
+        args.expected_model,
+        args.role,
+        native_miniswe=(native_tunnel and args.role == "kimi-direct-smoke"),
+    )
     managed_shell_recovery = "definitive-404-410-single-replay-v1" if lease_profile == "kimi-tb4-long" else "disabled"
     if (
         os.environ.get("SANDOQ_LEASE_PROFILE") != lease_profile
@@ -2531,7 +2543,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or environment["pool_size"] < execution["rollout_concurrency"]
         ):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
-        lease_profile, lease_duration = _sandoq_lease_contract(identity["contract"]["model"], role)
+        lease_profile, lease_duration = _sandoq_lease_contract(
+            identity["contract"]["model"],
+            role,
+            native_miniswe=(native_tunnel and role == "kimi-direct-smoke"),
+        )
         if legacy_lease:
             if role == KIMI_SANDOQ_FALLBACK_ROLE or environment.get("lease_duration") != "1h":
                 raise EvalIdentityError("eval_run_identity_schema_invalid")
