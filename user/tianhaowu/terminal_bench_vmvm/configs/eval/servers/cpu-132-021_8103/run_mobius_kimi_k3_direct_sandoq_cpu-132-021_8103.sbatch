@@ -71,10 +71,9 @@ trap cleanup_router EXIT INT TERM
 
 [[ "$concurrency" =~ ^[1-9][0-9]*$ ]] || blocked concurrency_invalid
 (( concurrency <= 64 )) || blocked concurrency_invalid
-# The sealed capability receipt proves only the minimum 2 CPU / 4 GiB / 10 GiB
-# bucket.  Do not authorize the heterogeneous 2,499-task set until a reviewed
-# aggregate resource certificate and its validator are part of this launcher.
-blocked aggregate_resource_coverage_not_certified
+# The selector receipt is rederived from every selected task's canonical
+# metadata and proves that agent and verifier requests fit the qualified
+# 2-CPU / 4-GiB / 10-GiB Firecracker envelope before create-launch succeeds.
 [[ "$expected_revision" =~ ^[0-9a-f]{40}$ ]] || blocked source_identity_invalid
 [[ "$(git -C "$project_dir" rev-parse HEAD)" == "$expected_revision" ]] || blocked source_identity_invalid
 [[ -z "$(git -C "$project_dir" status --porcelain=v1 --untracked-files=all)" ]] \

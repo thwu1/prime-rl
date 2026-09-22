@@ -120,14 +120,16 @@ Changing the endpoint, source, config, selector, image manifest, worker
 manifest, or requested concurrency requires new certificates and a fresh
 output namespace.
 
-Full Firecracker is proven only at 2 CPU / 4 GiB / 10 GiB with a successful
-native-tunnel round trip; that is a minimum capability, not proof for larger
-resource buckets. Twenty-eight of 66 TB4 tasks fit this resource envelope, but
+Full Firecracker is proven at 2 CPU / 4 GiB / 10 GiB with a successful
+native-tunnel round trip. The production selector now reopens every selected
+task's canonical metadata and binds an aggregate-only resource-vector digest:
+all 2,499 selected tasks use shared verification, request no GPU, and have
+agent and verifier maxima exactly equal to that qualified envelope. The lone
+Compose task remains excluded. Twenty-eight of 66 TB4 tasks fit this resource envelope, but
 three require Compose and cannot run on the Sandoq lane. TB4 therefore requires
 the sealed 25-Sandoq / 38-VMVM CPU union, with three GPU tasks recorded as
-unsupported. The full 2,499-task envelope is not yet certified, so this
-production launcher remains unlaunched until an aggregate resource certificate
-or fidelity-preserving provider partition covers every selected task.
+unsupported. Production promotion still requires the TB4 score and capacity
+certificate, but aggregate resource coverage is no longer an unresolved gate.
 
 ## ECR rotation and launch
 

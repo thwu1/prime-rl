@@ -40,6 +40,7 @@ from materialize_qwen_provider_union import (
     derive_partition,
     verify_canonical_dataset,
 )
+from verifiers.v1.tasksets.harbor_v1.taskset import parse_resources
 
 SCHEMA_VERSION = 1
 MODEL = "Kimi-K3"
@@ -77,6 +78,9 @@ REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
 MEMBER_RE = re.compile(r"[^/\\\x00\r\n\t]+\Z")
 MAX_METADATA_BYTES = 64 * 1024 * 1024
 MAX_RESULTS_ROW_BYTES = 128 * 1024 * 1024
+QUALIFIED_CPU_CORES = 2.0
+QUALIFIED_MEMORY_GIB = 4.0
+QUALIFIED_DISK_GIB = 10.0
 FIRECRACKER_PROVIDER_TOKEN_PATH_SHA256 = "19f886485a27dd272af667283ebeb57293a08723782af6c4bc83a05dca6dedc0"
 TERMINAL_STATES = frozenset(
     {
@@ -286,7 +290,87 @@ def _artifact_record(path: Path, code: str, *, private: bool = False) -> dict[st
     return artifact.as_dict()
 
 
-def _selector_receipt(selector_body: bytes) -> dict[str, Any]:
+def _resource_coverage(dataset: Path, members: Sequence[str]) -> dict[str, Any]:
+    if len(members) != EXPECTED_TASK_COUNT or len(set(members)) != EXPECTED_TASK_COUNT:
+        raise KimiProductionError("resource_coverage_invalid")
+    vector: list[dict[str, Any]] = []
+    modes = Counter()
+    maxima = {
+        "agent": {"cpu_cores": 0.0, "memory_gib": 0.0, "disk_gib": 0.0},
+        "verifier": {"cpu_cores": 0.0, "memory_gib": 0.0, "disk_gib": 0.0},
+    }
+    for member in members:
+        metadata_path = dataset / member / "task.toml"
+        try:
+            raw = tomllib.loads(read_regular(metadata_path, max_bytes=MAX_METADATA_BYTES).decode("utf-8"))
+            environment = raw.get("environment", {})
+            verifier = raw.get("verifier", {})
+            if not isinstance(environment, dict) or not isinstance(verifier, dict):
+                raise ValueError("metadata shape")
+            verifier_environment = verifier.get("environment")
+            mode = verifier.get("environment_mode")
+            if mode is None:
+                mode = "separate" if verifier_environment is not None else "shared"
+            if mode not in {"shared", "separate"}:
+                raise ValueError("verifier mode")
+            if mode == "separate":
+                if not isinstance(verifier_environment, dict):
+                    raise ValueError("verifier environment")
+                effective_verifier_environment = verifier_environment
+            else:
+                effective_verifier_environment = environment
+            resources = {
+                "agent": parse_resources(environment, 1.0),
+                "verifier": parse_resources(effective_verifier_environment, 1.0),
+            }
+        except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError, TypeError, ValueError) as error:
+            raise KimiProductionError("resource_coverage_invalid") from error
+        record: dict[str, Any] = {"verifier_mode": mode}
+        for role, request in resources.items():
+            values = (request.cpu, request.memory, request.disk)
+            if (
+                request.gpu is not None
+                or any(isinstance(value, bool) or not isinstance(value, (int, float)) for value in values)
+                or any(not math.isfinite(float(value)) or float(value) <= 0 for value in values)
+                or float(request.cpu) > QUALIFIED_CPU_CORES
+                or float(request.memory) > QUALIFIED_MEMORY_GIB
+                or float(request.disk) > QUALIFIED_DISK_GIB
+            ):
+                raise KimiProductionError("resource_coverage_invalid")
+            normalized = {
+                "cpu_cores": float(request.cpu),
+                "memory_gib": float(request.memory),
+                "disk_gib": float(request.disk),
+                "gpu_count": 0,
+            }
+            record[role] = normalized
+            for key in ("cpu_cores", "memory_gib", "disk_gib"):
+                maxima[role][key] = max(maxima[role][key], normalized[key])
+        modes[mode] += 1
+        vector.append(record)
+    if modes != Counter({"shared": EXPECTED_TASK_COUNT}):
+        raise KimiProductionError("resource_coverage_invalid")
+    return {
+        "schema_version": 1,
+        "kind": "declared-resource-envelope-v1",
+        "selected_count": EXPECTED_TASK_COUNT,
+        "verifier_modes": {"shared": EXPECTED_TASK_COUNT, "separate": 0},
+        "agent_maximum": maxima["agent"],
+        "verifier_maximum": maxima["verifier"],
+        "qualified_request": {
+            "cpu_cores": QUALIFIED_CPU_CORES,
+            "memory_gib": QUALIFIED_MEMORY_GIB,
+            "disk_gib": QUALIFIED_DISK_GIB,
+            "gpu_count": 0,
+        },
+        "runtime_resource_receipt_sha256": RUNTIME_RESOURCE_RECEIPT_SHA256,
+        "all_selected_within_qualified_request": True,
+        "resource_vector_sha256": hashlib.sha256(canonical_json(vector)).hexdigest(),
+        "membership_disclosed": False,
+    }
+
+
+def _selector_receipt(selector_body: bytes, resource_coverage: Mapping[str, Any]) -> dict[str, Any]:
     selection = {
         "all_source_tasks_declared_no_network": True,
         "compose_detection": "harbor-compose-precedence-v1",
@@ -311,6 +395,8 @@ def _selector_receipt(selector_body: bytes) -> dict[str, Any]:
         },
         "selection": selection,
         "selection_contract_sha256": hashlib.sha256(canonical_json(selection)).hexdigest(),
+        "resource_coverage": dict(resource_coverage),
+        "resource_coverage_sha256": hashlib.sha256(canonical_json(resource_coverage)).hexdigest(),
     }
 
 
@@ -405,7 +491,7 @@ def materialize_selector(
     ):
         raise KimiProductionError("opaque_selection_invalid")
     selector_body = _task_payload(partition.sandoq)
-    value = _selector_receipt(selector_body)
+    value = _selector_receipt(selector_body, _resource_coverage(dataset, partition.sandoq))
     _publish_bundle(root, {selector: selector_body, receipt: canonical_json(value)})
     return {
         "state": "materialized",
@@ -435,7 +521,7 @@ def validate_selector(
     expected_body = _task_payload(partition.sandoq)
     selector_artifact, selector_body = _stable_artifact(selector, "selector_invalid", private=True)
     receipt_artifact, receipt_body = _stable_artifact(receipt, "selector_receipt_invalid", private=True)
-    expected_receipt = _selector_receipt(expected_body)
+    expected_receipt = _selector_receipt(expected_body, _resource_coverage(dataset, partition.sandoq))
     if (
         receipt_artifact.sha256 != receipt_sha256
         or selector_body != expected_body

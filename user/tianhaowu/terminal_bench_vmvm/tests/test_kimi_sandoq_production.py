@@ -50,25 +50,95 @@ def test_materialize_config_rejects_uncertified_capacity() -> None:
         )
 
 
-def test_production_launcher_fails_closed_without_aggregate_resource_coverage() -> None:
+def test_production_launcher_consumes_selector_bound_resource_coverage() -> None:
     launcher = (
         Path(__file__).parents[1]
         / "configs/eval/servers/cpu-132-021_8103/run_mobius_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch"
     ).read_text()
 
-    assert "blocked aggregate_resource_coverage_not_certified" in launcher
+    assert "blocked aggregate_resource_coverage_not_certified" not in launcher
+    assert "selector receipt is rederived" in launcher
 
 
 def test_selector_receipt_is_aggregate_only() -> None:
     body = b"opaque-a\nopaque-b\n"
-    receipt = production._selector_receipt(body)
+    coverage = {
+        "schema_version": 1,
+        "kind": "declared-resource-envelope-v1",
+        "selected_count": 2499,
+        "membership_disclosed": False,
+    }
+    receipt = production._selector_receipt(body, coverage)
     rendered = canonical_json(receipt)
 
     assert receipt["selection"]["membership_disclosed"] is False
     assert receipt["selection"]["excluded_count"] == 1
     assert receipt["selection"]["selected_count"] == 2499
+    assert receipt["resource_coverage"] == coverage
+    assert receipt["resource_coverage_sha256"] == hashlib.sha256(canonical_json(coverage)).hexdigest()
     assert b"opaque-a" not in rendered
     assert b"opaque-b" not in rendered
+
+
+def _write_synthetic_task(
+    dataset: Path,
+    member: str,
+    *,
+    cpus: int,
+    memory_mb: int,
+    storage_mb: int,
+) -> None:
+    task_dir = dataset / member
+    task_dir.mkdir()
+    (task_dir / "task.toml").write_text(
+        "\n".join(
+            (
+                "[environment]",
+                f"cpus = {cpus}",
+                f"memory_mb = {memory_mb}",
+                f"storage_mb = {storage_mb}",
+                "gpus = 0",
+                "",
+                "[verifier]",
+                'environment_mode = "shared"',
+                "",
+            )
+        )
+    )
+
+
+def test_resource_coverage_rederives_aggregate_envelope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(production, "EXPECTED_TASK_COUNT", 2)
+    _write_synthetic_task(tmp_path, "synthetic-a", cpus=1, memory_mb=2048, storage_mb=10240)
+    _write_synthetic_task(tmp_path, "synthetic-b", cpus=2, memory_mb=4096, storage_mb=10240)
+
+    coverage = production._resource_coverage(tmp_path, ("synthetic-a", "synthetic-b"))
+    rendered = canonical_json(coverage)
+
+    assert coverage["selected_count"] == 2
+    assert coverage["verifier_modes"] == {"shared": 2, "separate": 0}
+    assert coverage["agent_maximum"] == {
+        "cpu_cores": 2.0,
+        "memory_gib": 4.0,
+        "disk_gib": 10.0,
+    }
+    assert coverage["verifier_maximum"] == coverage["agent_maximum"]
+    assert coverage["all_selected_within_qualified_request"] is True
+    assert coverage["membership_disclosed"] is False
+    assert b"synthetic-a" not in rendered
+    assert b"synthetic-b" not in rendered
+
+
+def test_resource_coverage_fails_closed_above_qualified_envelope(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(production, "EXPECTED_TASK_COUNT", 1)
+    _write_synthetic_task(tmp_path, "synthetic-a", cpus=3, memory_mb=4096, storage_mb=10240)
+
+    with pytest.raises(production.KimiProductionError, match="resource_coverage_invalid"):
+        production._resource_coverage(tmp_path, ("synthetic-a",))
 
 
 def test_capacity_selector_is_deterministic_and_receipt_stays_aggregate_only() -> None:
