@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Certify and merge the opaque Kimi TB4 MiniSWE 28/35/3 provider union."""
+"""Certify and merge the opaque Kimi TB4 MiniSWE 25/38/3 provider union."""
 
 from __future__ import annotations
 

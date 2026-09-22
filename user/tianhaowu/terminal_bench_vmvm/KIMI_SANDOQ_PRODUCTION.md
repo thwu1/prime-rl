@@ -122,9 +122,10 @@ output namespace.
 
 Full Firecracker is proven only at 2 CPU / 4 GiB / 10 GiB with a successful
 native-tunnel round trip; that is a minimum capability, not proof for larger
-resource buckets. Only 28 of 66 TB4 tasks fit this envelope. TB4 therefore
-requires the sealed 28-Sandoq / 35-VMVM CPU union, with three GPU tasks recorded
-as unsupported. The full 2,499-task envelope is not yet certified, so this
+resource buckets. Twenty-eight of 66 TB4 tasks fit this resource envelope, but
+three require Compose and cannot run on the Sandoq lane. TB4 therefore requires
+the sealed 25-Sandoq / 38-VMVM CPU union, with three GPU tasks recorded as
+unsupported. The full 2,499-task envelope is not yet certified, so this
 production launcher remains unlaunched until an aggregate resource certificate
 or fidelity-preserving provider partition covers every selected task.
 

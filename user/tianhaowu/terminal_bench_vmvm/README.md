@@ -1139,8 +1139,9 @@ full `oci-runner-firecracker` profile with provider task network `host`,
 effective public network, and the native loopback reverse tunnel. This is not
 a strict no-network runtime. Requested concurrency is certificate-capped and
 is not assumed to be 64. The full environment is proven at only 2 CPU / 4 GiB /
-10 GiB. A certified TB4 MiniSWE result must union the opaque 28-task Sandoq
-partition with 35 VMVM CPU tasks and record three GPU tasks unsupported. The
+10 GiB. Twenty-eight tasks fit that resource envelope, but three require
+Compose. A certified TB4 MiniSWE result must therefore union the opaque 25-task
+Sandoq partition with 38 VMVM CPU tasks and record three GPU tasks unsupported. The
 all-Sandoq `tb4-miniswe` stage stays blocked, and production requires separate
 aggregate resource coverage or a provider partition for all 2,499 tasks.
 

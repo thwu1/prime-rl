@@ -283,8 +283,9 @@ this strict no-network or reuse evidence across provider profiles.
 
 The full environment is proven at 2 CPU / 4 GiB / 10 GiB with a native tunnel
 round trip, paired with a separate cleanup/tunnel lifecycle receipt. This
-covers only the opaque 28-task TB4 Sandoq partition. Certify TB4 as a union with
-35 VMVM CPU tasks and three GPU tasks recorded unsupported; keep the all-Sandoq
+covers only the opaque 25-task non-Compose TB4 Sandoq partition. Three more
+resource-fitting tasks require Compose and therefore stay on VMVM. Certify TB4
+as a union with 38 VMVM CPU tasks and three GPU tasks recorded unsupported; keep the all-Sandoq
 stage blocked. The 2,499-task launcher also remains blocked until aggregate
 resource coverage or a provider partition covers the selector. Never silently
 lower task resource declarations.

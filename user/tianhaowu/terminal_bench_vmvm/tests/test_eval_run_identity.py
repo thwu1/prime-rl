@@ -661,7 +661,7 @@ def test_direct_kimi_fallback_concurrency_is_bound_to_exact_lane_count() -> None
         eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 21)
     with pytest.raises(EvalIdentityError, match="direct_kimi_fallback_scope_invalid"):
         eval_run_identity._direct_kimi_expected_concurrency(role, "vmvm", 17)
-    assert eval_run_identity.KIMI_PROVIDER_SPLIT_COUNTS == {28, 31, 32, 35}
+    assert eval_run_identity.KIMI_PROVIDER_SPLIT_COUNTS == {25, 31, 32, 38}
     assert eval_run_identity.KIMI_PROVIDER_SPLIT_COUNTS.isdisjoint({17, 4})
 
 

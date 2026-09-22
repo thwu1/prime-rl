@@ -23,15 +23,15 @@ def _manifest_value() -> tuple[dict, bytes, bytes]:
     entries = []
     digest = "a" * 64
     for index in range(split.TOTAL_TASKS):
-        if index < union.SANDOQ_TASKS:
+        if index < 28:
             resources = _resource()
-        elif index < split.LEGACY_SANDOQ_TASKS:
+        elif index < 34:
             resources = _resource(cpu=4)
         elif index < split.CPU_TASKS:
             resources = _resource(cpu=16, memory_gib=8, disk_gib=50)
         else:
             resources = _resource(gpu=1)
-        requires_compose = split.LEGACY_SANDOQ_TASKS <= index < split.LEGACY_SANDOQ_TASKS + 11
+        requires_compose = 25 <= index < 28 or 34 <= index < 42
         entries.append(
             {
                 "task_id": f"opaque-case-{index:02d}",
@@ -153,7 +153,7 @@ def _install_base_config(
     return base.resolve()
 
 
-def test_partition_is_exact_28_35_3_and_keeps_compose_off_sandoq(
+def test_partition_is_exact_25_38_3_and_keeps_compose_off_sandoq(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     entries = _parsed_entries(monkeypatch)
@@ -164,7 +164,7 @@ def test_partition_is_exact_28_35_3_and_keeps_compose_off_sandoq(
         len(partition.sandoq_firecracker),
         len(partition.vmvm_cpu),
         len(partition.gpu_unsupported),
-    ) == (28, 35, 3)
+    ) == (25, 38, 3)
     assert set(partition.compose_required).isdisjoint(partition.sandoq_firecracker)
     assert set(partition.compose_required).issubset(partition.vmvm_cpu)
     receipt = union._partition_receipt("f" * 64, partition)
@@ -175,8 +175,9 @@ def test_partition_rechecks_all_moved_tasks_against_vmvm_capacity(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     value, selector_body, image_body = _manifest_value()
-    value["entries"][union.SANDOQ_TASKS]["agent_resources"] = _resource(cpu=4, disk_gib=60)
-    value["entries"][union.SANDOQ_TASKS]["verifier_resources"] = _resource(cpu=4, disk_gib=60)
+    moved_index = union.SANDOQ_TASKS + 3
+    value["entries"][moved_index]["agent_resources"] = _resource(cpu=4, disk_gib=60)
+    value["entries"][moved_index]["verifier_resources"] = _resource(cpu=4, disk_gib=60)
     monkeypatch.setattr(split, "CANONICAL_TASK_FILE_SHA256", hashlib.sha256(selector_body).hexdigest())
     monkeypatch.setattr(split, "CANONICAL_IMAGE_MANIFEST_SHA256", hashlib.sha256(image_body).hexdigest())
     body = split.canonical_json(value)
@@ -246,7 +247,7 @@ def test_lane_configs_are_native_miniswe_and_provider_isolated() -> None:
         concurrency=4,
     )
 
-    assert sandoq["num_tasks"] == 28
+    assert sandoq["num_tasks"] == 25
     assert sandoq["taskset"]["resource_multiplier"] == 1.0
     assert sandoq["taskset"]["enable_compose"] is False
     assert sandoq["harness"]["id"] == "mini-swe-agent"
@@ -263,7 +264,7 @@ def test_lane_configs_are_native_miniswe_and_provider_isolated() -> None:
         "expected_environment": "oci-runner-firecracker",
         "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
     }
-    assert vmvm["num_tasks"] == 35
+    assert vmvm["num_tasks"] == 38
     assert vmvm["taskset"]["resource_multiplier"] == 2.0
     assert vmvm["taskset"]["enable_compose"] is True
     assert vmvm["harness"]["runtime"]["type"] == "vmvm"
@@ -304,8 +305,8 @@ def test_materialized_plan_is_opaque_and_requires_separate_certifier(
         run_label="bounded",
     )
 
-    assert summary[union.SANDOQ_ROLE] == 28
-    assert summary[union.VMVM_ROLE] == 35
+    assert summary[union.SANDOQ_ROLE] == 25
+    assert summary[union.VMVM_ROLE] == 38
     assert summary[union.GPU_ROLE] == 3
     assert summary["all_sandoq_allowed"] is False
     assert summary["certifier_adapter_required"] is True
@@ -316,7 +317,7 @@ def test_materialized_plan_is_opaque_and_requires_separate_certifier(
     plan_value = split._json_object(plan_body, code="test", canonical=True)
     assert plan_value["evaluation"]["certification_eligible"] is True
     assert plan_value["evaluation"]["blocked_on"] == []
-    for role, count in ((union.SANDOQ_ROLE, 28), (union.VMVM_ROLE, 35)):
+    for role, count in ((union.SANDOQ_ROLE, 25), (union.VMVM_ROLE, 38)):
         verified = union.verify_launch_plan(plan_path, hashlib.sha256(plan_body).hexdigest(), role)
         assert verified["count"] == count
         assert verified["certifier_adapter"] == union.CERTIFIER_ADAPTER

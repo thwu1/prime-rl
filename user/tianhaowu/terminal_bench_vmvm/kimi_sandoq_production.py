@@ -767,8 +767,8 @@ def _validate_tb4_miniswe_union_certificate(
     trace = value.get("trace_audit")
     artifacts = value.get("artifacts")
     expected_partition = {
-        "sandoq_firecracker": 28,
-        "vmvm_cpu": 35,
+        "sandoq_firecracker": 25,
+        "vmvm_cpu": 38,
         "gpu_unsupported": 3,
     }
     if (
@@ -869,19 +869,19 @@ def _validate_tb4_miniswe_union_certificate(
         or sandoq
         != {
             "state": "passed",
-            "task_count": 28,
+            "task_count": 25,
             "passes": sandoq.get("passes"),
             "cleanup_state": "passed",
             "provider_profile_sha256": PROVIDER_PROFILE_SHA256,
             "runtime_tunnel_receipt_sha256": RUNTIME_TUNNEL_RECEIPT_SHA256,
             "runtime_resource_receipt_sha256": RUNTIME_RESOURCE_RECEIPT_SHA256,
         }
-        or not _plain_int(sandoq.get("passes"), minimum=0, maximum=28)
+        or not _plain_int(sandoq.get("passes"), minimum=0, maximum=25)
         or not isinstance(vmvm, dict)
         or set(vmvm) != {"state", "task_count", "passes", "cleanup_state", "capacity"}
         or vmvm.get("state") != "passed"
-        or vmvm.get("task_count") != 35
-        or not _plain_int(vmvm.get("passes"), minimum=0, maximum=35)
+        or vmvm.get("task_count") != 38
+        or not _plain_int(vmvm.get("passes"), minimum=0, maximum=38)
         or vmvm.get("cleanup_state") != "passed"
         or not isinstance(vmvm.get("capacity"), dict)
         or vmvm["capacity"].get("provider") != "vmvm"

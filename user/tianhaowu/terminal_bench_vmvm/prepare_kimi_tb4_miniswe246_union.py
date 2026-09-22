@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Materialize an opaque 28/35/3 Kimi TB4 MiniSWE provider-union plan.
+"""Materialize an opaque 25/38/3 Kimi TB4 MiniSWE provider-union plan.
 
 Its output names the separate certifier adapter that re-opens both runs before publication.
 No task member is written to stdout or to the aggregate plan/receipt.
@@ -30,8 +30,8 @@ CERTIFIER_ADAPTER = "kimi-tb4-miniswe246-provider-union-v1"
 SANDOQ_ROLE = "sandoq_firecracker"
 VMVM_ROLE = "vmvm_cpu"
 GPU_ROLE = "gpu_unsupported"
-SANDOQ_TASKS = 28
-VMVM_TASKS = 35
+SANDOQ_TASKS = 25
+VMVM_TASKS = 38
 GPU_TASKS = 3
 CPU_TASKS = SANDOQ_TASKS + VMVM_TASKS
 SANDOQ_CPU_LIMIT = 2
@@ -44,7 +44,7 @@ VERIFIERS_COMMIT = "30b766ac6a2d186297e9dc684a9850c24e933de3"
 PROVIDER_PROFILE_SHA256 = "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df"
 FULL_TUNNEL_RECEIPT_SHA256 = "39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276"
 FULL_RESOURCE_RECEIPT_SHA256 = "ce3fc3ed2ead1aaf8c71fc35e5dae324f1be9d51b4e7fffff7bc99d1a47adbf6"
-BASE_CONFIG_SHA256 = "b4989bc594ee7a5f7e88c7c653415d5fa4d21f9df455f19f4b456956bb843af8"
+BASE_CONFIG_SHA256 = "f49fe2d8bcfb372589c88ccc00915fef97e7839a8b41c3ff096905891e582b5b"
 FULL_TUNNEL_RECEIPT = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/sandoq-full-tunnel-20260922/run-1537377/receipt.json"
 )

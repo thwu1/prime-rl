@@ -1,4 +1,4 @@
-# Sealed, non-runnable base for the opaque 28/35/3 TB4 union planner.
+# Sealed, non-runnable base for the opaque 25/38/3 TB4 union planner.
 # The planner supplies a private selector, provider runtime, and lane concurrency.
 model = "Kimi-K3"
 num_tasks = 66
