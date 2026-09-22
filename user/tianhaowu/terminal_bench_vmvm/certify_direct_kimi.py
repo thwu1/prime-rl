@@ -37,7 +37,16 @@ from direct_kimi_workers import (
     load_saved_manifest,
     read_published_file,
 )
-from eval_run_identity import canonical_json, load_eval_run_identity
+from eval_run_identity import (
+    KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256,
+    KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT,
+    KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256,
+    KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
+    KIMI_MINISWE_COMPATIBILITY_SHA256,
+    KIMI_MINISWE_VERSION,
+    canonical_json,
+    load_eval_run_identity,
+)
 
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 SMOKE_TASK_COUNT = 1
@@ -115,7 +124,99 @@ def _capacity_limited_smoke_scope(identity: dict[str, Any]) -> dict[str, Any]:
         raise DirectKimiCertificateError("smoke_capacity_scope_invalid")
     scope = dict(CAPACITY_LIMITED_SMOKE_SCOPE)
     scope["resource_multiplier"] = float(resource_multiplier)
+    runtime = identity.get("execution", {}).get("runtime", {})
+    if isinstance(runtime, dict) and runtime.get("expected_environment") == KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT:
+        scope = {
+            "kind": "full-firecracker-minimum-resource-qualified",
+            "reasoning_effort": "max",
+            "resource_multiplier": float(resource_multiplier),
+            "minimum_cpu_cores": 2,
+            "minimum_memory_gib": 4,
+            "minimum_disk_gib": 10,
+            "full_tb4_ready": False,
+        }
     return scope
+
+
+def _native_miniswe_smoke_execution(identity: dict[str, Any]) -> dict[str, Any] | None:
+    execution = identity.get("execution")
+    contract = identity.get("contract")
+    runtime = execution.get("runtime") if isinstance(execution, dict) else None
+    environment = execution.get("sandoq_environment") if isinstance(execution, dict) else None
+    harness = contract.get("harness") if isinstance(contract, dict) else None
+    if not isinstance(runtime, dict) or runtime.get("expected_environment") != KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT:
+        return None
+    value = {
+        "harness": {"id": "mini-swe-agent", "version": KIMI_MINISWE_VERSION, "step_limit": 3},
+        "provider_environment": KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT,
+        "provider_task_network": "host",
+        "host_tunnel": "sandoq",
+        "provider_profile_sha256": KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256,
+        "runtime_tunnel_receipt_sha256": KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
+        "runtime_resource_receipt_sha256": KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256,
+        "miniswe_compatibility_receipt_sha256": KIMI_MINISWE_COMPATIBILITY_SHA256,
+    }
+    if (
+        not isinstance(environment, dict)
+        or not isinstance(harness, dict)
+        or harness.get("id") != "mini-swe-agent"
+        or harness.get("version") != KIMI_MINISWE_VERSION
+        or harness.get("step_limit") != 3
+        or runtime.get("host_tunnel") != "sandoq"
+        or environment.get("environment") != KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
+        or environment.get("provider_task_network") != "host"
+        or environment.get("provider_profile_sha256") != KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256
+        or environment.get("runtime_tunnel_receipt_sha256") != KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256
+        or environment.get("runtime_resource_receipt_sha256") != KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256
+        or environment.get("miniswe_compatibility_receipt_sha256") != KIMI_MINISWE_COMPATIBILITY_SHA256
+    ):
+        raise DirectKimiCertificateError("smoke_runtime_contract_invalid")
+    return value
+
+
+def _native_tool_execution(traces: list[dict[str, Any]]) -> dict[str, int]:
+    observations = successful = nonzero = traces_with_tools = 0
+    for trace in traces:
+        row_observations = 0
+        nodes = trace.get("nodes")
+        if not isinstance(nodes, list):
+            raise DirectKimiCertificateError("native_smoke_tool_exit_missing")
+        for node in nodes:
+            message = node.get("message") if isinstance(node, dict) else None
+            if not isinstance(message, dict) or message.get("role") != "tool":
+                continue
+            row_observations += 1
+            observations += 1
+            extra = message.get("extra")
+            extra_code = extra.get("returncode") if isinstance(extra, dict) else None
+            content_value: object | None = None
+            if isinstance(message.get("content"), str):
+                try:
+                    content_value = json.loads(message["content"])
+                except json.JSONDecodeError:
+                    content_value = None
+            content_code = content_value.get("returncode") if isinstance(content_value, dict) else None
+            candidates = [
+                value for value in (extra_code, content_code) if isinstance(value, int) and not isinstance(value, bool)
+            ]
+            if not candidates or len(set(candidates)) != 1:
+                raise DirectKimiCertificateError("native_smoke_tool_exit_invalid")
+            if candidates[0] == 0:
+                successful += 1
+            else:
+                nonzero += 1
+        if row_observations < 1:
+            raise DirectKimiCertificateError("native_smoke_tool_exit_missing")
+        traces_with_tools += 1
+    if observations < len(traces) or successful < 1 or successful + nonzero != observations:
+        raise DirectKimiCertificateError("native_smoke_tool_exit_invalid")
+    return {
+        "tool_observations": observations,
+        "successful_tool_exits": successful,
+        "nonzero_tool_exits": nonzero,
+        "missing_tool_exits": 0,
+        "traces_with_tool_exit_evidence": traces_with_tools,
+    }
 
 
 def _validate_identity(
@@ -149,6 +250,10 @@ def _validate_identity(
         raise DirectKimiCertificateError("eval_identity_invalid")
     expected_concurrency = 1 if role == "kimi-direct-smoke" else 24
     environment = execution.get("sandoq_environment")
+    runtime = execution.get("runtime")
+    native_miniswe = (
+        isinstance(runtime, dict) and runtime.get("expected_environment") == KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
+    )
     if (
         any(
             execution.get(key) != expected_concurrency
@@ -160,10 +265,20 @@ def _validate_identity(
             )
         )
         or not isinstance(environment, dict)
-        or environment.get("environment") != "oci-runner"
+        or environment.get("environment") != (KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT if native_miniswe else "oci-runner")
         or environment.get("task_network") != "public"
         or environment.get("pool_size") != expected_concurrency
         or environment.get("pool_min_size") != 0
+        or (
+            native_miniswe
+            and (
+                environment.get("provider_task_network") != "host"
+                or environment.get("provider_profile_sha256") != KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256
+                or environment.get("runtime_tunnel_receipt_sha256") != KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256
+                or environment.get("runtime_resource_receipt_sha256") != KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256
+                or environment.get("miniswe_compatibility_receipt_sha256") != KIMI_MINISWE_COMPATIBILITY_SHA256
+            )
+        )
     ):
         raise DirectKimiCertificateError("execution_contract_invalid")
     manifest_record = deployment.get("worker_manifest")
@@ -201,10 +316,14 @@ def _validate_identity(
         }
     ):
         raise DirectKimiCertificateError("worker_generation_invalid")
-    return envelope, manifest, {
-        "eval_run_identity_sha256": eval_identity_sha256,
-        "invocation_identity_sha256": invocation_identity_sha256,
-    }
+    return (
+        envelope,
+        manifest,
+        {
+            "eval_run_identity_sha256": eval_identity_sha256,
+            "invocation_identity_sha256": invocation_identity_sha256,
+        },
+    )
 
 
 def _validate_task_selection(identity: dict[str, Any], expected_task_file: Path, expected_sha256: str) -> list[str]:
@@ -256,7 +375,10 @@ def _validate_router_receipt(
         not isinstance(receipt, dict)
         or set(receipt) != {*expected, *dynamic_keys}
         or any(receipt.get(key) != value for key, value in expected.items())
-        or any(type(receipt.get(key)) is not int or receipt[key] < 0 for key in dynamic_keys - {"worker_request_counts_sha256"})
+        or any(
+            type(receipt.get(key)) is not int or receipt[key] < 0
+            for key in dynamic_keys - {"worker_request_counts_sha256"}
+        )
         or not 1 <= receipt["max_active_requests"] <= 24
         or receipt["total_requests"] < receipt["chat_requests"]
         or receipt["chat_requests"] < minimum_chat_requests
@@ -322,13 +444,8 @@ def _validate_cleanup(
         or cleanup["recorded_outer_sessions"] != cleanup["outer_sessions_deleted"]
         or cleanup["recorded_outer_sessions"] < 1
         or not 1 <= cleanup["assignment_measured_high_water"] <= expected_concurrency
-        or not cleanup["assignment_measured_high_water"]
-        <= cleanup["outer_session_high_water"]
-        <= expected_concurrency
-        or (
-            require_saturation
-            and cleanup["assignment_measured_high_water"] != expected_concurrency
-        )
+        or not cleanup["assignment_measured_high_water"] <= cleanup["outer_session_high_water"] <= expected_concurrency
+        or (require_saturation and cleanup["assignment_measured_high_water"] != expected_concurrency)
         or cleanup["assignments_acquired"] < expected_count
         or cleanup["assignments_cleanup_verified"] != cleanup["assignments_acquired"]
         or cleanup["assignment_release_rows"] + cleanup["assignment_cancellation_rows"]
@@ -391,13 +508,15 @@ def certify_smoke(
         )
         identity = envelope["identity"]
         capacity_scope = _capacity_limited_smoke_scope(identity)
+        execution = _native_miniswe_smoke_execution(identity)
         expected_slugs = _validate_task_selection(identity, expected_task_file, expected_task_file_sha256)
         if len(expected_slugs) != SMOKE_TASK_COUNT:
             raise DirectKimiCertificateError("task_selection_invalid")
         results = run_dir / "results.jsonl"
         before = _sha256(results)
+        traces = list(_iter_traces(results))
         summary, failed = _summarize_traces(
-            _iter_traces(results),
+            traces,
             expected_slugs=expected_slugs,
             expected_count=SMOKE_TASK_COUNT,
             rollouts_per_task=1,
@@ -413,6 +532,12 @@ def certify_smoke(
         )
         if failed or summary.get("model_io_turns", 0) < SMOKE_TASK_COUNT or summary.get("sampled_tokens", 0) < 1:
             raise DirectKimiCertificateError("trace_audit_failed")
+        if execution is not None:
+            rewards = traces[0].get("rewards") if len(traces) == 1 and isinstance(traces[0], dict) else None
+            score = rewards.get("solved") if isinstance(rewards, dict) and set(rewards) == {"solved"} else None
+            if isinstance(score, bool) or not isinstance(score, (int, float)) or score != 1:
+                raise DirectKimiCertificateError("native_smoke_reward_failed")
+        tool_execution = _native_tool_execution(traces) if execution is not None else None
         if _sha256(results) != before:
             raise DirectKimiCertificateError("results_changed")
         manifest_record = identity["deployment"]["worker_manifest"]
@@ -444,6 +569,8 @@ def certify_smoke(
             "worker_count": EXPECTED_ENDPOINTS,
             "qualification_scope": "capacity-limited-smoke-only",
             "capacity_scope": capacity_scope,
+            "execution": execution,
+            "tool_execution": tool_execution,
             "full_tb4_ready": False,
             "trace_count": summary["traces"],
             "model_io_turns": summary["model_io_turns"],

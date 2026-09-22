@@ -76,8 +76,8 @@ def sealed_context(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("SANDOQ_PROVIDER_CONTEXT_ACTIVE", "1")
     monkeypatch.setenv("SANDOQ_PROVIDER_CONTEXT_RECEIPT", "/private/provider-context.json")
     monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker")
-    monkeypatch.setenv("SANDOQ_EFFECTIVE_TASK_NETWORK", "none")
-    monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "none")
+    monkeypatch.setenv("SANDOQ_EFFECTIVE_TASK_NETWORK", "public")
+    monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "host")
     monkeypatch.setenv("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK", "0")
     monkeypatch.setenv(
         "SANDOQ_PROVIDER_PROFILE_SHA256",
@@ -85,7 +85,15 @@ def sealed_context(monkeypatch: pytest.MonkeyPatch) -> None:
     )
     monkeypatch.setenv(
         "SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256",
-        probe.EXPECTED_RUNTIME_SMOKE_SHA256,
+        probe.EXPECTED_RUNTIME_TUNNEL_RECEIPT_SHA256,
+    )
+    monkeypatch.setenv(
+        "SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256",
+        probe.EXPECTED_RUNTIME_RESOURCE_RECEIPT_SHA256,
+    )
+    monkeypatch.setenv(
+        "KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256",
+        probe.EXPECTED_MINISWE_COMPATIBILITY_SHA256,
     )
     monkeypatch.setenv(
         "OCI_RUNNER_TOKEN_FILE",
@@ -124,13 +132,18 @@ def test_forced_delete_probe_is_task_free_and_publishes_private_receipt(
     assert receipt["managed_shell_recovery_count"] == 1
     assert receipt["state_preserved"] is True
     assert receipt["provider_environment"] == "oci-runner-firecracker"
-    assert receipt["task_network"] == "none"
+    assert receipt["task_network"] == "host"
+    assert receipt["network_access"] is True
+    assert receipt["host_tunnel"] == "sandoq"
     assert receipt["provider_context_contract_sha256"] == "f" * 64
     assert receipt["provider_profile_sha256"] == probe.EXPECTED_PROVIDER_PROFILE_SHA256
-    assert receipt["runtime_smoke_receipt_sha256"] == probe.EXPECTED_RUNTIME_SMOKE_SHA256
-    assert receipt["provider_token_file_path_sha256"] == probe.hashlib.sha256(
-        str(probe.EXPECTED_PROVIDER_TOKEN_FILE).encode()
-    ).hexdigest()
+    assert receipt["runtime_tunnel_receipt_sha256"] == probe.EXPECTED_RUNTIME_TUNNEL_RECEIPT_SHA256
+    assert receipt["runtime_resource_receipt_sha256"] == probe.EXPECTED_RUNTIME_RESOURCE_RECEIPT_SHA256
+    assert receipt["miniswe_compatibility_receipt_sha256"] == probe.EXPECTED_MINISWE_COMPATIBILITY_SHA256
+    assert (
+        receipt["provider_token_file_path_sha256"]
+        == probe.hashlib.sha256(str(probe.EXPECTED_PROVIDER_TOKEN_FILE).encode()).hexdigest()
+    )
     assert client.deleted is True
     assert client.drained is True
     output = tmp_path / "managed-shell-recovery.json"
@@ -222,8 +235,12 @@ def test_probe_launcher_seals_complete_pythonpath_before_provider_supervision() 
     assert launcher.count(export) == 1
     assert launcher.index(export) < launcher.index("if [[ ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} != 1 ]]")
     assert '-- /usr/bin/bash -p "${BASH_SOURCE[0]}"' in launcher
-    assert "configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json" in launcher
+    assert "configs/provider_context/use2/kimi_sandoq_firecracker_host.json" in launcher
     assert probe.EXPECTED_PROVIDER_PROFILE_SHA256 in launcher
     assert '"${OCI_RUNNER_ENVIRONMENT:-}" == oci-runner-firecracker' in launcher
-    assert '"${OCI_RUNNER_TASK_NETWORK:-}" == none' in launcher
+    assert '"${OCI_RUNNER_TASK_NETWORK:-}" == host' in launcher
     assert '"${OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK:-}" == 0' in launcher
+    assert probe.EXPECTED_MINISWE_COMPATIBILITY_SHA256 in launcher
+    assert probe.EXPECTED_RUNTIME_TUNNEL_RECEIPT_SHA256 in launcher
+    assert probe.EXPECTED_RUNTIME_RESOURCE_RECEIPT_SHA256 in launcher
+    assert "unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy" in launcher

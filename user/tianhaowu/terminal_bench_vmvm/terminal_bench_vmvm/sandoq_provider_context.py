@@ -74,6 +74,8 @@ class ProviderContextProfile:
     provider_token_file: Path
     runtime_smoke_receipt: Path | None
     runtime_smoke_receipt_sha256: str | None
+    runtime_resource_receipt: Path | None
+    runtime_resource_receipt_sha256: str | None
     sha256: str
 
 
@@ -85,12 +87,20 @@ def _validate_runtime_profile(
     if (environment, effective_task_network, task_network) not in {
         (LEGACY_ENVIRONMENT, "public", None),
         (FIRECRACKER_ENVIRONMENT, "none", "none"),
+        (FIRECRACKER_ENVIRONMENT, "public", "host"),
         (FIRECRACKER_TUNNEL_ENVIRONMENT, "public", "host"),
     }:
         _fail("provider_context_profile_invalid")
 
 
-def _validate_runtime_smoke_receipt(path: Path, expected_sha256: str) -> None:
+def _validate_runtime_smoke_receipt(
+    path: Path,
+    expected_sha256: str,
+    *,
+    environment: str,
+    effective_task_network: str,
+    task_network: str | None,
+) -> None:
     if not path.is_absolute() or path != Path(os.path.normpath(path)) or _SHA256_RE.fullmatch(expected_sha256) is None:
         _fail("provider_context_runtime_smoke_invalid")
     try:
@@ -130,9 +140,17 @@ def _validate_runtime_smoke_receipt(path: Path, expected_sha256: str) -> None:
         receipt = json.loads(bytes(body))
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
         _fail("provider_context_runtime_smoke_invalid", error)
-    if (
-        not isinstance(receipt, dict)
-        or set(receipt)
+    if not isinstance(receipt, dict):
+        _fail("provider_context_runtime_smoke_invalid")
+    common_invalid = (
+        receipt.get("schema_version") != 1
+        or receipt.get("state") != "passed"
+        or receipt.get("environment") != environment
+        or receipt.get("cleanup_verified") is not True
+        or re.fullmatch(r"[1-9][0-9]*", str(receipt.get("slurm_job_id", ""))) is None
+    )
+    isolated_invalid = (
+        set(receipt)
         != {
             "schema_version",
             "kind",
@@ -145,18 +163,120 @@ def _validate_runtime_smoke_receipt(path: Path, expected_sha256: str) -> None:
             "cleanup_failures",
             "slurm_job_id",
         }
-        or receipt.get("schema_version") != 1
         or receipt.get("kind") != "kimi-firecracker-nonnetwork-smoke"
-        or receipt.get("state") != "passed"
-        or receipt.get("environment") != FIRECRACKER_ENVIRONMENT
         or receipt.get("network_access") is not False
         or receipt.get("loopback_only_verified") is not True
         or receipt.get("execution_passed") is not True
-        or receipt.get("cleanup_verified") is not True
         or receipt.get("cleanup_failures") != 0
-        or re.fullmatch(r"[1-9][0-9]*", str(receipt.get("slurm_job_id", ""))) is None
+    )
+    tunnel_invalid = (
+        set(receipt)
+        != {
+            "schema_version",
+            "kind",
+            "state",
+            "environment",
+            "port_names",
+            "create_session_verified",
+            "tunnel_available",
+            "cleanup_verified",
+            "slurm_job_id",
+        }
+        or receipt.get("kind") != "sandoq-firecracker-tunnel-capability"
+        or receipt.get("port_names") != ["exec", "tunnel"]
+        or receipt.get("create_session_verified") is not True
+        or receipt.get("tunnel_available") is not True
+    )
+    expected_isolated = (
+        environment,
+        effective_task_network,
+        task_network,
+    ) == (FIRECRACKER_ENVIRONMENT, "none", "none")
+    expected_tunnel = (
+        environment,
+        effective_task_network,
+        task_network,
+    ) == (FIRECRACKER_ENVIRONMENT, "public", "host")
+    if (
+        common_invalid
+        or (expected_isolated and isolated_invalid)
+        or (expected_tunnel and tunnel_invalid)
+        or not (expected_isolated or expected_tunnel)
     ):
         _fail("provider_context_runtime_smoke_invalid")
+
+
+def _validate_runtime_resource_receipt(path: Path, expected_sha256: str) -> None:
+    if not path.is_absolute() or path != Path(os.path.normpath(path)) or _SHA256_RE.fullmatch(expected_sha256) is None:
+        _fail("provider_context_runtime_resource_invalid")
+    try:
+        if path.resolve(strict=True) != path or path.is_symlink():
+            _fail("provider_context_runtime_resource_invalid")
+        before = path.lstat()
+        descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as error:
+        _fail("provider_context_runtime_resource_invalid", error)
+    try:
+        opened = os.fstat(descriptor)
+        body = bytearray()
+        while chunk := os.read(descriptor, 4096):
+            body.extend(chunk)
+            if len(body) > MAX_RECEIPT_BYTES:
+                _fail("provider_context_runtime_resource_invalid")
+        after = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    if (
+        not stat.S_ISREG(before.st_mode)
+        or before.st_uid != os.geteuid()
+        or before.st_nlink != 1
+        or bool(before.st_mode & 0o077)
+        or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+        != (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns)
+        or (opened.st_dev, opened.st_ino, opened.st_size, opened.st_mtime_ns)
+        != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+        or _sha256(bytes(body)) != expected_sha256
+    ):
+        _fail("provider_context_runtime_resource_invalid")
+    try:
+        receipt = json.loads(bytes(body))
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        _fail("provider_context_runtime_resource_invalid", error)
+    if (
+        not isinstance(receipt, dict)
+        or set(receipt)
+        != {
+            "schema_version",
+            "kind",
+            "state",
+            "environment",
+            "requested_cpu",
+            "requested_memory_gb",
+            "requested_disk_gb",
+            "sandbox_started",
+            "tunnel_roundtrip_verified",
+            "command_exit_code",
+            "runtime_stop_completed",
+            "elapsed_seconds",
+            "slurm_job_id",
+        }
+        or receipt.get("schema_version") != 1
+        or receipt.get("kind") != "sandoq-full-resource-tunnel-capability"
+        or receipt.get("state") != "passed"
+        or receipt.get("environment") != FIRECRACKER_ENVIRONMENT
+        or receipt.get("requested_cpu") != 2
+        or receipt.get("requested_memory_gb") != 4
+        or receipt.get("requested_disk_gb") != 10
+        or receipt.get("sandbox_started") is not True
+        or receipt.get("tunnel_roundtrip_verified") is not True
+        or receipt.get("command_exit_code") != 0
+        or receipt.get("runtime_stop_completed") is not True
+        or not isinstance(receipt.get("elapsed_seconds"), (int, float))
+        or isinstance(receipt.get("elapsed_seconds"), bool)
+        or float(receipt["elapsed_seconds"]) <= 0
+        or re.fullmatch(r"[1-9][0-9]*", str(receipt.get("slurm_job_id", ""))) is None
+    ):
+        _fail("provider_context_runtime_resource_invalid")
 
 
 def _canonical_json(value: object) -> bytes:
@@ -267,12 +387,22 @@ def load_provider_profile(path: Path, expected_sha256: str) -> ProviderContextPr
         )
     elif schema_version == 3:
         expected_keys.add("task_network")
+    elif schema_version == 4:
+        expected_keys.update(
+            {
+                "task_network",
+                "runtime_resource_receipt",
+                "runtime_resource_receipt_sha256",
+                "runtime_tunnel_receipt",
+                "runtime_tunnel_receipt_sha256",
+            }
+        )
     task_network = value.get("task_network") if isinstance(value, dict) else None
     if (
         not isinstance(value, dict)
         or set(value) != expected_keys
         or bytes(body) != _canonical_json(value)
-        or schema_version not in {1, 2, 3}
+        or schema_version not in {1, 2, 3, 4}
         or re.fullmatch(r"[a-z][a-z0-9_-]{0,127}", str(value["cluster_identifier"])) is None
         or value["transport_mode"] not in {"auto", "loopback"}
         or value["base_url"] != BASE_URL
@@ -303,6 +433,20 @@ def load_provider_profile(path: Path, expected_sha256: str) -> ProviderContextPr
                 or task_network != "host"
             )
         )
+        or (
+            schema_version == 4
+            and (
+                value["environment"] != FIRECRACKER_ENVIRONMENT
+                or value["effective_task_network"] != "public"
+                or task_network != "host"
+                or not isinstance(value.get("runtime_tunnel_receipt"), str)
+                or not Path(value["runtime_tunnel_receipt"]).is_absolute()
+                or _SHA256_RE.fullmatch(str(value.get("runtime_tunnel_receipt_sha256", ""))) is None
+                or not isinstance(value.get("runtime_resource_receipt"), str)
+                or not Path(value["runtime_resource_receipt"]).is_absolute()
+                or _SHA256_RE.fullmatch(str(value.get("runtime_resource_receipt_sha256", ""))) is None
+            )
+        )
     ):
         _fail("provider_context_profile_invalid")
     provider_token_file = _validate_absolute_path(
@@ -323,13 +467,28 @@ def load_provider_profile(path: Path, expected_sha256: str) -> ProviderContextPr
         provider_token_file=provider_token_file,
         runtime_smoke_receipt=(
             _validate_absolute_path(
-                str(value["runtime_smoke_receipt"]),
+                str(value["runtime_tunnel_receipt" if schema_version == 4 else "runtime_smoke_receipt"]),
                 "provider_context_profile_invalid",
             )
-            if schema_version == 2
+            if schema_version in {2, 4}
             else None
         ),
-        runtime_smoke_receipt_sha256=(str(value["runtime_smoke_receipt_sha256"]) if schema_version == 2 else None),
+        runtime_smoke_receipt_sha256=(
+            str(value["runtime_tunnel_receipt_sha256" if schema_version == 4 else "runtime_smoke_receipt_sha256"])
+            if schema_version in {2, 4}
+            else None
+        ),
+        runtime_resource_receipt=(
+            _validate_absolute_path(
+                str(value["runtime_resource_receipt"]),
+                "provider_context_profile_invalid",
+            )
+            if schema_version == 4
+            else None
+        ),
+        runtime_resource_receipt_sha256=(
+            str(value["runtime_resource_receipt_sha256"]) if schema_version == 4 else None
+        ),
         sha256=expected_sha256,
     )
 
@@ -433,22 +592,33 @@ def _context_contract(
     task_network: str | None = None,
     runtime_smoke_receipt: Path | None = None,
     runtime_smoke_receipt_sha256: str | None = None,
+    runtime_resource_receipt: Path | None = None,
+    runtime_resource_receipt_sha256: str | None = None,
     provider_profile_sha256: str | None = None,
 ) -> dict[str, Any]:
     lease_duration = LEASE_PROFILES.get(lease_profile)
     if lease_duration is None:
         _fail("provider_context_configuration_invalid")
     _validate_runtime_profile(provider_environment, effective_task_network, task_network)
-    isolated_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT
+    isolated_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT and task_network == "none"
+    full_tunnel_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT and task_network == "host"
     firecracker = provider_environment in {
         FIRECRACKER_ENVIRONMENT,
         FIRECRACKER_TUNNEL_ENVIRONMENT,
     }
-    if isolated_firecracker and (
+    if (isolated_firecracker or full_tunnel_firecracker) and (
         runtime_smoke_receipt is None or runtime_smoke_receipt_sha256 is None or provider_profile_sha256 is None
     ):
         _fail("provider_context_configuration_invalid")
-    if not isolated_firecracker and (runtime_smoke_receipt is not None or runtime_smoke_receipt_sha256 is not None):
+    if not (isolated_firecracker or full_tunnel_firecracker) and (
+        runtime_smoke_receipt is not None or runtime_smoke_receipt_sha256 is not None
+    ):
+        _fail("provider_context_configuration_invalid")
+    if full_tunnel_firecracker and (runtime_resource_receipt is None or runtime_resource_receipt_sha256 is None):
+        _fail("provider_context_configuration_invalid")
+    if not full_tunnel_firecracker and (
+        runtime_resource_receipt is not None or runtime_resource_receipt_sha256 is not None
+    ):
         _fail("provider_context_configuration_invalid")
     if provider_profile_sha256 is not None and _SHA256_RE.fullmatch(provider_profile_sha256) is None:
         _fail("provider_context_configuration_invalid")
@@ -465,6 +635,10 @@ def _context_contract(
             _sha256(str(runtime_smoke_receipt).encode()) if runtime_smoke_receipt is not None else None
         ),
         "runtime_smoke_receipt_sha256": runtime_smoke_receipt_sha256,
+        "runtime_resource_receipt_path_sha256": (
+            _sha256(str(runtime_resource_receipt).encode()) if runtime_resource_receipt is not None else None
+        ),
+        "runtime_resource_receipt_sha256": runtime_resource_receipt_sha256,
         "provider_profile_sha256": provider_profile_sha256,
         "provider_token_file_path_sha256": _sha256(str(provider_token_file).encode()),
         "ecr_token_file_path_sha256": _sha256(str(ecr_token_file).encode()),
@@ -515,6 +689,8 @@ def build_provider_environment(
     task_network: str | None = None,
     runtime_smoke_receipt: Path | None = None,
     runtime_smoke_receipt_sha256: str | None = None,
+    runtime_resource_receipt: Path | None = None,
+    runtime_resource_receipt_sha256: str | None = None,
     provider_profile_sha256: str | None = None,
 ) -> dict[str, str]:
     if (
@@ -532,16 +708,25 @@ def build_provider_environment(
         _validate_runtime_profile(provider_environment, effective_task_network, task_network)
     except ProviderContextError as error:
         _fail("provider_context_configuration_invalid", error)
-    isolated_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT
+    isolated_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT and task_network == "none"
+    full_tunnel_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT and task_network == "host"
     firecracker = provider_environment in {
         FIRECRACKER_ENVIRONMENT,
         FIRECRACKER_TUNNEL_ENVIRONMENT,
     }
-    if isolated_firecracker and (
+    if (isolated_firecracker or full_tunnel_firecracker) and (
         runtime_smoke_receipt is None or runtime_smoke_receipt_sha256 is None or provider_profile_sha256 is None
     ):
         _fail("provider_context_configuration_invalid")
-    if not isolated_firecracker and (runtime_smoke_receipt is not None or runtime_smoke_receipt_sha256 is not None):
+    if not (isolated_firecracker or full_tunnel_firecracker) and (
+        runtime_smoke_receipt is not None or runtime_smoke_receipt_sha256 is not None
+    ):
+        _fail("provider_context_configuration_invalid")
+    if full_tunnel_firecracker and (runtime_resource_receipt is None or runtime_resource_receipt_sha256 is None):
+        _fail("provider_context_configuration_invalid")
+    if not full_tunnel_firecracker and (
+        runtime_resource_receipt is not None or runtime_resource_receipt_sha256 is not None
+    ):
         _fail("provider_context_configuration_invalid")
     if provider_profile_sha256 is not None and _SHA256_RE.fullmatch(provider_profile_sha256) is None:
         _fail("provider_context_configuration_invalid")
@@ -560,6 +745,10 @@ def build_provider_environment(
     environment.pop("VF_SANDBOX_PROVIDER", None)
     environment.pop("FIRECRACKER_KEY", None)
     environment.pop("SANDOQ_AUTH_TOKEN", None)
+    environment.pop("SANDOQ_RUNTIME_SMOKE_RECEIPT", None)
+    environment.pop("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256", None)
+    environment.pop("SANDOQ_RUNTIME_RESOURCE_RECEIPT", None)
+    environment.pop("SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256", None)
     environment.pop(CONTEXT_PROFILE_SHA256, None)
     python_paths = [
         str(project_root),
@@ -623,11 +812,16 @@ def build_provider_environment(
         environment["OCI_RUNNER_TASK_NETWORK"] = task_network
     if firecracker:
         environment["OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK"] = "0"
-    if isolated_firecracker:
+    if isolated_firecracker or full_tunnel_firecracker:
         assert runtime_smoke_receipt is not None
         assert runtime_smoke_receipt_sha256 is not None
         environment["SANDOQ_RUNTIME_SMOKE_RECEIPT"] = str(runtime_smoke_receipt)
         environment["SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256"] = runtime_smoke_receipt_sha256
+    if full_tunnel_firecracker:
+        assert runtime_resource_receipt is not None
+        assert runtime_resource_receipt_sha256 is not None
+        environment["SANDOQ_RUNTIME_RESOURCE_RECEIPT"] = str(runtime_resource_receipt)
+        environment["SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256"] = runtime_resource_receipt_sha256
     if provider_profile_sha256 is not None:
         environment[CONTEXT_PROFILE_SHA256] = provider_profile_sha256
     if proxy_url is not None:
@@ -762,13 +956,16 @@ def provider_context_is_active(environment: Mapping[str, str]) -> bool:
             str(effective_task_network or ""),
             task_network,
         )
-        isolated_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT
+        isolated_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT and task_network == "none"
+        full_tunnel_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT and task_network == "host"
         firecracker = provider_environment in {
             FIRECRACKER_ENVIRONMENT,
             FIRECRACKER_TUNNEL_ENVIRONMENT,
         }
         runtime_smoke_receipt_value = environment.get("SANDOQ_RUNTIME_SMOKE_RECEIPT")
         runtime_smoke_receipt_sha256 = environment.get("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256")
+        runtime_resource_receipt_value = environment.get("SANDOQ_RUNTIME_RESOURCE_RECEIPT")
+        runtime_resource_receipt_sha256 = environment.get("SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256")
         runtime_smoke_receipt = (
             _validate_absolute_path(
                 runtime_smoke_receipt_value,
@@ -777,14 +974,34 @@ def provider_context_is_active(environment: Mapping[str, str]) -> bool:
             if runtime_smoke_receipt_value is not None
             else None
         )
-        if isolated_firecracker:
+        if isolated_firecracker or full_tunnel_firecracker:
             if runtime_smoke_receipt is None or runtime_smoke_receipt_sha256 is None or provider_profile_sha256 is None:
                 return False
             _validate_runtime_smoke_receipt(
                 runtime_smoke_receipt,
                 runtime_smoke_receipt_sha256,
+                environment=str(provider_environment),
+                effective_task_network=str(effective_task_network),
+                task_network=task_network,
             )
         elif runtime_smoke_receipt is not None or runtime_smoke_receipt_sha256 is not None:
+            return False
+        runtime_resource_receipt = (
+            _validate_absolute_path(
+                runtime_resource_receipt_value,
+                "provider_context_runtime_resource_invalid",
+            )
+            if runtime_resource_receipt_value is not None
+            else None
+        )
+        if full_tunnel_firecracker:
+            if runtime_resource_receipt is None or runtime_resource_receipt_sha256 is None:
+                return False
+            _validate_runtime_resource_receipt(
+                runtime_resource_receipt,
+                runtime_resource_receipt_sha256,
+            )
+        elif runtime_resource_receipt is not None or runtime_resource_receipt_sha256 is not None:
             return False
         if (
             receipt["schema_version"] != SCHEMA_VERSION
@@ -856,6 +1073,8 @@ def provider_context_is_active(environment: Mapping[str, str]) -> bool:
             task_network=task_network,
             runtime_smoke_receipt=runtime_smoke_receipt,
             runtime_smoke_receipt_sha256=runtime_smoke_receipt_sha256,
+            runtime_resource_receipt=runtime_resource_receipt,
+            runtime_resource_receipt_sha256=runtime_resource_receipt_sha256,
             provider_profile_sha256=provider_profile_sha256,
         )
         if receipt["contract_sha256"] != _sha256(_canonical_json(contract)):
@@ -881,7 +1100,12 @@ def snapshot_provider_context(environment: Mapping[str, str], output: Path) -> d
         )
     )
     provider_environment = environment.get("OCI_RUNNER_ENVIRONMENT")
-    isolated_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT
+    isolated_firecracker = (
+        provider_environment == FIRECRACKER_ENVIRONMENT and environment.get("OCI_RUNNER_TASK_NETWORK") == "none"
+    )
+    full_tunnel_firecracker = (
+        provider_environment == FIRECRACKER_ENVIRONMENT and environment.get("OCI_RUNNER_TASK_NETWORK") == "host"
+    )
     firecracker = provider_environment in {
         FIRECRACKER_ENVIRONMENT,
         FIRECRACKER_TUNNEL_ENVIRONMENT,
@@ -900,7 +1124,14 @@ def snapshot_provider_context(environment: Mapping[str, str], output: Path) -> d
         "allow_dockerhub_fallback": not firecracker,
         "provider_profile_sha256": profile_sha256,
         "provider_token_file_path_sha256": _sha256(environment["OCI_RUNNER_TOKEN_FILE"].encode()),
-        "runtime_smoke_receipt_sha256": environment.get("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256"),
+        **(
+            {
+                "runtime_tunnel_receipt_sha256": environment.get("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256"),
+                "runtime_resource_receipt_sha256": environment.get("SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256"),
+            }
+            if full_tunnel_firecracker
+            else {"runtime_smoke_receipt_sha256": environment.get("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256")}
+        ),
         "provider_context_contract_sha256": receipt["contract_sha256"],
     }
     _publish_receipt(output, value)
@@ -986,6 +1217,8 @@ def supervise(
     task_network: str | None = None,
     runtime_smoke_receipt: Path | None = None,
     runtime_smoke_receipt_sha256: str | None = None,
+    runtime_resource_receipt: Path | None = None,
+    runtime_resource_receipt_sha256: str | None = None,
     provider_profile_sha256: str | None = None,
 ) -> int:
     if not command or any(not isinstance(item, str) or "\x00" in item for item in command):
@@ -993,7 +1226,20 @@ def supervise(
     if provider_environment == FIRECRACKER_ENVIRONMENT:
         if runtime_smoke_receipt is None or runtime_smoke_receipt_sha256 is None or provider_profile_sha256 is None:
             _fail("provider_context_configuration_invalid")
-        _validate_runtime_smoke_receipt(runtime_smoke_receipt, runtime_smoke_receipt_sha256)
+        _validate_runtime_smoke_receipt(
+            runtime_smoke_receipt,
+            runtime_smoke_receipt_sha256,
+            environment=provider_environment,
+            effective_task_network=effective_task_network,
+            task_network=task_network,
+        )
+        if task_network == "host":
+            if runtime_resource_receipt is None or runtime_resource_receipt_sha256 is None:
+                _fail("provider_context_configuration_invalid")
+            _validate_runtime_resource_receipt(
+                runtime_resource_receipt,
+                runtime_resource_receipt_sha256,
+            )
     runtime_parent = Path(os.environ.get("SLURM_TMPDIR", "/tmp"))
     if not runtime_parent.is_absolute():
         _fail("provider_context_runtime_invalid")
@@ -1039,6 +1285,8 @@ def supervise(
                 task_network=task_network,
                 runtime_smoke_receipt=runtime_smoke_receipt,
                 runtime_smoke_receipt_sha256=runtime_smoke_receipt_sha256,
+                runtime_resource_receipt=runtime_resource_receipt,
+                runtime_resource_receipt_sha256=runtime_resource_receipt_sha256,
                 provider_profile_sha256=provider_profile_sha256,
             )
             environment = build_provider_environment(
@@ -1060,6 +1308,8 @@ def supervise(
                 task_network=task_network,
                 runtime_smoke_receipt=runtime_smoke_receipt,
                 runtime_smoke_receipt_sha256=runtime_smoke_receipt_sha256,
+                runtime_resource_receipt=runtime_resource_receipt,
+                runtime_resource_receipt_sha256=runtime_resource_receipt_sha256,
                 provider_profile_sha256=provider_profile_sha256,
             )
             receipt = {
@@ -1171,6 +1421,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             task_network=profile.task_network,
             runtime_smoke_receipt=profile.runtime_smoke_receipt,
             runtime_smoke_receipt_sha256=profile.runtime_smoke_receipt_sha256,
+            runtime_resource_receipt=profile.runtime_resource_receipt,
+            runtime_resource_receipt_sha256=profile.runtime_resource_receipt_sha256,
             provider_profile_sha256=profile.sha256,
         )
     except Exception:

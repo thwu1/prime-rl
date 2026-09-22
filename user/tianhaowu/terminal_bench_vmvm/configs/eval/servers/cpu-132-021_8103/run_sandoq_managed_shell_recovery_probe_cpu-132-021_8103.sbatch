@@ -28,8 +28,12 @@ probe_mode=${KIMI_RECOVERY_PROBE_MODE:-forced-delete}
 probe_script="$workflow_dir/probe_sandoq_managed_shell_recovery.py"
 expected_probe_sha256=${KIMI_RECOVERY_PROBE_SHA256:?Set KIMI_RECOVERY_PROBE_SHA256}
 provider_context="$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py"
-provider_profile="$workflow_dir/configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json"
-provider_profile_sha256=53e0311216e1b27988b960a782188c5794ed941b9380cba1fbd0f29a67149a93
+provider_profile="$workflow_dir/configs/provider_context/use2/kimi_sandoq_firecracker_host.json"
+provider_profile_sha256=7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df
+runtime_tunnel_receipt_sha256=39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276
+runtime_resource_receipt_sha256=ce3fc3ed2ead1aaf8c71fc35e5dae324f1be9d51b4e7fffff7bc99d1a47adbf6
+miniswe_compatibility_receipt=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/qwen-miniswe246-sandoq-3step-20260921/run-1537041/receipt.json
+miniswe_compatibility_sha256=cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
@@ -40,6 +44,7 @@ output_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/kimi-manag
 output_dir="$output_root/${SLURM_JOB_ID:?SLURM_JOB_ID is required}-${probe_mode}"
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:$sandoq_site:$x86_site"
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy SANDOQ_TUNNEL_HTTPS_PROXY
 
 blocked() {
     printf '{"category":"%s","state":"blocked"}\n' "$1" >&2
@@ -60,6 +65,11 @@ blocked() {
     && -f "$provider_profile" && ! -L "$provider_profile" \
     && "$(sha256sum -- "$provider_profile" | cut -d' ' -f1)" == "$provider_profile_sha256" ]] \
     || blocked runtime_identity_invalid
+[[ -f "$miniswe_compatibility_receipt" && ! -L "$miniswe_compatibility_receipt" \
+    && "$(stat -c '%a:%h:%u' -- "$miniswe_compatibility_receipt")" == "600:1:$(id -u)" \
+    && "$(sha256sum -- "$miniswe_compatibility_receipt" | cut -d' ' -f1)" == "$miniswe_compatibility_sha256" ]] \
+    || blocked miniswe_compatibility_invalid
+export KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256="$miniswe_compatibility_sha256"
 
 if [[ ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} != 1 ]]; then
     [[ -z ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} && -z ${SANDOQ_PROVIDER_CONTEXT_RECEIPT:-} ]] \
@@ -97,9 +107,11 @@ fi
     || blocked provider_context_invalid
 [[ "${SANDOQ_LEASE_PROFILE:-}" == kimi-tb4-long \
     && "${OCI_RUNNER_ENVIRONMENT:-}" == oci-runner-firecracker \
-    && "${SANDOQ_EFFECTIVE_TASK_NETWORK:-}" == none \
-    && "${OCI_RUNNER_TASK_NETWORK:-}" == none \
+    && "${SANDOQ_EFFECTIVE_TASK_NETWORK:-}" == public \
+    && "${OCI_RUNNER_TASK_NETWORK:-}" == host \
     && "${OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK:-}" == 0 \
+    && "${SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256:-}" == "$runtime_tunnel_receipt_sha256" \
+    && "${SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256:-}" == "$runtime_resource_receipt_sha256" \
     && "${OCI_RUNNER_TOKEN_FILE:-}" == /home/tianhaowu/.config/oci-runner/firecracker-token \
     && "${OCI_RUNNER_LEASE_DURATION:-}" == 12h \
     && "${OCI_RUNNER_POOL_RENEW_INTERVAL:-}" == 5m \

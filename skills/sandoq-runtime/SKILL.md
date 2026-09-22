@@ -149,9 +149,8 @@ mode-0600 file named by `OCI_RUNNER_TOKEN_FILE`; never put the value in a repo,
 TOML, command line, log, or receipt. The supervisor removes ambient
 `SANDOQ_AUTH_TOKEN` and `FIRECRACKER_KEY` before launching the child.
 
-Keep public-network TB4 on its separately hashed legacy `oci-runner` profile.
-Do not use a capacity or recovery receipt from one provider profile to promote
-the other.
+Keep legacy public-network TB4 artifacts separately hashed. Do not use a
+capacity or recovery receipt from one provider profile to promote another.
 
 The no-network Firecracker profile is valid only for a host-side harness or
 task-free diagnostics. Mini-SWE-Agent runs inside the task sandbox, and its
@@ -216,14 +215,14 @@ client, verifier, or whole-rollout retries. It is valid only for the Sandoq
 `kimi-direct-capacity-smoke` role. Never substitute an unbounded value or use
 the c64 manifest as evidence by itself.
 
-Use `direct_kimi_capacity.py materialize-config` with the checked-in c64
-example and an operator-reviewed, private mode-0600 selector containing
-exactly 64 non-sensitive no-network tasks. The materializer checks only task
-metadata and Compose filenames and emits aggregate counts and hashes; do not
-print the selector or task records. Run the server-scoped launcher with stage
-`capacity-smoke` and an exact two-hour Slurm wall. Do not reuse this capacity
-certificate for another source/config hash, worker manifest, or endpoint
-namespace.
+Use `kimi_sandoq_production.py materialize-capacity-selector` to derive an
+opaque 64-task subset from the sealed 2,499-task universe, then use
+`direct_kimi_capacity.py materialize-config` with both that private mode-0600
+selector and its private receipt. The public output contains counts and hashes
+only; never inspect or print selector membership or task records. Run the
+server-scoped launcher with stage `capacity-smoke` and an exact two-hour Slurm
+wall. Do not reuse this capacity certificate for another source/config hash,
+selector receipt, worker manifest, provider profile, or endpoint namespace.
 
 Promotion requires `direct_kimi_capacity.py verify` to rehash every retained
 artifact and accept the certificate. Qualification requires measured router
@@ -264,3 +263,50 @@ tmux send-keys -t swebench_vmvm:Launcher.0 \
 Repeat with `KIMI_RECOVERY_PROBE_MODE=idle-endurance` for the endurance gate.
 A probe is valid only when its private receipt records exactly one recovery and
 successful assignment cleanup plus pool drain.
+
+## Kimi 2,499-task production and SFT gate
+
+Use the server-scoped workflow in
+`user/tianhaowu/terminal_bench_vmvm/KIMI_SANDOQ_PRODUCTION.md`. Do not launch
+the production stage directly. First materialize its opaque selector from the
+canonical approved 2,500-task source, then promote an official 66-task TB4
+certificate, both long-lease recovery receipts, and the exact
+`cpu-132-021_8103` capacity certificate.
+
+Keep the already-qualified TB4 artifact on its legacy public `oci-runner`
+profile. Native Mini-SWE recovery, c64 capacity, and proposed 2,499-task
+production use the schema-4 `kimi_sandoq_firecracker_host.json` profile: exact
+environment `oci-runner-firecracker`, effective network `public`,
+provider task network `host`, native loopback reverse tunnel, Docker Hub
+fallback disabled, and the private Firecracker bearer token file. Never call
+this strict no-network or reuse evidence across provider profiles.
+
+The full environment is proven at 2 CPU / 4 GiB / 10 GiB with a native tunnel
+round trip, paired with a separate cleanup/tunnel lifecycle receipt. This
+covers only the opaque 28-task TB4 Sandoq partition. Certify TB4 as a union with
+35 VMVM CPU tasks and three GPU tasks recorded unsupported; keep the all-Sandoq
+stage blocked. The 2,499-task launcher also remains blocked until aggregate
+resource coverage or a provider partition covers the selector. Never silently
+lower task resource declarations.
+
+Treat requested concurrency as a certificate-capped input. A router profile
+that can be configured for 64 requests is not evidence that 64 was measured.
+The promotion validator must prove qualified concurrency is at least the
+requested value and no greater than the profile maximum.
+
+When the shared Kimi deployment YAML is group-writable, do not weaken source
+validation. Materialize the exact pinned spec and proxy-config bytes with
+`direct_kimi_workers.py snapshot-source` into an owner-only committed snapshot,
+then build and probe the 24-worker consistent-hash router from that snapshot.
+Do not use the shared proxy as the rollout endpoint.
+
+Run a login-side ARM64 ECR rotation service before the x86 batch and retain its
+private event log. The batch guard requires a live rotation state, fails closed
+before credential expiry, and always executes verified Sandoq cleanup. After
+the generation job is terminal, stop the rotator and use the server-scoped
+finalizer to certify exact 2,499-task coverage and export only reward-one
+traces. Exact provider JSON, reasoning/model I/O, request-graph agreement, and
+the tokenizer/rendering preflight are mandatory.
+
+All operational output must remain aggregate-only. Never print the selector,
+task identifiers, prompts, responses, or raw task errors.

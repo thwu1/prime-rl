@@ -51,6 +51,50 @@ def _runtime_smoke_receipt(tmp_path: Path) -> tuple[Path, str]:
     return path, context._sha256(body)
 
 
+def _runtime_tunnel_receipt(tmp_path: Path) -> tuple[Path, str]:
+    path = (tmp_path / "runtime-tunnel.json").resolve()
+    body = context._canonical_json(
+        {
+            "schema_version": 1,
+            "kind": "sandoq-firecracker-tunnel-capability",
+            "state": "passed",
+            "environment": "oci-runner-firecracker",
+            "port_names": ["exec", "tunnel"],
+            "create_session_verified": True,
+            "tunnel_available": True,
+            "cleanup_verified": True,
+            "slurm_job_id": "123",
+        }
+    )
+    path.write_bytes(body)
+    path.chmod(0o600)
+    return path, context._sha256(body)
+
+
+def _runtime_resource_receipt(tmp_path: Path) -> tuple[Path, str]:
+    path = (tmp_path / "runtime-resource.json").resolve()
+    body = context._canonical_json(
+        {
+            "schema_version": 1,
+            "kind": "sandoq-full-resource-tunnel-capability",
+            "state": "passed",
+            "environment": "oci-runner-firecracker",
+            "requested_cpu": 2,
+            "requested_memory_gb": 4,
+            "requested_disk_gb": 10,
+            "sandbox_started": True,
+            "tunnel_roundtrip_verified": True,
+            "command_exit_code": 0,
+            "runtime_stop_completed": True,
+            "elapsed_seconds": 1.5,
+            "slurm_job_id": "123",
+        }
+    )
+    path.write_bytes(body)
+    path.chmod(0o600)
+    return path, context._sha256(body)
+
+
 def test_build_provider_environment_matches_sc3_context_without_reading_tokens(
     tmp_path: Path,
 ) -> None:
@@ -119,8 +163,7 @@ def test_firecracker_profile_sets_isolated_network_and_scrubs_ambient_tokens(
     tmp_path: Path,
 ) -> None:
     profile_path = (
-        Path(__file__).parents[1]
-        / "configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json"
+        Path(__file__).parents[1] / "configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json"
     ).resolve()
     profile = context.load_provider_profile(
         profile_path,
@@ -161,6 +204,52 @@ def test_firecracker_profile_sets_isolated_network_and_scrubs_ambient_tokens(
     assert "SANDOQ_AUTH_TOKEN" not in environment
 
 
+def test_full_firecracker_profile_requires_bound_native_tunnel_receipt(tmp_path: Path) -> None:
+    profile_path = (
+        Path(__file__).parents[1] / "configs/provider_context/use2/kimi_sandoq_firecracker_host.json"
+    ).resolve()
+    profile = context.load_provider_profile(profile_path, context._sha256(profile_path.read_bytes()))
+    receipt, receipt_sha256 = _runtime_tunnel_receipt(tmp_path)
+    resource_receipt, resource_receipt_sha256 = _runtime_resource_receipt(tmp_path)
+    arguments = _arguments(tmp_path)
+    arguments.update(
+        {
+            "transport_mode": "auto",
+            "proxy_url": None,
+            "provider_token_file": profile.provider_token_file,
+        }
+    )
+
+    context._validate_runtime_smoke_receipt(
+        receipt,
+        receipt_sha256,
+        environment=profile.environment,
+        effective_task_network=profile.effective_task_network,
+        task_network=profile.task_network,
+    )
+    environment = context.build_provider_environment(
+        {"USER": "synthetic-user", "HTTPS_PROXY": "http://ambient.invalid"},
+        **arguments,
+        provider_environment=profile.environment,
+        effective_task_network=profile.effective_task_network,
+        task_network=profile.task_network,
+        runtime_smoke_receipt=receipt,
+        runtime_smoke_receipt_sha256=receipt_sha256,
+        runtime_resource_receipt=resource_receipt,
+        runtime_resource_receipt_sha256=resource_receipt_sha256,
+        provider_profile_sha256=profile.sha256,
+    )
+
+    assert profile.environment == "oci-runner-firecracker"
+    assert profile.effective_task_network == "public"
+    assert profile.task_network == "host"
+    assert environment["OCI_RUNNER_TASK_NETWORK"] == "host"
+    assert environment["SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256"] == receipt_sha256
+    assert environment["SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256"] == resource_receipt_sha256
+    assert environment["OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK"] == "0"
+    assert all(name not in environment for name in context.PROXY_ENVIRONMENT_NAMES)
+
+
 def test_long_kimi_profile_sets_exact_twelve_hour_initial_lease(tmp_path: Path) -> None:
     arguments = _arguments(tmp_path)
     arguments.update({"transport_mode": "auto", "proxy_url": None, "lease_profile": "kimi-tb4-long"})
@@ -190,8 +279,7 @@ def test_firecracker_supervisor_receipt_binds_isolated_profile(
 ) -> None:
     result = tmp_path / "firecracker-result.json"
     profile_path = (
-        Path(__file__).parents[1]
-        / "configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json"
+        Path(__file__).parents[1] / "configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json"
     ).resolve()
     profile = context.load_provider_profile(
         profile_path,

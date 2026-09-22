@@ -13,9 +13,38 @@ from direct_kimi_workers import (
     DirectKimiWorkerError,
     certify_router,
     load_workers,
+    materialize_source_snapshot,
     prepare_generation,
     validate_saved_manifest,
 )
+
+
+def test_source_snapshot_accepts_only_exact_group_writable_deployment_bytes(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    source = _deployment(tmp_path, monkeypatch)
+    (source / "proxy_litellm_config.yaml").chmod(0o664)
+    with pytest.raises(DirectKimiWorkerError, match="source_unreadable"):
+        load_workers(source)
+
+    snapshot = tmp_path / "private" / "deployment-source"
+    value = materialize_source_snapshot(source.resolve(), snapshot.resolve())
+
+    assert value["path"] == str(snapshot.resolve())
+    assert value["spec_sha256"] == direct_kimi_workers.EXPECTED_SPEC_SHA256
+    assert value["proxy_config_sha256"] == direct_kimi_workers.EXPECTED_PROXY_CONFIG_SHA256
+    assert len(load_workers(snapshot)[0]) == 24
+    assert stat.S_IMODE(snapshot.stat().st_mode) == 0o700
+    assert {entry.name for entry in snapshot.iterdir()} == {
+        "spec.yaml",
+        "proxy_litellm_config.yaml",
+        direct_kimi_workers.SOURCE_SNAPSHOT_MARKER_NAME,
+    }
+    assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in snapshot.iterdir())
+
+    (source / "proxy_litellm_config.yaml").write_text("changed\n")
+    assert len(load_workers(snapshot)[0]) == 24
 
 
 def _deployment(tmp_path: Path, monkeypatch) -> Path:
@@ -654,9 +683,13 @@ def test_direct_kimi_run_binding_rejects_nonprivate_inputs(tmp_path: Path) -> No
 
 @pytest.mark.parametrize(
     "role",
-    ("kimi-direct-tb4-diagnostic", "kimi-direct-tb4-sandoq-fallback-diagnostic"),
+    (
+        "kimi-direct-tb4-diagnostic",
+        "kimi-direct-tb4-sandoq-fallback-diagnostic",
+        "kimi-direct-mobius",
+    ),
 )
-def test_direct_kimi_router_binding_accepts_diagnostic_role(tmp_path: Path, role: str) -> None:
+def test_direct_kimi_router_binding_accepts_supported_role(tmp_path: Path, role: str) -> None:
     identity, invocations, provenance, identity_sha256 = _binding_files(
         tmp_path / "run",
         role=role,

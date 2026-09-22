@@ -32,7 +32,7 @@ from direct_kimi_workers import (
 
 CAPACITY = 64
 CAPACITY_KIND = "direct-kimi-sandoq-capacity"
-CAPACITY_SCHEMA_VERSION = 1
+CAPACITY_SCHEMA_VERSION = 2
 CAPACITY_FILENAME = "direct_kimi_capacity_certificate.json"
 PROBE_KIND = "direct-kimi-router-capacity-probe"
 PROBE_SCHEMA_VERSION = 1
@@ -40,11 +40,55 @@ PROBE_FILENAME = "direct_kimi_capacity_probe.json"
 PROBE_ROUNDS = 2
 MAX_RESPONSE_BYTES = 1 << 20
 MAX_SEQUENCE_TOKENS = 262_144
+MAX_GENERATION_TOKENS = 32_768
+MINISWE_VERSION = "2.4.6"
+MINISWE_MAX_STEPS = 3
+PROVIDER_ENVIRONMENT = "oci-runner-firecracker"
+PROVIDER_TASK_NETWORK = "host"
+PROVIDER_PROFILE_SHA256 = "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df"
+RUNTIME_RESOURCE_RECEIPT = Path(
+    "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/sandoq-full-resource-20260922/run-1537410/receipt.json"
+)
+RUNTIME_RESOURCE_RECEIPT_SHA256 = "ce3fc3ed2ead1aaf8c71fc35e5dae324f1be9d51b4e7fffff7bc99d1a47adbf6"
+RUNTIME_TUNNEL_RECEIPT = Path(
+    "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/sandoq-full-tunnel-20260922/run-1537377/receipt.json"
+)
+RUNTIME_TUNNEL_RECEIPT_SHA256 = "39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276"
+VERIFIERS_COMMIT = "30b766ac6a2d186297e9dc684a9850c24e933de3"
+MINISWE_LIVE_SMOKE_KIND = "qwen-miniswe246-sandoq-three-step-smoke"
+MINISWE_LIVE_SMOKE_ENVIRONMENT = "oci-runner-firecracker-small"
+MINISWE_LIVE_SMOKE_RECEIPT = Path(
+    "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/"
+    "qwen-miniswe246-sandoq-3step-20260921/run-1537041/receipt.json"
+)
+MINISWE_LIVE_SMOKE_RECEIPT_SHA256 = "cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220"
+CAPACITY_SELECTOR_KIND = "kimi-k3-max-sandoq-capacity-selector"
+APPROVED_SOURCE_COUNT = 2_500
+APPROVED_SOURCE_SHA256 = "d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b"
+CAPACITY_CANDIDATE_COUNT = 2_499
+DATASET_REVISION = "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
+DATASET_TREE = "a6c036e1b9abfd7075902ca38ef757587079a59b"
+PROVIDER_CONTEXT_FILENAME = "sandoq-provider-context.json"
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
-COMPOSE_FILENAMES = ("docker-compose.yaml", "docker-compose.yml", "compose.yaml", "compose.yml")
 TASK_FILE_PLACEHOLDER = "/REPLACE/WITH/PRIVATE/CAPACITY_SELECTOR.txt"
 TASK_SHA256_PLACEHOLDER = "REPLACE_WITH_SHA256"
 KIMI_CAPACITY_SMOKE_ROLE = "kimi-direct-capacity-smoke"
+MINISWE_OVERRIDES = (
+    "agent.step_limit=3",
+    "environment.environment_class=local",
+    "environment.timeout=1800",
+    "model.model_kwargs.drop_params=true",
+    "model.model_kwargs.timeout=1800",
+    "model.model_kwargs.temperature=1.0",
+    "model.model_kwargs.top_p=1.0",
+    "model.model_kwargs.parallel_tool_calls=false",
+)
+
+
+def _provider_profile_path() -> Path:
+    return (
+        Path(__file__).resolve(strict=True).parent / "configs/provider_context/use2/kimi_sandoq_firecracker_host.json"
+    )
 
 
 class DirectKimiCapacityError(ValueError):
@@ -147,6 +191,215 @@ def _published_json(path: Path, code: str) -> tuple[dict[str, Any], bytes]:
     return value, body
 
 
+def _strict_json_regular(
+    path: Path,
+    code: str,
+    *,
+    expected_sha256: str | None = None,
+    private: bool = False,
+) -> tuple[dict[str, Any], bytes]:
+    try:
+        metadata = path.lstat()
+        body = _read_regular(path)
+
+        def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+            value: dict[str, Any] = {}
+            for key, item in pairs:
+                if key in value:
+                    raise ValueError("duplicate_key")
+                value[key] = item
+            return value
+
+        value = json.loads(
+            body,
+            object_pairs_hook=reject_duplicates,
+            parse_constant=lambda _value: (_ for _ in ()).throw(ValueError()),
+        )
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+        raise DirectKimiCapacityError(code) from error
+    if (
+        not isinstance(value, dict)
+        or (expected_sha256 is not None and _sha256_bytes(body) != expected_sha256)
+        or (private and (metadata.st_uid != os.geteuid() or stat.S_IMODE(metadata.st_mode) != 0o600))
+    ):
+        raise DirectKimiCapacityError(code)
+    return value, body
+
+
+def _validate_capacity_selector_receipt(
+    path: Path,
+    expected_sha256: str,
+    *,
+    selector_sha256: str,
+) -> tuple[dict[str, Any], bytes]:
+    if SHA256_RE.fullmatch(expected_sha256) is None:
+        raise DirectKimiCapacityError("capacity_selector_receipt_invalid")
+    value, body = _strict_json_regular(
+        path,
+        "capacity_selector_receipt_invalid",
+        expected_sha256=expected_sha256,
+        private=True,
+    )
+    approved = value.get("approved_source")
+    dataset = value.get("dataset")
+    selection = value.get("selection")
+    if (
+        set(value)
+        != {
+            "schema_version",
+            "kind",
+            "state",
+            "deployment_namespace",
+            "approved_source",
+            "dataset",
+            "selection",
+            "selection_contract_sha256",
+        }
+        or value.get("schema_version") != 1
+        or value.get("kind") != CAPACITY_SELECTOR_KIND
+        or value.get("state") != "materialized"
+        or value.get("deployment_namespace") != EXPECTED_ENDPOINT_IDENTIFIER
+        or not isinstance(approved, dict)
+        or set(approved) != {"count", "sha256"}
+        or approved.get("count") != APPROVED_SOURCE_COUNT
+        or approved.get("sha256") != APPROVED_SOURCE_SHA256
+        or not isinstance(dataset, dict)
+        or set(dataset) != {"revision", "tree"}
+        or dataset.get("revision") != DATASET_REVISION
+        or dataset.get("tree") != DATASET_TREE
+        or not isinstance(selection, dict)
+        or set(selection)
+        != {
+            "algorithm",
+            "candidate_count",
+            "membership_disclosed",
+            "selected_count",
+            "selected_sha256",
+        }
+        or selection.get("algorithm") != "sha256-canonical-index-v1"
+        or selection.get("candidate_count") != CAPACITY_CANDIDATE_COUNT
+        or selection.get("membership_disclosed") is not False
+        or selection.get("selected_count") != CAPACITY
+        or selection.get("selected_sha256") != selector_sha256
+        or value.get("selection_contract_sha256") != _sha256_bytes(_canonical_json(selection))
+    ):
+        raise DirectKimiCapacityError("capacity_selector_receipt_invalid")
+    return value, body
+
+
+def _validate_provider_profile() -> tuple[Path, bytes]:
+    path = _provider_profile_path().resolve(strict=True)
+    value, body = _strict_json_regular(
+        path,
+        "capacity_provider_profile_invalid",
+        expected_sha256=PROVIDER_PROFILE_SHA256,
+    )
+    if value != {
+        "base_url": "https://sandoq.eks-prod.cf.aws.metafb.cloud",
+        "cluster_identifier": "use2",
+        "effective_task_network": "public",
+        "environment": PROVIDER_ENVIRONMENT,
+        "provider_token_file": "/home/tianhaowu/.config/oci-runner/firecracker-token",
+        "runtime_tunnel_receipt": str(RUNTIME_TUNNEL_RECEIPT),
+        "runtime_tunnel_receipt_sha256": RUNTIME_TUNNEL_RECEIPT_SHA256,
+        "runtime_resource_receipt": str(RUNTIME_RESOURCE_RECEIPT),
+        "runtime_resource_receipt_sha256": RUNTIME_RESOURCE_RECEIPT_SHA256,
+        "schema_version": 4,
+        "task_network": PROVIDER_TASK_NETWORK,
+        "transport_mode": "auto",
+    }:
+        raise DirectKimiCapacityError("capacity_provider_profile_invalid")
+    return path, body
+
+
+def _validate_miniswe_live_smoke() -> tuple[Path, bytes]:
+    path = MINISWE_LIVE_SMOKE_RECEIPT.resolve(strict=True)
+    value, body = _strict_json_regular(
+        path,
+        "capacity_miniswe_smoke_invalid",
+        expected_sha256=MINISWE_LIVE_SMOKE_RECEIPT_SHA256,
+        private=True,
+    )
+    trajectory = value.get("trajectory_audit")
+    relay = value.get("relay_audit")
+    if (
+        value.get("schema_version") != 1
+        or value.get("kind") != MINISWE_LIVE_SMOKE_KIND
+        or value.get("state") != "passed"
+        or value.get("sandbox_environment") != MINISWE_LIVE_SMOKE_ENVIRONMENT
+        or value.get("task_network") != PROVIDER_TASK_NETWORK
+        or value.get("model_calls") != MINISWE_MAX_STEPS
+        or value.get("prior_reasoning_forwarded_calls") != MINISWE_MAX_STEPS - 1
+        or value.get("tool_result_forwarded_calls") != MINISWE_MAX_STEPS - 1
+        or value.get("program_exit_code") != 0
+        or value.get("cleanup_verified") is not True
+        or not isinstance(relay, list)
+        or len(relay) != MINISWE_MAX_STEPS
+        or any(
+            not isinstance(call, dict)
+            or call.get("call") != index
+            or call.get("status_code") != 200
+            or call.get("response_reasoning_present") is not True
+            or call.get("response_tool_calls") != 1
+            for index, call in enumerate(relay, start=1)
+        )
+        or not isinstance(trajectory, dict)
+        or trajectory.get("mini_version") != MINISWE_VERSION
+        or trajectory.get("api_calls") != MINISWE_MAX_STEPS
+        or trajectory.get("assistant_reasoning_messages") != MINISWE_MAX_STEPS
+        or trajectory.get("native_submit_marker_actions") != 1
+        or trajectory.get("exit_status") != "Submitted"
+    ):
+        raise DirectKimiCapacityError("capacity_miniswe_smoke_invalid")
+    return path, body
+
+
+def _validate_provider_context(path: Path) -> tuple[dict[str, Any], bytes]:
+    value, body = _strict_json_regular(
+        path,
+        "capacity_provider_context_invalid",
+        private=True,
+    )
+    if (
+        set(value)
+        != {
+            "schema_version",
+            "kind",
+            "state",
+            "provider_environment",
+            "effective_task_network",
+            "task_network",
+            "network_access",
+            "allow_dockerhub_fallback",
+            "provider_profile_sha256",
+            "provider_token_file_path_sha256",
+            "runtime_tunnel_receipt_sha256",
+            "runtime_resource_receipt_sha256",
+            "provider_context_contract_sha256",
+        }
+        or value.get("schema_version") != 1
+        or value.get("kind") != "sandoq-provider-context-snapshot"
+        or value.get("state") != "validated"
+        or value.get("provider_environment") != PROVIDER_ENVIRONMENT
+        or value.get("effective_task_network") != "public"
+        or value.get("task_network") != PROVIDER_TASK_NETWORK
+        or value.get("network_access") is not True
+        or value.get("allow_dockerhub_fallback") is not False
+        or value.get("provider_profile_sha256") != PROVIDER_PROFILE_SHA256
+        or value.get("runtime_tunnel_receipt_sha256") != RUNTIME_TUNNEL_RECEIPT_SHA256
+        or value.get("runtime_resource_receipt_sha256") != RUNTIME_RESOURCE_RECEIPT_SHA256
+        or any(
+            SHA256_RE.fullmatch(str(value.get(key, ""))) is None
+            for key in (
+                "provider_token_file_path_sha256",
+                "provider_context_contract_sha256",
+            )
+        )
+    ):
+        raise DirectKimiCapacityError("capacity_provider_context_invalid")
+    return value, body
+
+
 def _capacity_payload() -> bytes:
     return json.dumps(
         {
@@ -202,6 +455,64 @@ def _request(base_url: str, payload: bytes, session_id: str, timeout: float) -> 
     return _sha256_bytes(body)
 
 
+def _validate_capacity_config_value(config: object) -> dict[str, Any]:
+    if not isinstance(config, dict):
+        raise DirectKimiCapacityError("capacity_config_invalid")
+    client = config.get("client")
+    sampling = config.get("sampling")
+    taskset = config.get("taskset")
+    harness = config.get("harness")
+    runtime = harness.get("runtime") if isinstance(harness, dict) else None
+    retries = config.get("retries")
+    rollout_retries = retries.get("rollout") if isinstance(retries, dict) else None
+    if (
+        config.get("model") != EXPECTED_MODEL
+        or config.get("num_tasks") != CAPACITY
+        or config.get("num_rollouts") != 1
+        or config.get("max_concurrent") != CAPACITY
+        or config.get("max_turns") != MINISWE_MAX_STEPS
+        or any(
+            config.get(key) != MAX_SEQUENCE_TOKENS
+            for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens")
+        )
+        or config.get("multiplex") != CAPACITY
+        or config.get("rich") is not False
+        or config.get("retain_traces") is not False
+        or not isinstance(client, dict)
+        or client.get("type") != "eval"
+        or client.get("capture_model_io") is not True
+        or client.get("max_connections") != CAPACITY
+        or client.get("max_keepalive_connections") != CAPACITY
+        or client.get("max_retries") != 0
+        or not isinstance(sampling, dict)
+        or sampling.get("max_tokens") != MAX_GENERATION_TOKENS
+        or sampling.get("reasoning_effort") != "max"
+        or sampling.get("chat_template_kwargs") != {"enable_thinking": True, "preserve_thinking": True}
+        or not isinstance(taskset, dict)
+        or taskset.get("enable_compose") is not False
+        or taskset.get("verifier_runtime_retries") != 0
+        or not isinstance(harness, dict)
+        or harness.get("id") != "mini-swe-agent"
+        or harness.get("version") != MINISWE_VERSION
+        or harness.get("config_file") != "mini"
+        or harness.get("config_overrides") != list(MINISWE_OVERRIDES)
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+        or not isinstance(runtime, dict)
+        or runtime.get("type") != "sandoq"
+        or runtime.get("mode") != "oci-runner"
+        or runtime.get("network_access") is not True
+        or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
+        or runtime.get("tunnel_pool_size") != 4
+        or runtime.get("tunnel_ready_timeout") != 30
+        or runtime.get("expected_environment") != PROVIDER_ENVIRONMENT
+        or not isinstance(rollout_retries, dict)
+        or rollout_retries.get("max_retries") != 0
+    ):
+        raise DirectKimiCapacityError("capacity_config_invalid")
+    return config
+
+
 def _capacity_identity(run_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     from eval_run_identity import load_eval_run_identity
 
@@ -217,12 +528,20 @@ def _capacity_identity(run_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
     deployment = identity.get("deployment") if isinstance(identity, dict) else None
     router = deployment.get("router") if isinstance(deployment, dict) else None
     config = identity.get("config") if isinstance(identity, dict) else None
+    try:
+        resolved_config = tomllib.loads(
+            _read_regular(Path(str(config["resolved"]["path"])), maximum_bytes=1 << 20).decode()
+        )
+    except (KeyError, TypeError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise DirectKimiCapacityError("capacity_identity_invalid") from error
+    _validate_capacity_config_value(resolved_config)
     if (
         not isinstance(identity, dict)
         or identity.get("role") != KIMI_CAPACITY_SMOKE_ROLE
         or identity.get("contract", {}).get("model") != EXPECTED_MODEL
         or not isinstance(source, dict)
         or source.get("sandbox_provider") != "sandoq"
+        or source.get("verifiers_commit") != VERIFIERS_COMMIT
         or not isinstance(execution, dict)
         or execution.get("cleanup_must_succeed") is not True
         or any(
@@ -237,10 +556,19 @@ def _capacity_identity(run_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         or not isinstance(runtime, dict)
         or runtime.get("type") != "sandoq"
         or runtime.get("mode") != "oci-runner"
-        or runtime.get("network_access") is not False
-        or runtime.get("host_tunnel") != "none"
+        or runtime.get("network_access") is not True
+        or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
+        or runtime.get("tunnel_pool_size") != 4
+        or runtime.get("tunnel_ready_timeout") != 30
+        or runtime.get("expected_environment") != PROVIDER_ENVIRONMENT
         or not isinstance(environment, dict)
-        or environment.get("environment") != "oci-runner"
+        or environment.get("environment") != PROVIDER_ENVIRONMENT
+        or environment.get("task_network") != "public"
+        or environment.get("provider_task_network") != PROVIDER_TASK_NETWORK
+        or environment.get("allow_dockerhub_fallback") is not False
+        or environment.get("provider_profile_sha256") != PROVIDER_PROFILE_SHA256
+        or environment.get("miniswe_compatibility_receipt_sha256") != MINISWE_LIVE_SMOKE_RECEIPT_SHA256
         or environment.get("pool_size") != CAPACITY
         or environment.get("pool_min_size") != 0
         or not isinstance(deployment, dict)
@@ -363,54 +691,6 @@ def run_probe(
     return receipt
 
 
-def _network_policy(value: object, *, default: str, phase_override: bool = False) -> str:
-    if not isinstance(value, dict):
-        raise DirectKimiCapacityError("capacity_selector_policy_invalid")
-    declared = value.get("network_mode")
-    if declared is None:
-        if phase_override and "allowed_hosts" in value:
-            raise DirectKimiCapacityError("capacity_selector_policy_invalid")
-        if not phase_override and "allow_internet" in value:
-            allow = value["allow_internet"]
-            if not isinstance(allow, bool):
-                raise DirectKimiCapacityError("capacity_selector_policy_invalid")
-            declared = "public" if allow else "no-network"
-        else:
-            declared = default
-    if declared not in {"public", "no-network"} or value.get("allowed_hosts"):
-        raise DirectKimiCapacityError("capacity_selector_policy_invalid")
-    return str(declared)
-
-
-def _network_modes(metadata: object) -> tuple[str, str]:
-    if not isinstance(metadata, dict):
-        raise DirectKimiCapacityError("capacity_selector_policy_invalid")
-    environment = metadata.get("environment", {})
-    agent = metadata.get("agent", {})
-    verifier = metadata.get("verifier", {})
-    if not isinstance(verifier, dict):
-        raise DirectKimiCapacityError("capacity_selector_policy_invalid")
-    mode = verifier.get("environment_mode")
-    verifier_environment = verifier.get("environment")
-    if mode is None:
-        mode = "separate" if verifier_environment is not None else "shared"
-    if mode not in {"shared", "separate"}:
-        raise DirectKimiCapacityError("capacity_selector_policy_invalid")
-    baseline = _network_policy(environment, default="public")
-    agent_mode = _network_policy(agent, default=baseline, phase_override=True)
-    verifier_baseline = (
-        _network_policy(verifier_environment, default="public")
-        if mode == "separate" and verifier_environment is not None
-        else baseline
-    )
-    verifier_mode = _network_policy(verifier, default=verifier_baseline, phase_override=True)
-    if (baseline == "no-network" and agent_mode == "public") or (
-        verifier_baseline == "no-network" and verifier_mode == "public"
-    ):
-        raise DirectKimiCapacityError("capacity_selector_policy_invalid")
-    return agent_mode, verifier_mode
-
-
 def _expected_slugs(task_file: Path) -> set[str]:
     try:
         body = _read_regular(task_file).decode()
@@ -428,40 +708,40 @@ def _expected_slugs(task_file: Path) -> set[str]:
     return set(rows)
 
 
-def _selector_policy(dataset: Path, task_file: Path) -> dict[str, Any]:
-    expected = _expected_slugs(task_file)
-    if len(expected) != CAPACITY:
-        raise DirectKimiCapacityError("capacity_selector_invalid")
-    no_network = 0
-    compose = 0
-    for name in expected:
-        if not name or Path(name).name != name:
-            raise DirectKimiCapacityError("capacity_selector_invalid")
-        task_dir = dataset / name
-        metadata_path = task_dir / "task.toml"
-        try:
-            if task_dir.is_symlink() or not task_dir.is_dir() or metadata_path.is_symlink():
-                raise DirectKimiCapacityError("capacity_selector_invalid")
-            metadata = tomllib.loads(_read_regular(metadata_path, maximum_bytes=1 << 20).decode())
-        except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
-            raise DirectKimiCapacityError("capacity_selector_invalid") from error
-        if _network_modes(metadata) != ("no-network", "no-network"):
-            raise DirectKimiCapacityError("capacity_selector_network_invalid")
-        no_network += 1
-        environment = task_dir / "environment"
-        compose += any((environment / filename).is_file() for filename in COMPOSE_FILENAMES)
-    if compose:
-        raise DirectKimiCapacityError("capacity_selector_compose_invalid")
-    return {
-        "task_count": len(expected),
-        "agent_no_network_count": no_network,
-        "verifier_no_network_count": no_network,
-        "compose_task_count": compose,
-        "selection_scope": "operator-approved-non-sensitive",
-    }
+def _tool_exit_observations(traces: Any) -> tuple[int, int, int]:
+    total = 0
+    successful = 0
+    for trace in traces:
+        nodes = trace.get("nodes") if isinstance(trace, dict) else None
+        if not isinstance(nodes, list):
+            continue
+        for node in nodes:
+            message = node.get("message") if isinstance(node, dict) else None
+            if not isinstance(message, dict) or message.get("role") != "tool":
+                continue
+            total += 1
+            content = message.get("content")
+            try:
+                observation = json.loads(content) if isinstance(content, str) else None
+            except json.JSONDecodeError:
+                observation = None
+            if (
+                isinstance(observation, dict)
+                and type(observation.get("returncode")) is int
+                and observation["returncode"] == 0
+                and not observation.get("exception_info")
+            ):
+                successful += 1
+    return total, successful, total - successful
 
 
-def materialize_config(template: Path, task_file: Path, output: Path) -> dict[str, Any]:
+def materialize_config(
+    template: Path,
+    task_file: Path,
+    capacity_selector_receipt: Path,
+    capacity_selector_receipt_sha256: str,
+    output: Path,
+) -> dict[str, Any]:
     try:
         task_metadata = task_file.resolve(strict=True).lstat()
     except OSError as error:
@@ -477,6 +757,13 @@ def materialize_config(template: Path, task_file: Path, output: Path) -> dict[st
         raise DirectKimiCapacityError("capacity_selector_invalid")
     task_body = _read_regular(task_file)
     task_sha256 = _sha256_bytes(task_body)
+    if len(_expected_slugs(task_file)) != CAPACITY:
+        raise DirectKimiCapacityError("capacity_selector_invalid")
+    _selector_receipt, selector_receipt_body = _validate_capacity_selector_receipt(
+        capacity_selector_receipt,
+        capacity_selector_receipt_sha256,
+        selector_sha256=task_sha256,
+    )
     try:
         template_body = _read_regular(template, maximum_bytes=1 << 20)
         text = template_body.decode()
@@ -492,8 +779,6 @@ def materialize_config(template: Path, task_file: Path, output: Path) -> dict[st
         or output.is_symlink()
     ):
         raise DirectKimiCapacityError("capacity_template_invalid")
-    dataset = Path(str(taskset.get("dataset_dir", "")))
-    policy = _selector_policy(dataset, task_file)
     escaped_task_file = json.dumps(str(task_file), ensure_ascii=False)[1:-1]
     rendered = text.replace(TASK_FILE_PLACEHOLDER, escaped_task_file).replace(
         TASK_SHA256_PLACEHOLDER,
@@ -511,11 +796,13 @@ def materialize_config(template: Path, task_file: Path, output: Path) -> dict[st
         or rendered_value.get("num_tasks") != CAPACITY
     ):
         raise DirectKimiCapacityError("capacity_template_invalid")
+    _validate_capacity_config_value(rendered_value)
     _atomic_write(output, rendered.encode(), exclusive=True)
     return {
         "config_sha256": _sha256_bytes(rendered.encode()),
         "task_file_sha256": task_sha256,
-        **policy,
+        "task_count": CAPACITY,
+        "selector_receipt_sha256": _sha256_bytes(selector_receipt_body),
     }
 
 
@@ -626,6 +913,8 @@ def certify_capacity(
     run_dir: Path,
     expected_task_file: Path,
     expected_task_file_sha256: str,
+    capacity_selector_receipt: Path,
+    capacity_selector_receipt_sha256: str,
     capacity_probe: Path,
     output: Path,
 ) -> dict[str, Any]:
@@ -651,7 +940,26 @@ def certify_capacity(
             or task_record.get("count") != CAPACITY
         ):
             raise DirectKimiCapacityError("capacity_selector_invalid")
-        selector_policy = _selector_policy(Path(identity["dataset"]["path"]), expected_task_file)
+        _selector_receipt, selector_receipt_body = _validate_capacity_selector_receipt(
+            capacity_selector_receipt,
+            capacity_selector_receipt_sha256,
+            selector_sha256=expected_task_file_sha256,
+        )
+        provider_profile_path, provider_profile_body = _validate_provider_profile()
+        _runtime_tunnel_receipt, runtime_tunnel_body = _strict_json_regular(
+            RUNTIME_TUNNEL_RECEIPT,
+            "capacity_runtime_tunnel_receipt_invalid",
+            expected_sha256=RUNTIME_TUNNEL_RECEIPT_SHA256,
+            private=True,
+        )
+        _runtime_resource_receipt, runtime_resource_body = _strict_json_regular(
+            RUNTIME_RESOURCE_RECEIPT,
+            "capacity_runtime_resource_receipt_invalid",
+            expected_sha256=RUNTIME_RESOURCE_RECEIPT_SHA256,
+            private=True,
+        )
+        live_smoke_path, live_smoke_body = _validate_miniswe_live_smoke()
+        _provider_context, provider_context_body = _validate_provider_context(run_dir / PROVIDER_CONTEXT_FILENAME)
 
         manifest_record = identity["deployment"]["worker_manifest"]
         try:
@@ -697,7 +1005,15 @@ def certify_capacity(
             max_sequence_tokens=MAX_SEQUENCE_TOKENS,
             require_clean_stop=False,
         )
-        if failed or summary.get("model_io_turns", 0) < CAPACITY or summary.get("sampled_tokens", 0) < CAPACITY:
+        tool_observations, successful_tool_exits, nonzero_tool_exits = _tool_exit_observations(_iter_traces(results))
+        if (
+            failed
+            or summary.get("model_io_turns", 0) < CAPACITY
+            or summary.get("sampled_tokens", 0) < CAPACITY
+            or tool_observations < CAPACITY
+            or successful_tool_exits != tool_observations
+            or nonzero_tool_exits != 0
+        ):
             raise DirectKimiCapacityError("capacity_trace_audit_failed")
 
         cleanup, cleanup_body = _validate_cleanup(
@@ -726,6 +1042,12 @@ def certify_capacity(
             "config_source": _artifact(Path(config["source"]["path"])),
             "config_resolved": _artifact(Path(config["resolved"]["path"])),
             "task_file": _artifact(Path(task_record["path"])),
+            "capacity_selector_receipt": _artifact(capacity_selector_receipt),
+            "provider_profile": _artifact(provider_profile_path),
+            "provider_context": _artifact(run_dir / PROVIDER_CONTEXT_FILENAME),
+            "runtime_tunnel_receipt": _artifact(RUNTIME_TUNNEL_RECEIPT),
+            "runtime_resource_receipt": _artifact(RUNTIME_RESOURCE_RECEIPT),
+            "miniswe_live_smoke_receipt": _artifact(live_smoke_path),
             "worker_manifest": _artifact(Path(manifest_record["path"])),
             "capacity_probe": _artifact(capacity_probe, published=True),
             "router_receipt": _artifact(run_dir / "direct_kimi_router_final.json", published=True),
@@ -745,6 +1067,7 @@ def certify_capacity(
             "source": {
                 "prime_rl_commit": source["prime_rl_commit"],
                 "prime_rl_tree_sha256": source["prime_rl_tree_sha256"],
+                "verifiers_commit": source["verifiers_commit"],
                 "router_implementation_sha256": manifest["router"]["implementation_sha256"],
                 "sandoq_provider_commit": source["sandoq_provider_commit"],
                 "sandoq_provider_tree": source["sandoq_provider_tree"],
@@ -754,8 +1077,34 @@ def certify_capacity(
                 "resolved_sha256": config["resolved"]["sha256"],
             },
             "selection": {
-                "task_file_sha256": expected_task_file_sha256,
-                **selector_policy,
+                "task_count": CAPACITY,
+                "selector_sha256": expected_task_file_sha256,
+                "selector_receipt_sha256": _sha256_bytes(selector_receipt_body),
+            },
+            "runtime": {
+                "harness": {
+                    "id": "mini-swe-agent",
+                    "version": MINISWE_VERSION,
+                    "max_steps": MINISWE_MAX_STEPS,
+                },
+                "sandbox": {
+                    "environment": PROVIDER_ENVIRONMENT,
+                    "task_network": PROVIDER_TASK_NETWORK,
+                    "effective_task_network": "public",
+                    "network_access": True,
+                    "host_tunnel": "sandoq",
+                    "guest_tunnel_url": "http://127.0.0.1:8485",
+                    "tunnel_pool_size": 4,
+                    "provider_profile_sha256": _sha256_bytes(provider_profile_body),
+                    "provider_context_sha256": _sha256_bytes(provider_context_body),
+                    "runtime_tunnel_receipt_sha256": _sha256_bytes(runtime_tunnel_body),
+                    "runtime_resource_receipt_sha256": _sha256_bytes(runtime_resource_body),
+                },
+                "compatibility": {
+                    "kind": MINISWE_LIVE_SMOKE_KIND,
+                    "receipt_sha256": _sha256_bytes(live_smoke_body),
+                    "evidence_scope": "relay-reasoning-native-submission-only",
+                },
             },
             "router": {
                 "policy": POLICY,
@@ -795,6 +1144,9 @@ def certify_capacity(
                 "sampled_tokens": summary["sampled_tokens"],
                 "trace_failures": summary["trace_failures"],
                 "global_problem_count": len(summary["global_problems"]),
+                "tool_observations": tool_observations,
+                "successful_tool_exits": successful_tool_exits,
+                "nonzero_tool_exits": nonzero_tool_exits,
                 "results_sha256": results_sha256,
             },
             "artifacts": artifacts,
@@ -841,6 +1193,7 @@ def validate_capacity_certificate(
         "source",
         "config",
         "selection",
+        "runtime",
         "router",
         "probe",
         "sandoq",
@@ -856,6 +1209,7 @@ def validate_capacity_certificate(
     source = value.get("source")
     config = value.get("config")
     selection = value.get("selection")
+    runtime = value.get("runtime")
     router = value.get("router")
     probe = value.get("probe")
     sandoq = value.get("sandoq")
@@ -876,6 +1230,7 @@ def validate_capacity_certificate(
         or not isinstance(source, dict)
         or not isinstance(config, dict)
         or not isinstance(selection, dict)
+        or not isinstance(runtime, dict)
         or not isinstance(router, dict)
         or not isinstance(probe, dict)
         or not isinstance(sandoq, dict)
@@ -883,15 +1238,13 @@ def validate_capacity_certificate(
         or not isinstance(artifacts, dict)
     ):
         raise DirectKimiCapacityError("capacity_certificate_invalid")
+    runtime_harness = runtime.get("harness")
+    runtime_sandbox = runtime.get("sandbox")
+    runtime_compatibility = runtime.get("compatibility")
     integer_fields = (
         (
             selection,
-            (
-                "task_count",
-                "agent_no_network_count",
-                "verifier_no_network_count",
-                "compose_task_count",
-            ),
+            ("task_count",),
         ),
         (
             router,
@@ -931,6 +1284,9 @@ def validate_capacity_certificate(
                 "sampled_tokens",
                 "trace_failures",
                 "global_problem_count",
+                "tool_observations",
+                "successful_tool_exits",
+                "nonzero_tool_exits",
             ),
         ),
     )
@@ -941,11 +1297,13 @@ def validate_capacity_certificate(
         != {
             "prime_rl_commit",
             "prime_rl_tree_sha256",
+            "verifiers_commit",
             "router_implementation_sha256",
             "sandoq_provider_commit",
             "sandoq_provider_tree",
         }
         or re.fullmatch(r"[0-9a-f]{40}", str(source.get("prime_rl_commit", ""))) is None
+        or source.get("verifiers_commit") != VERIFIERS_COMMIT
         or SHA256_RE.fullmatch(str(source.get("prime_rl_tree_sha256", ""))) is None
         or SHA256_RE.fullmatch(str(source.get("router_implementation_sha256", ""))) is None
         or re.fullmatch(r"[0-9a-f]{40}", str(source.get("sandoq_provider_commit", ""))) is None
@@ -954,15 +1312,43 @@ def validate_capacity_certificate(
         or any(SHA256_RE.fullmatch(str(config.get(key, ""))) is None for key in config)
         or set(selection)
         != {
-            "task_file_sha256",
             "task_count",
-            "agent_no_network_count",
-            "verifier_no_network_count",
-            "compose_task_count",
-            "selection_scope",
+            "selector_sha256",
+            "selector_receipt_sha256",
         }
-        or SHA256_RE.fullmatch(str(selection.get("task_file_sha256", ""))) is None
-        or selection.get("selection_scope") != "operator-approved-non-sensitive"
+        or any(
+            SHA256_RE.fullmatch(str(selection.get(key, ""))) is None
+            for key in ("selector_sha256", "selector_receipt_sha256")
+        )
+        or set(runtime) != {"harness", "sandbox", "compatibility"}
+        or runtime_harness
+        != {
+            "id": "mini-swe-agent",
+            "version": MINISWE_VERSION,
+            "max_steps": MINISWE_MAX_STEPS,
+        }
+        or not isinstance(runtime_sandbox, dict)
+        or runtime_sandbox
+        != {
+            "environment": PROVIDER_ENVIRONMENT,
+            "task_network": PROVIDER_TASK_NETWORK,
+            "effective_task_network": "public",
+            "network_access": True,
+            "host_tunnel": "sandoq",
+            "guest_tunnel_url": "http://127.0.0.1:8485",
+            "tunnel_pool_size": 4,
+            "provider_profile_sha256": PROVIDER_PROFILE_SHA256,
+            "provider_context_sha256": runtime_sandbox.get("provider_context_sha256"),
+            "runtime_tunnel_receipt_sha256": RUNTIME_TUNNEL_RECEIPT_SHA256,
+            "runtime_resource_receipt_sha256": RUNTIME_RESOURCE_RECEIPT_SHA256,
+        }
+        or SHA256_RE.fullmatch(str(runtime_sandbox.get("provider_context_sha256", ""))) is None
+        or runtime_compatibility
+        != {
+            "kind": MINISWE_LIVE_SMOKE_KIND,
+            "receipt_sha256": MINISWE_LIVE_SMOKE_RECEIPT_SHA256,
+            "evidence_scope": "relay-reasoning-native-submission-only",
+        }
         or set(router)
         != {
             "policy",
@@ -1001,6 +1387,9 @@ def validate_capacity_certificate(
             "sampled_tokens",
             "trace_failures",
             "global_problem_count",
+            "tool_observations",
+            "successful_tool_exits",
+            "nonzero_tool_exits",
             "results_sha256",
         }
         or SHA256_RE.fullmatch(str(traces.get("results_sha256", ""))) is None
@@ -1011,6 +1400,12 @@ def validate_capacity_certificate(
             "config_source",
             "config_resolved",
             "task_file",
+            "capacity_selector_receipt",
+            "provider_profile",
+            "provider_context",
+            "runtime_tunnel_receipt",
+            "runtime_resource_receipt",
+            "miniswe_live_smoke_receipt",
             "worker_manifest",
             "capacity_probe",
             "router_receipt",
@@ -1061,21 +1456,27 @@ def validate_capacity_certificate(
             )
         )
         or selection.get("task_count") != CAPACITY
-        or selection.get("agent_no_network_count") != CAPACITY
-        or selection.get("verifier_no_network_count") != CAPACITY
-        or selection.get("compose_task_count") != 0
         or traces.get("count") != CAPACITY
         or traces["model_io_turns"] < CAPACITY
         or traces["sampled_tokens"] < CAPACITY
         or traces.get("trace_failures") != 0
         or traces.get("global_problem_count") != 0
+        or traces.get("tool_observations", 0) < CAPACITY
+        or traces.get("successful_tool_exits") != traces.get("tool_observations")
+        or traces.get("nonzero_tool_exits") != 0
     ):
         raise DirectKimiCapacityError("capacity_certificate_not_qualified")
     cross_bindings = {
         "results": traces["results_sha256"],
         "config_source": config["source_sha256"],
         "config_resolved": config["resolved_sha256"],
-        "task_file": selection["task_file_sha256"],
+        "task_file": selection["selector_sha256"],
+        "capacity_selector_receipt": selection["selector_receipt_sha256"],
+        "provider_profile": runtime_sandbox["provider_profile_sha256"],
+        "provider_context": runtime_sandbox["provider_context_sha256"],
+        "runtime_tunnel_receipt": runtime_sandbox["runtime_tunnel_receipt_sha256"],
+        "runtime_resource_receipt": runtime_sandbox["runtime_resource_receipt_sha256"],
+        "miniswe_live_smoke_receipt": runtime_compatibility["receipt_sha256"],
         "worker_manifest": value["worker_manifest_sha256"],
         "capacity_probe": probe["receipt_sha256"],
         "cleanup_audit": sandoq["cleanup_audit_sha256"],
@@ -1090,6 +1491,21 @@ def validate_capacity_certificate(
             raise DirectKimiCapacityError("capacity_certificate_artifact_changed")
     if any(artifacts[name]["sha256"] != digest for name, digest in cross_bindings.items()):
         raise DirectKimiCapacityError("capacity_certificate_binding_mismatch")
+    _validate_capacity_selector_receipt(
+        Path(artifacts["capacity_selector_receipt"]["path"]),
+        artifacts["capacity_selector_receipt"]["sha256"],
+        selector_sha256=selection["selector_sha256"],
+    )
+    provider_profile_path, _provider_profile_body = _validate_provider_profile()
+    live_smoke_path, _live_smoke_body = _validate_miniswe_live_smoke()
+    if (
+        artifacts["provider_profile"]["path"] != str(provider_profile_path)
+        or artifacts["runtime_tunnel_receipt"]["path"] != str(RUNTIME_TUNNEL_RECEIPT)
+        or artifacts["runtime_resource_receipt"]["path"] != str(RUNTIME_RESOURCE_RECEIPT)
+        or artifacts["miniswe_live_smoke_receipt"]["path"] != str(live_smoke_path)
+    ):
+        raise DirectKimiCapacityError("capacity_certificate_binding_mismatch")
+    _validate_provider_context(Path(artifacts["provider_context"]["path"]))
     return {**value, "capacity_certificate_payload_sha256": payload_sha256}
 
 
@@ -1099,6 +1515,8 @@ def main() -> int:
     materialize = commands.add_parser("materialize-config")
     materialize.add_argument("--template", type=Path, required=True)
     materialize.add_argument("--task-file", type=Path, required=True)
+    materialize.add_argument("--capacity-selector-receipt", type=Path, required=True)
+    materialize.add_argument("--capacity-selector-receipt-sha256", required=True)
     materialize.add_argument("--output", type=Path, required=True)
     probe = commands.add_parser("probe")
     probe.add_argument("--run-dir", type=Path, required=True)
@@ -1110,6 +1528,8 @@ def main() -> int:
     certify.add_argument("--run-dir", type=Path, required=True)
     certify.add_argument("--expected-task-file", type=Path, required=True)
     certify.add_argument("--expected-task-file-sha256", required=True)
+    certify.add_argument("--capacity-selector-receipt", type=Path, required=True)
+    certify.add_argument("--capacity-selector-receipt-sha256", required=True)
     certify.add_argument("--capacity-probe", type=Path, required=True)
     certify.add_argument("--output", type=Path, required=True)
     verify = commands.add_parser("verify")
@@ -1122,13 +1542,18 @@ def main() -> int:
     args = parser.parse_args()
     try:
         if args.command == "materialize-config":
-            result = materialize_config(args.template, args.task_file, args.output)
+            result = materialize_config(
+                args.template,
+                args.task_file,
+                args.capacity_selector_receipt,
+                args.capacity_selector_receipt_sha256,
+                args.output,
+            )
             summary = {
-                "agent_no_network_count": result["agent_no_network_count"],
                 "config_sha256": result["config_sha256"],
+                "selector_receipt_sha256": result["selector_receipt_sha256"],
                 "state": "prepared",
                 "task_count": result["task_count"],
-                "verifier_no_network_count": result["verifier_no_network_count"],
             }
         elif args.command == "probe":
             result = run_probe(
@@ -1148,6 +1573,8 @@ def main() -> int:
                 args.run_dir,
                 args.expected_task_file,
                 args.expected_task_file_sha256,
+                args.capacity_selector_receipt,
+                args.capacity_selector_receipt_sha256,
                 args.capacity_probe,
                 args.output,
             )

@@ -33,11 +33,13 @@ from terminal_bench_vmvm.sandoq_provider_context import (
     provider_context_is_active,
 )
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 4
 DEFAULT_IMAGE = "docker.io/library/python@sha256:da047cb8f9d1d98e5c070f5300ba9f7274e33b8fc0e5be5ed88740aed1b95ba9"
 EXPECTED_PROVIDER_TOKEN_FILE = Path("/home/tianhaowu/.config/oci-runner/firecracker-token")
-EXPECTED_PROVIDER_PROFILE_SHA256 = "53e0311216e1b27988b960a782188c5794ed941b9380cba1fbd0f29a67149a93"
-EXPECTED_RUNTIME_SMOKE_SHA256 = "1e5d92d346894a0b8e29a1029278de4a0d4257a529862de87e8715f03dd152bf"
+EXPECTED_PROVIDER_PROFILE_SHA256 = "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df"
+EXPECTED_RUNTIME_RESOURCE_RECEIPT_SHA256 = "ce3fc3ed2ead1aaf8c71fc35e5dae324f1be9d51b4e7fffff7bc99d1a47adbf6"
+EXPECTED_RUNTIME_TUNNEL_RECEIPT_SHA256 = "39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276"
+EXPECTED_MINISWE_COMPATIBILITY_SHA256 = "cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220"
 _DIGEST_IMAGE_RE = re.compile(r"[^\s@]+@sha256:[0-9a-f]{64}")
 
 
@@ -97,14 +99,14 @@ async def run_probe(
         not provider_context_is_active(os.environ)
         or os.environ.get("SANDOQ_PROVIDER_CONTEXT_ACTIVE") != "1"
         or os.environ.get("OCI_RUNNER_ENVIRONMENT") != FIRECRACKER_ENVIRONMENT
-        or os.environ.get("SANDOQ_EFFECTIVE_TASK_NETWORK") != "none"
-        or os.environ.get("OCI_RUNNER_TASK_NETWORK") != "none"
+        or os.environ.get("SANDOQ_EFFECTIVE_TASK_NETWORK") != "public"
+        or os.environ.get("OCI_RUNNER_TASK_NETWORK") != "host"
         or os.environ.get("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK") != "0"
         or provider_token_file != EXPECTED_PROVIDER_TOKEN_FILE
-        or os.environ.get("SANDOQ_PROVIDER_PROFILE_SHA256")
-        != EXPECTED_PROVIDER_PROFILE_SHA256
-        or os.environ.get("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256")
-        != EXPECTED_RUNTIME_SMOKE_SHA256
+        or os.environ.get("SANDOQ_PROVIDER_PROFILE_SHA256") != EXPECTED_PROVIDER_PROFILE_SHA256
+        or os.environ.get("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256") != EXPECTED_RUNTIME_TUNNEL_RECEIPT_SHA256
+        or os.environ.get("SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256") != EXPECTED_RUNTIME_RESOURCE_RECEIPT_SHA256
+        or os.environ.get("KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256") != EXPECTED_MINISWE_COMPATIBILITY_SHA256
         or os.environ.get("SANDOQ_LEASE_PROFILE") != "kimi-tb4-long"
         or os.environ.get("OCI_RUNNER_LEASE_DURATION") != "12h"
         or os.environ.get("OCI_RUNNER_POOL_RENEW_INTERVAL") != "5m"
@@ -116,10 +118,13 @@ async def run_probe(
         context_receipt = _load_receipt(Path(os.environ[CONTEXT_RECEIPT]))
     except (KeyError, OSError, ProviderContextError, ValueError) as error:
         raise RecoveryProbeError("probe_provider_context_invalid") from error
-    if re.fullmatch(
-        r"[0-9a-f]{64}",
-        str(context_receipt.get("contract_sha256", "")),
-    ) is None:
+    if (
+        re.fullmatch(
+            r"[0-9a-f]{64}",
+            str(context_receipt.get("contract_sha256", "")),
+        )
+        is None
+    ):
         raise RecoveryProbeError("probe_provider_context_invalid")
 
     sandbox_client = client or OCIRunnerAsyncSandboxClient()
@@ -235,10 +240,14 @@ async def run_probe(
         "renewal_interval": "5m",
         "recovery_policy": "definitive-404-410-single-replay-v1",
         "provider_environment": FIRECRACKER_ENVIRONMENT,
-        "task_network": "none",
+        "task_network": "host",
+        "network_access": True,
+        "host_tunnel": "sandoq",
         "provider_token_file_path_sha256": hashlib.sha256(str(provider_token_file).encode()).hexdigest(),
         "provider_profile_sha256": EXPECTED_PROVIDER_PROFILE_SHA256,
-        "runtime_smoke_receipt_sha256": EXPECTED_RUNTIME_SMOKE_SHA256,
+        "runtime_tunnel_receipt_sha256": EXPECTED_RUNTIME_TUNNEL_RECEIPT_SHA256,
+        "runtime_resource_receipt_sha256": EXPECTED_RUNTIME_RESOURCE_RECEIPT_SHA256,
+        "miniswe_compatibility_receipt_sha256": EXPECTED_MINISWE_COMPATIBILITY_SHA256,
         "provider_context_contract_sha256": context_receipt["contract_sha256"],
         "outer_cleanup_verified": True,
         "duration_seconds": round(time.monotonic() - started, 3),

@@ -173,17 +173,34 @@ if [[ "$role" == kimi-direct-tb4 || "$role" == kimi-direct-tb4-diagnostic \
     expected_managed_shell_recovery=1
     managed_shell_recovery_policy=definitive-404-410-single-replay-v1
 fi
+native_miniswe=0
+if [[ "$sandbox_provider" == sandoq \
+    && "${OCI_RUNNER_ENVIRONMENT:-}" == oci-runner-firecracker ]]; then
+    native_miniswe=1
+fi
+if [[ "$native_miniswe" == 1 ]] \
+    && [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-capacity-smoke && "$role" != kimi-direct-tb4 ]]; then
+    printf 'Native MiniSWE Sandoq context is not approved for this stage role\n' >&2
+    exit 2
+fi
 if [[ "$sandbox_provider" == sandoq ]] \
     && [[ ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} != 1 \
         || -z ${SANDOQ_PROVIDER_CONTEXT_RECEIPT:-} \
-        || "$OCI_RUNNER_ENVIRONMENT" != oci-runner \
         || "$SANDOQ_EFFECTIVE_TASK_NETWORK" != public \
         || "$SANDOQ_LEASE_PROFILE" != "$expected_sandoq_lease_profile" \
         || "$OCI_RUNNER_LEASE_DURATION" != "$expected_sandoq_lease_duration" \
         || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m \
         || "$OCI_RUNNER_MANAGED_SHELL_RECOVERY" != "$expected_managed_shell_recovery" \
-        || -n ${OCI_RUNNER_TASK_NETWORK:-} ]]; then
-    printf 'Direct Kimi stage requires the sealed public-network Sandoq context\n' >&2
+        || ( "$native_miniswe" == 1 && "$OCI_RUNNER_ENVIRONMENT" != oci-runner-firecracker ) \
+        || ( "$native_miniswe" == 1 && "${OCI_RUNNER_TASK_NETWORK:-}" != host ) \
+        || ( "$native_miniswe" == 1 && "${OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK:-}" != 0 ) \
+        || ( "$native_miniswe" == 1 && "${SANDOQ_PROVIDER_PROFILE_SHA256:-}" != 7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df ) \
+        || ( "$native_miniswe" == 1 && "${SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256:-}" != 39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276 ) \
+        || ( "$native_miniswe" == 1 && "${SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256:-}" != ce3fc3ed2ead1aaf8c71fc35e5dae324f1be9d51b4e7fffff7bc99d1a47adbf6 ) \
+        || ( "$native_miniswe" == 1 && "${DIRECT_KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256:-}" != cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220 ) \
+        || ( "$native_miniswe" == 0 && "$OCI_RUNNER_ENVIRONMENT" != oci-runner ) \
+        || ( "$native_miniswe" == 0 && -n ${OCI_RUNNER_TASK_NETWORK:-} ) ]]; then
+    printf 'Direct Kimi stage requires its exact sealed Sandoq context\n' >&2
     exit 2
 fi
 if [[ "$(git -C "$project_dir" rev-parse HEAD)" != "$expected_revision" \
@@ -194,7 +211,7 @@ if [[ "$(git -C "$project_dir" rev-parse HEAD)" != "$expected_revision" \
     exit 2
 fi
 if [[ "$(git -C "$project_dir/deps/verifiers" rev-parse HEAD)" \
-    != 80e58e7e2b194e9c1b8dc0990c00b7a839127eea ]]; then
+    != 30b766ac6a2d186297e9dc684a9850c24e933de3 ]]; then
     printf 'Direct Kimi stage requires the approved Verifiers revision\n' >&2
     exit 2
 fi
@@ -226,6 +243,13 @@ fi
 mkdir -p "$output_dir/control"
 chmod 0700 "$output_dir" "$output_dir/control"
 export PRIME_RL_OUTPUT_DIR="$output_dir"
+if [[ "$native_miniswe" == 1 ]]; then
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py" snapshot \
+        --receipt "$SANDOQ_PROVIDER_CONTEXT_RECEIPT" \
+        --output "$output_dir/sandoq-provider-context.json" >/dev/null \
+        || blocked provider_context_snapshot_invalid
+fi
 if [[ "$sandbox_provider" == sandoq ]]; then
     pool_socket_dir="${SLURM_TMPDIR:-/tmp}/oci-runner-pool-${UID}"
     mkdir -p "$pool_socket_dir"
@@ -379,6 +403,12 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         loopback) sandoq_transport_proxy_policy=official-client-supervised-loopback-connect-proxy ;;
         *) printf 'Direct Kimi Sandoq transport mode is invalid\n' >&2; exit 2 ;;
     esac
+    sandoq_tunnel_policy=host-interception-no-tunnel
+    sandoq_allow_dockerhub_fallback=1
+    if [[ "$native_miniswe" == 1 ]]; then
+        sandoq_tunnel_policy=native-sandoq-reverse-tunnel
+        sandoq_allow_dockerhub_fallback=0
+    fi
     identity_args+=(
         --sandoq-provider-commit 4890302104d76220cef791c86d2009168597d35f
         --sandoq-provider-tree 33f092a3982916660e12f472588e6ce34a906fc2
@@ -390,7 +420,7 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         --sandoq-task-network "$SANDOQ_EFFECTIVE_TASK_NETWORK"
         --sandoq-pool-size "$OCI_RUNNER_POOL_SIZE"
         --sandoq-pool-min-size "$OCI_RUNNER_POOL_MIN_SIZE"
-        --sandoq-tunnel-policy host-interception-no-tunnel
+        --sandoq-tunnel-policy "$sandoq_tunnel_policy"
         --sandoq-base-url "$OCI_RUNNER_BASE_URL"
         --sandoq-owner "$SANDOQ_OWNER"
         --sandoq-transport-proxy-policy "$sandoq_transport_proxy_policy"
@@ -402,7 +432,7 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         --sandoq-ecr-region "$OCI_RUNNER_ECR_REGION"
         --sandoq-ecr-pull-through-prefix "$OCI_RUNNER_ECR_PULL_THROUGH_PREFIX"
         --sandoq-ecr-token-file "$OCI_RUNNER_ECR_TOKEN_FILE"
-        --sandoq-allow-dockerhub-fallback 1
+        --sandoq-allow-dockerhub-fallback "$sandoq_allow_dockerhub_fallback"
         --sandoq-create-deadline "$OCI_RUNNER_CREATE_DEADLINE"
         --sandoq-pull-timeout "$OCI_RUNNER_PULL_TIMEOUT"
         --sandoq-pull-poll-max-errors "$OCI_RUNNER_PULL_POLL_MAX_ERRORS"
@@ -526,9 +556,11 @@ if ! flock -n 9; then
     exit 2
 fi
 export OPENAI_API_KEY=EMPTY
+eval_log="$output_dir/control/evaluator.private.log"
 set +e
 "$x86_uv" run --no-project --offline --python "$python_bin" \
-    python3 -c 'from verifiers.v1.cli.eval.main import main; main()' --resume "$output_dir"
+    python3 -c 'from verifiers.v1.cli.eval.main import main; main()' --resume "$output_dir" \
+    >"$eval_log" 2>&1
 eval_status=$?
 set -e
 cleanup_status=0

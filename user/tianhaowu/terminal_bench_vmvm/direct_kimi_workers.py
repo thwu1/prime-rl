@@ -49,6 +49,8 @@ MAX_RUN_BINDING_BYTES = 2 * 1024 * 1024
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 GENERATION_MARKER_NAME = ".direct_kimi_generation.complete"
 GENERATION_MARKER_KIND = "direct-kimi-generation-publication"
+SOURCE_SNAPSHOT_MARKER_NAME = ".direct_kimi_source_snapshot.complete"
+SOURCE_SNAPSHOT_MARKER_KIND = "direct-kimi-source-snapshot-publication"
 FILE_MARKER_KIND = "direct-kimi-file-publication"
 GENERATION_MANIFEST_NAME = "direct_kimi_workers.json"
 GENERATION_URLS_NAME = "worker_urls.private.txt"
@@ -58,6 +60,7 @@ GENERATION_FILE_NAMES = {
     GENERATION_URLS_NAME,
     GENERATION_PORTS_NAME,
 }
+SOURCE_SNAPSHOT_FILE_NAMES = {"spec.yaml", "proxy_litellm_config.yaml"}
 
 
 class DirectKimiWorkerError(ValueError):
@@ -422,6 +425,68 @@ def load_workers(
     workers.sort(key=lambda worker: worker.backend_sha256)
     endpoint_bundle_sha256 = _sha256_bytes("".join(f"{worker.backend_sha256}\n" for worker in workers).encode())
     return workers, EXPECTED_SPEC_SHA256, EXPECTED_PROXY_CONFIG_SHA256, endpoint_bundle_sha256
+
+
+def _read_exact_snapshot_input(path: Path, expected_sha256: str) -> bytes:
+    """Read one mutable deployment source only when its exact bytes are pinned."""
+
+    absolute = _absolute_path(path, code="source_snapshot_invalid")
+    try:
+        descriptor = os.open(absolute, os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0))
+    except OSError as error:
+        raise DirectKimiWorkerError("source_snapshot_invalid") from error
+    try:
+        before = os.fstat(descriptor)
+        body = bytearray()
+        while chunk := os.read(descriptor, 1 << 20):
+            body.extend(chunk)
+            if len(body) > MAX_CONFIG_BYTES:
+                raise DirectKimiWorkerError("source_snapshot_invalid")
+        after = os.fstat(descriptor)
+        visible = absolute.lstat()
+    finally:
+        os.close(descriptor)
+    if (
+        not stat.S_ISREG(before.st_mode)
+        or before.st_nlink != 1
+        or _stat_identity(before) != _stat_identity(after)
+        or _stat_identity(after) != _stat_identity(visible)
+        or len(body) != after.st_size
+        or _sha256_bytes(bytes(body)) != expected_sha256
+    ):
+        raise DirectKimiWorkerError("source_snapshot_invalid")
+    return bytes(body)
+
+
+def materialize_source_snapshot(deployment_root: Path, output_root: Path) -> dict[str, str]:
+    """Publish a private exact-hash snapshot without weakening live-source checks."""
+
+    source = _absolute_path(deployment_root, code="source_snapshot_invalid")
+    output = _absolute_path(output_root, code="output_parent_invalid")
+    if source == output or source.is_relative_to(output) or output.is_relative_to(source):
+        raise DirectKimiWorkerError("source_snapshot_invalid")
+    files = {
+        "spec.yaml": _read_exact_snapshot_input(source / "spec.yaml", EXPECTED_SPEC_SHA256),
+        "proxy_litellm_config.yaml": _read_exact_snapshot_input(
+            source / "proxy_litellm_config.yaml",
+            EXPECTED_PROXY_CONFIG_SHA256,
+        ),
+    }
+    _publish_marked_bundle(
+        output,
+        files,
+        marker_name=SOURCE_SNAPSHOT_MARKER_NAME,
+        kind=SOURCE_SNAPSHOT_MARKER_KIND,
+    )
+    workers, spec_sha256, proxy_sha256, endpoint_bundle_sha256 = load_workers(output)
+    if len(workers) != EXPECTED_ENDPOINTS:
+        raise DirectKimiWorkerError("source_snapshot_invalid")
+    return {
+        "path": str(output.resolve(strict=True)),
+        "spec_sha256": spec_sha256,
+        "proxy_config_sha256": proxy_sha256,
+        "endpoint_bundle_sha256": endpoint_bundle_sha256,
+    }
 
 
 def derive_ports(output_root: Path) -> tuple[int, int]:
@@ -1283,6 +1348,7 @@ def validate_run_binding_bytes(
             "kimi-direct-tb4",
             "kimi-direct-tb4-diagnostic",
             "kimi-direct-tb4-sandoq-fallback-diagnostic",
+            "kimi-direct-mobius",
         }
         or not isinstance(source, dict)
         or source.get("sandbox_provider", "vmvm") not in {"sandoq", "vmvm"}
@@ -1630,6 +1696,9 @@ def main() -> None:
     )
     prepare.add_argument("--endpoint-identifier")
     prepare.add_argument("--probe", action="store_true")
+    snapshot = subparsers.add_parser("snapshot-source")
+    snapshot.add_argument("--deployment-root", type=Path, required=True)
+    snapshot.add_argument("--output-root", type=Path, required=True)
     certify = subparsers.add_parser("certify-router")
     certify.add_argument("--manifest", type=Path, required=True)
     certify.add_argument("--manifest-sha256", required=True)
@@ -1640,6 +1709,12 @@ def main() -> None:
     certify.add_argument("--provenance", type=Path, required=True)
     certify.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
+    if args.command == "snapshot-source":
+        snapshot_value = materialize_source_snapshot(args.deployment_root, args.output_root)
+        print(
+            json.dumps({"endpoint_bundle_sha256": snapshot_value["endpoint_bundle_sha256"], "ok": True}, sort_keys=True)
+        )
+        return
     if args.command == "certify-router":
         receipt = certify_router(
             args.manifest,

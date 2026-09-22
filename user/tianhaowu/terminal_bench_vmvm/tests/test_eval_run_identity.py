@@ -537,6 +537,62 @@ def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage() -> None:
             _validate_identity_shape(mismatched)
 
 
+def test_direct_kimi_production_identity_binds_c64_router_and_launch() -> None:
+    identity = _direct_kimi_identity(smoke=False)
+    identity["role"] = "kimi-direct-mobius"
+    identity["contract"]["harness"] = {
+        "id": "mini-swe-agent",
+        "version": "2.4.6",
+        "placement": "sandbox",
+        "step_limit": 200,
+        "request_timeout_seconds": 43_200,
+        "request_max_retries": 0,
+    }
+    identity["execution"]["runtime"].update(
+        {
+            "network_access": True,
+            "host_tunnel": "sandoq",
+            "guest_tunnel_url": "http://127.0.0.1:8485",
+            "tunnel_pool_size": 4,
+            "tunnel_ready_timeout": 30,
+            "expected_environment": "oci-runner-firecracker",
+        }
+    )
+    identity["execution"]["sandoq_environment"].update(
+        {
+            "environment": "oci-runner-firecracker",
+            "task_network": "public",
+            "provider_task_network": "host",
+            "tunnel_policy": "native-sandoq-reverse-tunnel",
+            "allow_dockerhub_fallback": False,
+            "pull_timeout": "1200s",
+            "pull_poll_max_errors": "10",
+            "provider_profile_sha256": eval_run_identity.KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256,
+            "runtime_tunnel_receipt_sha256": eval_run_identity.KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
+            "runtime_resource_receipt_sha256": eval_run_identity.KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256,
+            "miniswe_compatibility_receipt_sha256": eval_run_identity.KIMI_MINISWE_COMPATIBILITY_SHA256,
+        }
+    )
+    identity["deployment"]["smoke_checkpoint"] = None
+    identity["deployment"]["promotion_certificate"] = {
+        "path": "/run/kimi_sandoq_launch.json",
+        "sha256": "d" * 64,
+    }
+    identity["deployment"]["router"].update(
+        {
+            "provider_concurrency": 64,
+            "capacity_profile": "sandoq-c64-v1",
+            "endpoint_identifier": "cpu-132-021_8103",
+        }
+    )
+
+    assert _validate_identity_shape(identity) == identity
+
+    identity["deployment"]["promotion_certificate"] = None
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(identity)
+
+
 def test_pre_profile_sandoq_identities_remain_loadable_but_fallback_requires_profile(
     tmp_path: Path,
 ) -> None:
@@ -605,7 +661,7 @@ def test_direct_kimi_fallback_concurrency_is_bound_to_exact_lane_count() -> None
         eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 21)
     with pytest.raises(EvalIdentityError, match="direct_kimi_fallback_scope_invalid"):
         eval_run_identity._direct_kimi_expected_concurrency(role, "vmvm", 17)
-    assert eval_run_identity.KIMI_PROVIDER_SPLIT_COUNTS == {31, 32}
+    assert eval_run_identity.KIMI_PROVIDER_SPLIT_COUNTS == {28, 31, 32, 35}
     assert eval_run_identity.KIMI_PROVIDER_SPLIT_COUNTS.isdisjoint({17, 4})
 
 
@@ -620,22 +676,46 @@ def test_direct_kimi_capacity_profile_is_exact_and_sandoq_only() -> None:
         "num_tasks": 64,
         "max_concurrent": 64,
         "multiplex": 64,
-        "max_turns": 1,
+        "max_turns": 3,
         "client": {
             "max_connections": 64,
             "max_keepalive_connections": 64,
             "max_retries": 0,
         },
-        "sampling": {"max_tokens": 256},
+        "sampling": {"max_tokens": 32768},
         "taskset": {"enable_compose": False, "verifier_runtime_retries": 0},
-        "harness": {"runtime": {"network_access": False}},
+        "harness": {
+            "id": "mini-swe-agent",
+            "version": "2.4.6",
+            "config_file": "mini",
+            "config_overrides": [
+                "agent.step_limit=3",
+                "environment.environment_class=local",
+                "environment.timeout=1800",
+                "model.model_kwargs.drop_params=true",
+                "model.model_kwargs.timeout=1800",
+                "model.model_kwargs.temperature=1.0",
+                "model.model_kwargs.top_p=1.0",
+                "model.model_kwargs.parallel_tool_calls=false",
+            ],
+            "env": {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"},
+            "runtime": {
+                "network_access": True,
+                "host_tunnel": "sandoq",
+                "guest_tunnel_url": "http://127.0.0.1:8485",
+                "tunnel_pool_size": 4,
+                "tunnel_ready_timeout": 30,
+                "expected_environment": "oci-runner-firecracker",
+                "session_timeout": 2400,
+            },
+        },
     }
     eval_run_identity._validate_direct_kimi_capacity_config(config, role)
     for section, field, value in (
         ("top", "max_concurrent", 65),
         ("client", "max_retries", 1),
         ("taskset", "enable_compose", True),
-        ("runtime", "network_access", True),
+        ("runtime", "network_access", False),
     ):
         invalid = json.loads(json.dumps(config))
         target = (
@@ -644,6 +724,148 @@ def test_direct_kimi_capacity_profile_is_exact_and_sandoq_only() -> None:
         target[field] = value
         with pytest.raises(EvalIdentityError, match="direct_kimi_capacity_config_invalid"):
             eval_run_identity._validate_direct_kimi_capacity_config(invalid, role)
+
+
+def test_direct_kimi_production_concurrency_and_config_are_exact() -> None:
+    role = "kimi-direct-mobius"
+    assert eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 2499, 37) == 37
+    for provider, task_count, concurrency in (
+        ("vmvm", 2499, 37),
+        ("sandoq", 2500, 37),
+        ("sandoq", 2499, 0),
+        ("sandoq", 2499, 65),
+    ):
+        with pytest.raises(EvalIdentityError, match="direct_kimi_production_scope_invalid"):
+            eval_run_identity._direct_kimi_expected_concurrency(role, provider, task_count, concurrency)
+
+    config = {
+        "num_tasks": 2499,
+        "max_concurrent": 37,
+        "multiplex": 37,
+        "max_turns": 200,
+        "client": {
+            "max_connections": 37,
+            "max_keepalive_connections": 37,
+            "max_retries": 0,
+        },
+        "sampling": {"max_tokens": 32768},
+        "taskset": {
+            "enable_compose": False,
+            "verifier_runtime_retries": 0,
+            "resource_multiplier": 1.0,
+        },
+        "harness": {
+            "id": "mini-swe-agent",
+            "version": "2.4.6",
+            "config_file": "mini",
+            "config_overrides": [
+                "agent.step_limit=200",
+                "environment.environment_class=local",
+                "environment.timeout=36000",
+                "model.model_kwargs.drop_params=true",
+                "model.model_kwargs.timeout=43200",
+                "model.model_kwargs.temperature=1.0",
+                "model.model_kwargs.top_p=1.0",
+                "model.model_kwargs.parallel_tool_calls=false",
+            ],
+            "env": {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"},
+            "runtime": {
+                "network_access": True,
+                "host_tunnel": "sandoq",
+                "guest_tunnel_url": "http://127.0.0.1:8485",
+                "tunnel_pool_size": 4,
+                "tunnel_ready_timeout": 30,
+                "expected_environment": "oci-runner-firecracker",
+                "session_timeout": 43200,
+            },
+        },
+    }
+    eval_run_identity._validate_direct_kimi_production_config(config, role)
+    invalid = json.loads(json.dumps(config))
+    invalid["taskset"]["resource_multiplier"] = 2.0
+    with pytest.raises(EvalIdentityError, match="direct_kimi_production_config_invalid"):
+        eval_run_identity._validate_direct_kimi_production_config(invalid, role)
+
+
+def test_direct_kimi_production_launch_binds_config_selector_and_capacity(tmp_path: Path) -> None:
+    config_sha256 = "1" * 64
+    selector_sha256 = "2" * 64
+    manifest_sha256 = "3" * 64
+    spec_sha256 = "4" * 64
+    endpoints_sha256 = "5" * 64
+    unsigned = {
+        "schema_version": 1,
+        "kind": "kimi-k3-max-sandoq-launch",
+        "state": "authorized",
+        "model": "Kimi-K3",
+        "deployment_namespace": "cpu-132-021_8103",
+        "inputs": {
+            "resolved_config": {"sha256": config_sha256},
+            "selector": {"sha256": selector_sha256},
+            "worker_manifest": {"sha256": manifest_sha256},
+        },
+        "deployment": {
+            "capacity_profile": "sandoq-c64-v1",
+            "endpoint_identifier": "cpu-132-021_8103",
+            "source_spec_sha256": spec_sha256,
+            "endpoint_bundle_sha256": endpoints_sha256,
+            "worker_count": 24,
+        },
+        "execution": {
+            "requested_concurrency": 37,
+            "pool_size": 37,
+            "retries": 0,
+            "lease_profile": "kimi-tb4-long",
+            "lease_duration": "12h",
+            "cleanup_must_succeed": True,
+            "ecr_rotation_guard_required": True,
+            "sandbox_environment": "oci-runner-firecracker",
+            "task_network": "host",
+            "network_access": True,
+            "host_tunnel": "sandoq",
+            "provider_profile_sha256": eval_run_identity.KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256,
+            "runtime_tunnel_receipt_sha256": eval_run_identity.KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
+            "runtime_resource_receipt_sha256": eval_run_identity.KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256,
+            "harness": {"id": "mini-swe-agent", "version": "2.4.6"},
+        },
+        "capture": {
+            "exact_provider_json": True,
+            "max_sequence_tokens": 262144,
+            "model_io": True,
+            "model_io_contract": "kimi-k3-max",
+            "reasoning": True,
+            "request_graph": True,
+        },
+    }
+    value = {
+        **unsigned,
+        "launch_sha256": hashlib.sha256(canonical_json(unsigned) + b"\n").hexdigest(),
+    }
+    path = tmp_path / "launch.json"
+    path.write_bytes(canonical_json(value) + b"\n")
+    record = {"path": str(path), "sha256": _sha256(path)}
+
+    observed = eval_run_identity._validate_direct_kimi_production_launch(
+        record,
+        config_sha256=config_sha256,
+        task_file_sha256=selector_sha256,
+        worker_manifest_sha256=manifest_sha256,
+        source_spec_sha256=spec_sha256,
+        endpoint_bundle_sha256=endpoints_sha256,
+        concurrency=37,
+    )
+
+    assert observed["launch_sha256"] == value["launch_sha256"]
+    with pytest.raises(EvalIdentityError, match="direct_kimi_production_launch_invalid"):
+        eval_run_identity._validate_direct_kimi_production_launch(
+            record,
+            config_sha256=config_sha256,
+            task_file_sha256=selector_sha256,
+            worker_manifest_sha256=manifest_sha256,
+            source_spec_sha256=spec_sha256,
+            endpoint_bundle_sha256=endpoints_sha256,
+            concurrency=38,
+        )
 
 
 @pytest.mark.parametrize(("task_count", "multiplier"), ((17, 0.75), (4, 0.375)))
@@ -686,6 +908,9 @@ def test_direct_kimi_diagnostic_identity_requires_plan_approved_config_digest() 
         eval_run_identity._validate_direct_kimi_approved_config(source_config, role, digest)
         with pytest.raises(EvalIdentityError, match="direct_kimi_approved_config_mismatch"):
             eval_run_identity._validate_direct_kimi_approved_config(source_config, role, "b" * 64)
+    eval_run_identity._validate_direct_kimi_approved_config(source_config, "kimi-direct-mobius", digest)
+    with pytest.raises(EvalIdentityError, match="direct_kimi_approved_config_mismatch"):
+        eval_run_identity._validate_direct_kimi_approved_config(source_config, "kimi-direct-mobius", "b" * 64)
     with pytest.raises(EvalIdentityError, match="direct_kimi_approved_config_role_invalid"):
         eval_run_identity._validate_direct_kimi_approved_config(source_config, "kimi-direct-smoke", digest)
 

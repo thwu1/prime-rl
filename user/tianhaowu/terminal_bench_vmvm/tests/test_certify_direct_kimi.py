@@ -10,8 +10,16 @@ from certify_direct_kimi import (
     CAPACITY_LIMITED_SMOKE_SCOPE,
     DirectKimiCertificateError,
     _capacity_limited_smoke_scope,
+    _native_miniswe_smoke_execution,
+    _native_tool_execution,
     _validate_cleanup,
     _validate_router_receipt,
+)
+from eval_run_identity import (
+    KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256,
+    KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256,
+    KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
+    KIMI_MINISWE_COMPATIBILITY_SHA256,
 )
 
 
@@ -48,6 +56,48 @@ def test_capacity_limited_smoke_scope_accepts_proven_mobius_multiplier(tmp_path:
     scope = _capacity_limited_smoke_scope(_identity(config))
 
     assert scope["resource_multiplier"] == 2.0
+
+
+def test_native_miniswe_smoke_execution_binds_full_tunnel_evidence() -> None:
+    identity = {
+        "contract": {"harness": {"id": "mini-swe-agent", "version": "2.4.6", "step_limit": 3}},
+        "execution": {
+            "runtime": {"expected_environment": "oci-runner-firecracker", "host_tunnel": "sandoq"},
+            "sandoq_environment": {
+                "environment": "oci-runner-firecracker",
+                "provider_task_network": "host",
+                "provider_profile_sha256": KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256,
+                "runtime_tunnel_receipt_sha256": KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
+                "runtime_resource_receipt_sha256": KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256,
+                "miniswe_compatibility_receipt_sha256": KIMI_MINISWE_COMPATIBILITY_SHA256,
+            },
+        },
+    }
+
+    observed = _native_miniswe_smoke_execution(identity)
+
+    assert observed is not None
+    assert observed["harness"] == {"id": "mini-swe-agent", "version": "2.4.6", "step_limit": 3}
+    assert observed["provider_profile_sha256"] == KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256
+
+
+def test_native_miniswe_smoke_requires_numeric_tool_exit_evidence() -> None:
+    trace = {
+        "nodes": [
+            {"message": {"role": "tool", "content": json.dumps({"returncode": 1})}},
+            {"message": {"role": "tool", "content": json.dumps({"returncode": 0})}},
+        ]
+    }
+
+    assert _native_tool_execution([trace]) == {
+        "tool_observations": 2,
+        "successful_tool_exits": 1,
+        "nonzero_tool_exits": 1,
+        "missing_tool_exits": 0,
+        "traces_with_tool_exit_evidence": 1,
+    }
+    with pytest.raises(DirectKimiCertificateError, match="native_smoke_tool_exit_invalid"):
+        _native_tool_execution([{"nodes": [{"message": {"role": "tool", "content": "plain text"}}]}])
 
 
 def _cleanup() -> dict:
