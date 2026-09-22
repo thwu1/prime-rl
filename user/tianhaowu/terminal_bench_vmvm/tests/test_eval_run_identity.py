@@ -1397,6 +1397,22 @@ def test_kimi_sandoq_host_contract_uses_approved_timeout_and_zero_retry(
     assert execution["runtime"]["type"] == "sandoq"
 
 
+@pytest.mark.parametrize(("provider", "task_count"), [("sandoq", 25), ("vmvm", 38)])
+def test_kimi_miniswe_pass_at_one_has_zero_whole_rollout_retries(
+    provider: str, task_count: int
+) -> None:
+    config = _resolved_config()
+    config["harness"]["id"] = "mini-swe-agent"
+    config["harness"]["runtime"]["type"] = provider
+    config["num_tasks"] = task_count
+    config["retries"]["rollout"]["max_retries"] = 0
+
+    assert validate_kimi_retry_contract(config)["max_retries"] == 0
+    config["retries"]["rollout"]["max_retries"] = 2
+    with pytest.raises(EvalIdentityError, match="^kimi_retry_contract_invalid$"):
+        validate_kimi_retry_contract(config)
+
+
 @pytest.mark.parametrize(
     "rollout_retries",
     [

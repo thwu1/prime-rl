@@ -452,14 +452,19 @@ def validate_kimi_retry_contract(config: dict[str, Any]) -> dict[str, Any]:
     exclude = rollout.get("exclude") if isinstance(rollout, dict) else None
     harness = config.get("harness")
     host_harness = isinstance(harness, dict) and harness.get("id") == "terminal-bench-sandoq-host"
+    miniswe_agent = isinstance(harness, dict) and harness.get("id") == "mini-swe-agent"
     runtime = harness.get("runtime") if isinstance(harness, dict) else None
-    native_sandoq_miniswe = (
-        isinstance(harness, dict)
-        and harness.get("id") == "mini-swe-agent"
+    native_sandoq_miniswe = miniswe_agent and isinstance(runtime, dict) and runtime.get("type") == "sandoq"
+    union_vmvm_miniswe = (
+        miniswe_agent
         and isinstance(runtime, dict)
-        and runtime.get("type") == "sandoq"
+        and runtime.get("type") == "vmvm"
+        and config.get("num_tasks") == 38
     )
-    expected_retries = 0 if host_harness or native_sandoq_miniswe else 2
+    # A Mini-SWE pass@1 trajectory is one model rollout regardless of sandbox
+    # provider. The sealed 38-task VMVM union lane is distinct from the legacy
+    # 66-task Mini-SWE profile, whose historical retry policy remains auditable.
+    expected_retries = 0 if host_harness or native_sandoq_miniswe or union_vmvm_miniswe else 2
     if (
         not isinstance(retries, dict)
         or set(retries) != {"rollout"}
