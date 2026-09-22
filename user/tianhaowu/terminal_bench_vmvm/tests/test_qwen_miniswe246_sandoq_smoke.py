@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 import stat
@@ -160,6 +161,41 @@ def test_public_receipt_separates_infrastructure_from_submission_gate() -> None:
         "status",
         "cleanup",
     }
+
+
+@pytest.mark.parametrize(
+    ("statuses", "expected"),
+    [([0, 124, 0], 0), ([0, 124, 2], 2), ([2, 0, 0], 2)],
+)
+def test_supervised_command_uses_authoritative_cleanup_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    statuses: list[int],
+    expected: int,
+) -> None:
+    calls: list[list[str]] = []
+
+    def run_logged(command: list[str], _log: Path, _timeout: float) -> int:
+        calls.append(command)
+        return statuses[len(calls) - 1]
+
+    monkeypatch.setattr(smoke, "_run_logged", run_logged)
+    args = argparse.Namespace(
+        selector=tmp_path / "selector",
+        selector_sha256="0" * 64,
+        dataset_dir=tmp_path / "dataset",
+        image_manifest=tmp_path / "images.json",
+        proxy_info=tmp_path / "proxy.json",
+        deployment_spec=tmp_path / "spec.yaml",
+        output_dir=tmp_path / "output",
+        workflow_dir=tmp_path / "workflow",
+        log=tmp_path / "execution.log",
+        drain_marker=tmp_path / "pool.drained.json",
+    )
+
+    assert smoke.supervised_command(args) == expected
+    assert len(calls) == 3
+    assert calls[2][1].endswith("sanitize_sandoq_cleanup_audit.py")
 
 
 def test_firecracker_host_profile_and_smoke_are_narrowly_pinned(tmp_path: Path) -> None:

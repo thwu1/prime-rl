@@ -593,24 +593,23 @@ def supervised_command(args: argparse.Namespace) -> int:
         "--concurrency",
         "1",
     ]
-    cleanup_status = _run_logged(cleanup, args.log, 30)
-    if cleanup_status == 0:
-        sanitize = [
-            sys.executable,
-            str(args.workflow_dir / "sanitize_sandoq_cleanup_audit.py"),
-            "--raw-audit",
-            str(args.output_dir / "pool_cleanup_audit.json"),
-            "--event-log",
-            os.environ.get("OCI_RUNNER_POOL_EVENT_LOG", ""),
-            "--wal",
-            os.environ.get("OCI_RUNNER_POOL_WAL", ""),
-            "--drain-marker",
-            str(args.drain_marker),
-            "--output",
-            str(args.output_dir / "sandoq_cleanup_audit.json"),
-        ]
-        cleanup_status = _run_logged(sanitize, args.log, 10)
-    return 0 if eval_status == 0 and cleanup_status == 0 else 2
+    _run_logged(cleanup, args.log, 30)
+    sanitize = [
+        sys.executable,
+        str(args.workflow_dir / "sanitize_sandoq_cleanup_audit.py"),
+        "--raw-audit",
+        str(args.output_dir / "pool_cleanup_audit.json"),
+        "--event-log",
+        os.environ.get("OCI_RUNNER_POOL_EVENT_LOG", ""),
+        "--wal",
+        os.environ.get("OCI_RUNNER_POOL_WAL", ""),
+        "--drain-marker",
+        str(args.drain_marker),
+        "--output",
+        str(args.output_dir / "sandoq_cleanup_audit.json"),
+    ]
+    cleanup_evidence_status = _run_logged(sanitize, args.log, 10)
+    return 0 if eval_status == 0 and cleanup_evidence_status == 0 else 2
 
 
 def _clean_source(project_root: Path, expected_revision: str) -> None:
