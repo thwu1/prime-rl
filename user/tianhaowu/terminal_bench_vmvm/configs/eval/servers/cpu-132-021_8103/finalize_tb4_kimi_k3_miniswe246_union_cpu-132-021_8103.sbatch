@@ -40,7 +40,7 @@ x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/pyt
     && "$(git -C "$project_dir" rev-parse HEAD)" == "$expected_revision" \
     && -z "$(git -C "$project_dir" status --porcelain=v1 --untracked-files=all)" \
     && "$(git -C "$project_dir/deps/verifiers" rev-parse HEAD)" \
-        == 30b766ac6a2d186297e9dc684a9850c24e933de3 ]] \
+        == dc9374f68f68773e51a536cc45b0466eacdd5409 ]] \
     || blocked source_identity_invalid
 [[ "$launch_plan" == /* && "$sandoq_certificate" == /* \
     && "$vmvm_certificate" == /* && "$output" == /* ]] || blocked path_not_absolute
