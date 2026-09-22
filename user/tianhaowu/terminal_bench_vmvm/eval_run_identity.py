@@ -79,6 +79,10 @@ KIMI_TIMEOUT_PROFILES = {
     "recovery": {"rollout_timeout": 43_200, "session_timeout": 43_200},
     "full": {"rollout_timeout": 36_000, "session_timeout": 43_200},
     "quick": {"rollout_timeout": 900, "session_timeout": 2_400},
+    "native_miniswe_smoke": {
+        "rollout_timeout": 2_700,
+        "session_timeout": 3_300,
+    },
     "diagnostic": {"rollout_timeout": 300, "session_timeout": 600},
     "reward_diagnostic": {"rollout_timeout": 600, "session_timeout": 600},
     "direct_scored_smoke": {"rollout_timeout": 9_000, "session_timeout": 10_800},
@@ -374,6 +378,7 @@ def validate_kimi_timeout_contract(
 
     bounded_smoke = required_profile in {
         "quick",
+        "native_miniswe_smoke",
         "diagnostic",
         "reward_diagnostic",
         "direct_scored_smoke",
@@ -1146,11 +1151,12 @@ def _contract(
                 reward_diagnostic = isinstance(timeout, dict) and timeout.get("rollout") == 600
                 required_profile = "reward_diagnostic" if reward_diagnostic else "diagnostic"
             else:
-                required_profile = (
-                    "quick"
-                    if _allow_legacy_direct_scored_smoke or harness.get("id") == "mini-swe-agent"
-                    else "direct_scored_smoke"
-                )
+                if _allow_legacy_direct_scored_smoke:
+                    required_profile = "quick"
+                elif harness.get("id") == "mini-swe-agent":
+                    required_profile = "native_miniswe_smoke"
+                else:
+                    required_profile = "direct_scored_smoke"
         elif role == KIMI_CAPACITY_SMOKE_ROLE:
             required_profile = "direct_capacity"
         elif role == "smoke":

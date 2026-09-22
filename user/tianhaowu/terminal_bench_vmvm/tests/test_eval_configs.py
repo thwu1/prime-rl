@@ -680,6 +680,8 @@ def test_direct_kimi_miniswe246_smoke_matches_full_tunnel_lane() -> None:
     }
     assert execution["runtime"]["expected_environment"] == "oci-runner-firecracker"
     assert execution["runtime"]["host_tunnel"] == "sandoq"
+    assert execution["runtime"]["session_timeout"] == 3300
+    assert config["timeout"]["rollout"] == 2700
     assert config["taskset"]["enable_compose"] is False
     assert config["taskset"]["resource_multiplier"] == 1.0
     assert 'prepare_kimi_tb4_miniswe246_union.py" verify-smoke' in launcher
