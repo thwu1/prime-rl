@@ -535,6 +535,18 @@ elif [[ "$execution_mode" == diagnostic ]]; then
     )
 fi
 if [[ "$sandbox_provider" == sandoq ]]; then
+    # Terminal-Bench's separate verifier starts while the agent sandbox is
+    # still live.  Reserve an equal number of provider slots for verifier
+    # sandboxes; otherwise a saturated rollout wave waits on itself until the
+    # scoring deadline.  Sandoq's audited provider context caps the pool at 64.
+    sandoq_pool_capacity=$(( stage_capacity * 2 ))
+    if (( sandoq_pool_capacity > 64 )); then
+        sandoq_pool_capacity=64
+    fi
+    if (( stage_capacity < 64 && sandoq_pool_capacity <= stage_capacity )); then
+        printf 'Direct Kimi Sandoq pool has no separate-verifier reserve\n' >&2
+        exit 2
+    fi
     sandoq_lease_profile=standard
     if [[ "$stage" == miniswe-smoke || "$stage" == tb4 || "$stage" == tb4-miniswe \
         || "$stage" == tb4-miniswe246-sandoq-union || "$stage" == provider-split-legacy \
@@ -547,8 +559,8 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         python3 "$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py" supervise \
         --profile "$provider_profile" \
         --profile-sha256 "$provider_profile_sha256" \
-        --concurrency "$stage_capacity" \
-        --lease-create-cap "$(( stage_capacity < 4 ? stage_capacity : 4 ))" \
+        --concurrency "$sandoq_pool_capacity" \
+        --lease-create-cap "$(( sandoq_pool_capacity < 4 ? sandoq_pool_capacity : 4 ))" \
         --startup-timeout-seconds 3600 \
         --lease-profile "$sandoq_lease_profile" \
         --ecr-token-file "$ecr_token_file" \

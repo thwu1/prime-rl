@@ -687,6 +687,9 @@ def test_direct_kimi_miniswe246_smoke_matches_full_tunnel_lane() -> None:
     assert 'prepare_kimi_tb4_miniswe246_union.py" verify-smoke' in launcher
     assert '"$stage" == miniswe-smoke' in launcher
     assert "expected_smoke_wall_limit=1:00:00" in launcher
+    assert "sandoq_pool_capacity=$(( stage_capacity * 2 ))" in launcher
+    assert '--concurrency "$sandoq_pool_capacity"' in launcher
+    assert "Direct Kimi Sandoq pool has no separate-verifier reserve" in launcher
 
 
 def test_miniswe246_tb4_union_lanes_are_plan_bound_and_separately_certified() -> None:
