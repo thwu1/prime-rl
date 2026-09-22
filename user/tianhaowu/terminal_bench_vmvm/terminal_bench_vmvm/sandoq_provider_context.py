@@ -33,6 +33,7 @@ SCHEMA_VERSION = 1
 BASE_URL = "https://sandoq.eks-prod.cf.aws.metafb.cloud"
 LEGACY_ENVIRONMENT = "oci-runner"
 FIRECRACKER_ENVIRONMENT = "oci-runner-firecracker"
+FIRECRACKER_TUNNEL_ENVIRONMENT = "oci-runner-firecracker-small"
 ENVIRONMENT = LEGACY_ENVIRONMENT
 LEASE_PROFILES = {"standard": "1h", "kimi-tb4-long": "12h"}
 DEFAULT_TOKEN_FILE = Path("/home/tianhaowu/.config/oci-runner/token")
@@ -84,6 +85,7 @@ def _validate_runtime_profile(
     if (environment, effective_task_network, task_network) not in {
         (LEGACY_ENVIRONMENT, "public", None),
         (FIRECRACKER_ENVIRONMENT, "none", "none"),
+        (FIRECRACKER_TUNNEL_ENVIRONMENT, "public", "host"),
     }:
         _fail("provider_context_profile_invalid")
 
@@ -263,12 +265,14 @@ def load_provider_profile(path: Path, expected_sha256: str) -> ProviderContextPr
                 "runtime_smoke_receipt_sha256",
             }
         )
+    elif schema_version == 3:
+        expected_keys.add("task_network")
     task_network = value.get("task_network") if isinstance(value, dict) else None
     if (
         not isinstance(value, dict)
         or set(value) != expected_keys
         or bytes(body) != _canonical_json(value)
-        or schema_version not in {1, 2}
+        or schema_version not in {1, 2, 3}
         or re.fullmatch(r"[a-z][a-z0-9_-]{0,127}", str(value["cluster_identifier"])) is None
         or value["transport_mode"] not in {"auto", "loopback"}
         or value["base_url"] != BASE_URL
@@ -289,6 +293,14 @@ def load_provider_profile(path: Path, expected_sha256: str) -> ProviderContextPr
                 or not isinstance(value.get("runtime_smoke_receipt"), str)
                 or not Path(value["runtime_smoke_receipt"]).is_absolute()
                 or _SHA256_RE.fullmatch(str(value.get("runtime_smoke_receipt_sha256", ""))) is None
+            )
+        )
+        or (
+            schema_version == 3
+            and (
+                value["environment"] != FIRECRACKER_TUNNEL_ENVIRONMENT
+                or value["effective_task_network"] != "public"
+                or task_network != "host"
             )
         )
     ):
@@ -317,11 +329,7 @@ def load_provider_profile(path: Path, expected_sha256: str) -> ProviderContextPr
             if schema_version == 2
             else None
         ),
-        runtime_smoke_receipt_sha256=(
-            str(value["runtime_smoke_receipt_sha256"])
-            if schema_version == 2
-            else None
-        ),
+        runtime_smoke_receipt_sha256=(str(value["runtime_smoke_receipt_sha256"]) if schema_version == 2 else None),
         sha256=expected_sha256,
     )
 
@@ -431,17 +439,16 @@ def _context_contract(
     if lease_duration is None:
         _fail("provider_context_configuration_invalid")
     _validate_runtime_profile(provider_environment, effective_task_network, task_network)
-    firecracker = provider_environment == FIRECRACKER_ENVIRONMENT
-    if firecracker and (
-        runtime_smoke_receipt is None
-        or runtime_smoke_receipt_sha256 is None
-        or provider_profile_sha256 is None
+    isolated_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT
+    firecracker = provider_environment in {
+        FIRECRACKER_ENVIRONMENT,
+        FIRECRACKER_TUNNEL_ENVIRONMENT,
+    }
+    if isolated_firecracker and (
+        runtime_smoke_receipt is None or runtime_smoke_receipt_sha256 is None or provider_profile_sha256 is None
     ):
         _fail("provider_context_configuration_invalid")
-    if not firecracker and (
-        runtime_smoke_receipt is not None
-        or runtime_smoke_receipt_sha256 is not None
-    ):
+    if not isolated_firecracker and (runtime_smoke_receipt is not None or runtime_smoke_receipt_sha256 is not None):
         _fail("provider_context_configuration_invalid")
     if provider_profile_sha256 is not None and _SHA256_RE.fullmatch(provider_profile_sha256) is None:
         _fail("provider_context_configuration_invalid")
@@ -525,17 +532,16 @@ def build_provider_environment(
         _validate_runtime_profile(provider_environment, effective_task_network, task_network)
     except ProviderContextError as error:
         _fail("provider_context_configuration_invalid", error)
-    firecracker = provider_environment == FIRECRACKER_ENVIRONMENT
-    if firecracker and (
-        runtime_smoke_receipt is None
-        or runtime_smoke_receipt_sha256 is None
-        or provider_profile_sha256 is None
+    isolated_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT
+    firecracker = provider_environment in {
+        FIRECRACKER_ENVIRONMENT,
+        FIRECRACKER_TUNNEL_ENVIRONMENT,
+    }
+    if isolated_firecracker and (
+        runtime_smoke_receipt is None or runtime_smoke_receipt_sha256 is None or provider_profile_sha256 is None
     ):
         _fail("provider_context_configuration_invalid")
-    if not firecracker and (
-        runtime_smoke_receipt is not None
-        or runtime_smoke_receipt_sha256 is not None
-    ):
+    if not isolated_firecracker and (runtime_smoke_receipt is not None or runtime_smoke_receipt_sha256 is not None):
         _fail("provider_context_configuration_invalid")
     if provider_profile_sha256 is not None and _SHA256_RE.fullmatch(provider_profile_sha256) is None:
         _fail("provider_context_configuration_invalid")
@@ -585,10 +591,8 @@ def build_provider_environment(
             "OCI_RUNNER_PODMAN_FUSE_OVERLAYFS": "1",
             "OCI_RUNNER_FUSE_OVERLAYFS_PATH": "/usr/bin/fuse-overlayfs",
             "OCI_RUNNER_LIBFUSE3_PATH": "/lib/x86_64-linux-gnu/libfuse3.so.3",
-            "OCI_RUNNER_PULL_TIMEOUT": (
-                "1200s" if provider_environment == FIRECRACKER_ENVIRONMENT else f"{startup_timeout_seconds}s"
-            ),
-            "OCI_RUNNER_PULL_POLL_MAX_ERRORS": "10" if provider_environment == FIRECRACKER_ENVIRONMENT else "20",
+            "OCI_RUNNER_PULL_TIMEOUT": "1200s" if firecracker else f"{startup_timeout_seconds}s",
+            "OCI_RUNNER_PULL_POLL_MAX_ERRORS": "10" if firecracker else "20",
             "OCI_RUNNER_GATEWAY_RETRY_ATTEMPTS": "15",
             "OCI_RUNNER_GATEWAY_RETRY_INTERVAL": "2s",
             "OCI_RUNNER_PODMAN_IGNORE_CHOWN_ERRORS": "1",
@@ -617,8 +621,9 @@ def build_provider_environment(
     )
     if task_network is not None:
         environment["OCI_RUNNER_TASK_NETWORK"] = task_network
-    if environment["OCI_RUNNER_ENVIRONMENT"] == FIRECRACKER_ENVIRONMENT:
+    if firecracker:
         environment["OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK"] = "0"
+    if isolated_firecracker:
         assert runtime_smoke_receipt is not None
         assert runtime_smoke_receipt_sha256 is not None
         environment["SANDOQ_RUNTIME_SMOKE_RECEIPT"] = str(runtime_smoke_receipt)
@@ -757,7 +762,11 @@ def provider_context_is_active(environment: Mapping[str, str]) -> bool:
             str(effective_task_network or ""),
             task_network,
         )
-        firecracker = provider_environment == FIRECRACKER_ENVIRONMENT
+        isolated_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT
+        firecracker = provider_environment in {
+            FIRECRACKER_ENVIRONMENT,
+            FIRECRACKER_TUNNEL_ENVIRONMENT,
+        }
         runtime_smoke_receipt_value = environment.get("SANDOQ_RUNTIME_SMOKE_RECEIPT")
         runtime_smoke_receipt_sha256 = environment.get("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256")
         runtime_smoke_receipt = (
@@ -768,12 +777,8 @@ def provider_context_is_active(environment: Mapping[str, str]) -> bool:
             if runtime_smoke_receipt_value is not None
             else None
         )
-        if firecracker:
-            if (
-                runtime_smoke_receipt is None
-                or runtime_smoke_receipt_sha256 is None
-                or provider_profile_sha256 is None
-            ):
+        if isolated_firecracker:
+            if runtime_smoke_receipt is None or runtime_smoke_receipt_sha256 is None or provider_profile_sha256 is None:
                 return False
             _validate_runtime_smoke_receipt(
                 runtime_smoke_receipt,
@@ -813,10 +818,7 @@ def provider_context_is_active(environment: Mapping[str, str]) -> bool:
             or environment.get("VF_SANDBOX_PROVIDER")
             or environment.get("FIRECRACKER_KEY")
             or environment.get("SANDOQ_AUTH_TOKEN")
-            or (
-                provider_profile_sha256 is not None
-                and _SHA256_RE.fullmatch(provider_profile_sha256) is None
-            )
+            or (provider_profile_sha256 is not None and _SHA256_RE.fullmatch(provider_profile_sha256) is None)
             or _process_start_ticks(pid) != start_ticks
         ):
             return False
@@ -879,7 +881,11 @@ def snapshot_provider_context(environment: Mapping[str, str], output: Path) -> d
         )
     )
     provider_environment = environment.get("OCI_RUNNER_ENVIRONMENT")
-    firecracker = provider_environment == FIRECRACKER_ENVIRONMENT
+    isolated_firecracker = provider_environment == FIRECRACKER_ENVIRONMENT
+    firecracker = provider_environment in {
+        FIRECRACKER_ENVIRONMENT,
+        FIRECRACKER_TUNNEL_ENVIRONMENT,
+    }
     profile_sha256 = environment.get(CONTEXT_PROFILE_SHA256)
     if profile_sha256 is None or _SHA256_RE.fullmatch(profile_sha256) is None:
         _fail("provider_context_profile_invalid")
@@ -890,15 +896,11 @@ def snapshot_provider_context(environment: Mapping[str, str], output: Path) -> d
         "provider_environment": provider_environment,
         "effective_task_network": environment.get("SANDOQ_EFFECTIVE_TASK_NETWORK"),
         "task_network": environment.get("OCI_RUNNER_TASK_NETWORK"),
-        "network_access": not firecracker,
+        "network_access": not isolated_firecracker,
         "allow_dockerhub_fallback": not firecracker,
         "provider_profile_sha256": profile_sha256,
-        "provider_token_file_path_sha256": _sha256(
-            environment["OCI_RUNNER_TOKEN_FILE"].encode()
-        ),
-        "runtime_smoke_receipt_sha256": environment.get(
-            "SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256"
-        ),
+        "provider_token_file_path_sha256": _sha256(environment["OCI_RUNNER_TOKEN_FILE"].encode()),
+        "runtime_smoke_receipt_sha256": environment.get("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256"),
         "provider_context_contract_sha256": receipt["contract_sha256"],
     }
     _publish_receipt(output, value)
@@ -989,11 +991,7 @@ def supervise(
     if not command or any(not isinstance(item, str) or "\x00" in item for item in command):
         _fail("provider_context_command_invalid")
     if provider_environment == FIRECRACKER_ENVIRONMENT:
-        if (
-            runtime_smoke_receipt is None
-            or runtime_smoke_receipt_sha256 is None
-            or provider_profile_sha256 is None
-        ):
+        if runtime_smoke_receipt is None or runtime_smoke_receipt_sha256 is None or provider_profile_sha256 is None:
             _fail("provider_context_configuration_invalid")
         _validate_runtime_smoke_receipt(runtime_smoke_receipt, runtime_smoke_receipt_sha256)
     runtime_parent = Path(os.environ.get("SLURM_TMPDIR", "/tmp"))

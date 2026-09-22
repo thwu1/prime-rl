@@ -11,12 +11,12 @@ host inference reachability, and cleanup. Generic/model commands are
 single-attempt. An OCI gateway response whose execution status is unknown is
 raised as `SandboxError`; it is never replayed in the same sandbox.
 
-PR 17 intentionally leaves its agent-inside reverse tunnel as future work.
-`SandoqRuntime` completes the generic Verifiers contract with
-`host_tunnel = "modal"` by default: a temporary Modal SSH relay publishes an
-arbitrary host interception port to the sandbox. It does not use Prime Sandbox
-or require `PRIME_API_KEY`. `host_tunnel = "prime"` is available only as an
-explicit opt-in.
+`SandoqRuntime` retains `host_tunnel = "modal"` as its general default, while
+the f7313db4 integration also provides `host_tunnel = "sandoq"` for an
+agent-inside Firecracker run. The native path opens parked reverse-tunnel
+WebSockets and requires the staged Sandoq client, a named `tunnel` port, nested
+host networking, and an explicit loopback guest URL. `host_tunnel = "prime"`
+remains available only as an explicit opt-in.
 
 DeepSWE model evaluation does not exercise that generic tunnel. Following the
 RAM Harbor Sandoq backend, the CPU eval driver registers its authenticated
@@ -159,6 +159,22 @@ model calls plus PEP 723 dependency preparation require connectivity. Use
 Mini-SWE-Agent 2.4.6 only with a separately sealed Firecracker host-network
 profile and the native Sandoq reverse tunnel; never treat the no-network smoke
 receipt as evidence for that distinct runtime contract.
+
+The bounded Qwen integration gate is
+`run_qwen_miniswe246_sandoq_smoke.sbatch`. It selects one approved Mobius row
+by a pinned line digest, rejects security-labelled metadata without printing
+the identifier or prompt, and uses
+`configs/provider_context/use2/qwen_sandoq_firecracker_host.json`. Keep its
+Slurm wall at exactly five minutes, `agent.step_limit=3`, environment
+`oci-runner-firecracker-small`, task network `host`, and native tunnel endpoint
+`127.0.0.1:8485`. The launcher must clear every upper- and lower-case ambient
+HTTP proxy before supervision. It loads the Qwen deployment credential only
+inside the evaluator process and writes raw traffic to owner-only artifacts.
+Only the final aggregate receipt may be reported. A strict pass requires one
+to three model calls, nonempty provider `reasoning_content` preserved in the
+trajectory, successful observed shell actions, the exact standalone native
+submission command, a positive live verifier reward, and verified cleanup.
+`infrastructure_only` is intentionally distinct from that submission gate.
 
 Use `probe_model_endpoint.py --profile qwen38-2p4t` for the reusable
 credential-safe Qwen endpoint check. It reads the deployment-local proxy

@@ -1007,6 +1007,33 @@ a separate, independently certified Firecracker host-network profile with the
 native Sandoq reverse tunnel; the no-network receipt above does not certify
 that profile.
 
+The five-minute Qwen integration smoke is
+`run_qwen_miniswe246_sandoq_smoke.sbatch`. It uses the schema-3
+`qwen_sandoq_firecracker_host.json` profile, staged x86 dependencies from the
+`ram_prime_rl` f7313db4 build, and `oci-runner-firecracker-small` with nested
+host networking solely for the native reverse tunnel. It resolves one
+historically positive row from the approved Mobius list by a pinned digest and
+rejects security-labelled metadata without printing the task identifier or
+prompt. Do not replace its private selector with a checked-in task name.
+
+Submit only from the launcher pane and a clean source snapshot, substituting
+the full committed revision:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-qwen-miniswe-<commit> && env PROJECT_DIR=\$PWD QWEN_MINISWE_EXPECTED_REVISION=<commit> sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/run_qwen_miniswe246_sandoq_smoke.sbatch" C-m
+```
+
+The launcher reads the authenticated endpoint from the deployment-local
+`proxy_info.json` only inside the evaluator process. Its public output is one
+aggregate JSON object: sandbox lifecycle, one-to-three model calls, successful
+shell execution, exact native submission marker, retained
+`reasoning_content`, reward/status, and cleanup. Raw requests, responses,
+errors, trajectory, task identifier, and prompt stay in mode-0600 files below
+the mode-0700 run directory. `strict_passed` requires the submission marker
+and a positive verifier reward; `infrastructure_only` is not a task-submission
+pass.
+
 Before any sandbox launch, the bounded host-side endpoint probe can validate
 the default Qwen deployment without exposing its URL or API key:
 
