@@ -10,6 +10,7 @@ from certify_direct_kimi import (
     CAPACITY_LIMITED_SMOKE_SCOPE,
     DirectKimiCertificateError,
     _capacity_limited_smoke_scope,
+    _expected_sandoq_pool_size,
     _native_miniswe_smoke_execution,
     _native_smoke_scoring,
     _native_tool_execution,
@@ -80,6 +81,19 @@ def test_native_miniswe_smoke_execution_binds_full_tunnel_evidence() -> None:
     assert observed is not None
     assert observed["harness"] == {"id": "mini-swe-agent", "version": "2.4.6", "step_limit": 3}
     assert observed["provider_profile_sha256"] == KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256
+
+
+@pytest.mark.parametrize(("rollout_concurrency", "pool_size"), [(1, 2), (24, 48), (64, 64)])
+def test_sandoq_pool_reserves_separate_verifier_capacity(
+    rollout_concurrency: int, pool_size: int
+) -> None:
+    assert _expected_sandoq_pool_size(rollout_concurrency) == pool_size
+
+
+@pytest.mark.parametrize("rollout_concurrency", [True, 0, 65, 1.5])
+def test_sandoq_pool_rejects_invalid_rollout_concurrency(rollout_concurrency: object) -> None:
+    with pytest.raises(DirectKimiCertificateError, match="^execution_contract_invalid$"):
+        _expected_sandoq_pool_size(rollout_concurrency)  # type: ignore[arg-type]
 
 
 def test_native_miniswe_smoke_requires_numeric_tool_exit_evidence() -> None:

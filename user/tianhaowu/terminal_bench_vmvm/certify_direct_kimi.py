@@ -174,6 +174,16 @@ def _native_miniswe_smoke_execution(identity: dict[str, Any]) -> dict[str, Any] 
     return value
 
 
+def _expected_sandoq_pool_size(rollout_concurrency: int) -> int:
+    """Reserve one verifier slot per live agent, within the audited pool cap."""
+
+    if isinstance(rollout_concurrency, bool) or not isinstance(rollout_concurrency, int):
+        raise DirectKimiCertificateError("execution_contract_invalid")
+    if rollout_concurrency < 1 or rollout_concurrency > 64:
+        raise DirectKimiCertificateError("execution_contract_invalid")
+    return min(rollout_concurrency * 2, 64)
+
+
 def _native_tool_execution(traces: list[dict[str, Any]]) -> dict[str, int]:
     observations = successful = nonzero = traces_with_tools = 0
     for trace in traces:
@@ -270,6 +280,7 @@ def _validate_identity(
     ):
         raise DirectKimiCertificateError("eval_identity_invalid")
     expected_concurrency = 1 if role == "kimi-direct-smoke" else 24
+    expected_pool_size = _expected_sandoq_pool_size(expected_concurrency)
     environment = execution.get("sandoq_environment")
     runtime = execution.get("runtime")
     native_miniswe = (
@@ -288,7 +299,7 @@ def _validate_identity(
         or not isinstance(environment, dict)
         or environment.get("environment") != (KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT if native_miniswe else "oci-runner")
         or environment.get("task_network") != "public"
-        or environment.get("pool_size") != expected_concurrency
+        or environment.get("pool_size") != expected_pool_size
         or environment.get("pool_min_size") != 0
         or (
             native_miniswe
