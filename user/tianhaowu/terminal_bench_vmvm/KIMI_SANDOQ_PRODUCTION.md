@@ -21,6 +21,10 @@ effective runtime boundary.
 - Timeouts: 12-hour client/session, 10-hour rollout, one-hour setup and
   finalize, six-hour scoring.
 - Retries: zero at the client, router, rollout, and verifier layers.
+- Infrastructure recovery: after an otherwise successful evaluator invocation,
+  one in-process resume may replace only missing rows or error rows that contain
+  no nodes, rewards, metrics, or model metadata. Any model-bearing or ambiguous
+  error fails closed, so this does not add another model attempt to pass@1.
 - Capture: preserved thinking, reasoning content, model I/O, request graph,
   exact provider JSON, tool calls, and provider usage. Log probabilities and
   token IDs are intentionally not requested.

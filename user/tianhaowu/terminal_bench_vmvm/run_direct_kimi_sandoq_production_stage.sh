@@ -302,8 +302,8 @@ set +e
     --state-file "$rotation_state" \
     --event-log "$guard_log" \
     --cleanup-command-json "$cleanup_command" \
-    -- "$x86_uv" run --no-project --offline --python "$python_bin" \
-        python3 -c 'from verifiers.v1.cli.eval.main import main; main()' --resume "$output_dir" \
+    -- env DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=${DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS:-1} \
+        /usr/bin/bash -p "$workflow_dir/run_eval_with_zero_model_resume.sh" \
     >"$eval_log" 2>&1
 eval_status=$?
 set -e
