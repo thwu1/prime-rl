@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import pytest
 from prime_sandboxes.exceptions import APIError
 from sandoq_provider.ecr import ECRConfig, ECRCredentialCache, authenticated_ecr_registry
-from sandoq_provider.gateway import SandoqHttpResponse
+from sandoq_provider.gateway import SandoqHttpResponse, SandoqHttpTransportError
 from sandoq_provider.oci_client import (
     CommandResponse,
     OCIRunnerAsyncSandboxClient,
@@ -588,7 +588,70 @@ def test_background_job_status_uses_idempotent_exec() -> None:
     )
 
     assert status.completed is False
-    assert calls == [{"timeout": 30, "operation": "background_job_status"}]
+    assert calls == [
+        {
+            "timeout": 30,
+            "operation": "background_job_status",
+            "retry_ambiguous_transport": True,
+        }
+    ]
+
+
+def test_idempotent_exec_retries_ambiguous_transport_only_when_enabled() -> None:
+    client = object.__new__(OCIRunnerAsyncSandboxClient)
+    client._oci_cfg = SimpleNamespace(gateway_retry_attempts=3, gateway_retry_interval_s=0)
+    info = SimpleNamespace(metadata={})
+    attempts = 0
+
+    async def outer_exec(*_args: object, **_kwargs: object) -> CommandResponse:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise SandoqHttpTransportError(
+                "POST",
+                "ServerDisconnectedError",
+                timed_out=False,
+                delivery_state="unknown",
+            )
+        return CommandResponse(stdout="RUNNING\n", stderr="", exit_code=0)
+
+    client._outer_exec = outer_exec
+    result = asyncio.run(
+        client._outer_exec_idempotent(
+            info,
+            "status",
+            timeout=30,
+            operation="background_job_status",
+            retry_ambiguous_transport=True,
+        )
+    )
+
+    assert result.stdout == "RUNNING\n"
+    assert attempts == 2
+    assert info.metadata["idempotent_gateway_retry_count"] == 1
+
+
+def test_idempotent_exec_does_not_replay_ambiguous_transport_by_default() -> None:
+    client = object.__new__(OCIRunnerAsyncSandboxClient)
+    client._oci_cfg = SimpleNamespace(gateway_retry_attempts=3, gateway_retry_interval_s=0)
+    info = SimpleNamespace(metadata={})
+    attempts = 0
+
+    async def outer_exec(*_args: object, **_kwargs: object) -> CommandResponse:
+        nonlocal attempts
+        attempts += 1
+        raise SandoqHttpTransportError(
+            "POST",
+            "ServerDisconnectedError",
+            timed_out=False,
+            delivery_state="unknown",
+        )
+
+    client._outer_exec = outer_exec
+    with pytest.raises(SandoqHttpTransportError):
+        asyncio.run(client._outer_exec_idempotent(info, "mutation", timeout=30))
+
+    assert attempts == 1
 
 
 def _background_job_test_client() -> tuple[OCIRunnerAsyncSandboxClient, SimpleNamespace]:

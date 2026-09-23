@@ -2233,6 +2233,7 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
         *,
         deadline: float | None = None,
         allow_not_sent_retry: bool = False,
+        allow_ambiguous_retry: bool = False,
     ) -> CommandResponse:
         command_timeout = min(timeout, self._oci_cfg.exec_timeout_ceiling_s - 1)
         request_timeout = min(float(command_timeout) + 30.0, float(self._oci_cfg.exec_timeout_ceiling_s))
@@ -2262,6 +2263,12 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             )
             status_code, body = response.status_code, response.body
         except SandoqHttpTransportError as exc:
+            # Callers opt into this only for commands whose replay is safe
+            # even when the transport cannot prove whether the first request
+            # reached the guest (for example, read-only background status or
+            # an idempotent process-group termination).
+            if allow_ambiguous_retry:
+                raise
             if exc.timed_out:
                 info.assignment_poisoned = True
                 info.assignment_poison_reason = "proxy_deadline_breach"
@@ -2349,6 +2356,7 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
         *,
         deadline: float | None = None,
         operation: str = "outer_exec",
+        retry_ambiguous_transport: bool = False,
     ) -> CommandResponse:
         """Retry a trusted idempotent outer command on transient gateway unavailability."""
         absolute_deadline = deadline if deadline is not None else time.monotonic() + timeout
@@ -2372,6 +2380,7 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
                     env=env,
                     deadline=absolute_deadline,
                     allow_not_sent_retry=True,
+                    allow_ambiguous_retry=retry_ambiguous_transport,
                 )
                 if not_sent_retries:
                     self._record_not_sent_recovery(info)
@@ -2380,7 +2389,7 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
                 last_status = exc.http_status
                 last_delivery_state = exc.delivery_state
                 safe_not_sent = exc.delivery_state == "not_sent" and exc.retryable
-                if not safe_not_sent:
+                if not safe_not_sent and not retry_ambiguous_transport:
                     raise
             if attempt + 1 >= self._oci_cfg.gateway_retry_attempts:
                 break
@@ -2980,6 +2989,7 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             f"tail -c {_BACKGROUND_OUTPUT_TAIL_BYTES} {shlex.quote(path)} | base64 -w0",
             timeout=60,
             operation="background_output",
+            retry_ambiguous_transport=True,
         )
         if result.exit_code != 0:
             return "", False
@@ -3024,6 +3034,7 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             ),
             timeout=min(int(timeout or 30), 60),
             operation="background_job_status",
+            retry_ambiguous_transport=True,
         )
         lines = status.stdout.splitlines()
         state = lines[0] if lines else ""
@@ -3145,10 +3156,12 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             ]
         )
         try:
-            result = await self._outer_exec(
+            result = await self._outer_exec_idempotent(
                 info,
                 command,
                 timeout=grace_seconds + 20,
+                operation="background_job_terminate",
+                retry_ambiguous_transport=True,
             )
         except Exception:
             return False
