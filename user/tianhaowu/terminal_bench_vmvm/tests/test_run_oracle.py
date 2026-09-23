@@ -63,6 +63,9 @@ def _identity_args(tmp_path: Path) -> SimpleNamespace:
         vacli_container_privileged=1,
         timeout_multiplier=1.0,
         resource_multiplier=1.0,
+        resource_cpu_cap=2,
+        resource_memory_mb_cap=4096,
+        resource_storage_mb_cap=10240,
         minimum_pass_rate=0.9,
         minimum_valid=2,
         invocation_host="worker.example",
@@ -154,6 +157,11 @@ def test_oracle_run_identity_binds_all_canonical_inputs(tmp_path: Path) -> None:
     assert identity["source"]["prime_rl_tree_sha256"] == run_oracle.CLEAN_TREE_SHA256
     assert identity["network_semantics"]["trusted_reference_solution"] == "public"
     assert identity["execution"]["max_concurrent"] == 32
+    assert identity["execution"]["resource_caps"] == {
+        "cpu": 2,
+        "memory_mb": 4096,
+        "storage_mb": 10240,
+    }
     assert identity["acceptance"] == {"minimum_pass_rate": 0.9, "minimum_valid": 2}
 
     digest, created = run_oracle._bind_run_identity(tmp_path, identity)
@@ -163,6 +171,18 @@ def test_oracle_run_identity_binds_all_canonical_inputs(tmp_path: Path) -> None:
     assert digest == hashlib.sha256(run_oracle._canonical_json(identity)).hexdigest()
     assert saved["run_identity_sha256"] == digest
     assert run_oracle._bind_run_identity(tmp_path, identity) == (digest, False)
+
+
+def test_oracle_run_identity_rejects_changed_resource_cap(tmp_path: Path) -> None:
+    args = _identity_args(tmp_path)
+    identity = run_oracle._run_identity(args, _tasks(), None)
+    run_oracle._bind_run_identity(tmp_path, identity)
+
+    args.resource_memory_mb_cap = 8192
+    changed = run_oracle._run_identity(args, _tasks(), None)
+
+    with pytest.raises(SystemExit, match="run identity mismatch"):
+        run_oracle._bind_run_identity(tmp_path, changed)
 
 
 def test_oracle_run_identity_binds_source_wheel_policy_but_not_resume_approval(tmp_path: Path) -> None:

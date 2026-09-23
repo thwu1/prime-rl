@@ -37,8 +37,11 @@ The launchers fail closed on a changed dataset digest, an incomplete image
 manifest, unsafe token permissions, or a dirty source checkout.
 
 The current Firecracker profile is qualified for 2 CPU, 4 GiB memory, and
-10 GiB disk per nested task. Only 23/294 tasks both fit that envelope and avoid
-unsupported Compose, so the full launcher currently refuses to spend a 294-task
-run that cannot reach the 90% gate. Those limits and the derived coverage count
-are explicit in `frontierbench.env`; update them only with a larger qualified
-Sandoq profile and a refreshed aggregate audit.
+10 GiB disk per nested task. The oracle launcher caps each agent and separate
+verifier dimension independently to `min(declared, qualified limit)`, binds the
+caps into the immutable run identity, and submits all 294 eligible tasks. The
+285 non-Compose tasks use Sandoq; the nine Compose tasks terminate explicitly as
+unsupported rather than being silently run without their services. Because 285
+is above the 265-pass acceptance floor, this lane can still satisfy the 90%
+corpus gate. A separate Compose-capable provider lane is required to validate
+those nine tasks.

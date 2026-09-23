@@ -203,6 +203,29 @@ args=(
     --invocation-host "$invocation_host"
     --slurm-job-id "$SLURM_JOB_ID"
 )
+resource_cpu_cap=${TASK_RESOURCE_CPU_CAP:-}
+resource_memory_mb_cap=${TASK_RESOURCE_MEMORY_MB_CAP:-}
+resource_storage_mb_cap=${TASK_RESOURCE_STORAGE_MB_CAP:-}
+resource_caps=("$resource_cpu_cap" "$resource_memory_mb_cap" "$resource_storage_mb_cap")
+resource_cap_count=0
+for value in "${resource_caps[@]}"; do
+    [[ -n "$value" ]] && resource_cap_count=$((resource_cap_count + 1))
+done
+if (( resource_cap_count != 0 && resource_cap_count != 3 )); then
+    printf 'TASK_RESOURCE CPU, memory, and storage caps must be supplied together\n' >&2
+    exit 2
+fi
+if (( resource_cap_count == 3 )); then
+    for value in "${resource_caps[@]}"; do
+        [[ "$value" =~ ^[1-9][0-9]*$ ]] \
+            || { printf 'TASK_RESOURCE caps must be positive integers\n' >&2; exit 2; }
+    done
+    args+=(
+        --resource-cpu-cap "$resource_cpu_cap"
+        --resource-memory-mb-cap "$resource_memory_mb_cap"
+        --resource-storage-mb-cap "$resource_storage_mb_cap"
+    )
+fi
 if [[ -n "$dataset_revision" ]]; then
     args+=(--dataset-revision "$dataset_revision")
 elif [[ -n "$dataset_archive" ]]; then

@@ -31,7 +31,7 @@ from typing import Literal
 from weakref import WeakKeyDictionary
 
 import verifiers.v1 as vf
-from pydantic import Field
+from pydantic import Field, model_validator
 from verifiers.v1.decorators import reward
 from verifiers.v1.errors import SandboxError
 from verifiers.v1.runtimes import (
@@ -310,6 +310,15 @@ class TerminalBenchVMVMConfig(HarborConfig):
     memory_resource_multiplier: Literal[0.375, 0.75] | None = None
     """Fallback-only memory scaling; CPU, disk, and GPU requests remain declared."""
 
+    resource_cpu_cap: int | None = Field(default=None, gt=0)
+    """Optional whole-core ceiling applied to each declared task CPU request."""
+
+    resource_memory_mb_cap: int | None = Field(default=None, gt=0)
+    """Optional MiB ceiling applied to each declared task memory request."""
+
+    resource_storage_mb_cap: int | None = Field(default=None, gt=0)
+    """Optional MiB ceiling applied to each declared task storage request."""
+
     verifier_runtime_retries: int = Field(2, ge=0)
     capture_convention_artifacts: bool = True
     """Also preserve Harbor's conventional /logs/artifacts directory when present."""
@@ -346,6 +355,21 @@ class TerminalBenchVMVMConfig(HarborConfig):
 
     offline_verifier_project_root: Path | None = None
     """Frozen project root used for private-catalog overlap checks."""
+
+    @model_validator(mode="after")
+    def validate_resource_controls(self) -> "TerminalBenchVMVMConfig":
+        caps = (
+            self.resource_cpu_cap,
+            self.resource_memory_mb_cap,
+            self.resource_storage_mb_cap,
+        )
+        if any(value is not None for value in caps) and not all(value is not None for value in caps):
+            raise ValueError("CPU, memory, and storage resource caps must be supplied together")
+        if all(value is not None for value in caps) and (
+            self.resource_multiplier != 1.0 or self.memory_resource_multiplier is not None
+        ):
+            raise ValueError("resource caps require resource_multiplier=1 and no memory-only multiplier")
+        return self
 
 
 class OfflineVerifierCatalogIdentityConfig(vf.StrictBaseModel):
@@ -687,18 +711,68 @@ def _environment_workdir(dockerfile: Path, default: str = "/app") -> str:
     if not dockerfile.is_file():
         return default
     workdir = PurePosixPath(default)
+    variables: dict[str, str] = {}
+    logical_lines: list[str] = []
+    pending = ""
     for raw in dockerfile.read_text(errors="replace").splitlines():
+        component = raw.strip() if not pending else raw.lstrip()
+        pending += component
+        if pending.rstrip().endswith("\\"):
+            pending = pending.rstrip()[:-1] + " "
+            continue
+        logical_lines.append(pending)
+        pending = ""
+    if pending:
+        raise ValueError(f"{dockerfile}: unterminated Dockerfile continuation")
+
+    def expand(value: str, *, require_defined: bool = False) -> str:
+        def replace(match: re.Match[str]) -> str:
+            name = match.group(1) or match.group(2)
+            if name not in variables:
+                if require_defined:
+                    raise ValueError(f"{dockerfile}: WORKDIR references undefined variable {name!r}")
+                return match.group(0)
+            return variables[name]
+
+        expanded = re.sub(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)", replace, value)
+        if require_defined and "$" in expanded:
+            raise ValueError(f"{dockerfile}: unsupported variable expression in WORKDIR: {value!r}")
+        return expanded
+
+    for raw in logical_lines:
         line = raw.strip()
         if not line or line.startswith("#"):
             continue
         head, separator, value = line.partition(" ")
-        if not separator or head.upper() != "WORKDIR":
+        if not separator:
+            continue
+        instruction = head.upper()
+        value = value.strip()
+        if instruction == "ARG":
+            name, equals, default_value = value.partition("=")
+            if equals and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+                variables[name] = expand(default_value)
+            continue
+        if instruction == "ENV":
+            try:
+                tokens = shlex.split(value)
+            except ValueError as error:
+                raise ValueError(f"{dockerfile}: invalid ENV declaration") from error
+            if tokens and all("=" in token for token in tokens):
+                for token in tokens:
+                    name, _, env_value = token.partition("=")
+                    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+                        raise ValueError(f"{dockerfile}: invalid ENV variable name {name!r}")
+                    variables[name] = expand(env_value)
+            elif len(tokens) >= 2 and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", tokens[0]):
+                variables[tokens[0]] = expand(" ".join(tokens[1:]))
+            continue
+        if instruction != "WORKDIR":
             continue
         candidate = value.strip()
         if not candidate:
             continue
-        if "$" in candidate:
-            raise ValueError(f"{dockerfile}: variable WORKDIR is not supported: {candidate!r}")
+        candidate = expand(candidate, require_defined=True)
         path = PurePosixPath(candidate)
         workdir = path if path.is_absolute() else workdir / path
     return str(workdir)
@@ -1214,6 +1288,46 @@ def _base_task(task_dir: Path, idx: int, raw: dict, config: TerminalBenchVMVMCon
 
 def _task_resources(environment: dict, config: TerminalBenchVMVMConfig) -> TaskResources:
     """Resolve resources while keeping the ordinary Harbor path unchanged."""
+
+    caps = (
+        config.resource_cpu_cap,
+        config.resource_memory_mb_cap,
+        config.resource_storage_mb_cap,
+    )
+    if all(value is not None for value in caps):
+        declared: dict[str, float | None] = {}
+        for field in ("cpus", "memory_mb", "storage_mb"):
+            if field not in environment:
+                declared[field] = None
+                continue
+            value = environment[field]
+            if (
+                isinstance(value, bool)
+                or not isinstance(value, (int, float))
+                or not math.isfinite(float(value))
+                or value <= 0
+            ):
+                raise ValueError(f"declared {field} must be a finite positive number")
+            if field == "cpus" and not float(value).is_integer():
+                raise ValueError("declared cpus must be a positive whole-core count")
+            declared[field] = float(value)
+
+        cpu_cap, memory_mb_cap, storage_mb_cap = caps
+        assert cpu_cap is not None and memory_mb_cap is not None and storage_mb_cap is not None
+        return TaskResources(
+            cpu=(min(declared["cpus"], float(cpu_cap)) if declared["cpus"] is not None else None),
+            memory=(
+                min(declared["memory_mb"], float(memory_mb_cap)) / 1024
+                if declared["memory_mb"] is not None
+                else None
+            ),
+            gpu=str(environment["gpus"]) if environment.get("gpus") else None,
+            disk=(
+                min(declared["storage_mb"], float(storage_mb_cap)) / 1024
+                if declared["storage_mb"] is not None
+                else None
+            ),
+        )
 
     memory_multiplier = config.memory_resource_multiplier
     if memory_multiplier is None:
@@ -2305,13 +2419,14 @@ class TerminalBenchVMVMTaskset(
         if isinstance(runtime, VMVMRuntime) and task.resources.gpu:
             raise UnsupportedTaskError(f"{task.name}: requests GPU resources, but the current VMVM tenant is CPU-only")
         compose_started = False
-        if self.config.enable_compose:
-            compose_path = _compose_path(Path(task.task_dir))
-            if compose_path is not None:
-                if not isinstance(runtime, VMVMRuntime):
-                    raise UnsupportedTaskError(f"{task.name}: Docker Compose currently requires VMVMRuntime")
-                await runtime.start_compose(compose_path.read_bytes())
-                compose_started = True
+        compose_path = _compose_path(Path(task.task_dir))
+        if compose_path is not None:
+            if not self.config.enable_compose:
+                raise UnsupportedTaskError(f"{task.name}: requires Docker Compose, but Compose is disabled")
+            if not isinstance(runtime, VMVMRuntime):
+                raise UnsupportedTaskError(f"{task.name}: Docker Compose currently requires VMVMRuntime")
+            await runtime.start_compose(compose_path.read_bytes())
+            compose_started = True
 
         await self._configure_network_policy(
             task,

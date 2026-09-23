@@ -87,6 +87,9 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--vacli-container-privileged", type=int, choices=(0, 1), required=True)
     parser.add_argument("--timeout-multiplier", type=float, default=1.0)
     parser.add_argument("--resource-multiplier", type=float, default=1.0)
+    parser.add_argument("--resource-cpu-cap", type=int)
+    parser.add_argument("--resource-memory-mb-cap", type=int)
+    parser.add_argument("--resource-storage-mb-cap", type=int)
     parser.add_argument(
         "--oracle-solution-network-mode",
         choices=("declared", "public"),
@@ -119,6 +122,19 @@ def _parse_args() -> argparse.Namespace:
         parser.error("--minimum-valid cannot be negative")
     if args.timeout_multiplier <= 0 or args.resource_multiplier <= 0:
         parser.error("timeout and resource multipliers must be positive")
+    resource_caps = (
+        args.resource_cpu_cap,
+        args.resource_memory_mb_cap,
+        args.resource_storage_mb_cap,
+    )
+    if any(value is not None for value in resource_caps) and not all(
+        value is not None for value in resource_caps
+    ):
+        parser.error("resource CPU, memory, and storage caps must be supplied together")
+    if any(value is not None and value <= 0 for value in resource_caps):
+        parser.error("resource caps must be positive integers")
+    if all(value is not None for value in resource_caps) and args.resource_multiplier != 1.0:
+        parser.error("resource caps require --resource-multiplier=1")
     if args.sandbox_provider == "sandoq" and args.sandoq_ecr_token_file is None:
         parser.error("--sandoq-ecr-token-file is required with --sandbox-provider=sandoq")
     if args.sandbox_provider == "vmvm" and args.sandoq_ecr_token_file is not None:
@@ -430,6 +446,23 @@ def _validate_identity_inputs(args: argparse.Namespace) -> None:
         raise SystemExit("VACLI concurrency and pull timeout must be positive")
     if args.vacli_container_privileged not in {0, 1}:
         raise SystemExit("VACLI privileged mode must be zero or one")
+    resource_caps = (
+        args.resource_cpu_cap,
+        args.resource_memory_mb_cap,
+        args.resource_storage_mb_cap,
+    )
+    if any(value is not None for value in resource_caps) and not all(
+        value is not None for value in resource_caps
+    ):
+        raise SystemExit("resource CPU, memory, and storage caps must be supplied together")
+    if any(
+        isinstance(value, bool) or not isinstance(value, int) or value <= 0
+        for value in resource_caps
+        if value is not None
+    ):
+        raise SystemExit("resource caps must be positive integers")
+    if all(value is not None for value in resource_caps) and args.resource_multiplier != 1.0:
+        raise SystemExit("resource caps require resource_multiplier=1")
 
 
 def _run_identity(
@@ -498,6 +531,11 @@ def _run_identity(
             "vacli_container_privileged": bool(args.vacli_container_privileged),
             "timeout_multiplier": args.timeout_multiplier,
             "resource_multiplier": args.resource_multiplier,
+            "resource_caps": {
+                "cpu": args.resource_cpu_cap,
+                "memory_mb": args.resource_memory_mb_cap,
+                "storage_mb": args.resource_storage_mb_cap,
+            },
             "runtime_image": RUNTIME_IMAGE,
             "runtime_workdir": RUNTIME_WORKDIR,
         },
@@ -1113,6 +1151,9 @@ async def _run(args: argparse.Namespace) -> int:
             verifier_runtime_retries=args.verifier_runtime_retries,
             timeout_multiplier=args.timeout_multiplier,
             resource_multiplier=args.resource_multiplier,
+            resource_cpu_cap=args.resource_cpu_cap,
+            resource_memory_mb_cap=args.resource_memory_mb_cap,
+            resource_storage_mb_cap=args.resource_storage_mb_cap,
             oracle_solution_network_mode=args.oracle_solution_network_mode,
             oracle_source_wheel_policy=args.source_wheel_policy,
             oracle_source_wheel_policy_sha256=args.source_wheel_policy_sha256,
@@ -1205,6 +1246,11 @@ async def _run(args: argparse.Namespace) -> int:
         "vacli_container_privileged": bool(args.vacli_container_privileged),
         "timeout_multiplier": args.timeout_multiplier,
         "resource_multiplier": args.resource_multiplier,
+        "resource_caps": {
+            "cpu": args.resource_cpu_cap,
+            "memory_mb": args.resource_memory_mb_cap,
+            "storage_mb": args.resource_storage_mb_cap,
+        },
         "minimum_pass_rate": args.minimum_pass_rate,
         "minimum_valid": args.minimum_valid,
         "oracle_solution_network_mode": args.oracle_solution_network_mode,

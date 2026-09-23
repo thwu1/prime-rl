@@ -17,7 +17,7 @@ for value in "$FRONTIERBENCH_EXPECTED_TASKS" "$FRONTIERBENCH_BUILD_WORKERS" \
     "$FRONTIERBENCH_ORACLE_MINIMUM_VALID" \
     "$SANDOQ_POOL_MAX" "$SANDOQ_LEASE_CREATE_CAP" "$SANDOQ_STARTUP_TIMEOUT_SECONDS" \
     "$SANDOQ_TASK_MAX_CPUS" "$SANDOQ_TASK_MAX_MEMORY_MB" "$SANDOQ_TASK_MAX_STORAGE_MB" \
-    "$FRONTIERBENCH_SANDOQ_RUNNABLE_TASKS"; do
+    "$FRONTIERBENCH_COMPOSE_TASKS" "$FRONTIERBENCH_SANDOQ_RUNNABLE_TASKS"; do
     [[ "$value" =~ ^[1-9][0-9]*$ ]] \
         || { printf 'Configured counts and timeouts must be positive integers\n' >&2; exit 2; }
 done
@@ -25,9 +25,6 @@ done
     || { printf 'Oracle pass-rate gate must be between zero and one\n' >&2; exit 2; }
 [[ "$FRONTIERBENCH_RUN_VARIANT" =~ ^[A-Za-z0-9._-]+$ ]] \
     || { printf 'Run variant must be a safe path component\n' >&2; exit 2; }
-[[ "$FRONTIERBENCH_ENFORCE_FULL_RESOURCE_GATE" == 0 \
-    || "$FRONTIERBENCH_ENFORCE_FULL_RESOURCE_GATE" == 1 ]] \
-    || { printf 'Full resource gate must be 0 or 1\n' >&2; exit 2; }
 
 dataset_dir=$FRONTIERBENCH_DATASET_DIR
 dataset_tree_sha256=$FRONTIERBENCH_DATASET_TREE_SHA256
@@ -45,12 +42,6 @@ if [[ "$mode" == smoke ]]; then
 fi
 source_revision=$(git -C "$project_dir" rev-parse --verify HEAD)
 minimum_valid=$FRONTIERBENCH_ORACLE_MINIMUM_VALID
-if [[ "$mode" == full && "$FRONTIERBENCH_ENFORCE_FULL_RESOURCE_GATE" == 1 \
-    && "$FRONTIERBENCH_SANDOQ_RUNNABLE_TASKS" -lt "$minimum_valid" ]]; then
-    printf 'Current Sandoq Firecracker envelope covers only %s/%s tasks; refusing a run that cannot meet the 90%% oracle gate\n' \
-        "$FRONTIERBENCH_SANDOQ_RUNNABLE_TASKS" "$expected_tasks" >&2
-    exit 2
-fi
 
 [[ -d "$dataset_dir" && ! -L "$dataset_dir" ]] || { printf 'Pinned dataset directory is unavailable\n' >&2; exit 2; }
 [[ "$dataset_tree_sha256" =~ ^[0-9a-f]{64}$ ]] || { printf 'Pinned dataset tree digest is invalid\n' >&2; exit 2; }
@@ -68,9 +59,24 @@ task_count=$(find "$dataset_dir" -mindepth 1 -maxdepth 1 -type d -exec test -f '
 security_matches=$(find "$dataset_dir" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
     | awk -v pattern="$FRONTIERBENCH_EXCLUDED_NAME_PATTERN" \
         'BEGIN{IGNORECASE=1} $0 ~ pattern {n++} END{print n+0}')
+compose_count=$(find "$dataset_dir" -mindepth 3 -maxdepth 3 -type f \
+    \( -name docker-compose.yaml -o -name docker-compose.yml \
+       -o -name compose.yaml -o -name compose.yml \) -printf '%h\n' | sort -u | wc -l)
 if [[ "$task_count" != "$expected_tasks" || "$security_matches" != 0 ]]; then
     printf 'Dataset eligibility check failed (count or excluded-category boundary)\n' >&2
     exit 2
+fi
+if [[ "$mode" == full ]]; then
+    sandoq_runnable=$((task_count - compose_count))
+    if [[ "$compose_count" != "$FRONTIERBENCH_COMPOSE_TASKS" \
+        || "$sandoq_runnable" != "$FRONTIERBENCH_SANDOQ_RUNNABLE_TASKS" ]]; then
+        printf 'Pinned aggregate Compose coverage changed\n' >&2
+        exit 2
+    fi
+    if (( sandoq_runnable < minimum_valid )); then
+        printf 'Non-Compose Sandoq coverage cannot meet the oracle acceptance gate\n' >&2
+        exit 2
+    fi
 fi
 
 run_root="$FRONTIERBENCH_RUN_ROOT/$run_name"
@@ -120,6 +126,9 @@ job_id=$(
         IMAGE_PREFIX="$FRONTIERBENCH_IMAGE_REPOSITORY" IMAGE_TAG="$FRONTIERBENCH_IMAGE_TAG" \
         IMAGE_MANIFEST="$manifest" IMAGE_MANIFEST_SHA256="$manifest_sha256" \
         USE_DECLARED_IMAGES=1 MAX_CONCURRENT="$oracle_concurrency" \
+        TASK_RESOURCE_CPU_CAP="$SANDOQ_TASK_MAX_CPUS" \
+        TASK_RESOURCE_MEMORY_MB_CAP="$SANDOQ_TASK_MAX_MEMORY_MB" \
+        TASK_RESOURCE_STORAGE_MB_CAP="$SANDOQ_TASK_MAX_STORAGE_MB" \
         INFRA_RETRIES=2 SETUP_TIMEOUT=3600 VALIDATE_TIMEOUT="$FRONTIERBENCH_ORACLE_TIMEOUT_SECONDS" \
         SESSION_TIMEOUT="$FRONTIERBENCH_ORACLE_TIMEOUT_SECONDS" \
         MINIMUM_PASS_RATE="$FRONTIERBENCH_ORACLE_MINIMUM_PASS_RATE" MINIMUM_VALID="$minimum_valid" \

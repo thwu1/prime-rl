@@ -164,6 +164,130 @@ def test_standard_resource_scaling_is_unchanged_and_memory_only_mode_fails_close
         taskset_module._task_resources(fractional_cpu, fallback)
 
 
+def test_resource_caps_apply_per_dimension_and_preserve_below_cap_values() -> None:
+    config = TerminalBenchVMVMConfig(
+        id="terminal-bench-vmvm",
+        resource_cpu_cap=2,
+        resource_memory_mb_cap=4096,
+        resource_storage_mb_cap=10240,
+    )
+
+    below = taskset_module._task_resources(
+        {"cpus": 1, "memory_mb": 2048, "storage_mb": 5120},
+        config,
+    )
+    above = taskset_module._task_resources(
+        {"cpus": 16, "memory_mb": 65536, "storage_mb": 256000},
+        config,
+    )
+
+    assert below.model_dump() == {"cpu": 1.0, "memory": 2.0, "gpu": None, "disk": 5.0}
+    assert above.model_dump() == {"cpu": 2.0, "memory": 4.0, "gpu": None, "disk": 10.0}
+
+
+@pytest.mark.parametrize(
+    "environment",
+    (
+        {"cpus": 0, "memory_mb": 4096, "storage_mb": 10240},
+        {"cpus": "two", "memory_mb": 4096, "storage_mb": 10240},
+        {"cpus": 1.5, "memory_mb": 4096, "storage_mb": 10240},
+        {"cpus": 2, "memory_mb": 0, "storage_mb": 10240},
+        {"cpus": 2, "memory_mb": "large", "storage_mb": 10240},
+        {"cpus": 2, "memory_mb": 4096, "storage_mb": 0},
+        {"cpus": 2, "memory_mb": 4096, "storage_mb": "large"},
+    ),
+)
+def test_resource_caps_reject_malformed_or_zero_declarations(environment: dict) -> None:
+    config = TerminalBenchVMVMConfig(
+        id="terminal-bench-vmvm",
+        resource_cpu_cap=2,
+        resource_memory_mb_cap=4096,
+        resource_storage_mb_cap=10240,
+    )
+
+    with pytest.raises(ValueError, match="declared"):
+        taskset_module._task_resources(environment, config)
+
+
+def test_resource_caps_require_a_complete_positive_unscaled_triplet() -> None:
+    with pytest.raises(ValueError, match="must be supplied together"):
+        TerminalBenchVMVMConfig(id="terminal-bench-vmvm", resource_cpu_cap=2)
+    with pytest.raises(ValueError, match="greater than 0"):
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            resource_cpu_cap=0,
+            resource_memory_mb_cap=4096,
+            resource_storage_mb_cap=10240,
+        )
+    with pytest.raises(ValueError, match="require resource_multiplier=1"):
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            resource_multiplier=2,
+            resource_cpu_cap=2,
+            resource_memory_mb_cap=4096,
+            resource_storage_mb_cap=10240,
+        )
+
+
+def test_resource_caps_apply_to_agent_and_separate_verifier(tmp_path: Path) -> None:
+    task_dir = tmp_path / "synthetic-task"
+    task_dir.mkdir()
+    (task_dir / "instruction.md").write_text("Exercise the sandbox.\n")
+    (task_dir / "task.toml").write_text(
+        """
+[task]
+name = "synthetic-task"
+
+[environment]
+cpus = 16
+memory_mb = 65536
+storage_mb = 256000
+
+[verifier]
+environment_mode = "separate"
+
+[verifier.environment]
+cpus = 4
+memory_mb = 8192
+storage_mb = 12288
+""".strip()
+        + "\n"
+    )
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            ignore_dockerfile=True,
+            resource_cpu_cap=2,
+            resource_memory_mb_cap=4096,
+            resource_storage_mb_cap=10240,
+        )
+    )
+
+    task = taskset.load_tasks()[0]
+
+    expected = {"cpu": 2.0, "memory": 4.0, "gpu": None, "disk": 10.0}
+    assert task.resources.model_dump() == expected
+    assert task.verifier_resources.model_dump() == expected
+
+
+def test_disabled_compose_task_fails_explicitly_before_runtime_use(tmp_path: Path) -> None:
+    environment = tmp_path / "environment"
+    environment.mkdir()
+    (environment / "docker-compose.yaml").write_text("services: {}\n")
+    taskset = TerminalBenchVMVMTaskset(TerminalBenchVMVMConfig(id="terminal-bench-vmvm"))
+    task = SimpleNamespace(name="synthetic-task", task_dir=str(tmp_path), resources=SimpleNamespace(gpu=None))
+
+    with pytest.raises(UnsupportedTaskError, match="requires Docker Compose"):
+        asyncio.run(
+            taskset._setup(
+                task,
+                object(),
+                oracle_solution_network_mode="declared",
+            )
+        )
+
+
 def test_fallback_memory_scaling_applies_to_agent_and_separate_verifier(tmp_path: Path) -> None:
     task_dir = tmp_path / "synthetic-task"
     task_dir.mkdir()
@@ -446,6 +570,28 @@ def test_environment_workdir_defaults_and_tracks_relative_updates(tmp_path: Path
     dockerfile.write_text("FROM python:3.12\nWORKDIR /workspace\nWORKDIR project\n")
     assert _environment_workdir(dockerfile) == "/workspace/project"
     assert _environment_workdir(tmp_path / "missing") == "/app"
+
+
+def test_environment_workdir_resolves_literal_env_and_arg_defaults(tmp_path: Path) -> None:
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text(
+        "FROM python:3.12\n"
+        "ARG ROOT=/srv/project\n"
+        "ENV ROOT=${ROOT}\n"
+        "ENV CHILD=checkout\n"
+        "WORKDIR $ROOT\n"
+        "WORKDIR ${CHILD}\n"
+    )
+
+    assert _environment_workdir(dockerfile) == "/srv/project/checkout"
+
+
+def test_environment_workdir_rejects_undefined_variable(tmp_path: Path) -> None:
+    dockerfile = tmp_path / "Dockerfile"
+    dockerfile.write_text("FROM python:3.12\nWORKDIR $UNDEFINED\n")
+
+    with pytest.raises(ValueError, match="references undefined variable"):
+        _environment_workdir(dockerfile)
 
 
 def test_shared_verifier_uses_agent_image_workdir(tmp_path: Path) -> None:
