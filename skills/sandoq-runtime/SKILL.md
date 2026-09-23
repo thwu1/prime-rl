@@ -246,6 +246,11 @@ overflow, retry, route-tracking, cross-route, cleanup, or trace anomalies. The
 certificate is aggregate-only and must not contain task identifiers, prompts,
 responses, or raw errors.
 
+Global c64 admission must occur before waiting on the sticky replica's
+single-request semaphore. This lets the router measure all 64 admitted client
+requests while at most 24 requests are forwarded to model replicas; reversing
+that order makes the 64-request certificate impossible and hides queued load.
+
 ## Long-Kimi managed-shell recovery gate
 
 Only the sealed `kimi-tb4-long` lease profile enables managed-shell recovery.

@@ -3,6 +3,7 @@ from __future__ import annotations
 import http.client
 import json
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -34,6 +35,24 @@ class _Backend(BaseHTTPRequestHandler):
             self.wfile.write(f"{len(chunk):x}\r\n".encode() + chunk + b"\r\n")
             self.wfile.flush()
         self.wfile.write(b"0\r\n\r\n")
+
+
+class _BlockingBackend(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    entered = threading.Event()
+    release = threading.Event()
+
+    def log_message(self, _format: str, *_args: object) -> None:
+        return
+
+    def do_POST(self) -> None:  # noqa: N802
+        length = int(self.headers["Content-Length"])
+        self.rfile.read(length)
+        type(self).entered.set()
+        assert type(self).release.wait(timeout=5)
+        self.send_response(200)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
 
 
 def _server(handler: type[BaseHTTPRequestHandler]) -> tuple[ThreadingHTTPServer, threading.Thread]:
@@ -240,3 +259,58 @@ def test_concurrent_session_assignment_is_thread_safe_and_balanced() -> None:
     counts = [assignments.count(index) for index in range(24)]
     assert max(counts) - min(counts) <= 1
     assert [state.worker_for_session(session) for session in sessions] == assignments
+
+
+def test_c64_admits_requests_before_per_worker_queueing() -> None:
+    _BlockingBackend.entered = threading.Event()
+    _BlockingBackend.release = threading.Event()
+    backend, backend_thread = _server(_BlockingBackend)
+    workers = tuple(("127.0.0.1", backend.server_address[1] if index == 0 else 31_000 + index) for index in range(24))
+    state = RouterState(
+        workers,
+        capacity_profile=C64_CAPACITY_PROFILE,
+        endpoint_identifier="cpu-132-021_8103",
+    )
+    router = RouterServer(("127.0.0.1", 0), ApiHandler, state)
+    router_thread = threading.Thread(target=router.serve_forever, daemon=True)
+    router_thread.start()
+    statuses: list[int] = []
+
+    def request() -> None:
+        connection = http.client.HTTPConnection("127.0.0.1", router.server_address[1], timeout=5)
+        connection.request(
+            "POST",
+            "/v1/chat/completions",
+            body=b"{}",
+            headers={"Content-Length": "2", "x-session-id": _session_for(0)},
+        )
+        response = connection.getresponse()
+        statuses.append(response.status)
+        response.read()
+        connection.close()
+
+    first = threading.Thread(target=request)
+    second = threading.Thread(target=request)
+    try:
+        first.start()
+        assert _BlockingBackend.entered.wait(timeout=2)
+        second.start()
+        deadline = time.monotonic() + 2
+        while state.snapshot()["active_requests"] != 2 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert state.snapshot()["active_requests"] == 2
+        assert state.snapshot()["max_active_chat_requests"] == 2
+    finally:
+        _BlockingBackend.release.set()
+        first.join(timeout=5)
+        second.join(timeout=5)
+        router.shutdown()
+        backend.shutdown()
+        router.server_close()
+        backend.server_close()
+        router_thread.join(timeout=5)
+        backend_thread.join(timeout=5)
+
+    assert not first.is_alive()
+    assert not second.is_alive()
+    assert statuses == [200, 200]

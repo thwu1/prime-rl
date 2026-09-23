@@ -374,23 +374,23 @@ class ApiHandler(BaseHTTPRequestHandler):
         body: bytes | None,
         session_id: str | None = None,
     ) -> None:
-        if not self.state.acquire_worker(worker):
-            _json_error(self, 429, "worker_queue_timeout")
-            return
         admitted = False
         try:
             admitted = self.state.acquire(chat=chat, index=worker, session_id=session_id)
         except RouterError:
-            self.state.release_worker(worker)
             _json_error(self, 503, "router_route_tracking_failed")
             return
         if not admitted:
-            self.state.release_worker(worker)
             _json_error(self, 429, "router_capacity_exhausted")
             return
         connection: http.client.HTTPConnection | None = None
+        worker_acquired = False
         headers_sent = False
         try:
+            worker_acquired = self.state.acquire_worker(worker)
+            if not worker_acquired:
+                _json_error(self, 429, "worker_queue_timeout")
+                return
             host, port = self.state.workers[worker]
             headers = {
                 key: value
@@ -433,7 +433,8 @@ class ApiHandler(BaseHTTPRequestHandler):
                 connection.close()
             if admitted:
                 self.state.release(chat=chat)
-            self.state.release_worker(worker)
+            if worker_acquired:
+                self.state.release_worker(worker)
 
 
 class MetricsHandler(BaseHTTPRequestHandler):
