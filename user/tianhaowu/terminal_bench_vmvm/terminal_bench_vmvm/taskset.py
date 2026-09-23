@@ -2197,7 +2197,7 @@ class TerminalBenchVMVMTaskset(
                 raise ValueError(f"{task_dir.name}: manifest agent image is not digest-pinned: {image}")
 
             verifier_image = None
-            verifier_workdir = "/app"
+            verifier_workdir = _environment_workdir(agent_dockerfile)
             verifier_tests_baked = False
             if mode == "separate":
                 declared_verifier = verifier_environment.get("docker_image")

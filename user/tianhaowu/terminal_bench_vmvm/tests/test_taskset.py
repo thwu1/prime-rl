@@ -448,6 +448,26 @@ def test_environment_workdir_defaults_and_tracks_relative_updates(tmp_path: Path
     assert _environment_workdir(tmp_path / "missing") == "/app"
 
 
+def test_shared_verifier_uses_agent_image_workdir(tmp_path: Path) -> None:
+    task_dir = tmp_path / "shared-task"
+    environment = task_dir / "environment"
+    environment.mkdir(parents=True)
+    (task_dir / "instruction.md").write_text("Exercise the sandbox.\n")
+    (task_dir / "task.toml").write_text(
+        "[task]\nname = \"shared-task\"\n\n"
+        "[environment]\ncpus = 1\nmemory_mb = 1024\nstorage_mb = 1024\n\n"
+        "[verifier]\nenvironment_mode = \"shared\"\n"
+    )
+    (environment / "Dockerfile").write_text("FROM python:3.12\nWORKDIR /workspace\n")
+
+    task = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(id="terminal-bench-vmvm", dataset_dir=tmp_path, ignore_dockerfile=True)
+    ).load_tasks()[0]
+
+    assert task.workdir == "/workspace"
+    assert task.verifier_workdir == "/workspace"
+
+
 def test_compose_path_accepts_standard_names_in_precedence_order(tmp_path: Path) -> None:
     environment = tmp_path / "environment"
     environment.mkdir()
