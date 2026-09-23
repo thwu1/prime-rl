@@ -55,8 +55,12 @@ class _BlockingBackend(BaseHTTPRequestHandler):
         self.end_headers()
 
 
+class _TestServer(ThreadingHTTPServer):
+    request_queue_size = 128
+
+
 def _server(handler: type[BaseHTTPRequestHandler]) -> tuple[ThreadingHTTPServer, threading.Thread]:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    server = _TestServer(("127.0.0.1", 0), handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
     return server, thread
@@ -314,3 +318,59 @@ def test_c64_admits_requests_before_per_worker_queueing() -> None:
     assert not first.is_alive()
     assert not second.is_alive()
     assert statuses == [200, 200]
+
+
+def test_c64_http_path_reaches_full_admitted_capacity() -> None:
+    _BlockingBackend.entered = threading.Event()
+    _BlockingBackend.release = threading.Event()
+    backend, backend_thread = _server(_BlockingBackend)
+    workers = tuple(("127.0.0.1", backend.server_address[1]) for _ in range(24))
+    state = RouterState(
+        workers,
+        capacity_profile=C64_CAPACITY_PROFILE,
+        endpoint_identifier="cpu-132-021_8103",
+    )
+    router = RouterServer(("127.0.0.1", 0), ApiHandler, state)
+    router_thread = threading.Thread(target=router.serve_forever, daemon=True)
+    router_thread.start()
+    statuses: list[int] = []
+
+    def request(index: int) -> None:
+        connection = http.client.HTTPConnection("127.0.0.1", router.server_address[1], timeout=10)
+        connection.request(
+            "POST",
+            "/v1/chat/completions",
+            body=b"{}",
+            headers={"Content-Length": "2", "x-session-id": f"capacity-http-{index}"},
+        )
+        response = connection.getresponse()
+        statuses.append(response.status)
+        response.read()
+        connection.close()
+
+    threads = [threading.Thread(target=request, args=(index,)) for index in range(64)]
+    try:
+        for thread in threads:
+            thread.start()
+        assert _BlockingBackend.entered.wait(timeout=2)
+        deadline = time.monotonic() + 5
+        while state.snapshot()["active_requests"] != 64 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        snapshot = state.snapshot()
+        assert snapshot["active_requests"] == 64
+        assert snapshot["max_active_chat_requests"] == 64
+        assert snapshot["tracked_sessions"] == 64
+        assert max(state.worker_session_counts) - min(state.worker_session_counts) <= 1
+    finally:
+        _BlockingBackend.release.set()
+        for thread in threads:
+            thread.join(timeout=10)
+        router.shutdown()
+        backend.shutdown()
+        router.server_close()
+        backend.server_close()
+        router_thread.join(timeout=5)
+        backend_thread.join(timeout=5)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert statuses == [200] * 64
