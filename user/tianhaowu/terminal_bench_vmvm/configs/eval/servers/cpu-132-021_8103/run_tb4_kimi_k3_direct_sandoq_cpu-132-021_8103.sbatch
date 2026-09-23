@@ -62,7 +62,8 @@ miniswe_compatibility_receipt=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diag
 miniswe_compatibility_sha256=cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220
 native_miniswe_stage=0
 if [[ "$stage" == miniswe-smoke || "$stage" == tb4-miniswe || "$stage" == capacity-smoke \
-    || "$stage" == tb4-miniswe246-sandoq-union ]]; then
+    || "$stage" == tb4-miniswe246-sandoq-union \
+    || "$stage" == tb4-miniswe246-sandoq-clamped-recovery ]]; then
     native_miniswe_stage=1
     provider_profile="$workflow_dir/configs/provider_context/use2/kimi_sandoq_firecracker_host.json"
     provider_profile_sha256=7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df
@@ -84,6 +85,7 @@ if [[ "$stage" != smoke && "$stage" != miniswe-smoke && "$stage" != mobius-smoke
     && "$stage" != capacity-smoke && "$stage" != tb4 \
     && "$stage" != tb4-miniswe \
     && "$stage" != tb4-miniswe246-sandoq-union \
+    && "$stage" != tb4-miniswe246-sandoq-clamped-recovery \
     && "$stage" != tb4-miniswe246-vmvm-union \
     && "$stage" != provider-split-legacy \
     && "$stage" != provider-split-large \
@@ -278,6 +280,34 @@ if [[ "$stage" == tb4-miniswe246-sandoq-union || "$stage" == tb4-miniswe246-vmvm
     certificate_mode=miniswe-union
     smoke_checkpoint=${KIMI_SANDOQ_SMOKE_CHECKPOINT:?Set KIMI_SANDOQ_SMOKE_CHECKPOINT}
     smoke_checkpoint_sha256=${KIMI_SANDOQ_SMOKE_CHECKPOINT_SHA256:?Set KIMI_SANDOQ_SMOKE_CHECKPOINT_SHA256}
+elif [[ "$stage" == tb4-miniswe246-sandoq-clamped-recovery ]]; then
+    [[ "$execution_mode" == certified && "$sandbox_provider" == sandoq ]] \
+        || { printf 'Clamped TB4 recovery requires certified Sandoq mode\n' >&2; exit 2; }
+    clamped_plan=${KIMI_TB4_SANDOQ_CLAMPED_PLAN:?Set KIMI_TB4_SANDOQ_CLAMPED_PLAN}
+    clamped_plan_sha256=${KIMI_TB4_SANDOQ_CLAMPED_PLAN_SHA256:?Set KIMI_TB4_SANDOQ_CLAMPED_PLAN_SHA256}
+    verified_clamped=$(
+        PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:$sandoq_site:$x86_site" \
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/prepare_kimi_tb4_sandoq_clamped_recovery.py" verify \
+            --plan "$clamped_plan" --plan-sha256 "$clamped_plan_sha256" --format tsv
+    )
+    IFS=$'\t' read -r verified_stage verified_provider eval_config eval_config_sha256 task_file \
+        task_sha256 task_count stage_capacity output_dir verified_extra <<< "$verified_clamped"
+    if [[ -n "$verified_extra" || "$verified_clamped" == *$'\n'* \
+        || "$verified_stage" != "$stage" || "$verified_provider" != "$sandbox_provider" \
+        || "$task_count" != 27 || "$stage_capacity" != 24 ]]; then
+        printf 'Clamped TB4 recovery plan binding failed\n' >&2
+        exit 2
+    fi
+    identity_role=kimi-direct-tb4
+    certificate_mode=clamped-recovery
+    smoke_checkpoint=${KIMI_SANDOQ_SMOKE_CHECKPOINT:?Set KIMI_SANDOQ_SMOKE_CHECKPOINT}
+    smoke_checkpoint_sha256=${KIMI_SANDOQ_SMOKE_CHECKPOINT_SHA256:?Set KIMI_SANDOQ_SMOKE_CHECKPOINT_SHA256}
+    if [[ ! -f "$smoke_checkpoint" || -L "$smoke_checkpoint" \
+        || "$(sha256sum "$smoke_checkpoint" | cut -d' ' -f1)" != "$smoke_checkpoint_sha256" ]]; then
+        printf 'Direct Kimi smoke checkpoint is unavailable or changed\n' >&2
+        exit 2
+    fi
 elif [[ "$stage" == capacity-smoke ]]; then
     eval_config=${KIMI_SANDOQ_CAPACITY_EVAL_CONFIG:?Set KIMI_SANDOQ_CAPACITY_EVAL_CONFIG}
     eval_config_sha256=${KIMI_SANDOQ_CAPACITY_EVAL_CONFIG_SHA256:?Set KIMI_SANDOQ_CAPACITY_EVAL_CONFIG_SHA256}
@@ -550,6 +580,7 @@ if [[ "$sandbox_provider" == sandoq ]]; then
     sandoq_lease_profile=standard
     if [[ "$stage" == miniswe-smoke || "$stage" == tb4 || "$stage" == tb4-miniswe \
         || "$stage" == tb4-miniswe246-sandoq-union || "$stage" == provider-split-legacy \
+        || "$stage" == tb4-miniswe246-sandoq-clamped-recovery \
         || "$stage" == sandoq-fallback-memory-8g \
         || "$stage" == sandoq-fallback-memory-16g ]]; then
         sandoq_lease_profile=kimi-tb4-long
@@ -641,6 +672,10 @@ if [[ "$stage" == tb4-miniswe246-sandoq-union || "$stage" == tb4-miniswe246-vmvm
         --launch-plan "$union_launch_plan" --launch-plan-sha256 "$union_launch_plan_sha256" \
         --output "$output_dir/provider_partition_certificate.json" \
         "${union_certificate_args[@]}"
+elif [[ "$stage" == tb4-miniswe246-sandoq-clamped-recovery ]]; then
+    printf '{"job_id":"%s","stage":"%s","state":"completed-awaiting-union-certification"}\n' \
+        "$SLURM_JOB_ID" "$stage" >"$output_dir/clamped_recovery_completion.json"
+    chmod 0600 "$output_dir/clamped_recovery_completion.json"
 elif [[ ( "$stage" == provider-split-legacy || "$stage" == provider-split-large ) \
     && "$execution_mode" == certified ]]; then
     kill -TERM -- "-$router_pid"
@@ -703,6 +738,9 @@ if [[ "$stage" == capacity-smoke ]]; then
     printf '{"job_id":"%s","stage":"%s","state":"capacity-qualified"}\n' "$SLURM_JOB_ID" "$stage"
 elif [[ "$stage" == smoke || "$stage" == miniswe-smoke || "$stage" == mobius-smoke ]]; then
     printf '{"job_id":"%s","stage":"%s","state":"capacity-limited-passed"}\n' "$SLURM_JOB_ID" "$stage"
+elif [[ "$stage" == tb4-miniswe246-sandoq-clamped-recovery ]]; then
+    printf '{"job_id":"%s","stage":"%s","state":"completed-awaiting-union-certification"}\n' \
+        "$SLURM_JOB_ID" "$stage"
 elif [[ "$execution_mode" != certified ]]; then
     printf '{"certification_eligible":false,"job_id":"%s","stage":"%s","state":"diagnostic-completed","trace_rollout_eligible":false}\n' "$SLURM_JOB_ID" "$stage"
 else
