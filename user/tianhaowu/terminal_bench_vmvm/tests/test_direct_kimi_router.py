@@ -178,3 +178,29 @@ def test_legacy_router_profile_retains_c24_snapshot_shape() -> None:
     assert snapshot["max_active_requests"] == 24
     assert "capacity_profile" not in snapshot
     assert "capacity_rejections" not in snapshot
+
+
+def test_same_worker_requests_queue_while_other_workers_remain_available() -> None:
+    workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
+    state = RouterState(workers, worker_queue_timeout_seconds=1)
+    second_acquired = threading.Event()
+
+    assert state.acquire_worker(0)
+
+    def acquire_second() -> None:
+        assert state.acquire_worker(0)
+        second_acquired.set()
+        state.release_worker(0)
+
+    thread = threading.Thread(target=acquire_second)
+    thread.start()
+    assert not second_acquired.wait(timeout=0.05)
+
+    # Affinity on one busy worker must not stop an unrelated worker.
+    assert state.acquire_worker(1)
+    state.release_worker(1)
+    state.release_worker(0)
+
+    assert second_acquired.wait(timeout=1)
+    thread.join(timeout=1)
+    assert not thread.is_alive()

@@ -21,6 +21,7 @@ EXPECTED_WORKERS = 24
 POLICY = "consistent_hash"
 SESSION_HEADER = "x-session-id"
 REQUEST_TIMEOUT_SECONDS = 43_200
+WORKER_QUEUE_TIMEOUT_SECONDS = 43_200
 RETRIES = 0
 LEGACY_CAPACITY_PROFILE = "legacy-c24"
 C64_CAPACITY_PROFILE = "sandoq-c64-v1"
@@ -131,6 +132,7 @@ class RouterState:
         *,
         capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
         endpoint_identifier: str | None = None,
+        worker_queue_timeout_seconds: float = WORKER_QUEUE_TIMEOUT_SECONDS,
     ) -> None:
         if len(workers) != EXPECTED_WORKERS:
             raise RouterError("worker_count_invalid")
@@ -143,6 +145,15 @@ class RouterState:
         )
         self.max_concurrent_requests = capacity
         self.capacity = threading.BoundedSemaphore(capacity)
+        if worker_queue_timeout_seconds <= 0:
+            raise RouterError("worker_queue_timeout_invalid")
+        self.worker_queue_timeout_seconds = worker_queue_timeout_seconds
+        # A deployment worker admits one generation at a time.  Session
+        # affinity can map several concurrent trajectories to the same worker,
+        # so serialize those requests locally instead of forwarding a burst
+        # that the worker rejects with HTTP 429.  The mapping itself remains
+        # deterministic and sticky for every turn of a trajectory.
+        self.worker_capacity = tuple(threading.BoundedSemaphore(1) for _ in workers)
         self.lock = threading.Lock()
         self.active = 0
         self.max_active = 0
@@ -157,6 +168,16 @@ class RouterState:
         self.cross_route_anomalies = 0
         self.session_routes: dict[bytes, int] = {}
         self.worker_requests = [0] * len(workers)
+
+    def acquire_worker(self, index: int) -> bool:
+        if not 0 <= index < len(self.worker_capacity):
+            raise RouterError("worker_index_invalid")
+        return self.worker_capacity[index].acquire(timeout=self.worker_queue_timeout_seconds)
+
+    def release_worker(self, index: int) -> None:
+        if not 0 <= index < len(self.worker_capacity):
+            raise RouterError("worker_index_invalid")
+        self.worker_capacity[index].release()
 
     def acquire(self, *, chat: bool, index: int | None, session_id: str | None = None) -> bool:
         if not self.capacity.acquire(blocking=False):
@@ -322,12 +343,18 @@ class ApiHandler(BaseHTTPRequestHandler):
         body: bytes | None,
         session_id: str | None = None,
     ) -> None:
+        if not self.state.acquire_worker(worker):
+            _json_error(self, 429, "worker_queue_timeout")
+            return
+        admitted = False
         try:
             admitted = self.state.acquire(chat=chat, index=worker, session_id=session_id)
         except RouterError:
+            self.state.release_worker(worker)
             _json_error(self, 503, "router_route_tracking_failed")
             return
         if not admitted:
+            self.state.release_worker(worker)
             _json_error(self, 429, "router_capacity_exhausted")
             return
         connection: http.client.HTTPConnection | None = None
@@ -373,7 +400,9 @@ class ApiHandler(BaseHTTPRequestHandler):
         finally:
             if connection is not None:
                 connection.close()
-            self.state.release(chat=chat)
+            if admitted:
+                self.state.release(chat=chat)
+            self.state.release_worker(worker)
 
 
 class MetricsHandler(BaseHTTPRequestHandler):

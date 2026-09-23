@@ -239,7 +239,7 @@ def test_direct_kimi_c64_manifest_requires_explicit_profile_and_endpoint(tmp_pat
     assert manifest["router"]["capacity_profile"] == "sandoq-c64-v1"
     assert manifest["router"]["endpoint_identifier"] == "cpu-132-021_8103"
     assert manifest["router"]["max_concurrent_requests"] == 64
-    assert manifest["router"]["queue_size"] == 0
+    assert manifest["router"]["queue_size"] == 64
     assert manifest["router"]["retries"] == 0
     assert validate_saved_manifest(manifest_path) == manifest
 

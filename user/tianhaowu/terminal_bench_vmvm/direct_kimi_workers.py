@@ -37,7 +37,7 @@ ROUTER_REQUEST_TIMEOUT_SECONDS = 43_200
 ROUTER_RETRIES = 0
 ROUTER_PROVIDER_CONCURRENCY = 24
 ROUTER_MAX_PROVIDER_CONCURRENCY = 64
-ROUTER_QUEUE_SIZE = 0
+ROUTER_QUEUE_SIZE = ROUTER_PROVIDER_CONCURRENCY
 ROUTER_QUEUE_TIMEOUT_SECONDS = 43_200
 ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v1"
 EXPECTED_ENDPOINT_IDENTIFIER = "cpu-132-021_8103"
@@ -524,7 +524,7 @@ def _manifest(
         "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
         "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
         "max_concurrent_requests": capacity,
-        "queue_size": ROUTER_QUEUE_SIZE,
+        "queue_size": capacity,
         "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
         "retries": ROUTER_RETRIES,
     }
@@ -978,7 +978,7 @@ def validate_manifest_value(
         "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
         "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
         "max_concurrent_requests": capacity,
-        "queue_size": ROUTER_QUEUE_SIZE,
+        "queue_size": capacity,
         "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
         "retries": ROUTER_RETRIES,
     }
