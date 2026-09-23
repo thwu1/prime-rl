@@ -281,7 +281,9 @@ def _validate_capacity_selector_receipt(
         or selection.get("membership_disclosed") is not False
         or selection.get("selected_count") != CAPACITY
         or selection.get("selected_sha256") != selector_sha256
-        or value.get("selection_contract_sha256") != _sha256_bytes(_canonical_json(selection))
+        # The authoritative selector producer uses the repository-wide
+        # canonical artifact encoding, which includes one trailing newline.
+        or value.get("selection_contract_sha256") != _sha256_bytes(_canonical_json(selection) + b"\n")
     ):
         raise DirectKimiCapacityError("capacity_selector_receipt_invalid")
     return value, body

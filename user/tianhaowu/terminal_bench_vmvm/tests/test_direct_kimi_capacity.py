@@ -8,6 +8,7 @@ from pathlib import Path
 
 import direct_kimi_capacity as capacity
 import pytest
+from direct_qwen_union_contract import canonical_json
 from direct_kimi_workers import _atomic_write
 
 
@@ -44,9 +45,11 @@ def _selector_receipt(root: Path, selector_sha256: str) -> tuple[Path, str]:
             "tree": capacity.DATASET_TREE,
         },
         "selection": selection,
-        "selection_contract_sha256": hashlib.sha256(capacity._canonical_json(selection)).hexdigest(),
+        # Match kimi_sandoq_production.materialize_capacity_selector, which
+        # uses the shared newline-terminated canonical artifact encoding.
+        "selection_contract_sha256": hashlib.sha256(canonical_json(selection)).hexdigest(),
     }
-    path = _private_file(root / "capacity-selector-receipt.json", capacity._canonical_json(value))
+    path = _private_file(root / "capacity-selector-receipt.json", canonical_json(value))
     return path, hashlib.sha256(path.read_bytes()).hexdigest()
 
 
