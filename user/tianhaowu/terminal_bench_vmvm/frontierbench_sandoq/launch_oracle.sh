@@ -12,6 +12,7 @@ source "$script_dir/frontierbench.env"
 set +a
 
 for value in "$FRONTIERBENCH_EXPECTED_TASKS" "$FRONTIERBENCH_BUILD_WORKERS" \
+    "$FRONTIERBENCH_SMOKE_BUILD_WORKERS" \
     "$FRONTIERBENCH_ORACLE_CONCURRENCY" "$FRONTIERBENCH_ORACLE_TIMEOUT_SECONDS" \
     "$SANDOQ_POOL_MAX" "$SANDOQ_LEASE_CREATE_CAP" "$SANDOQ_STARTUP_TIMEOUT_SECONDS"; do
     [[ "$value" =~ ^[1-9][0-9]*$ ]] \
@@ -32,7 +33,7 @@ if [[ "$mode" == smoke ]]; then
     dataset_dir=$FRONTIERBENCH_SMOKE_DATASET_DIR
     dataset_tree_sha256=$FRONTIERBENCH_SMOKE_DATASET_TREE_SHA256
     expected_tasks=1
-    build_workers=1
+    build_workers=$FRONTIERBENCH_SMOKE_BUILD_WORKERS
     oracle_concurrency=1
     run_name=smoke
 fi
