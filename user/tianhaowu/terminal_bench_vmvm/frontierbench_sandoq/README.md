@@ -7,6 +7,9 @@ stored in Git.
 Edit only `frontierbench.env` when a server, token-file path, dataset, resource
 limit, timeout, provider profile, or concurrency changes. Both launchers source
 that file, verify the pinned inputs, and refuse partial or dirty setups.
+Oracle output directories are revision-scoped, so a new source commit cannot
+silently reuse an incompatible prior run; same-revision retries resume invalid
+rows in place.
 
 From a clean `vmvm-sandbox` checkout on the login host:
 

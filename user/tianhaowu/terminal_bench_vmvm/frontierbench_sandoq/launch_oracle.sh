@@ -19,6 +19,8 @@ for value in "$FRONTIERBENCH_EXPECTED_TASKS" "$FRONTIERBENCH_BUILD_WORKERS" \
 done
 [[ "$FRONTIERBENCH_ORACLE_MINIMUM_PASS_RATE" =~ ^(0(\.[0-9]+)?|1(\.0+)?)$ ]] \
     || { printf 'Oracle pass-rate gate must be between zero and one\n' >&2; exit 2; }
+[[ "$FRONTIERBENCH_RUN_VARIANT" =~ ^[A-Za-z0-9._-]+$ ]] \
+    || { printf 'Run variant must be a safe path component\n' >&2; exit 2; }
 
 dataset_dir=$FRONTIERBENCH_DATASET_DIR
 dataset_tree_sha256=$FRONTIERBENCH_DATASET_TREE_SHA256
@@ -34,6 +36,7 @@ if [[ "$mode" == smoke ]]; then
     oracle_concurrency=1
     run_name=smoke
 fi
+source_revision=$(git -C "$project_dir" rev-parse --verify HEAD)
 
 [[ -d "$dataset_dir" && ! -L "$dataset_dir" ]] || { printf 'Pinned dataset directory is unavailable\n' >&2; exit 2; }
 [[ "$dataset_tree_sha256" =~ ^[0-9a-f]{64}$ ]] || { printf 'Pinned dataset tree digest is invalid\n' >&2; exit 2; }
@@ -61,7 +64,7 @@ plan="$run_root/build-plan.jsonl"
 plan_tsv="$run_root/build-plan.tsv"
 status_root="$FRONTIERBENCH_RUN_ROOT/build-status"
 manifest="$FRONTIERBENCH_RUN_ROOT/${run_name}-image-manifest.json"
-oracle_output="$FRONTIERBENCH_RUN_ROOT/oracle-$run_name"
+oracle_output="$FRONTIERBENCH_RUN_ROOT/oracle-${run_name}-${FRONTIERBENCH_RUN_VARIANT}-${source_revision:0:12}"
 install -d -m 700 "$run_root" "$status_root"
 
 "$UV_BIN_LOGIN" run --no-project --offline python \
@@ -107,7 +110,7 @@ job_id=$(
         INFRA_RETRIES=2 SETUP_TIMEOUT=3600 VALIDATE_TIMEOUT="$FRONTIERBENCH_ORACLE_TIMEOUT_SECONDS" \
         SESSION_TIMEOUT="$FRONTIERBENCH_ORACLE_TIMEOUT_SECONDS" \
         MINIMUM_PASS_RATE="$FRONTIERBENCH_ORACLE_MINIMUM_PASS_RATE" MINIMUM_VALID="$minimum_valid" \
-        ORACLE_SOLUTION_NETWORK_MODE=declared OUTPUT_DIR="$oracle_output" \
+        ORACLE_SOLUTION_NETWORK_MODE=declared OUTPUT_DIR="$oracle_output" RERUN_INVALID=1 \
         OCI_RUNNER_ECR_TOKEN_FILE="$SANDOQ_PRODUCTION_ECR_TOKEN_FILE" \
         OCI_RUNNER_ECR_TOKEN_METADATA_PATH="$SANDOQ_PRODUCTION_ECR_TOKEN_METADATA" \
         SANDOQ_PROVIDER_CONTEXT_PROFILE="$project_dir/$SANDOQ_ORACLE_PROVIDER_PROFILE" \

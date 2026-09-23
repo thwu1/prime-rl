@@ -39,6 +39,8 @@ for value in "$FRONTIERBENCH_EXPECTED_TASKS" "$QWEN_MAX_CONCURRENT" "$KIMI_MAX_C
 done
 (( MODEL_MAX_GENERATION_TOKENS <= MODEL_MAX_CONTEXT_TOKENS )) \
     || { printf 'Generation limit cannot exceed the context limit\n' >&2; exit 2; }
+[[ "$FRONTIERBENCH_RUN_VARIANT" =~ ^[A-Za-z0-9._-]+$ ]] \
+    || { printf 'Run variant must be a safe path component\n' >&2; exit 2; }
 
 config="$script_dir/configs/cpu-131-159_8100/qwen.toml"
 base_url=$QWEN_BASE_URL
@@ -62,14 +64,15 @@ fi
 dataset_dir=$FRONTIERBENCH_DATASET_DIR
 dataset_tree_sha256=$FRONTIERBENCH_DATASET_TREE_SHA256
 manifest="$FRONTIERBENCH_RUN_ROOT/full-image-manifest.json"
-oracle_output="$FRONTIERBENCH_RUN_ROOT/oracle-full"
-task_file=$FRONTIERBENCH_MODEL_TASK_FILE
+source_revision=$(git -C "$project_dir" rev-parse --verify HEAD)
+oracle_output="$FRONTIERBENCH_RUN_ROOT/oracle-full-${FRONTIERBENCH_RUN_VARIANT}-${source_revision:0:12}"
+task_file="$oracle_output/pass-tasks.txt"
 if [[ "$run_mode" == smoke ]]; then
     dataset_dir=$FRONTIERBENCH_SMOKE_DATASET_DIR
     dataset_tree_sha256=$FRONTIERBENCH_SMOKE_DATASET_TREE_SHA256
     manifest="$FRONTIERBENCH_RUN_ROOT/smoke-image-manifest.json"
-    oracle_output="$FRONTIERBENCH_RUN_ROOT/oracle-smoke"
-    task_file="$FRONTIERBENCH_RUN_ROOT/oracle-smoke/pass-tasks.txt"
+    oracle_output="$FRONTIERBENCH_RUN_ROOT/oracle-smoke-${FRONTIERBENCH_RUN_VARIANT}-${source_revision:0:12}"
+    task_file="$oracle_output/pass-tasks.txt"
     max_concurrent=1
 fi
 
