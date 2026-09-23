@@ -153,6 +153,11 @@ model_http_status=$(curl --noproxy '*' -sS -o /dev/null -w '%{http_code}' --max-
 [[ "$model_http_status" == 200 ]] \
     || { printf 'Configured model endpoint is unavailable (HTTP %s)\n' "$model_http_status" >&2; exit 2; }
 export PRIME_RL_OUTPUT_DIR="$output_dir"
+pool_socket_dir="${SLURM_TMPDIR:-/tmp}/oci-runner-pool-$(id -u)"
+install -d -m 700 "$pool_socket_dir"
+export OCI_RUNNER_POOL_SOCKET="$pool_socket_dir/${SLURM_JOB_ID}.sock"
+export OCI_RUNNER_POOL_WAL="$output_dir/control/sandoq-pool.wal.jsonl"
+export OCI_RUNNER_POOL_EVENT_LOG="$output_dir/pool_events.jsonl"
 export OCI_RUNNER_BASE_URL=$SANDOQ_BASE_URL
 export OCI_RUNNER_ECR_AUXILIARY_REGISTRIES=$FRONTIERBENCH_ECR_REGISTRY
 printf -v OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES \
