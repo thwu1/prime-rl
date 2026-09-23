@@ -199,6 +199,12 @@ and probes all 24 pinned workers, then exposes a loopback router using
 consistent hashing on `X-Session-ID`; do not point the evaluator at the shared
 front proxy.
 
+The router uses bounded-load consistent-hash placement for a session's first
+request: it starts at that session's hash position and selects the first
+least-loaded worker in ring order. The assignment is then immutable for every
+later request in the session. This fills all 24 workers before queueing a
+second new trajectory on one worker while retaining prefix-cache locality.
+
 This scored one-task smoke has a separate bounded timeout profile. Keep client
 retries, whole-rollout retries, verifier-runtime retries, and router retries at
 zero. Its exact timeout hierarchy is a 9,000-second rollout, 9,600-second host

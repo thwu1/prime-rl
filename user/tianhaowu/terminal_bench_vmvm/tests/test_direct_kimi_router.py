@@ -204,3 +204,39 @@ def test_same_worker_requests_queue_while_other_workers_remain_available() -> No
     assert second_acquired.wait(timeout=1)
     thread.join(timeout=1)
     assert not thread.is_alive()
+
+
+def test_new_sessions_fill_workers_evenly_and_remain_sticky() -> None:
+    workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
+    state = RouterState(workers)
+    sessions = [f"balanced-{index}" for index in range(64)]
+    assignments = [state.worker_for_session(session) for session in sessions]
+
+    assert set(assignments[:24]) == set(range(24))
+    counts = [assignments.count(index) for index in range(24)]
+    assert max(counts) - min(counts) <= 1
+    assert [state.worker_for_session(session) for session in sessions] == assignments
+
+
+def test_concurrent_session_assignment_is_thread_safe_and_balanced() -> None:
+    workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
+    state = RouterState(workers)
+    sessions = [f"concurrent-{index}" for index in range(64)]
+    assignments: list[int | None] = [None] * len(sessions)
+    barrier = threading.Barrier(len(sessions))
+
+    def assign(index: int) -> None:
+        barrier.wait()
+        assignments[index] = state.worker_for_session(sessions[index])
+
+    threads = [threading.Thread(target=assign, args=(index,)) for index in range(len(sessions))]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=5)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert all(assignment is not None for assignment in assignments)
+    counts = [assignments.count(index) for index in range(24)]
+    assert max(counts) - min(counts) <= 1
+    assert [state.worker_for_session(session) for session in sessions] == assignments

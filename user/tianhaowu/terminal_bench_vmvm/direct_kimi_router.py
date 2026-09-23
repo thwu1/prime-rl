@@ -167,7 +167,34 @@ class RouterState:
         self.route_tracking_overflows = 0
         self.cross_route_anomalies = 0
         self.session_routes: dict[bytes, int] = {}
+        self.worker_session_counts = [0] * len(workers)
         self.worker_requests = [0] * len(workers)
+
+    def worker_for_session(self, session_id: str) -> int:
+        """Return a sticky, bounded-load worker assignment for a session."""
+        preferred = worker_index(session_id, len(self.workers))
+        session_digest = hashlib.sha256(session_id.encode()).digest()
+        with self.lock:
+            previous = self.session_routes.get(session_digest)
+            if previous is not None:
+                return previous
+            if len(self.session_routes) >= MAX_TRACKED_SESSIONS:
+                self.route_tracking_overflows += 1
+                raise RouterError("route_tracking_capacity_exhausted")
+
+            # Preserve consistent-hash ordering while assigning new sessions
+            # to the least-loaded worker.  Once selected, every later turn is
+            # pinned by session_routes, so prefix-cache locality is retained.
+            minimum = min(self.worker_session_counts)
+            for offset in range(len(self.workers)):
+                index = (preferred + offset) % len(self.workers)
+                if self.worker_session_counts[index] == minimum:
+                    break
+            else:  # pragma: no cover - min() guarantees a candidate
+                raise AssertionError("least-loaded worker missing")
+            self.session_routes[session_digest] = index
+            self.worker_session_counts[index] += 1
+            return index
 
     def acquire_worker(self, index: int) -> bool:
         if not 0 <= index < len(self.worker_capacity):
@@ -197,6 +224,7 @@ class RouterState:
                         self.capacity.release()
                         raise RouterError("route_tracking_capacity_exhausted")
                     self.session_routes[session_digest] = index
+                    self.worker_session_counts[index] += 1
                 elif previous != index:
                     self.cross_route_anomalies += 1
                     self.capacity.release()
@@ -321,7 +349,9 @@ class ApiHandler(BaseHTTPRequestHandler):
             _json_error(self, 400, "session_id_required")
             return
         try:
-            index = worker_index(session_id, len(self.state.workers))
+            # Validate the affinity key before accepting a potentially large
+            # request body.  Placement occurs only after the body is valid.
+            worker_index(session_id, len(self.state.workers))
             if self.headers.get("Transfer-Encoding") is not None:
                 raise RouterError("request_framing_invalid")
             length = int(self.headers.get("Content-Length", "-1"))
@@ -330,6 +360,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             body = self.rfile.read(length)
             if len(body) != length:
                 raise RouterError("request_body_truncated")
+            index = self.state.worker_for_session(session_id)
         except (RouterError, ValueError):
             _json_error(self, 400, "request_invalid")
             return
