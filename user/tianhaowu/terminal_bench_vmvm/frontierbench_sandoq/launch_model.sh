@@ -132,7 +132,8 @@ x86_site=$PYTHON_SITE_X86_64
 sandoq_site=$SANDOQ_PYTHON_SITE_X86_64
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 output_dir="$FRONTIERBENCH_RUN_ROOT/model-${model_kind}-${run_mode}-${SLURM_JOB_ID}"
-install -d -m 700 "$output_dir/control"
+install -d -m 700 "$output_dir" "$output_dir/control"
+chmod 700 "$output_dir" "$output_dir/control"
 [[ -f "$provider_profile" && "$(sha256sum "$provider_profile" | cut -d' ' -f1)" == "$provider_profile_sha256" ]] \
     || { printf 'Pinned Sandoq provider profile is unavailable or changed\n' >&2; exit 2; }
 
