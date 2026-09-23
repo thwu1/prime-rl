@@ -14,7 +14,10 @@ set +a
 for value in "$FRONTIERBENCH_EXPECTED_TASKS" "$FRONTIERBENCH_BUILD_WORKERS" \
     "$FRONTIERBENCH_SMOKE_BUILD_WORKERS" \
     "$FRONTIERBENCH_ORACLE_CONCURRENCY" "$FRONTIERBENCH_ORACLE_TIMEOUT_SECONDS" \
-    "$SANDOQ_POOL_MAX" "$SANDOQ_LEASE_CREATE_CAP" "$SANDOQ_STARTUP_TIMEOUT_SECONDS"; do
+    "$FRONTIERBENCH_ORACLE_MINIMUM_VALID" \
+    "$SANDOQ_POOL_MAX" "$SANDOQ_LEASE_CREATE_CAP" "$SANDOQ_STARTUP_TIMEOUT_SECONDS" \
+    "$SANDOQ_TASK_MAX_CPUS" "$SANDOQ_TASK_MAX_MEMORY_MB" "$SANDOQ_TASK_MAX_STORAGE_MB" \
+    "$FRONTIERBENCH_SANDOQ_RUNNABLE_TASKS"; do
     [[ "$value" =~ ^[1-9][0-9]*$ ]] \
         || { printf 'Configured counts and timeouts must be positive integers\n' >&2; exit 2; }
 done
@@ -22,6 +25,9 @@ done
     || { printf 'Oracle pass-rate gate must be between zero and one\n' >&2; exit 2; }
 [[ "$FRONTIERBENCH_RUN_VARIANT" =~ ^[A-Za-z0-9._-]+$ ]] \
     || { printf 'Run variant must be a safe path component\n' >&2; exit 2; }
+[[ "$FRONTIERBENCH_ENFORCE_FULL_RESOURCE_GATE" == 0 \
+    || "$FRONTIERBENCH_ENFORCE_FULL_RESOURCE_GATE" == 1 ]] \
+    || { printf 'Full resource gate must be 0 or 1\n' >&2; exit 2; }
 
 dataset_dir=$FRONTIERBENCH_DATASET_DIR
 dataset_tree_sha256=$FRONTIERBENCH_DATASET_TREE_SHA256
@@ -38,6 +44,13 @@ if [[ "$mode" == smoke ]]; then
     run_name=smoke
 fi
 source_revision=$(git -C "$project_dir" rev-parse --verify HEAD)
+minimum_valid=$FRONTIERBENCH_ORACLE_MINIMUM_VALID
+if [[ "$mode" == full && "$FRONTIERBENCH_ENFORCE_FULL_RESOURCE_GATE" == 1 \
+    && "$FRONTIERBENCH_SANDOQ_RUNNABLE_TASKS" -lt "$minimum_valid" ]]; then
+    printf 'Current Sandoq Firecracker envelope covers only %s/%s tasks; refusing a run that cannot meet the 90%% oracle gate\n' \
+        "$FRONTIERBENCH_SANDOQ_RUNNABLE_TASKS" "$expected_tasks" >&2
+    exit 2
+fi
 
 [[ -d "$dataset_dir" && ! -L "$dataset_dir" ]] || { printf 'Pinned dataset directory is unavailable\n' >&2; exit 2; }
 [[ "$dataset_tree_sha256" =~ ^[0-9a-f]{64}$ ]] || { printf 'Pinned dataset tree digest is invalid\n' >&2; exit 2; }
@@ -100,7 +113,6 @@ if ! "$UV_BIN_LOGIN" run --no-project --offline python \
 fi
 
 manifest_sha256=$(sha256sum "$manifest" | cut -d' ' -f1)
-minimum_valid=$(( (expected_tasks * 90 + 99) / 100 ))
 if [[ "$mode" == smoke ]]; then minimum_valid=1; fi
 job_id=$(
     env PROJECT_DIR="$project_dir" SANDBOX_PROVIDER=sandoq \

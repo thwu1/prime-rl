@@ -35,3 +35,10 @@ The staged dataset contains 294 eligible tasks. Six security-name-matched task
 directories were excluded before staging and are not opened by these launchers.
 The launchers fail closed on a changed dataset digest, an incomplete image
 manifest, unsafe token permissions, or a dirty source checkout.
+
+The current Firecracker profile is qualified for 2 CPU, 4 GiB memory, and
+10 GiB disk per nested task. Only 23/294 tasks both fit that envelope and avoid
+unsupported Compose, so the full launcher currently refuses to spend a 294-task
+run that cannot reach the 90% gate. Those limits and the derived coverage count
+are explicit in `frontierbench.env`; update them only with a larger qualified
+Sandoq profile and a refreshed aggregate audit.
