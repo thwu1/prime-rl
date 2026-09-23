@@ -15,6 +15,7 @@ import os
 import shutil
 import stat
 import tempfile
+import traceback
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -339,8 +340,22 @@ def main() -> int:
     except (FilterError, preflight.SFTPreflightError) as error:
         print(json.dumps({"code": str(error), "state": "error"}, sort_keys=True))
         return 2
-    except Exception:
-        print(json.dumps({"code": "internal_error", "state": "error"}, sort_keys=True))
+    except Exception as error:
+        frames = [
+            {"file": Path(frame.filename).name, "function": frame.name, "line": frame.lineno}
+            for frame in traceback.extract_tb(error.__traceback__)
+        ]
+        print(
+            json.dumps(
+                {
+                    "code": "internal_error",
+                    "exception_type": type(error).__name__,
+                    "frames": frames,
+                    "state": "error",
+                },
+                sort_keys=True,
+            )
+        )
         return 2
     print(json.dumps(result, sort_keys=True))
     return 0
