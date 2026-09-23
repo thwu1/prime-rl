@@ -23,7 +23,7 @@ from transformers import AutoTokenizer
 from transformers.tokenization_utils import PreTrainedTokenizer
 
 from prime_rl.configs.sft import LossMaskConfig, SFTConfig, SFTDataConfig
-from prime_rl.trainer.sft.data import (
+from prime_rl.trainer.sft.format_v3 import (
     _canonicalize_attested_messages,
     _canonicalize_attested_tools,
     _message_is_trainable,

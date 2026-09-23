@@ -7,6 +7,7 @@ from transformers import AutoTokenizer
 
 from prime_rl.configs.sft import SFTDataConfig
 from prime_rl.trainer.sft import data as sft_data
+from prime_rl.trainer.sft import format_v3
 from prime_rl.trainer.sft.data import SFTDataset
 from prime_rl.trainer.utils import print_sample
 
@@ -40,6 +41,13 @@ def test_format_v3_dataset_requires_validated_attestation() -> None:
         SFTDataset(dataset, tokenizer=None)
 
     assert SFTDataset(dataset, tokenizer=None, attested_export=True) is not None
+
+
+def test_format_v3_helpers_remain_available_from_data_module() -> None:
+    assert sft_data._drop_dataset_schema_nulls is format_v3._drop_dataset_schema_nulls
+    assert sft_data._canonicalize_attested_messages is format_v3._canonicalize_attested_messages
+    assert sft_data._canonicalize_attested_tools is format_v3._canonicalize_attested_tools
+    assert sft_data._message_is_trainable is format_v3._message_is_trainable
 
 
 def test_format_v3_canonicalization_removes_dataset_schema_padding() -> None:
