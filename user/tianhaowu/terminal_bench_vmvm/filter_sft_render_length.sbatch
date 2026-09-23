@@ -34,12 +34,17 @@ workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 python_bin=${PYTHON_BIN_X86_64:-python3}
-[[ -x $x86_uv && -d $x86_site && -f $workflow_dir/filter_sft_render_length.py ]] \
+renderer_wheel=${SFT_FILTER_RENDERER_WHEEL:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/preflight_wheels/renderers_044d9e2541f6a911cacae9da353fc063911ef1f8/renderers-0.1.8.dev42+g044d9e254-py3-none-any.whl}
+renderer_wheel_sha256=604753c8dcccc99eb59157c7159e1d80701b707b5be30d6fa6e9dda93f3a7602
+[[ -x $x86_uv && -d $x86_site && -f $workflow_dir/filter_sft_render_length.py \
+    && -f $renderer_wheel && ! -L $renderer_wheel \
+    && "$(sha256sum "$renderer_wheel" | cut -d' ' -f1)" == "$renderer_wheel_sha256" ]] \
     || { printf '{"code":"x86_runtime_unavailable","state":"error"}\n'; exit 2; }
 
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONPATH="$workflow_dir:$project_dir/src:$project_dir/packages/prime-rl-configs/src"
-export PYTHONPATH="$PYTHONPATH:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site"
+export PYTHONPATH="$PYTHONPATH:$project_dir/deps/renderers:$renderer_wheel"
+export PYTHONPATH="$PYTHONPATH:$project_dir/deps/pydantic-config/src:$x86_site"
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
 
 exec "$x86_uv" run --no-project --offline --python "$python_bin" \
