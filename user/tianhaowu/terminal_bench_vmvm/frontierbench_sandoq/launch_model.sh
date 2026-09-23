@@ -71,12 +71,14 @@ dataset_tree_sha256=$FRONTIERBENCH_DATASET_TREE_SHA256
 manifest="$FRONTIERBENCH_RUN_ROOT/full-image-manifest.json"
 source_revision=$(git -C "$project_dir" rev-parse --verify HEAD)
 oracle_output="$FRONTIERBENCH_RUN_ROOT/oracle-full-${FRONTIERBENCH_RUN_VARIANT}-${source_revision:0:12}"
+[[ -z "$FRONTIERBENCH_ORACLE_FULL_OUTPUT" ]] || oracle_output=$FRONTIERBENCH_ORACLE_FULL_OUTPUT
 task_file="$oracle_output/pass-tasks.txt"
 if [[ "$run_mode" == smoke ]]; then
     dataset_dir=$FRONTIERBENCH_SMOKE_DATASET_DIR
     dataset_tree_sha256=$FRONTIERBENCH_SMOKE_DATASET_TREE_SHA256
     manifest="$FRONTIERBENCH_RUN_ROOT/smoke-image-manifest.json"
     oracle_output="$FRONTIERBENCH_RUN_ROOT/oracle-smoke-${FRONTIERBENCH_RUN_VARIANT}-${source_revision:0:12}"
+    [[ -z "$FRONTIERBENCH_ORACLE_SMOKE_OUTPUT" ]] || oracle_output=$FRONTIERBENCH_ORACLE_SMOKE_OUTPUT
     task_file="$oracle_output/pass-tasks.txt"
     max_concurrent=1
 fi

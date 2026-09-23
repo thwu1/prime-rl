@@ -9,7 +9,8 @@ limit, timeout, provider profile, or concurrency changes. Both launchers source
 that file, verify the pinned inputs, and refuse partial or dirty setups.
 Oracle output directories are revision-scoped, so a new source commit cannot
 silently reuse an incompatible prior run; same-revision retries resume invalid
-rows in place.
+rows in place. The env file pins the currently validated smoke output explicitly
+so launcher-only follow-ups do not orphan its certificate.
 
 From a clean `vmvm-sandbox` checkout on the login host:
 
