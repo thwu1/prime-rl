@@ -22,8 +22,13 @@ run_mode=${2:-full}
 [[ "$run_mode" == smoke || "$run_mode" == full ]] \
     || { printf 'usage: %s qwen|kimi [smoke|full]\n' "$0" >&2; exit 2; }
 
-script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-project_dir=$(cd -- "$script_dir/../../../.." && pwd)
+if [[ -n ${FRONTIERBENCH_SCRIPT_DIR:-} ]]; then
+    script_dir=$(cd -- "$FRONTIERBENCH_SCRIPT_DIR" && pwd)
+else
+    script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+fi
+project_dir=${FRONTIERBENCH_PROJECT_DIR:-$(cd -- "$script_dir/../../../.." && pwd)}
+project_dir=$(cd -- "$project_dir" && pwd)
 set -a
 source "$script_dir/frontierbench.env"
 set +a
@@ -83,6 +88,7 @@ if [[ -z ${SLURM_JOB_ID:-} ]]; then
     [[ "$run_mode" == smoke ]] && wall=00:30:00
     expected_revision=$(git -C "$project_dir" rev-parse HEAD)
     exec env FRONTIERBENCH_EXPECTED_REVISION="$expected_revision" \
+        FRONTIERBENCH_SCRIPT_DIR="$script_dir" FRONTIERBENCH_PROJECT_DIR="$project_dir" \
         sbatch --time="$wall" --parsable "$0" "$model_kind" "$run_mode"
 fi
 
@@ -224,7 +230,7 @@ set +e
     --ecr-token-file "$SANDOQ_PRODUCTION_ECR_TOKEN_FILE" \
     --ecr-token-metadata "$SANDOQ_PRODUCTION_ECR_TOKEN_METADATA" \
     --project-root "$project_dir" --sandoq-site "$sandoq_site" -- \
-    env FRONTIERBENCH_MODEL_IN_PROVIDER=1 bash "$0" "$model_kind" "$run_mode"
+    env FRONTIERBENCH_MODEL_IN_PROVIDER=1 bash "$script_dir/launch_model.sh" "$model_kind" "$run_mode"
 eval_status=$?
 set -e
 printf 'model_job=%s model=%s tasks=%s output=%s exit=%s\n' \
