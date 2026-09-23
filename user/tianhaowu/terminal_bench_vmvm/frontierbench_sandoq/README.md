@@ -26,9 +26,10 @@ bash user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/launch_model.sh qwe
 bash user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/launch_model.sh kimi full
 ```
 
-The model smoke is one oracle-passed task, exactly three MiniSWE-Agent steps,
-and a five-minute Sandoq session limit. Full runs use the 256K context cap and
-retain captured model I/O, including reasoning.
+The model smoke is one oracle-passed task and exactly three MiniSWE-Agent steps.
+Its timeout values are explicit in the env file and allow for the observed Kimi
+latency. Full runs use the 256K context cap and retain captured model I/O,
+including reasoning.
 
 The staged dataset contains 294 eligible tasks. Six security-name-matched task
 directories were excluded before staging and are not opened by these launchers.
