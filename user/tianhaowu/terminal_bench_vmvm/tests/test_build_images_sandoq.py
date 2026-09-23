@@ -58,6 +58,72 @@ def test_upload_uses_bounded_glob_join_and_verifies_digest(monkeypatch: pytest.M
     assert ".b64.00000000" not in final
 
 
+def test_upload_uses_bounded_parallel_batches(monkeypatch: pytest.MonkeyPatch) -> None:
+    session = object.__new__(builder.Session)
+    session.info = object()
+    in_flight = 0
+    max_in_flight = 0
+
+    monkeypatch.setattr(builder, "UPLOAD_CHUNK", 4)
+    monkeypatch.setattr(builder, "UPLOAD_CONCURRENCY", 3)
+
+    def execute(command: str, timeout: int = 270) -> dict[str, object]:
+        nonlocal in_flight, max_in_flight
+        if ".b64." in command and command.startswith("printf"):
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+            builder.time.sleep(0.01)
+            in_flight -= 1
+        return {"stdout": "", "exit_code": 0}
+
+    session.exec = execute
+    session.upload("/tmp/context.tar.gz", b"x" * 100)
+
+    assert max_in_flight == 3
+
+
+def test_build_recipe_configures_docker_short_name_resolution(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = tmp_path / "context"
+    context.mkdir()
+    (context / "Dockerfile").write_text("FROM scratch\n")
+    args = _args(tmp_path)
+    args.status_root.mkdir()
+    commands: list[str] = []
+
+    class FakeSession:
+        def __init__(self, _token: str) -> None:
+            pass
+
+        def start(self) -> None:
+            pass
+
+        def upload(self, _destination: str, _payload: bytes) -> None:
+            pass
+
+        def exec(self, command: str, timeout: int = 270) -> dict[str, object]:
+            commands.append(command)
+            if command.startswith("cat "):
+                return {"stdout": "sha256:" + "b" * 64, "exit_code": 0}
+            if "if test -f" in command:
+                return {"stdout": "done:0", "exit_code": 0}
+            return {"stdout": "started", "exit_code": 0}
+
+        def stop(self) -> None:
+            pass
+
+    monkeypatch.setattr(builder, "Session", FakeSession)
+    monkeypatch.setattr(builder, "_context_archive", lambda _path: b"archive")
+
+    builder._build_one(_row(context), args)
+
+    recipe = next(command for command in commands if command.startswith("setsid "))
+    assert "unqualified-search-registries" in recipe
+    assert "short-name-mode" in recipe
+    assert "CONTAINERS_REGISTRIES_CONF=" in recipe
+
+
 def test_context_archive_lowers_quoted_dockerfile_heredoc_without_mutating_source(
     tmp_path: Path,
 ) -> None:

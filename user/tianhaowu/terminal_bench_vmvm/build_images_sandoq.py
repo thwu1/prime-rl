@@ -15,6 +15,7 @@ import tarfile
 import time
 import uuid
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TypeVar
 
@@ -27,7 +28,8 @@ REGISTRY = "588845226011.dkr.ecr.us-east-2.amazonaws.com"
 SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
 QUOTED_HEREDOC = re.compile(r"<<(-?)\s*(['\"])([A-Za-z_][A-Za-z0-9_]*)\2\s*$")
 ANY_HEREDOC = re.compile(r"<<-?\s*['\"]?[A-Za-z_][A-Za-z0-9_]*['\"]?")
-UPLOAD_CHUNK = 60_000
+UPLOAD_CHUNK = 120_000
+UPLOAD_CONCURRENCY = 4
 _T = TypeVar("_T")
 
 
@@ -103,6 +105,10 @@ def _classify_build_log(payload: bytes) -> str:
         (
             "network_resolution",
             ("temporary failure in name resolution", "could not resolve host", "name or service not known"),
+        ),
+        (
+            "base_image_resolution",
+            ("did not resolve to an alias", "unqualified-search registries", "short-name resolution"),
         ),
         ("network_timeout", ("connection timed out", "operation timed out", "i/o timeout")),
         ("missing_build_input", ("no such file or directory", "not found in build context")),
@@ -284,17 +290,30 @@ class Session:
         encoded = base64.b64encode(payload).decode()
         prefix = f"{destination}.b64."
         self.exec(f"mkdir -p {shlex.quote(str(Path(destination).parent))}", timeout=30)
-        chunks = []
         deadline = time.monotonic() + timeout
-        for offset in range(0, len(encoded), UPLOAD_CHUNK):
+        offsets = list(range(0, len(encoded), UPLOAD_CHUNK))
+
+        def upload_chunk(chunk_index: int, offset: int) -> None:
             if time.monotonic() >= deadline:
                 raise TimeoutError("Sandoq build upload exceeded its deadline")
-            chunk_path = f"{prefix}{len(chunks):08d}"
-            chunks.append(chunk_path)
+            chunk_path = f"{prefix}{chunk_index:08d}"
             self.exec(
-                f"printf %s {shlex.quote(encoded[offset:offset + UPLOAD_CHUNK])} > {shlex.quote(chunk_path)}",
+                f"printf %s {shlex.quote(encoded[offset:offset + UPLOAD_CHUNK])} > "
+                f"{shlex.quote(chunk_path)}",
                 timeout=30,
             )
+
+        with ThreadPoolExecutor(max_workers=UPLOAD_CONCURRENCY) as executor:
+            for start in range(0, len(offsets), UPLOAD_CONCURRENCY):
+                batch = [
+                    executor.submit(upload_chunk, index, offset)
+                    for index, offset in enumerate(
+                        offsets[start : start + UPLOAD_CONCURRENCY],
+                        start=start,
+                    )
+                ]
+                for future in batch:
+                    future.result()
         chunk_glob = shlex.quote(prefix) + "*"
         expected_sha256 = hashlib.sha256(payload).hexdigest()
         self.exec(
@@ -356,13 +375,18 @@ def _build_one(row: dict[str, str], args: argparse.Namespace) -> None:
         )
         _call_stage("credential_upload", lambda: session.upload(f"{root}/ecr-token", ecr_token))
         local_image = f"localhost/frontier-{row['role']}-{row['context_sha256'][:24]}"
+        registries_conf = root + "/registries.conf"
         inner = "\n".join(
             (
                 "set +e",
                 f"mkdir -p {shlex.quote(root + '/context')}",
                 f"tar -xzf {shlex.quote(root + '/context.tar.gz')} -C {shlex.quote(root + '/context')}",
+                f"printf '%s\\n' 'unqualified-search-registries = [\"docker.io\"]' "
+                f"'short-name-mode = \"permissive\"' > {shlex.quote(registries_conf)}",
                 f"podman login --username AWS --password-stdin {REGISTRY} < {shlex.quote(root + '/ecr-token')} >/dev/null 2>&1",
-                f"podman build --network host --pull=missing --tag {shlex.quote(local_image)} {shlex.quote(root + '/context')} > {shlex.quote(root + '/build.log')} 2>&1",
+                f"CONTAINERS_REGISTRIES_CONF={shlex.quote(registries_conf)} "
+                f"podman build --network host --pull=missing --tag {shlex.quote(local_image)} "
+                f"{shlex.quote(root + '/context')} > {shlex.quote(root + '/build.log')} 2>&1",
                 "rc=$?",
                 f"if [ \"$rc\" -eq 0 ]; then podman tag {shlex.quote(local_image)} {shlex.quote(row['image'])}; fi",
                 f"if [ \"$rc\" -eq 0 ]; then podman push --digestfile {shlex.quote(root + '/digest')} {shlex.quote(row['image'])} >> {shlex.quote(root + '/build.log')} 2>&1; rc=$?; fi",
