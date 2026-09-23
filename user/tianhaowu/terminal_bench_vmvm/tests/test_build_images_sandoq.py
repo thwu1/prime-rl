@@ -9,6 +9,7 @@ import build_images_sandoq as builder
 import finalize_ecr_image_manifest as finalize
 import pytest
 import reconcile_sandoq_build_receipts as reconcile
+import summarize_sandoq_build_failures as summarize
 
 
 def _row(context: Path) -> dict[str, str]:
@@ -171,7 +172,76 @@ def test_exhausted_row_retry_publishes_redacted_failure(
         "failure_stage": "image_build",
         "failure_type": "NonzeroExit",
         "cleanup_verified": True,
+        "diagnostic_class": None,
+        "diagnostic_sha256": None,
     }
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        (b"write failed: no space left on device", "disk_exhausted"),
+        (b"fatal: could not resolve host: example.invalid", "network_resolution"),
+        (b"pip: no matching distribution found", "package_resolution"),
+        (b"opaque container build error", "unclassified"),
+    ],
+)
+def test_build_log_classifier_is_redacted(message: bytes, expected: str) -> None:
+    assert builder._classify_build_log(message) == expected
+
+
+def test_capture_build_failure_is_owner_only_and_returns_digest(tmp_path: Path) -> None:
+    class FakeSession:
+        def exec(self, _command: str, timeout: int = 270) -> dict[str, object]:
+            assert timeout == 30
+            return {"stdout": "no space left on device\n", "stderr": ""}
+
+    status = tmp_path / "status"
+    failure_class, digest = builder._capture_build_failure(
+        FakeSession(), "/tmp/build", _row(tmp_path), status
+    )
+
+    log_path = status / "failure-logs" / f"{'a' * 64}.agent.log"
+    assert failure_class == "disk_exhausted"
+    assert len(digest) == 64
+    assert log_path.is_file()
+    assert log_path.stat().st_mode & 0o777 == 0o600
+    assert log_path.parent.stat().st_mode & 0o777 == 0o700
+
+
+def test_failure_summary_is_aggregate_and_redacts_unsafe_labels(tmp_path: Path) -> None:
+    status = tmp_path / "status"
+    status.mkdir()
+    (status / "first.json").write_text(
+        json.dumps(
+            {
+                "task": "must-not-appear",
+                "state": "failed",
+                "failure_stage": "image_build",
+                "diagnostic_class": "network_timeout",
+                "cleanup_verified": True,
+            }
+        )
+    )
+    (status / "second.json").write_text(
+        json.dumps(
+            {
+                "state": "failed",
+                "failure_stage": "unsafe label with spaces",
+                "diagnostic_class": "network_timeout",
+                "cleanup_verified": False,
+            }
+        )
+    )
+    (status / "success.json").write_text(json.dumps({"state": "success"}))
+
+    result = summarize.summarize(status)
+
+    assert result["states"] == {"failed": 2, "success": 1}
+    assert result["failure_stages"] == {"image_build": 1, "invalid": 1}
+    assert result["diagnostic_classes"] == {"network_timeout": 2}
+    assert result["failure_cleanup_verified"] == {"false": 1, "true": 1}
+    assert "must-not-appear" not in json.dumps(result)
 
 
 def test_reconcile_promotes_only_successful_terminal_rows_and_quarantines_failed(
@@ -240,6 +310,36 @@ def test_reconcile_rejects_incomplete_terminal_log_coverage(tmp_path: Path) -> N
     assert receipt["terminal_outcomes"] == 0
     assert receipt["unobserved_rows"] == 1
     assert receipt["unobserved_rows_without_receipts"] == 1
+
+
+def test_reconcile_preserves_cleanup_verified_success_from_newer_builder(tmp_path: Path) -> None:
+    plan = tmp_path / "plan.tsv"
+    logs = tmp_path / "logs"
+    status = tmp_path / "status"
+    quarantine = tmp_path / "quarantine"
+    logs.mkdir()
+    status.mkdir()
+    row = _row(tmp_path)
+    plan.write_text("\t".join(row.values()) + "\n")
+    (logs / "sandoq_build_123_0.log").write_text("row=0 state=failed type=RuntimeError\n")
+    receipt_path = status / f"{row['context_sha256']}.agent.json"
+    receipt_path.write_text(
+        json.dumps(
+            {
+                **row,
+                "state": "success",
+                "digest": "sha256:" + "b" * 64,
+                "cleanup_verified": True,
+            }
+        )
+        + "\n"
+    )
+
+    result = reconcile.reconcile(plan, logs, status, quarantine, "123", 1)
+
+    assert result["verified_receipts_preserved"] == 1
+    assert result["non_success_receipts_quarantined"] == 0
+    assert receipt_path.is_file()
 
 
 def test_manifest_finalizer_requires_cleanup_verified_receipt(

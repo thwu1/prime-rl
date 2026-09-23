@@ -116,6 +116,7 @@ def reconcile(
     )
     promoted = 0
     quarantined = 0
+    verified_receipts_preserved = 0
     failed_without_receipts = 0
     unobserved_without_receipts = 0
     quarantine_root.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -140,7 +141,16 @@ def reconcile(
             else:
                 unobserved_without_receipts += 1
             continue
-        _matching_receipt(status, row)
+        value = _matching_receipt(status, row)
+        digest = value.get("digest")
+        if (
+            value.get("state") == "success"
+            and value.get("cleanup_verified") is True
+            and isinstance(digest, str)
+            and SHA256.fullmatch(digest) is not None
+        ):
+            verified_receipts_preserved += 1
+            continue
         destination = quarantine_root / name
         if destination.exists():
             raise SystemExit("quarantine destination already exists")
@@ -156,6 +166,7 @@ def reconcile(
         "unobserved_rows": len(rows) - len(outcomes),
         "success_outcomes_promoted": promoted,
         "non_success_receipts_quarantined": quarantined,
+        "verified_receipts_preserved": verified_receipts_preserved,
         "failed_outcomes_without_receipts": failed_without_receipts,
         "unobserved_rows_without_receipts": unobserved_without_receipts,
     }

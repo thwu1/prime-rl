@@ -32,11 +32,21 @@ _T = TypeVar("_T")
 class BuildStageError(RuntimeError):
     """A redacted, stable image-build failure classification."""
 
-    def __init__(self, stage: str, cause_type: str, *, cleanup_verified: bool) -> None:
+    def __init__(
+        self,
+        stage: str,
+        cause_type: str,
+        *,
+        cleanup_verified: bool,
+        diagnostic_class: str | None = None,
+        diagnostic_sha256: str | None = None,
+    ) -> None:
         super().__init__(f"Sandoq image build failed during {stage} ({cause_type})")
         self.stage = stage
         self.cause_type = cause_type
         self.cleanup_verified = cleanup_verified
+        self.diagnostic_class = diagnostic_class
+        self.diagnostic_sha256 = diagnostic_sha256
 
 
 def _call_stage(stage: str, operation: Callable[[], _T]) -> _T:
@@ -49,7 +59,7 @@ def _call_stage(stage: str, operation: Callable[[], _T]) -> _T:
 
 
 def _atomic_json(path: Path, value: dict[str, object]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    _ensure_private_dir(path.parent)
     payload = (json.dumps(value, sort_keys=True, separators=(",", ":")) + "\n").encode()
     temporary = path.parent / f".{path.name}.{os.getpid()}.tmp"
     descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -61,6 +71,59 @@ def _atomic_json(path: Path, value: dict[str, object]) -> None:
         os.replace(temporary, path)
     finally:
         temporary.unlink(missing_ok=True)
+
+
+def _atomic_bytes(path: Path, payload: bytes) -> None:
+    _ensure_private_dir(path.parent)
+    temporary = path.parent / f".{path.name}.{os.getpid()}.tmp"
+    descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _ensure_private_dir(path: Path) -> None:
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path.chmod(0o700)
+
+
+def _classify_build_log(payload: bytes) -> str:
+    text = payload.decode(errors="replace").lower()
+    patterns = (
+        ("disk_exhausted", ("no space left on device", "disk quota exceeded")),
+        ("memory_exhausted", ("out of memory", "cannot allocate memory", "exit code: 137")),
+        ("registry_auth", ("unauthorized", "authentication required", "denied: requested access")),
+        (
+            "network_resolution",
+            ("temporary failure in name resolution", "could not resolve host", "name or service not known"),
+        ),
+        ("network_timeout", ("connection timed out", "operation timed out", "i/o timeout")),
+        ("missing_build_input", ("no such file or directory", "not found in build context")),
+        ("package_resolution", ("no matching distribution found", "unable to locate package")),
+    )
+    for label, needles in patterns:
+        if any(needle in text for needle in needles):
+            return label
+    return "unclassified"
+
+
+def _capture_build_failure(
+    session: "Session",
+    root: str,
+    row: dict[str, str],
+    status_root: Path,
+) -> tuple[str, str]:
+    result = session.exec(f"tail -c 65536 {shlex.quote(root + '/build.log')}", timeout=30)
+    payload = (str(result.get("stdout", "")) + str(result.get("stderr", ""))).encode(errors="replace")
+    digest = hashlib.sha256(payload).hexdigest()
+    path = status_root / "failure-logs" / f"{row['context_sha256']}.{row['role']}.log"
+    _atomic_bytes(path, payload)
+    return _classify_build_log(payload), digest
 
 
 def _context_archive(context: Path) -> bytes:
@@ -244,7 +307,17 @@ def _build_one(row: dict[str, str], args: argparse.Namespace) -> None:
             output = str(result.get("stdout", "")).strip()
             if output.startswith("done:"):
                 if output != "done:0":
-                    raise BuildStageError("image_build", "NonzeroExit", cleanup_verified=False)
+                    diagnostic_class, diagnostic_sha256 = _call_stage(
+                        "build_log_capture",
+                        lambda: _capture_build_failure(session, root, row, args.status_root),
+                    )
+                    raise BuildStageError(
+                        "image_build",
+                        "NonzeroExit",
+                        cleanup_verified=False,
+                        diagnostic_class=diagnostic_class,
+                        diagnostic_sha256=diagnostic_sha256,
+                    )
                 digest_result = _call_stage(
                     "digest_read",
                     lambda: session.exec(f"cat {shlex.quote(root + '/digest')}", timeout=30),
@@ -269,7 +342,13 @@ def _build_one(row: dict[str, str], args: argparse.Namespace) -> None:
             failure = BuildStageError(stage, type(error).__name__, cleanup_verified=False)
         else:
             if failure is not None:
-                failure = BuildStageError(failure.stage, failure.cause_type, cleanup_verified=True)
+                failure = BuildStageError(
+                    failure.stage,
+                    failure.cause_type,
+                    cleanup_verified=True,
+                    diagnostic_class=failure.diagnostic_class,
+                    diagnostic_sha256=failure.diagnostic_sha256,
+                )
     if failure is not None:
         raise failure
     assert success is not None
@@ -303,6 +382,8 @@ def _build_with_retries(row: dict[str, str], args: argparse.Namespace, row_index
             "failure_stage": last_error.stage,
             "failure_type": last_error.cause_type,
             "cleanup_verified": last_error.cleanup_verified,
+            "diagnostic_class": last_error.diagnostic_class,
+            "diagnostic_sha256": last_error.diagnostic_sha256,
         },
     )
     print(
@@ -331,7 +412,7 @@ def main() -> None:
     if args.row_attempts < 1:
         parser.error("row attempts must be positive")
     dataset_dir = args.dataset_dir.resolve(strict=True)
-    args.status_root.mkdir(parents=True, exist_ok=True, mode=0o700)
+    _ensure_private_dir(args.status_root)
     rows = _parse_plan(args.plan, dataset_dir, args.array_index, args.array_count)
     passed = 0
     for row_index, row in enumerate(rows):
