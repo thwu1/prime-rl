@@ -7,7 +7,7 @@ This directory vendors `extensions/sandoq` from
 - Upstream repository tree: `33f092a3982916660e12f472588e6ce34a906fc2`
 - Upstream subtree: `10b5bd9bbc76eba1b8253637e1869d6b63b7fc42`
 - Reviewed vendored tracked-inventory SHA-256 (excluding this metadata file):
-  `63cbfe8e9c62e4a716c2be09e8ea13aa07b42c671553e57c5bc76fc34cdfae82`
+  `2c73c658bf7056e81b7cc7d7eb52fe0e3a54ff56c4ece0f048b65344463d8c6d`
 - Sandoq client pin:
   `0.4.0.2026.8.20.58304.0+hga81e4ca4d312`
 
