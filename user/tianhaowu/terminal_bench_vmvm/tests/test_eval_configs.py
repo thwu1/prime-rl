@@ -51,6 +51,14 @@ PRODUCTION_KIMI_CONFIG_ROLES = [
     ("tb4_kimi_k3_direct_b.toml", "tb4"),
     ("tb4_kimi_k3_max_miniswe.toml", "tb4"),
 ]
+KIMI_SANDOQ_STREAM_RETRY_CONFIGS = [
+    CONFIG_DIR / "servers/cpu-132-021_8103/mobius_kimi_k3_max_sandoq_2499.template.toml",
+    CONFIG_DIR / "servers/cpu-132-021_8103/mobius_kimi_k3_sandoq_capacity64.example.toml",
+    CONFIG_DIR / "servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_sandoq_pass1.toml",
+    CONFIG_DIR / "servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_sandoq_smoke.toml",
+    CONFIG_DIR / "servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_union.base.toml",
+    Path(__file__).parents[1] / "frontierbench_sandoq/configs/cpu-132-021_8103/kimi.toml",
+]
 
 
 def _mobius_task_file_sha256() -> str:
@@ -189,6 +197,15 @@ def test_miniswe_configs_pin_harness_model_retry_policy(filename: str) -> None:
         assert config["harness"]["config_overrides"].count("model.model_kwargs.timeout=43200") == 1
     if filename != "tb4_kimi_token_smoke.toml":
         assert "ProviderError" in config["retries"]["rollout"]["include"]
+
+
+@pytest.mark.parametrize("config_path", KIMI_SANDOQ_STREAM_RETRY_CONFIGS, ids=lambda path: path.name)
+def test_kimi_sandoq_configs_retry_transient_model_streams_only(config_path: Path) -> None:
+    config = tomllib.loads(config_path.read_text())
+
+    assert config["client"]["max_retries"] == 0
+    assert config["harness"]["env"] == {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
+    assert config["retries"]["rollout"]["max_retries"] == 0
 
 
 @pytest.mark.parametrize("filename", ACTIVE_KIMI_CONFIGS + ACTIVE_QWEN_CONFIGS)

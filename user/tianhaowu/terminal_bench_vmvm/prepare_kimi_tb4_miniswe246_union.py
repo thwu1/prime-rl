@@ -44,7 +44,7 @@ VERIFIERS_COMMIT = "d024cff6ae12e1ff7dbdbc747b0ca1be2ae69549"
 PROVIDER_PROFILE_SHA256 = "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df"
 FULL_TUNNEL_RECEIPT_SHA256 = "39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276"
 FULL_RESOURCE_RECEIPT_SHA256 = "ce3fc3ed2ead1aaf8c71fc35e5dae324f1be9d51b4e7fffff7bc99d1a47adbf6"
-BASE_CONFIG_SHA256 = "f49fe2d8bcfb372589c88ccc00915fef97e7839a8b41c3ff096905891e582b5b"
+BASE_CONFIG_SHA256 = "de0e1961bf5440c257de8c623698955d80893079a78e7f5e05b9913174b4e9d1"
 FULL_TUNNEL_RECEIPT = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/sandoq-full-tunnel-20260922/run-1537377/receipt.json"
 )
@@ -425,7 +425,7 @@ def _base_config(path: Path) -> tuple[dict[str, Any], bytes]:
         or harness.get("version") != MINISWE_VERSION
         or harness.get("config_file") != "mini"
         or "runtime" in harness
-        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
         or "agent.step_limit=200" not in harness.get("config_overrides", ())
         or "model.model_kwargs.parallel_tool_calls=false" not in harness.get("config_overrides", ())
         or not isinstance(rollout_retry, dict)

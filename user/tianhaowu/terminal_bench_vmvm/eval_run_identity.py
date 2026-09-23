@@ -237,7 +237,7 @@ def _validate_direct_kimi_capacity_config(config: dict[str, Any], role: str) -> 
             "model.model_kwargs.top_p=1.0",
             "model.model_kwargs.parallel_tool_calls=false",
         ]
-        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
         or not isinstance(runtime, dict)
         or runtime.get("network_access") is not True
         or runtime.get("host_tunnel") != "sandoq"
@@ -290,7 +290,7 @@ def _validate_direct_kimi_production_config(config: dict[str, Any], role: str) -
             "model.model_kwargs.top_p=1.0",
             "model.model_kwargs.parallel_tool_calls=false",
         ]
-        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
         or not isinstance(runtime, dict)
         or runtime.get("network_access") is not True
         or runtime.get("host_tunnel") != "sandoq"

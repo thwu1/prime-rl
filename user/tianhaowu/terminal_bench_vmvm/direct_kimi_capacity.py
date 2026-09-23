@@ -496,7 +496,7 @@ def _validate_capacity_config_value(config: object) -> dict[str, Any]:
         or harness.get("version") != MINISWE_VERSION
         or harness.get("config_file") != "mini"
         or harness.get("config_overrides") != list(MINISWE_OVERRIDES)
-        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
         or not isinstance(runtime, dict)
         or runtime.get("type") != "sandoq"
         or runtime.get("mode") != "oci-runner"

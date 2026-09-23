@@ -71,7 +71,7 @@ EXPECTED_TASK_COUNT = SANDOQ_COUNT
 EXPECTED_SOURCE_COUNT = CANONICAL_SOURCE_COUNT
 EXPECTED_EXCLUDED_COUNT = VMVM_COUNT
 CAPACITY_SELECTOR_COUNT = 64
-TEMPLATE_SHA256 = "4e3325bd85dd6a1ba6b8734f7dfd7196fab0c385ad2d2856a6cc9195c1a0ce91"
+TEMPLATE_SHA256 = "7224c1d0ffa816d9b08dba4df311a8e908c9920b6e892edff1948bfbc94104a8"
 IMAGE_MANIFEST_SHA256 = "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
 SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
@@ -629,7 +629,7 @@ def _validate_config(body: bytes, *, selector: Path, selector_sha256: str, concu
             "model.model_kwargs.top_p=1.0",
             "model.model_kwargs.parallel_tool_calls=false",
         ]
-        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
         or not isinstance(runtime, dict)
         or runtime.get("type") != "sandoq"
         or runtime.get("mode") != "oci-runner"

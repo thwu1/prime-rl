@@ -712,7 +712,7 @@ def test_direct_kimi_capacity_profile_is_exact_and_sandoq_only() -> None:
                 "model.model_kwargs.top_p=1.0",
                 "model.model_kwargs.parallel_tool_calls=false",
             ],
-            "env": {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"},
+            "env": {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"},
             "runtime": {
                 "network_access": True,
                 "host_tunnel": "sandoq",
@@ -782,7 +782,7 @@ def test_direct_kimi_production_concurrency_and_config_are_exact() -> None:
                 "model.model_kwargs.top_p=1.0",
                 "model.model_kwargs.parallel_tool_calls=false",
             ],
-            "env": {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"},
+            "env": {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"},
             "runtime": {
                 "network_access": True,
                 "host_tunnel": "sandoq",
