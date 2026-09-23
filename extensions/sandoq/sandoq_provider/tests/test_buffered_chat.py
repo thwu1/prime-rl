@@ -71,6 +71,72 @@ def test_streaming_request_is_buffered_upstream_and_returned_as_sse() -> None:
     asyncio.run(scenario())
 
 
+def test_streaming_request_gets_keepalives_while_upstream_is_quiet() -> None:
+    async def scenario() -> None:
+        entered = asyncio.Event()
+        release = asyncio.Event()
+
+        async def completion(request: web.Request) -> web.Response:
+            body = await request.json()
+            assert body["stream"] is False
+            entered.set()
+            await release.wait()
+            return web.json_response(
+                {
+                    "id": "completion-delayed",
+                    "object": "chat.completion",
+                    "created": 1,
+                    "model": "test-model",
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {"role": "assistant", "content": "done"},
+                            "finish_reason": "stop",
+                        }
+                    ],
+                    "usage": {"prompt_tokens": 3, "completion_tokens": 1, "total_tokens": 4},
+                }
+            )
+
+        app = web.Application()
+        app.router.add_post("/v1/chat/completions", completion)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "127.0.0.1", 0)
+        await site.start()
+        server = site._server
+        assert server is not None and server.sockets
+        upstream_port = int(server.sockets[0].getsockname()[1])
+
+        proxy = BufferedChatCompletionsProxy(
+            f"http://127.0.0.1:{upstream_port}/v1",
+            "rollout-secret",
+            keepalive_interval_seconds=0.01,
+        )
+        await proxy.start()
+        try:
+            async with ClientSession() as client:
+                async with client.post(
+                    f"http://127.0.0.1:{proxy.port}/v1/chat/completions",
+                    headers={"Authorization": "Bearer rollout-secret"},
+                    json={"model": "test-model", "messages": [], "stream": True},
+                ) as response:
+                    await entered.wait()
+                    assert await asyncio.wait_for(response.content.readline(), timeout=1) == b": keepalive\n"
+                    assert await asyncio.wait_for(response.content.readline(), timeout=1) == b"\n"
+                    release.set()
+                    payload = await response.text()
+                    assert response.status == 200
+                    assert '"content": "done"' in payload
+                    assert payload.endswith("data: [DONE]\n\n")
+        finally:
+            release.set()
+            await proxy.close()
+            await runner.cleanup()
+
+    asyncio.run(scenario())
+
+
 def test_proxy_rejects_wrong_rollout_secret() -> None:
     async def scenario() -> None:
         proxy = BufferedChatCompletionsProxy("http://127.0.0.1:1/v1", "right")

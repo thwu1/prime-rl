@@ -11,13 +11,15 @@ requests are also translated to Chat Completions for compatible future agents.
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from aiohttp import ClientSession, ClientTimeout, web
-from verifiers.v1.dialects import ChatDialect, ResponsesDialect
+from verifiers.v1.dialects import ResponsesDialect
 from verifiers.v1.dialects.chat import message_to_wire
 
 _FORWARDED_HEADERS = frozenset(
@@ -26,6 +28,7 @@ _FORWARDED_HEADERS = frozenset(
         "x-stainless-timeout",
     }
 )
+_KEEPALIVE = b": keepalive\n\n"
 
 
 @dataclass
@@ -68,6 +71,7 @@ class BufferedChatCompletionsProxy:
         model: str = "policy",
         context_window: int = 65_536,
         max_output_tokens: int = 32_768,
+        keepalive_interval_seconds: float = 3.0,
     ) -> None:
         parsed = urlsplit(endpoint)
         if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost"} or parsed.port is None:
@@ -77,6 +81,9 @@ class BufferedChatCompletionsProxy:
         self._model = model
         self._context_window = context_window
         self._max_output_tokens = max_output_tokens
+        if keepalive_interval_seconds <= 0:
+            raise ValueError("keepalive_interval_seconds must be positive")
+        self._keepalive_interval_seconds = keepalive_interval_seconds
         self._runner: web.AppRunner | None = None
         self._session: ClientSession | None = None
         self.port = 0
@@ -114,6 +121,27 @@ class BufferedChatCompletionsProxy:
             {"error": {"message": message, "type": "invalid_request_error"}},
             status=status,
         )
+
+    async def _fetch_completion(
+        self,
+        upstream_body: dict[str, Any],
+        headers: dict[str, str],
+    ) -> tuple[int, str, bytes]:
+        assert self._session is not None
+        async with self._session.post(
+            self._origin + "/v1/chat/completions",
+            json=upstream_body,
+            headers=headers,
+        ) as upstream:
+            raw = await upstream.read()
+            self.stats.response_bytes += len(raw)
+            status = upstream.status
+            self.stats.statuses[str(status)] = self.stats.statuses.get(str(status), 0) + 1
+            return status, upstream.content_type or "application/json", raw
+
+    def _record_error(self, error: BaseException) -> None:
+        self.stats.errors.append(f"{type(error).__name__}: {error}"[:1000])
+        del self.stats.errors[:-20]
 
     async def _handle(self, request: web.Request) -> web.StreamResponse:
         self.stats.paths[request.path] = self.stats.paths.get(request.path, 0) + 1
@@ -153,52 +181,148 @@ class BufferedChatCompletionsProxy:
         self.stats.requests += 1
         self.stats.streamed_requests += int(streaming)
         self.stats.protocols[protocol] = self.stats.protocols.get(protocol, 0) + 1
-        assert self._session is not None
+        if streaming:
+            return await self._stream_completion(request, protocol, body, upstream_body, headers)
+
         try:
-            async with self._session.post(
-                self._origin + "/v1/chat/completions",
-                json=upstream_body,
-                headers=headers,
-            ) as upstream:
-                raw = await upstream.read()
-                self.stats.response_bytes += len(raw)
-                status = upstream.status
-                self.stats.statuses[str(status)] = self.stats.statuses.get(str(status), 0) + 1
-                if status < 200 or status >= 300 or (protocol == "chat_completions" and not streaming):
-                    return web.Response(
-                        body=raw,
-                        status=status,
-                        content_type=(upstream.content_type or "application/json"),
-                    )
-                completion = json.loads(raw)
+            status, content_type, raw = await self._fetch_completion(upstream_body, headers)
+            if status < 200 or status >= 300 or protocol == "chat_completions":
+                return web.Response(body=raw, status=status, content_type=content_type)
+            completion = json.loads(raw)
         except Exception as error:
-            self.stats.errors.append(f"{type(error).__name__}: {error}"[:1000])
-            del self.stats.errors[:-20]
+            self._record_error(error)
             return self._error("buffered model proxy failure", 502)
 
-        if protocol == "responses":
-            response_body = self._chat_to_responses(completion, body)
-            events = self._response_events(response_body)
-        else:
-            response_body = completion
-            events = ChatDialect().stream_events(completion)
+        return web.json_response(self._chat_to_responses(completion, body))
 
-        if not streaming:
-            return web.json_response(response_body)
-
+    async def _stream_completion(
+        self,
+        request: web.Request,
+        protocol: str,
+        original_body: dict[str, Any],
+        upstream_body: dict[str, Any],
+        headers: dict[str, str],
+    ) -> web.StreamResponse:
         response = web.StreamResponse(
             status=200,
             headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
         )
         response.content_type = "text/event-stream"
         await response.prepare(request)
+        task = asyncio.create_task(self._fetch_completion(upstream_body, headers))
         try:
+            while not task.done():
+                await response.write(_KEEPALIVE)
+                try:
+                    await asyncio.wait_for(
+                        asyncio.shield(task),
+                        timeout=self._keepalive_interval_seconds,
+                    )
+                except TimeoutError:
+                    continue
+            status, _content_type, raw = task.result()
+            if status < 200 or status >= 300:
+                try:
+                    payload = json.dumps(json.loads(raw), separators=(",", ":")).encode()
+                except (UnicodeDecodeError, ValueError):
+                    payload = b'{"error":{"message":"buffered model proxy failure"}}'
+                await response.write(b"data: " + payload + b"\n\n")
+                await response.write_eof()
+                return response
+
+            completion = json.loads(raw)
+            if protocol == "responses":
+                response_body = self._chat_to_responses(completion, original_body)
+                events = self._response_events(response_body)
+            else:
+                events = self._chat_events(completion)
             for event in events:
                 await response.write(event)
             await response.write_eof()
+        except asyncio.CancelledError:
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+            raise
         except ConnectionResetError:
-            pass
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+        except Exception as error:
+            self._record_error(error)
+            if not task.done():
+                task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await task
+            with contextlib.suppress(ConnectionResetError):
+                payload = json.dumps(
+                    {
+                        "error": {
+                            "message": "buffered model proxy failure",
+                            "type": "api_error",
+                        }
+                    },
+                    separators=(",", ":"),
+                ).encode()
+                await response.write(b"data: " + payload + b"\n\n")
+                await response.write_eof()
         return response
+
+    @staticmethod
+    def _chat_events(completion: dict[str, Any]) -> list[bytes]:
+        choices = completion.get("choices") or []
+        if not choices or not isinstance(choices[0], dict):
+            raise ValueError("Chat Completions response has no first choice")
+        choice = choices[0]
+        message = choice.get("message") or {}
+        if not isinstance(message, dict):
+            raise ValueError("Chat Completions first choice has no message")
+
+        delta = dict(message)
+        delta.setdefault("role", "assistant")
+        tool_calls = delta.get("tool_calls")
+        if isinstance(tool_calls, list):
+            delta["tool_calls"] = [
+                {"index": index, **call} if isinstance(call, dict) else call
+                for index, call in enumerate(tool_calls)
+            ]
+        common = {
+            "id": completion.get("id") or "chatcmpl_intercepted",
+            "object": "chat.completion.chunk",
+            "created": int(completion.get("created") or 0),
+            "model": completion.get("model") or "",
+        }
+        content_chunk = {
+            **common,
+            "choices": [
+                {
+                    "index": int(choice.get("index") or 0),
+                    "delta": delta,
+                    "finish_reason": None,
+                    "logprobs": choice.get("logprobs"),
+                }
+            ],
+        }
+        finish_chunk = {
+            **common,
+            "choices": [
+                {
+                    "index": int(choice.get("index") or 0),
+                    "delta": {},
+                    "finish_reason": choice.get("finish_reason"),
+                    "logprobs": None,
+                }
+            ],
+        }
+        if isinstance(completion.get("usage"), dict):
+            finish_chunk["usage"] = completion["usage"]
+        return [
+            f"data: {json.dumps(content_chunk)}\n\n".encode(),
+            f"data: {json.dumps(finish_chunk)}\n\n".encode(),
+            b"data: [DONE]\n\n",
+        ]
 
     def _muse_model_catalog(self) -> dict[str, Any]:
         return {
@@ -236,7 +360,7 @@ class BufferedChatCompletionsProxy:
 
     @staticmethod
     def _responses_to_chat(body: dict[str, Any]) -> dict[str, Any]:
-        request = ResponsesDialect().parse_request(body)
+        messages, _tools = ResponsesDialect().parse_request(body)
         tools: list[dict[str, Any]] = []
         names: set[str] = set()
 
@@ -271,7 +395,7 @@ class BufferedChatCompletionsProxy:
                         append_function(nested, namespace)
         chat: dict[str, Any] = {
             "model": body.get("model", ""),
-            "messages": [message_to_wire(message) for message in request.messages],
+            "messages": [message_to_wire(message) for message in messages],
         }
         if tools:
             chat["tools"] = tools

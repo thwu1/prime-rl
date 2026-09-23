@@ -163,6 +163,7 @@ def _native_miniswe_smoke_execution(identity: dict[str, Any]) -> dict[str, Any] 
         or harness.get("version") != KIMI_MINISWE_VERSION
         or harness.get("step_limit") != 3
         or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("buffered_chat_completions") is not True
         or environment.get("environment") != KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
         or environment.get("provider_task_network") != "host"
         or environment.get("provider_profile_sha256") != KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256
@@ -304,7 +305,9 @@ def _validate_identity(
         or (
             native_miniswe
             and (
-                environment.get("provider_task_network") != "host"
+                runtime.get("buffered_chat_completions") is not True
+                or runtime.get("host_tunnel") != "sandoq"
+                or environment.get("provider_task_network") != "host"
                 or environment.get("provider_profile_sha256") != KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256
                 or environment.get("runtime_tunnel_receipt_sha256") != KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256
                 or environment.get("runtime_resource_receipt_sha256") != KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256

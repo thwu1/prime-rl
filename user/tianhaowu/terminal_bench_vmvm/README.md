@@ -1007,7 +1007,10 @@ with this no-network profile because both model interception and PEP 723
 dependency preparation require a reachable path. Mini-SWE-Agent 2.4.6 must use
 a separate, independently certified Firecracker host-network profile with the
 native Sandoq reverse tunnel; the no-network receipt above does not certify
-that profile.
+that profile. Trace-producing native Mini-SWE configs also require
+`buffered_chat_completions = true`: the guest still receives SSE keepalives and
+events, while Verifiers receives one exact non-streaming provider response so
+usage and reasoning fields are retained for SFT.
 
 The five-minute Qwen integration smoke is
 `run_qwen_miniswe246_sandoq_smoke.sbatch`. It uses the schema-3

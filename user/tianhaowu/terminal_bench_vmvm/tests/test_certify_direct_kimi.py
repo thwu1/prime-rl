@@ -64,7 +64,11 @@ def test_native_miniswe_smoke_execution_binds_full_tunnel_evidence() -> None:
     identity = {
         "contract": {"harness": {"id": "mini-swe-agent", "version": "2.4.6", "step_limit": 3}},
         "execution": {
-            "runtime": {"expected_environment": "oci-runner-firecracker", "host_tunnel": "sandoq"},
+            "runtime": {
+                "expected_environment": "oci-runner-firecracker",
+                "host_tunnel": "sandoq",
+                "buffered_chat_completions": True,
+            },
             "sandoq_environment": {
                 "environment": "oci-runner-firecracker",
                 "provider_task_network": "host",

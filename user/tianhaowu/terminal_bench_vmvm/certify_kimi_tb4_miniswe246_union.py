@@ -263,6 +263,7 @@ def _identity_contract(
             runtime.get("mode") != "oci-runner"
             or runtime.get("network_access") is not True
             or runtime.get("host_tunnel") != "sandoq"
+            or runtime.get("buffered_chat_completions") is not True
             or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
             or runtime.get("expected_environment") != "oci-runner-firecracker"
             or environment.get("environment") != "oci-runner-firecracker"

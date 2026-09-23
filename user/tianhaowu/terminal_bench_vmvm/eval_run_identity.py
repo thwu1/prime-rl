@@ -241,6 +241,7 @@ def _validate_direct_kimi_capacity_config(config: dict[str, Any], role: str) -> 
         or not isinstance(runtime, dict)
         or runtime.get("network_access") is not True
         or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("buffered_chat_completions") is not True
         or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
         or runtime.get("tunnel_pool_size") != 4
         or runtime.get("tunnel_ready_timeout") != 30
@@ -294,6 +295,7 @@ def _validate_direct_kimi_production_config(config: dict[str, Any], role: str) -
         or not isinstance(runtime, dict)
         or runtime.get("network_access") is not True
         or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("buffered_chat_completions") is not True
         or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
         or runtime.get("tunnel_pool_size") != 4
         or runtime.get("tunnel_ready_timeout") != 30
@@ -1283,12 +1285,15 @@ def _contract(
     if sandbox_provider == "sandoq":
         if native_sandoq_miniswe:
             if (
-                runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
+                runtime.get("buffered_chat_completions") is not True
+                or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
                 or runtime.get("tunnel_pool_size") != 4
                 or runtime.get("tunnel_ready_timeout") != 30
             ):
                 raise EvalIdentityError("sandoq_native_tunnel_contract_invalid")
-        elif any(key in runtime for key in ("guest_tunnel_url", "tunnel_pool_size", "tunnel_ready_timeout")):
+        elif runtime.get("buffered_chat_completions") not in (None, False) or any(
+            key in runtime for key in ("guest_tunnel_url", "tunnel_pool_size", "tunnel_ready_timeout")
+        ):
             raise EvalIdentityError("sandoq_inactive_tunnel_fields_present")
     host_harness = harness.get("id") == "terminal-bench-sandoq-host"
     if sandbox_provider == "sandoq" and not (host_harness or native_sandoq_miniswe):
@@ -1367,7 +1372,12 @@ def _contract(
         }
     identity_runtime = dict(runtime)
     if sandbox_provider == "sandoq" and not native_sandoq_miniswe:
-        for inactive_field in ("guest_tunnel_url", "tunnel_pool_size", "tunnel_ready_timeout"):
+        for inactive_field in (
+            "buffered_chat_completions",
+            "guest_tunnel_url",
+            "tunnel_pool_size",
+            "tunnel_ready_timeout",
+        ):
             identity_runtime.pop(inactive_field, None)
     execution = {
         "rollout_concurrency": rollout_concurrency,

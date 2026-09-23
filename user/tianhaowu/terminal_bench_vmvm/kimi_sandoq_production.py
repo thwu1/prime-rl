@@ -66,12 +66,12 @@ MINISWE_VERSION = "2.4.6"
 MINISWE_COMPATIBILITY_KIND = "qwen-miniswe246-sandoq-three-step-smoke"
 MINISWE_COMPATIBILITY_ENVIRONMENT = "oci-runner-firecracker-small"
 MINISWE_COMPATIBILITY_SHA256 = "cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220"
-VERIFIERS_COMMIT = "d024cff6ae12e1ff7dbdbc747b0ca1be2ae69549"
+VERIFIERS_COMMIT = "f9dcefb73ac341de5f707600d54dba838ad1ce97"
 EXPECTED_TASK_COUNT = SANDOQ_COUNT
 EXPECTED_SOURCE_COUNT = CANONICAL_SOURCE_COUNT
 EXPECTED_EXCLUDED_COUNT = VMVM_COUNT
 CAPACITY_SELECTOR_COUNT = 64
-TEMPLATE_SHA256 = "7224c1d0ffa816d9b08dba4df311a8e908c9920b6e892edff1948bfbc94104a8"
+TEMPLATE_SHA256 = "97140036bb7f1b8b8a21fd488c2c45e16258376bbe46128dff3873e27a37d514"
 IMAGE_MANIFEST_SHA256 = "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
 SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
@@ -636,6 +636,7 @@ def _validate_config(body: bytes, *, selector: Path, selector_sha256: str, concu
         or runtime.get("session_timeout") != 43_200
         or runtime.get("network_access") is not True
         or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("buffered_chat_completions") is not True
         or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
         or runtime.get("tunnel_pool_size") != 4
         or runtime.get("tunnel_ready_timeout") != 30
@@ -2030,6 +2031,7 @@ def _validate_run_identity(
         or execution.get("runtime", {}).get("session_timeout") != 43_200
         or execution.get("runtime", {}).get("network_access") is not True
         or execution.get("runtime", {}).get("host_tunnel") != "sandoq"
+        or execution.get("runtime", {}).get("buffered_chat_completions") is not True
         or execution.get("runtime", {}).get("expected_environment") != PROVIDER_ENVIRONMENT
         or execution.get("sandoq_environment", {}).get("environment") != PROVIDER_ENVIRONMENT
         or execution.get("sandoq_environment", {}).get("task_network") != "public"

@@ -258,6 +258,7 @@ def test_lane_configs_are_native_miniswe_and_provider_isolated() -> None:
         "session_timeout": 43200,
         "network_access": True,
         "host_tunnel": "sandoq",
+        "buffered_chat_completions": True,
         "guest_tunnel_url": "http://127.0.0.1:8485",
         "tunnel_pool_size": 4,
         "tunnel_ready_timeout": 30,

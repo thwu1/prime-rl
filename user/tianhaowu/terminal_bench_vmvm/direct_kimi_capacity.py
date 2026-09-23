@@ -54,7 +54,7 @@ RUNTIME_TUNNEL_RECEIPT = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/sandoq-full-tunnel-20260922/run-1537377/receipt.json"
 )
 RUNTIME_TUNNEL_RECEIPT_SHA256 = "39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276"
-VERIFIERS_COMMIT = "d024cff6ae12e1ff7dbdbc747b0ca1be2ae69549"
+VERIFIERS_COMMIT = "f9dcefb73ac341de5f707600d54dba838ad1ce97"
 MINISWE_LIVE_SMOKE_KIND = "qwen-miniswe246-sandoq-three-step-smoke"
 MINISWE_LIVE_SMOKE_ENVIRONMENT = "oci-runner-firecracker-small"
 MINISWE_LIVE_SMOKE_RECEIPT = Path(
@@ -502,6 +502,7 @@ def _validate_capacity_config_value(config: object) -> dict[str, Any]:
         or runtime.get("mode") != "oci-runner"
         or runtime.get("network_access") is not True
         or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("buffered_chat_completions") is not True
         or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
         or runtime.get("tunnel_pool_size") != 4
         or runtime.get("tunnel_ready_timeout") != 30
@@ -558,6 +559,7 @@ def _capacity_identity(run_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         or runtime.get("mode") != "oci-runner"
         or runtime.get("network_access") is not True
         or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("buffered_chat_completions") is not True
         or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
         or runtime.get("tunnel_pool_size") != 4
         or runtime.get("tunnel_ready_timeout") != 30
