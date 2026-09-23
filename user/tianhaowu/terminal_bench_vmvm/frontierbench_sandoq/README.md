@@ -26,6 +26,24 @@ bash user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/launch_model.sh qwe
 bash user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/launch_model.sh kimi full
 ```
 
+To materialize the explicit digest-pinned non-Compose handoff subset without
+submitting Slurm work:
+
+```bash
+bash user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/launch_oracle_subset.sh prepare
+```
+
+The prepare command fails closed unless the pinned 321-row plan has exactly 308
+strict cleanup-verified image receipts, yielding 272 complete non-Compose tasks,
+13 incomplete non-Compose tasks, and nine Compose tasks. It writes owner-only
+task-file, image-manifest, and aggregate receipt artifacts. After reviewing the
+printed hashes, submit through `swebench_vmvm:Launcher.0` with:
+
+```bash
+cd /storage/home/tianhaowu/prime-frontierbench-resource-clamp && \
+  bash user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/launch_oracle_subset.sh launch
+```
+
 The model smoke is one oracle-passed task and exactly three MiniSWE-Agent steps.
 Its timeout values are explicit in the env file and allow for the observed Kimi
 latency. Full runs use the 256K context cap and retain captured model I/O,
