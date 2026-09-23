@@ -34,7 +34,9 @@ including reasoning.
 The staged dataset contains 294 eligible tasks. Six security-name-matched task
 directories were excluded before staging and are not opened by these launchers.
 The launchers fail closed on a changed dataset digest, an incomplete image
-manifest, unsafe token permissions, or a dirty source checkout.
+manifest, unsafe token permissions, or a dirty source checkout. Image builds
+resume from exact successful receipts, retry each missing row three times, and
+publish success only after the disposable build session is verified deleted.
 
 The current Firecracker profile is qualified for 2 CPU, 4 GiB memory, and
 10 GiB disk per nested task. The oracle launcher caps each agent and separate

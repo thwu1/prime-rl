@@ -13,6 +13,7 @@ set +a
 
 for value in "$FRONTIERBENCH_EXPECTED_TASKS" "$FRONTIERBENCH_BUILD_WORKERS" \
     "$FRONTIERBENCH_SMOKE_BUILD_WORKERS" \
+    "$FRONTIERBENCH_BUILD_ROW_ATTEMPTS" \
     "$FRONTIERBENCH_ORACLE_CONCURRENCY" "$FRONTIERBENCH_ORACLE_TIMEOUT_SECONDS" \
     "$FRONTIERBENCH_ORACLE_MINIMUM_VALID" \
     "$SANDOQ_POOL_MAX" "$SANDOQ_LEASE_CREATE_CAP" "$SANDOQ_STARTUP_TIMEOUT_SECONDS" \
@@ -104,6 +105,7 @@ if ! "$UV_BIN_LOGIN" run --no-project --offline python \
         env PROJECT_DIR="$project_dir" DATASET_DIR="$dataset_dir" BUILD_STATUS_ROOT="$status_root" \
             SANDOQ_BUILD_TOKEN_FILE="$SANDOQ_FIRECRACKER_TOKEN_FILE" \
             ECR_PUSH_TOKEN_FILE="$SANDOQ_DEVELOPMENT_ECR_TOKEN_FILE" \
+            BUILD_ROW_ATTEMPTS="$FRONTIERBENCH_BUILD_ROW_ATTEMPTS" \
         sbatch --parsable --array="0-$((build_workers - 1))%$build_workers" \
             "$project_dir/user/tianhaowu/terminal_bench_vmvm/build_images_sandoq.sbatch" "$plan_tsv"
     )

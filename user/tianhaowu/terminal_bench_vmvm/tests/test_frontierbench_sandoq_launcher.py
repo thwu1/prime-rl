@@ -21,9 +21,11 @@ def test_full_oracle_launcher_passes_the_qualified_resource_clamp() -> None:
     assert _default("SANDOQ_TASK_MAX_CPUS", environment) == "2"
     assert _default("SANDOQ_TASK_MAX_MEMORY_MB", environment) == "4096"
     assert _default("SANDOQ_TASK_MAX_STORAGE_MB", environment) == "10240"
+    assert _default("FRONTIERBENCH_BUILD_ROW_ATTEMPTS", environment) == "3"
     assert 'TASK_RESOURCE_CPU_CAP="$SANDOQ_TASK_MAX_CPUS"' in launcher
     assert 'TASK_RESOURCE_MEMORY_MB_CAP="$SANDOQ_TASK_MAX_MEMORY_MB"' in launcher
     assert 'TASK_RESOURCE_STORAGE_MB_CAP="$SANDOQ_TASK_MAX_STORAGE_MB"' in launcher
+    assert 'BUILD_ROW_ATTEMPTS="$FRONTIERBENCH_BUILD_ROW_ATTEMPTS"' in launcher
     assert "FRONTIERBENCH_ENFORCE_FULL_RESOURCE_GATE" not in launcher
 
 

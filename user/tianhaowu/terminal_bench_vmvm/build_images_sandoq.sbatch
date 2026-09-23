@@ -42,4 +42,5 @@ exec "$x86_uv" run --no-project --offline --python "$python_bin" \
     --plan "$plan" --dataset-dir "$dataset_dir" --status-root "$status_root" \
     --token-file "$token_file" --ecr-push-token-file "$ecr_push_token_file" \
     --array-index "${SLURM_ARRAY_TASK_ID:-0}" --array-count "${SLURM_ARRAY_TASK_COUNT:-1}" \
-    --build-timeout "${BUILD_TIMEOUT_SECONDS:-7200}"
+    --build-timeout "${BUILD_TIMEOUT_SECONDS:-7200}" \
+    --row-attempts "${BUILD_ROW_ATTEMPTS:-3}"

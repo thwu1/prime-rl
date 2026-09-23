@@ -50,6 +50,7 @@ def main() -> None:
         digest = status.get("digest")
         if (
             status.get("state") != "success"
+            or status.get("cleanup_verified") is not True
             or status.get("task") != task
             or status.get("role") != role
             or status.get("context_sha256") != context_sha256
