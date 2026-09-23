@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 LAUNCHER = ROOT / "frontierbench_sandoq" / "launch_oracle.sh"
+SUBSET_LAUNCHER = ROOT / "frontierbench_sandoq" / "launch_oracle_subset.sh"
 ENVIRONMENT = ROOT / "frontierbench_sandoq" / "frontierbench.env"
 
 
@@ -60,3 +61,18 @@ def test_compose_is_counted_across_all_harbor_filename_variants() -> None:
     for filename in ("docker-compose.yaml", "docker-compose.yml", "compose.yaml", "compose.yml"):
         assert f"-name {filename}" in launcher
     assert "Pinned aggregate Compose coverage changed" in launcher
+
+
+def test_subset_launcher_is_explicit_and_preserves_the_global_floor() -> None:
+    launcher = SUBSET_LAUNCHER.read_text()
+    environment = ENVIRONMENT.read_text()
+
+    assert int(_default("FRONTIERBENCH_SUBSET_EXPECTED_STRICT_IMAGES", environment)) == 308
+    assert int(_default("FRONTIERBENCH_SUBSET_EXPECTED_TASKS", environment)) == 272
+    assert int(_default("FRONTIERBENCH_SUBSET_EXPECTED_INCOMPLETE", environment)) == 13
+    assert int(_default("FRONTIERBENCH_ORACLE_MINIMUM_VALID", environment)) == 265
+    assert 'TASK_FILE="$task_file" TASK_FILE_SHA256="$task_file_sha256"' in launcher
+    assert 'IMAGE_MANIFEST="$manifest" IMAGE_MANIFEST_SHA256="$manifest_sha256"' in launcher
+    assert 'MINIMUM_VALID="$FRONTIERBENCH_ORACLE_MINIMUM_VALID"' in launcher
+    assert 'if [[ "$mode" == prepare ]]' in launcher
+    assert launcher.index('if [[ "$mode" == prepare ]]') < launcher.index("sbatch --parsable")
