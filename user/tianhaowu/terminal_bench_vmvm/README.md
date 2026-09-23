@@ -1499,6 +1499,16 @@ digest, input-manifest record, and run-local snapshot are all present and agree.
 Runs that do not declare one must omit both taskset fields, the manifest entry,
 and the snapshot file.
 
+If the exact target renderer finds rows above the 262,144-token training
+limit, do not weaken the preflight or rely on trainer truncation. Materialize a
+new immutable export with `filter_sft_render_length.sbatch`. The filter renders
+every row with the pinned tokenizer, omits only over-limit rows, requires every
+selected task to retain at least one sample, updates the row counts and hashes,
+and records aggregate retained/rejected token statistics in the new manifest.
+It never rewrites the source export or prints task identifiers or contents.
+Run the standard `preflight_sft.py` against the resulting manifest before
+training.
+
 For a migrated Qwen run, create its final routing-epoch index only after the
 last evaluator job is terminal, then consume it explicitly:
 
