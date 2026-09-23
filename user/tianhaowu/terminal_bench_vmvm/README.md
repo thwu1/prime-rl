@@ -1512,6 +1512,14 @@ the exact source revision, manifest digest, tokenizer snapshot digest, provider
 JSON expectation, and new attestation path are required through its
 `SFT_PREFLIGHT_*` environment variables.
 
+`package_qwen_unfiltered_traces.sbatch` packages the immutable original and
+continuation `results.jsonl` streams without expanding assistant turns. It
+hash-checks every source before and after packaging, creates a deterministic
+zstd archive, splits it into chunks strictly below 100,000,000 bytes, and
+publishes only the chunks plus aggregate manifest and `SHA256SUMS`. Input paths,
+digests, output path, and exact clean project revision are mandatory through
+the `QWEN_TRACE_PACKAGE_*` environment variables.
+
 For a migrated Qwen run, create its final routing-epoch index only after the
 last evaluator job is terminal, then consume it explicitly:
 
