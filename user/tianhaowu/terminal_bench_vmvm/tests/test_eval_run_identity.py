@@ -537,6 +537,20 @@ def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage() -> None:
             _validate_identity_shape(mismatched)
 
 
+def test_direct_kimi_tb4_sandoq_concurrency_is_plan_bound() -> None:
+    role = "kimi-direct-tb4"
+    assert eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 25, 4) == 4
+    assert eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 25, 24) == 24
+    for concurrency in (None, 0, 25):
+        with pytest.raises(EvalIdentityError, match="direct_kimi_tb4_scope_invalid"):
+            eval_run_identity._direct_kimi_expected_concurrency(
+                role,
+                "sandoq",
+                25,
+                concurrency,
+            )
+
+
 def test_direct_kimi_production_identity_binds_c64_router_and_launch() -> None:
     identity = _direct_kimi_identity(smoke=False)
     identity["role"] = "kimi-direct-mobius"

@@ -168,6 +168,17 @@ def _direct_kimi_expected_concurrency(
         ):
             raise EvalIdentityError("direct_kimi_production_scope_invalid")
         return int(configured_concurrency)
+    if role == "kimi-direct-tb4" and sandbox_provider == "sandoq":
+        # TB4 union plans bind their own Sandoq lane concurrency.  Keep the
+        # transparent router at its independently certified 24-request
+        # capacity, but allow a lower rollout concurrency when live endpoint
+        # admission requires it.
+        if (
+            not _validate_positive_integer(configured_concurrency)
+            or int(configured_concurrency) > 24
+        ):
+            raise EvalIdentityError("direct_kimi_tb4_scope_invalid")
+        return int(configured_concurrency)
     return 24 if sandbox_provider == "sandoq" else 4
 
 
