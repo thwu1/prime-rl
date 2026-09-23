@@ -252,23 +252,33 @@ if [[ "$sandbox_provider" == vmvm ]]; then
 fi
 
 ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-/storage/home/tianhaowu/.config/oci-runner/ecr-rotation.state.json}
-provider_profile="$workflow_dir/configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json"
-provider_profile_sha256=53e0311216e1b27988b960a782188c5794ed941b9380cba1fbd0f29a67149a93
+provider_profile=${SANDOQ_PROVIDER_CONTEXT_PROFILE:-$workflow_dir/configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json}
+provider_profile_sha256=${SANDOQ_PROVIDER_CONTEXT_PROFILE_SHA256:-53e0311216e1b27988b960a782188c5794ed941b9380cba1fbd0f29a67149a93}
+sandoq_pool_max=${SANDOQ_POOL_MAX:-64}
+sandoq_lease_create_cap=${SANDOQ_LEASE_CREATE_CAP:-4}
+sandoq_startup_timeout=${SANDOQ_STARTUP_TIMEOUT_SECONDS:-3600}
+sandoq_lease_profile=${SANDOQ_ORACLE_LEASE_PROFILE:-standard}
+for value in "$sandoq_pool_max" "$sandoq_lease_create_cap" "$sandoq_startup_timeout"; do
+    [[ "$value" =~ ^[1-9][0-9]*$ ]] || { printf 'Sandoq numeric controls must be positive integers\n' >&2; exit 2; }
+done
 if [[ "$oracle_solution_network_mode" == public ]]; then
     provider_profile="$workflow_dir/configs/eval/servers/cpu-132-021_8103/sandoq_use2.json"
     provider_profile_sha256=965511eb9578aa303d287491a7414e145241d6dbbf61469d13abbe801980a95a
 fi
 pool_capacity=$((max_concurrent * 2))
-(( pool_capacity > 64 )) && pool_capacity=64
+(( pool_capacity > sandoq_pool_max )) && pool_capacity=$sandoq_pool_max
 export PRIME_RL_OUTPUT_DIR="$output_dir"
-export OCI_RUNNER_ECR_AUXILIARY_REGISTRIES=588845226011.dkr.ecr.us-east-2.amazonaws.com
-export OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES='{"588845226011.dkr.ecr.us-east-2.amazonaws.com":"/storage/home/tianhaowu/.config/oci-runner/ecr-dev-token"}'
+export OCI_RUNNER_ECR_AUXILIARY_REGISTRIES=${OCI_RUNNER_ECR_AUXILIARY_REGISTRIES:-588845226011.dkr.ecr.us-east-2.amazonaws.com}
+auxiliary_ecr_token_file=${OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILE:-/storage/home/tianhaowu/.config/oci-runner/ecr-dev-token}
+printf -v OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES \
+    '{"%s":"%s"}' "$OCI_RUNNER_ECR_AUXILIARY_REGISTRIES" "$auxiliary_ecr_token_file"
+export OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES
 exec "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py" supervise \
     --profile "$provider_profile" --profile-sha256 "$provider_profile_sha256" \
     --concurrency "$pool_capacity" \
-    --lease-create-cap "$((pool_capacity < 4 ? pool_capacity : 4))" \
-    --startup-timeout-seconds 3600 --lease-profile standard \
+    --lease-create-cap "$((pool_capacity < sandoq_lease_create_cap ? pool_capacity : sandoq_lease_create_cap))" \
+    --startup-timeout-seconds "$sandoq_startup_timeout" --lease-profile "$sandoq_lease_profile" \
     --ecr-token-file "$ecr_token_file" --ecr-token-metadata "$ecr_token_metadata" \
     --project-root "$project_dir" --sandoq-site "$sandoq_site" \
     -- "${oracle_command[@]}"

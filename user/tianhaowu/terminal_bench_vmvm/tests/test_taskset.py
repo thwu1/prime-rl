@@ -314,6 +314,7 @@ async def test_sandoq_declared_no_network_requires_explicit_public_override(
         "OCI_RUNNER_DOCKERHUB_TOKEN_FILE",
         "OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH",
         "OCI_RUNNER_ECR_AUXILIARY_REGISTRIES",
+        "OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES",
         "OCI_RUNNER_ECR_CLIENT_CERT_PATH",
         "OCI_RUNNER_ECR_UCLOUD",
     ):
@@ -324,6 +325,39 @@ async def test_sandoq_declared_no_network_requires_explicit_public_override(
     monkeypatch.setenv("OCI_RUNNER_LEASE_DURATION", "12h")
     monkeypatch.setenv("OCI_RUNNER_MANAGED_SHELL_RECOVERY", "1")
     await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
+
+    monkeypatch.setenv(
+        "OCI_RUNNER_ECR_AUXILIARY_REGISTRIES",
+        "588845226011.dkr.ecr.us-east-2.amazonaws.com",
+    )
+    monkeypatch.setenv(
+        "OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES",
+        '{"588845226011.dkr.ecr.us-east-2.amazonaws.com":'
+        '"/storage/home/tianhaowu/.config/oci-runner/ecr-dev-token"}',
+    )
+    await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
+    monkeypatch.delenv("OCI_RUNNER_ECR_AUXILIARY_REGISTRIES")
+    monkeypatch.delenv("OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES")
+
+    runtime.config.expected_environment = "oci-runner-firecracker"
+    runtime.config.host_tunnel = "sandoq"
+    runtime.config.guest_tunnel_url = "http://127.0.0.1:8485"
+    runtime.config.tunnel_pool_size = 4
+    runtime.config.tunnel_ready_timeout = 30
+    monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker")
+    monkeypatch.setenv("OCI_RUNNER_TASK_NETWORK", "host")
+    monkeypatch.setenv("OCI_RUNNER_PULL_TIMEOUT", "1200s")
+    monkeypatch.setenv("OCI_RUNNER_PULL_POLL_MAX_ERRORS", "10")
+    monkeypatch.setenv("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK", "0")
+    await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
+    runtime.config.expected_environment = "oci-runner"
+    runtime.config.host_tunnel = "none"
+    runtime.config.guest_tunnel_url = None
+    monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner")
+    monkeypatch.delenv("OCI_RUNNER_TASK_NETWORK")
+    monkeypatch.setenv("OCI_RUNNER_PULL_TIMEOUT", "3600s")
+    monkeypatch.setenv("OCI_RUNNER_PULL_POLL_MAX_ERRORS", "20")
+    monkeypatch.delenv("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK")
 
     monkeypatch.setenv("OCI_RUNNER_LEASE_DURATION", "13h")
     with pytest.raises(UnsupportedTaskError, match="explicit audited public-network override"):
@@ -336,6 +370,8 @@ async def test_sandoq_declared_no_network_requires_explicit_public_override(
         await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
 
     runtime.config.network_access = False
+    runtime.config.expected_environment = "oci-runner-firecracker"
+    monkeypatch.setenv("OCI_RUNNER_ENVIRONMENT", "oci-runner-firecracker")
     await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "no-network", activate=False)
     with pytest.raises(UnsupportedTaskError, match="incompatible with the isolated Sandoq runtime"):
         await TerminalBenchVMVMTaskset._configure_network_policy(task, runtime, "public", activate=False)

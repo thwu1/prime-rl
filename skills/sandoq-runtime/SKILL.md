@@ -131,6 +131,14 @@ exit, model failure, verifier failure, or malformed reward is never resampled.
 Pier's adapter materializes the DeepSWE verifier Dockerfile inside a separate
 Sandoq runtime. Hidden tests are never copied into the agent runtime.
 
+For the pinned FrontierBench-300 Harbor bundle, use the two checked-in entry
+points under `user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/`.
+`launch_oracle.sh` builds missing task images inside disposable Sandoq
+Firecracker sessions, publishes digest-pinned manifests, and starts the
+resumable oracle. `launch_model.sh` consumes only oracle-pass tasks and selects
+the server-scoped Qwen or Kimi MiniSWE-Agent 2.4.6 TOML. All non-secret defaults
+are in `frontierbench.env`; token values stay in its referenced mode-0600 files.
+
 ## Provider-mode boundary
 
 Keep the two SDK-backed adapter modes distinct. `VF_SANDBOX_PROVIDER=sandoq`

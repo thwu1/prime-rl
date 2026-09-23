@@ -496,11 +496,35 @@ class TerminalBenchTask(HarborTask):
 
 def _sandoq_public_network_override_is_safe(config: SandoqConfig) -> bool:
     native_tunnel = config.host_tunnel == "sandoq"
-    expected_environment = "oci-runner-firecracker-small" if native_tunnel else "oci-runner"
+    if native_tunnel and config.expected_environment not in {
+        "oci-runner-firecracker",
+        "oci-runner-firecracker-small",
+    }:
+        return False
+    expected_environment = config.expected_environment if native_tunnel else "oci-runner"
     expected_task_network = "host" if native_tunnel else None
     expected_pull_timeout = "1200s" if native_tunnel else "3600s"
     expected_pull_errors = "10" if native_tunnel else "20"
     expected_fallback = "0" if native_tunnel else None
+    auxiliary_registry = os.environ.get("OCI_RUNNER_ECR_AUXILIARY_REGISTRIES")
+    auxiliary_token_files_raw = os.environ.get("OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES")
+    auxiliary_token_files: tuple[Path, ...] = ()
+    if auxiliary_registry or auxiliary_token_files_raw:
+        if auxiliary_registry != "588845226011.dkr.ecr.us-east-2.amazonaws.com" or not auxiliary_token_files_raw:
+            return False
+        try:
+            auxiliary_mapping = json.loads(auxiliary_token_files_raw)
+        except json.JSONDecodeError:
+            return False
+        if not isinstance(auxiliary_mapping, dict) or set(auxiliary_mapping) != {auxiliary_registry}:
+            return False
+        auxiliary_path_value = auxiliary_mapping[auxiliary_registry]
+        if not isinstance(auxiliary_path_value, str):
+            return False
+        auxiliary_path = Path(auxiliary_path_value)
+        if not auxiliary_path.is_absolute():
+            return False
+        auxiliary_token_files = (auxiliary_path,)
     exact = {
         "OCI_RUNNER_ENVIRONMENT": expected_environment,
         "SANDOQ_EFFECTIVE_TASK_NETWORK": "public",
@@ -564,7 +588,6 @@ def _sandoq_public_network_override_is_safe(config: SandoqConfig) -> bool:
                 "OCI_RUNNER_DOCKERHUB_USERNAME",
                 "OCI_RUNNER_DOCKERHUB_TOKEN_FILE",
                 "OCI_RUNNER_REQUIRE_DOCKERHUB_AUTH",
-                "OCI_RUNNER_ECR_AUXILIARY_REGISTRIES",
                 "OCI_RUNNER_ECR_CLIENT_CERT_PATH",
                 "OCI_RUNNER_ECR_UCLOUD",
             )
@@ -584,7 +607,7 @@ def _sandoq_public_network_override_is_safe(config: SandoqConfig) -> bool:
         or not provider_token_file.is_absolute()
     ):
         return False
-    for token_file in (ecr_token_file, provider_token_file):
+    for token_file in (ecr_token_file, provider_token_file, *auxiliary_token_files):
         try:
             token_stat = token_file.lstat()
         except OSError:
@@ -635,7 +658,8 @@ def _declares_sandoq_public_network_override(runtime: Runtime) -> bool:
         (config.host_tunnel == "none" and config.expected_environment == "oci-runner")
         or (
             config.host_tunnel == "sandoq"
-            and config.expected_environment == "oci-runner-firecracker-small"
+            and config.expected_environment
+            in {"oci-runner-firecracker", "oci-runner-firecracker-small"}
             and config.guest_tunnel_url == "http://127.0.0.1:8485"
             and config.tunnel_pool_size == 4
             and config.tunnel_ready_timeout == 30
@@ -651,7 +675,7 @@ def _declares_sandoq_no_network(runtime: Runtime) -> bool:
         config.mode == "oci-runner"
         and config.network_access is False
         and config.host_tunnel == "none"
-        and config.expected_environment == "oci-runner"
+        and config.expected_environment == "oci-runner-firecracker"
         and config.ecr_token_file is not None
         and config.ecr_token_file.is_absolute()
         and os.environ.get("OCI_RUNNER_TASK_NETWORK", "none").strip().lower() == "none"

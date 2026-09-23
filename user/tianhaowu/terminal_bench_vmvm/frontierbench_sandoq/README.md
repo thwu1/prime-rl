@@ -1,0 +1,32 @@
+# FrontierBench Sandoq launchers
+
+All non-secret paths, endpoints, limits, and concurrency values live in
+`frontierbench.env`. Secrets are referenced by owner-only files and are never
+stored in Git.
+
+Edit only `frontierbench.env` when a server, token-file path, dataset, resource
+limit, timeout, provider profile, or concurrency changes. Both launchers source
+that file, verify the pinned inputs, and refuse partial or dirty setups.
+
+From a clean `vmvm-sandbox` checkout on the login host:
+
+```bash
+# Build missing digest-pinned images in Sandoq, then submit the oracle.
+bash user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/launch_oracle.sh smoke
+bash user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/launch_oracle.sh full
+
+# After the matching oracle finishes, run MiniSWE-Agent 2.4.6 with retained
+# model I/O and reasoning. The optional second argument is smoke or full.
+bash user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/launch_model.sh qwen smoke
+bash user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/launch_model.sh qwen full
+bash user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/launch_model.sh kimi full
+```
+
+The model smoke is one oracle-passed task, exactly three MiniSWE-Agent steps,
+and a five-minute Sandoq session limit. Full runs use the 256K context cap and
+retain captured model I/O, including reasoning.
+
+The staged dataset contains 294 eligible tasks. Six security-name-matched task
+directories were excluded before staging and are not opened by these launchers.
+The launchers fail closed on a changed dataset digest, an incomplete image
+manifest, unsafe token permissions, or a dirty source checkout.
