@@ -1507,7 +1507,10 @@ selected task to retain at least one sample, updates the row counts and hashes,
 and records aggregate retained/rejected token statistics in the new manifest.
 It never rewrites the source export or prints task identifiers or contents.
 Run the standard `preflight_sft.py` against the resulting manifest before
-training.
+training. `preflight_sft.sbatch` is the corresponding x86 launcher; all paths,
+the exact source revision, manifest digest, tokenizer snapshot digest, provider
+JSON expectation, and new attestation path are required through its
+`SFT_PREFLIGHT_*` environment variables.
 
 For a migrated Qwen run, create its final routing-epoch index only after the
 last evaluator job is terminal, then consume it explicitly:
