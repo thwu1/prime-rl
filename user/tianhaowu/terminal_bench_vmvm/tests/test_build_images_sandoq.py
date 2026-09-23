@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import sys
+import tarfile
+from io import BytesIO
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -54,6 +56,39 @@ def test_upload_uses_bounded_glob_join_and_verifies_digest(monkeypatch: pytest.M
     assert "/tmp/context.tar.gz.b64.*" in final
     assert "sha256sum" in final
     assert ".b64.00000000" not in final
+
+
+def test_context_archive_lowers_quoted_dockerfile_heredoc_without_mutating_source(
+    tmp_path: Path,
+) -> None:
+    context = tmp_path / "context"
+    context.mkdir()
+    dockerfile = context / "Dockerfile"
+    original = """FROM example.invalid/base
+RUN prepare && \\
+    python3 - <<'PY'
+import pathlib
+pathlib.Path('/tmp/probe').write_text('ok')
+PY
+"""
+    dockerfile.write_text(original)
+
+    payload = builder._context_archive(context)
+
+    with tarfile.open(fileobj=BytesIO(payload), mode="r:gz") as archive:
+        lowered = archive.extractfile("Dockerfile").read().decode()
+    assert dockerfile.read_text() == original
+    assert "<<" not in lowered
+    assert "\nimport pathlib\n" not in lowered
+    assert "RUN prepare && printf %s " in lowered
+    assert " | base64 -d | python3 -\n" in lowered
+
+
+def test_dockerfile_lowering_rejects_unquoted_or_unterminated_heredoc() -> None:
+    with pytest.raises(ValueError, match="unsupported heredoc"):
+        builder._podman_compatible_dockerfile("RUN python3 - <<PY\nprint('x')\nPY\n")
+    with pytest.raises(ValueError, match="no terminator"):
+        builder._podman_compatible_dockerfile("RUN python3 - <<'PY'\nprint('x')\n")
 
 
 def test_success_receipt_is_published_only_after_verified_cleanup(

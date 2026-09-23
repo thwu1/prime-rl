@@ -25,6 +25,8 @@ GATEWAY = "https://sandoq.eks-prod.cf.aws.metafb.cloud"
 ENVIRONMENT = "oci-runner-firecracker"
 REGISTRY = "588845226011.dkr.ecr.us-east-2.amazonaws.com"
 SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
+QUOTED_HEREDOC = re.compile(r"<<(-?)\s*(['\"])([A-Za-z_][A-Za-z0-9_]*)\2\s*$")
+ANY_HEREDOC = re.compile(r"<<-?\s*['\"]?[A-Za-z_][A-Za-z0-9_]*['\"]?")
 UPLOAD_CHUNK = 60_000
 _T = TypeVar("_T")
 
@@ -105,6 +107,7 @@ def _classify_build_log(payload: bytes) -> str:
         ("network_timeout", ("connection timed out", "operation timed out", "i/o timeout")),
         ("missing_build_input", ("no such file or directory", "not found in build context")),
         ("package_resolution", ("no matching distribution found", "unable to locate package")),
+        ("dockerfile_syntax", ("unknown instruction", "dockerfile parse error")),
     )
     for label, needles in patterns:
         if any(needle in text for needle in needles):
@@ -126,11 +129,91 @@ def _capture_build_failure(
     return _classify_build_log(payload), digest
 
 
+def _podman_compatible_dockerfile(source: str) -> str:
+    """Lower quoted Dockerfile heredocs to portable shell pipelines."""
+
+    lines = source.splitlines()
+    output: list[str] = []
+    index = 0
+    while index < len(lines):
+        marker = QUOTED_HEREDOC.search(lines[index])
+        if marker is None:
+            if ANY_HEREDOC.search(lines[index]) is not None:
+                raise ValueError("Dockerfile contains an unsupported heredoc form")
+            output.append(lines[index])
+            index += 1
+            continue
+
+        start = index
+        while start > 0 and lines[start - 1].rstrip().endswith("\\"):
+            start -= 1
+        if not lines[start].lstrip().upper().startswith("RUN "):
+            raise ValueError("Dockerfile heredoc must belong to a RUN instruction")
+        delimiter = marker.group(3)
+        strip_tabs = marker.group(1) == "-"
+        terminator = index + 1
+        while terminator < len(lines):
+            candidate = lines[terminator].lstrip("\t") if strip_tabs else lines[terminator]
+            if candidate == delimiter:
+                break
+            terminator += 1
+        if terminator == len(lines):
+            raise ValueError("Dockerfile heredoc has no terminator")
+
+        logical_parts = []
+        for part_index in range(start, index + 1):
+            part = lines[part_index].strip()
+            if part_index < index:
+                if not part.endswith("\\"):
+                    raise ValueError("Dockerfile heredoc continuation is malformed")
+                part = part[:-1].rstrip()
+            logical_parts.append(part)
+        logical = " ".join(logical_parts)
+        logical_marker = QUOTED_HEREDOC.search(logical)
+        if logical_marker is None:
+            raise ValueError("Dockerfile heredoc marker could not be normalized")
+        command_line = logical[: logical_marker.start()].rstrip()
+        run_match = re.fullmatch(r"RUN\s+(.+)", command_line, flags=re.IGNORECASE)
+        if run_match is None:
+            raise ValueError("Dockerfile heredoc RUN instruction is malformed")
+        shell = run_match.group(1)
+        operators = list(re.finditer(r"&&|\|\||;|\|", shell))
+        if operators:
+            split = operators[-1].end()
+            prefix = shell[:split] + " "
+            command = shell[split:].strip()
+        else:
+            prefix = ""
+            command = shell.strip()
+        if not command:
+            raise ValueError("Dockerfile heredoc command is empty")
+
+        body_lines = lines[index + 1 : terminator]
+        if strip_tabs:
+            body_lines = [line.lstrip("\t") for line in body_lines]
+        body = ("\n".join(body_lines) + "\n").encode()
+        encoded = base64.b64encode(body).decode()
+        lowered = f"RUN {prefix}printf %s {shlex.quote(encoded)} | base64 -d | {command}"
+        continued_prefix_lines = index - start
+        if continued_prefix_lines:
+            del output[-continued_prefix_lines:]
+        output.append(lowered)
+        index = terminator + 1
+    return "\n".join(output) + ("\n" if source.endswith("\n") else "")
+
+
 def _context_archive(context: Path) -> bytes:
     output = io.BytesIO()
     with tarfile.open(fileobj=output, mode="w:gz") as archive:
         for path in sorted(context.rglob("*"), key=lambda item: item.relative_to(context).as_posix()):
-            archive.add(path, arcname=path.relative_to(context).as_posix(), recursive=False)
+            relative = path.relative_to(context).as_posix()
+            if relative == "Dockerfile" and path.is_file():
+                payload = _podman_compatible_dockerfile(path.read_text()).encode()
+                info = archive.gettarinfo(str(path), arcname=relative)
+                info.size = len(payload)
+                archive.addfile(info, io.BytesIO(payload))
+            else:
+                archive.add(path, arcname=relative, recursive=False)
     return output.getvalue()
 
 
