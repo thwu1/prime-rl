@@ -991,6 +991,16 @@ def _validate_tb4_miniswe_union_certificate(
 
 def _validate_tb4_certificate(path: Path, expected_sha256: str) -> tuple[dict[str, Any], Artifact]:
     value, artifact = _json_artifact(path, expected_sha256, "tb4_promotion_invalid")
+    if value.get("schema_version") == 3:
+        try:
+            from certify_kimi_tb4_sandoq_clamped_union import validate_certificate
+
+            validated = validate_certificate(path, expected_sha256)
+        except (ImportError, OSError, RuntimeError, ValueError) as error:
+            raise KimiProductionError("tb4_promotion_invalid") from error
+        if validated != value:
+            raise KimiProductionError("tb4_promotion_invalid")
+        return value, artifact
     if value.get("schema_version") == 2:
         validated = _validate_tb4_miniswe_union_certificate(value, artifact)
         try:
@@ -1259,7 +1269,7 @@ def create_promotion(
         miniswe_compatibility_receipt,
         miniswe_compatibility_receipt_sha256,
     )
-    tb4_deployment = tb4.get("deployment") if tb4.get("schema_version") == 2 else tb4
+    tb4_deployment = tb4.get("deployment") if tb4.get("schema_version") in {2, 3} else tb4
     if capacity.get("endpoint_bundle_sha256") != tb4_deployment.get("endpoint_bundle_sha256"):
         raise KimiProductionError("promotion_endpoint_mismatch")
     value = {
