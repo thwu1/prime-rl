@@ -1187,6 +1187,8 @@ def _source_binding(project_root: Path, expected_revision: str) -> dict[str, Any
         "direct_workers": root / "user/tianhaowu/terminal_bench_vmvm/direct_kimi_workers.py",
         "direct_router": root / "user/tianhaowu/terminal_bench_vmvm/direct_kimi_router.py",
         "trace_auditor": root / "user/tianhaowu/terminal_bench_vmvm/audit_traces.py",
+        "tb4_clamped_certifier": root
+        / "user/tianhaowu/terminal_bench_vmvm/certify_kimi_tb4_sandoq_clamped_union.py",
         "sft_exporter": root / "user/tianhaowu/terminal_bench_vmvm/export_sft.py",
     }
     return {
