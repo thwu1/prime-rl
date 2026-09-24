@@ -398,6 +398,7 @@ if [[ "$direct_request_timeout" == 144000 ]]; then
         --manifest-sha256 "$worker_manifest_sha256" \
         --profile "$endpoint_walltime_profile" \
         --minimum-remaining-seconds "$endpoint_minimum_remaining_seconds" \
+        --task-count "$approved_task_count" \
         --output "$endpoint_walltime_receipt"
     endpoint_walltime_receipt_file_sha256=$(sha256sum -- "$endpoint_walltime_receipt" | cut -d' ' -f1)
 elif [[ "$endpoint_walltime_profile" != legacy \
@@ -639,6 +640,7 @@ if [[ -n "$endpoint_walltime_receipt" ]]; then
         --manifest-sha256 "$worker_manifest_sha256" \
         --profile "$endpoint_walltime_profile" \
         --minimum-remaining-seconds "$endpoint_minimum_remaining_seconds" \
+        --task-count "$approved_task_count" \
         --receipt "$endpoint_walltime_receipt" >/dev/null
 fi
 if [[ "$eval_status" -ne 0 ]]; then

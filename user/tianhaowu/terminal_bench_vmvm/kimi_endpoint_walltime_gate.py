@@ -286,6 +286,11 @@ def _validate_profile(profile: str, minimum_remaining_seconds: int) -> None:
         raise EndpointWalltimeGateError("minimum_remaining_seconds_invalid")
 
 
+def _validate_task_count(task_count: int) -> None:
+    if not isinstance(task_count, int) or isinstance(task_count, bool) or not 24 < task_count <= 48:
+        raise EndpointWalltimeGateError("extended_two_wave_task_count_invalid")
+
+
 def _load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
     if SHA256_RE.fullmatch(expected_sha256) is None:
         raise EndpointWalltimeGateError("direct_worker_manifest_sha256_invalid")
@@ -311,6 +316,7 @@ def capture_gate(
     output: Path,
     profile: str,
     minimum_remaining_seconds: int,
+    task_count: int,
     serve_sh: Path = DEFAULT_SERVE_SH,
     deployment: str = EXPECTED_DEPLOYMENT,
     cluster: str = EXPECTED_CLUSTER,
@@ -320,6 +326,7 @@ def capture_gate(
     """Capture a double-read status/scheduler walltime attestation."""
 
     _validate_profile(profile, minimum_remaining_seconds)
+    _validate_task_count(task_count)
     if deployment != EXPECTED_DEPLOYMENT or cluster != EXPECTED_CLUSTER:
         raise EndpointWalltimeGateError("deployment_or_cluster_invalid")
     manifest = _load_manifest(manifest_path, manifest_sha256)
@@ -368,6 +375,7 @@ def capture_gate(
         "all_restarts_zero": True,
         "minimum_remaining_seconds": minimum_remaining_seconds,
         "observed_minimum_remaining_seconds": observed_minimum,
+        "task_count": task_count,
         "direct_worker_manifest_sha256": manifest_sha256,
         "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
         "endpoint_jobs_sha256": _sha256(canonical_jobs),
@@ -383,6 +391,7 @@ def capture_gate(
         endpoint_bundle_sha256=manifest["endpoint_bundle_sha256"],
         profile=profile,
         minimum_remaining_seconds=minimum_remaining_seconds,
+        task_count=task_count,
     )
     _write_receipt(output, receipt)
     return receipt
@@ -395,10 +404,12 @@ def validate_receipt(
     endpoint_bundle_sha256: str,
     profile: str,
     minimum_remaining_seconds: int,
+    task_count: int,
 ) -> dict[str, Any]:
     """Validate the aggregate receipt without consulting mutable scheduler state."""
 
     _validate_profile(profile, minimum_remaining_seconds)
+    _validate_task_count(task_count)
     expected_keys = {
         "schema_version",
         "kind",
@@ -412,6 +423,7 @@ def validate_receipt(
         "all_restarts_zero",
         "minimum_remaining_seconds",
         "observed_minimum_remaining_seconds",
+        "task_count",
         "direct_worker_manifest_sha256",
         "endpoint_bundle_sha256",
         "endpoint_jobs_sha256",
@@ -446,6 +458,7 @@ def validate_receipt(
         or value.get("all_running") is not True
         or value.get("all_restarts_zero") is not True
         or value.get("minimum_remaining_seconds") != minimum_remaining_seconds
+        or value.get("task_count") != task_count
         or not isinstance(value.get("observed_minimum_remaining_seconds"), int)
         or isinstance(value.get("observed_minimum_remaining_seconds"), bool)
         or value["observed_minimum_remaining_seconds"] < minimum_remaining_seconds
@@ -473,6 +486,7 @@ def load_receipt(
     endpoint_bundle_sha256: str,
     profile: str,
     minimum_remaining_seconds: int,
+    task_count: int,
 ) -> dict[str, Any]:
     try:
         before = path.lstat()
@@ -499,6 +513,7 @@ def load_receipt(
         endpoint_bundle_sha256=endpoint_bundle_sha256,
         profile=profile,
         minimum_remaining_seconds=minimum_remaining_seconds,
+        task_count=task_count,
     )
 
 
@@ -561,6 +576,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             type=int,
             default=EXTENDED_MINIMUM_REMAINING_SECONDS,
         )
+        command.add_argument("--task-count", type=int, required=True)
     capture.add_argument("--output", type=Path, required=True)
     capture.add_argument("--serve-sh", type=Path, default=DEFAULT_SERVE_SH)
     capture.add_argument("--deployment", default=EXPECTED_DEPLOYMENT)
@@ -575,6 +591,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 output=args.output,
                 profile=args.profile,
                 minimum_remaining_seconds=args.minimum_remaining_seconds,
+                task_count=args.task_count,
                 serve_sh=args.serve_sh,
                 deployment=args.deployment,
                 cluster=args.cluster,
@@ -587,6 +604,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 endpoint_bundle_sha256=_manifest_endpoint_bundle(manifest),
                 profile=args.profile,
                 minimum_remaining_seconds=args.minimum_remaining_seconds,
+                task_count=args.task_count,
             )
     except EndpointWalltimeGateError as error:
         print(f"endpoint_walltime_gate_error:{error}", file=sys.stderr)

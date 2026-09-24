@@ -102,6 +102,7 @@ def test_capture_gate_accepts_exact_stable_24_job_generation(
         output=output,
         profile=gate.EXTENDED_PROFILE,
         minimum_remaining_seconds=gate.EXTENDED_MINIMUM_REMAINING_SECONDS,
+        task_count=25,
         serve_sh=serve_sh,
         runner=runner,
         now=lambda: "2026-09-24T12:00:00Z",
@@ -127,6 +128,7 @@ def test_capture_gate_accepts_exact_stable_24_job_generation(
             endpoint_bundle_sha256=manifest["endpoint_bundle_sha256"],
             profile=gate.EXTENDED_PROFILE,
             minimum_remaining_seconds=gate.EXTENDED_MINIMUM_REMAINING_SECONDS,
+            task_count=25,
         )
         == receipt
     )
@@ -187,6 +189,7 @@ def test_status_rotation_between_scheduler_reads_fails_closed(
             output=tmp_path / "receipt.json",
             profile=gate.EXTENDED_PROFILE,
             minimum_remaining_seconds=gate.EXTENDED_MINIMUM_REMAINING_SECONDS,
+            task_count=25,
             serve_sh=serve_sh,
             runner=runner,
         )
@@ -208,6 +211,7 @@ def test_receipt_digest_and_90_hour_floor_are_fail_closed() -> None:
         "all_restarts_zero": True,
         "minimum_remaining_seconds": gate.EXTENDED_MINIMUM_REMAINING_SECONDS,
         "observed_minimum_remaining_seconds": gate.EXTENDED_MINIMUM_REMAINING_SECONDS,
+        "task_count": 25,
         "direct_worker_manifest_sha256": manifest_sha256,
         "endpoint_bundle_sha256": endpoint_bundle_sha256,
         "endpoint_jobs_sha256": "c" * 64,
@@ -224,6 +228,7 @@ def test_receipt_digest_and_90_hour_floor_are_fail_closed() -> None:
             endpoint_bundle_sha256=endpoint_bundle_sha256,
             profile=gate.EXTENDED_PROFILE,
             minimum_remaining_seconds=gate.EXTENDED_MINIMUM_REMAINING_SECONDS,
+            task_count=25,
         )["state"]
         == "passed"
     )
@@ -236,6 +241,7 @@ def test_receipt_digest_and_90_hour_floor_are_fail_closed() -> None:
             endpoint_bundle_sha256=endpoint_bundle_sha256,
             profile=gate.EXTENDED_PROFILE,
             minimum_remaining_seconds=gate.EXTENDED_MINIMUM_REMAINING_SECONDS,
+            task_count=25,
         )
     with pytest.raises(gate.EndpointWalltimeGateError, match="minimum_remaining_seconds_invalid"):
         gate.parse_scheduler_output(
@@ -243,6 +249,12 @@ def test_receipt_digest_and_90_hour_floor_are_fail_closed() -> None:
             [str(10_000 + index) for index in range(gate.EXPECTED_ENDPOINTS)],
             gate.EXTENDED_MINIMUM_REMAINING_SECONDS - 1,
         )
+
+
+@pytest.mark.parametrize("task_count", [0, 24, 49, 66])
+def test_extended_profile_rejects_non_two_wave_task_counts(task_count: int) -> None:
+    with pytest.raises(gate.EndpointWalltimeGateError, match="extended_two_wave_task_count_invalid"):
+        gate._validate_task_count(task_count)
 
 
 def test_direct_launcher_gates_only_explicit_extended_profile() -> None:
