@@ -6,6 +6,7 @@ import subprocess
 import sys
 import textwrap
 from collections.abc import Iterator
+from concurrent.futures import Future
 from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
@@ -415,6 +416,80 @@ def test_render_preflight_rejects_overlong_row() -> None:
         export_preflight._validate_and_render_row(_row(), SyntheticTokenizer(), SyntheticRenderer(), 3)
 
 
+def test_parallel_split_matches_serial_summary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "train.jsonl"
+    body = b"".join(json.dumps(_row(), sort_keys=True).encode() + b"\n" for _ in range(3))
+    path.write_bytes(body)
+    path.chmod(0o600)
+    artifact = export_preflight.FileArtifact(len(body), hashlib.sha256(body).hexdigest())
+    tokenizer = SyntheticTokenizer()
+    renderer = SyntheticRenderer()
+    monkeypatch.setattr(export_preflight, "_RENDER_WORKER_TOKENIZER", tokenizer)
+    monkeypatch.setattr(export_preflight, "_RENDER_WORKER_RENDERER", renderer)
+
+    class ImmediateExecutor:
+        @staticmethod
+        def submit(function, *args):
+            future = Future()
+            future.set_result(function(*args))
+            return future
+
+    serial = export_preflight._scan_split(path, artifact, tokenizer, renderer, 262_144)
+    parallel = export_preflight._scan_split_parallel(path, artifact, ImmediateExecutor(), 262_144, 2)
+
+    assert parallel == serial
+
+
+def test_parallel_worker_redacts_unexpected_render_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FailingRenderer:
+        def render(self, *_args, **_kwargs):
+            raise RuntimeError("sensitive row data")
+
+    monkeypatch.setattr(export_preflight, "_RENDER_WORKER_TOKENIZER", SyntheticTokenizer())
+    monkeypatch.setattr(export_preflight, "_RENDER_WORKER_RENDERER", FailingRenderer())
+
+    raw_line = json.dumps(_row(), sort_keys=True).encode()
+    assert export_preflight._render_row_in_worker(raw_line, 262_144) == ("row_render_failed", None)
+
+
+def test_parallel_worker_preserves_json_validation_code(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(export_preflight, "_RENDER_WORKER_TOKENIZER", SyntheticTokenizer())
+    monkeypatch.setattr(export_preflight, "_RENDER_WORKER_RENDERER", SyntheticRenderer())
+
+    assert export_preflight._render_row_in_worker(b"not-json", 262_144) == (
+        "export_row_invalid",
+        None,
+    )
+
+
+def test_parallel_worker_initialization_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(_snapshot):
+        raise RuntimeError("sensitive initialization data")
+
+    monkeypatch.setattr(export_preflight, "_load_render_tokenizer", fail)
+
+    with pytest.raises(SFTPreflightError, match="^preflight_failed$"):
+        export_preflight._initialize_render_worker(None)
+
+
+@pytest.mark.parametrize("value", [False, 0, 65, "2"])
+def test_render_workers_rejects_invalid_value(value: object) -> None:
+    with pytest.raises(SFTPreflightError, match="^render_workers_invalid$"):
+        export_preflight._validate_render_workers(value)
+
+
+def test_training_render_workers_environment_is_explicit(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv(export_preflight.PREFLIGHT_RENDER_WORKERS_ENV, raising=False)
+    assert export_preflight._render_workers_from_environment() == 1
+
+    monkeypatch.setenv(export_preflight.PREFLIGHT_RENDER_WORKERS_ENV, "8")
+    assert export_preflight._render_workers_from_environment() == 8
+
+    monkeypatch.setenv(export_preflight.PREFLIGHT_RENDER_WORKERS_ENV, " 8")
+    with pytest.raises(SFTPreflightError, match="^render_workers_invalid$"):
+        export_preflight._render_workers_from_environment()
+
+
 @pytest.mark.parametrize(
     "arguments",
     ["[]", "null", '{"value":null}', '{"value":NaN}', '{"value":1e400}', '{"value":1,"value":2}'],
@@ -742,7 +817,7 @@ def test_preflight_attestation_binds_expected_source_validation_policy(
     monkeypatch.setattr(
         export_preflight,
         "_render_export",
-        lambda _binding, _tokenizer_snapshot=None: attestation["rendering"],
+        lambda _binding, _tokenizer_snapshot=None, _workers=1: attestation["rendering"],
     )
 
     output = tmp_path / f"preflight-{require_exact_provider_json}.json"
@@ -787,6 +862,7 @@ def test_preflight_attestation_binds_strict_local_tokenizer_snapshot(
     def render(
         _binding: export_preflight.ExportBinding,
         snapshot: export_preflight.TokenizerSnapshotBinding | None = None,
+        _workers: int = 1,
     ) -> dict:
         rendered_snapshots.append(snapshot)
         return attestation["rendering"]
@@ -1044,7 +1120,7 @@ def test_training_start_rechecks_attested_code_provenance(tmp_path: Path, monkey
     monkeypatch.setattr(
         export_preflight,
         "_render_export",
-        lambda _binding, _tokenizer_snapshot=None: attestation["rendering"],
+        lambda _binding, _tokenizer_snapshot=None, _workers=1: attestation["rendering"],
     )
 
     assert export_preflight.validate_sft_training_preflight(config) is True
@@ -1054,7 +1130,7 @@ def test_training_start_rechecks_attested_code_provenance(tmp_path: Path, monkey
     monkeypatch.setattr(
         export_preflight,
         "_render_export",
-        lambda _binding, _tokenizer_snapshot=None: changed_rendering,
+        lambda _binding, _tokenizer_snapshot=None, _workers=1: changed_rendering,
     )
     with pytest.raises(SFTPreflightError, match="^attested_rendering_mismatch$"):
         export_preflight.validate_sft_training_preflight(config)
@@ -1062,7 +1138,7 @@ def test_training_start_rechecks_attested_code_provenance(tmp_path: Path, monkey
     monkeypatch.setattr(
         export_preflight,
         "_render_export",
-        lambda _binding, _tokenizer_snapshot=None: attestation["rendering"],
+        lambda _binding, _tokenizer_snapshot=None, _workers=1: attestation["rendering"],
     )
     changed_code = copy.deepcopy(attestation["code"])
     changed_code["source"][export_preflight.CODE_PATHS[0]] = {"bytes": 1, "sha256": "f" * 64}

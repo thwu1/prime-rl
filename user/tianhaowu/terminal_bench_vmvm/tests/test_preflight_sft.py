@@ -77,6 +77,24 @@ def test_cli_parses_complete_tokenizer_snapshot_binding(tmp_path: Path) -> None:
     assert parsed.expected_tokenizer_snapshot_sha256 == "c" * 64
 
 
+@pytest.mark.parametrize("workers", ["0", "65", "invalid"])
+def test_cli_rejects_invalid_worker_count(tmp_path: Path, workers: str) -> None:
+    arguments = _arguments(tmp_path)
+    arguments.insert(-2, "--no-expected-require-exact-provider-json")
+    arguments[-2:-2] = ["--workers", workers]
+
+    with pytest.raises(SFTPreflightError, match="^arguments_invalid$"):
+        preflight_sft.parse_args(arguments)
+
+
+def test_cli_parses_worker_count(tmp_path: Path) -> None:
+    arguments = _arguments(tmp_path)
+    arguments.insert(-2, "--no-expected-require-exact-provider-json")
+    arguments[-2:-2] = ["--workers", "8"]
+
+    assert preflight_sft.parse_args(arguments).workers == 8
+
+
 def test_cli_forwards_complete_tokenizer_snapshot_binding(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -88,6 +106,8 @@ def test_cli_forwards_complete_tokenizer_snapshot_binding(
         "/absolute/tokenizer",
         "--expected-tokenizer-snapshot-sha256",
         "c" * 64,
+        "--workers",
+        "8",
     ]
     observed: dict = {}
 
@@ -100,3 +120,4 @@ def test_cli_forwards_complete_tokenizer_snapshot_binding(
     assert preflight_sft.main(arguments) == 0
     assert observed["tokenizer_snapshot_path"] == Path("/absolute/tokenizer")
     assert observed["expected_tokenizer_snapshot_sha256"] == "c" * 64
+    assert observed["workers"] == 8

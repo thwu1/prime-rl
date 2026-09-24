@@ -1705,6 +1705,7 @@ uv run python user/tianhaowu/terminal_bench_vmvm/preflight_sft.py \
   --no-expected-require-exact-provider-json \
   --tokenizer-snapshot-path /absolute/path/to/tokenizer-snapshot \
   --expected-tokenizer-snapshot-sha256 TOKENIZER_TREE_SHA256 \
+  --workers 8 \
   --output /absolute/path/to/corpus/sft-render-preflight.json
 ```
 
@@ -1723,6 +1724,15 @@ loaded from that path with `local_files_only=true` and
 after rendering, and immediately before publication. No model weight snapshot
 or differently sourced tokenizer may be substituted for the revision-bound
 tokenizer-only snapshot.
+
+`--workers` defaults to `1`, preserving the serial implementation. Values
+greater than one require the immutable local tokenizer snapshot and use
+independent spawned processes with bounded input buffering; budget memory for
+one peak rendered row per worker. Set `PRIME_RL_SFT_PREFLIGHT_WORKERS` to the
+same validated worker count in the trainer environment so the mandatory
+startup rerender uses the same parallel implementation. Worker count is an
+execution setting only: serial and parallel runs produce the same attested
+rendering aggregates.
 
 Use `--expected-require-exact-provider-json` for a strict export; the explicit
 negative form above is required for a permissive export. The expectation and

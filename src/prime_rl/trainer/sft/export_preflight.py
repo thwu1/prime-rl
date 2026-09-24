@@ -7,11 +7,14 @@ import hashlib
 import importlib.metadata
 import json
 import math
+import multiprocessing
 import os
 import stat
 import subprocess
 import tempfile
+from collections import deque
 from collections.abc import Callable
+from concurrent.futures import Future, ProcessPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping
@@ -35,6 +38,8 @@ ATTESTATION_SCHEMA_VERSION = 2
 EXPORT_FORMAT_VERSION = 3
 MAX_METADATA_BYTES = 16 * 1024 * 1024
 MAX_JSONL_ROW_BYTES = 128 * 1024 * 1024
+MAX_RENDER_WORKERS = 64
+PREFLIGHT_RENDER_WORKERS_ENV = "PRIME_RL_SFT_PREFLIGHT_WORKERS"
 SHA256_HEX = frozenset("0123456789abcdef")
 GIT_SHA_LENGTH = 40
 TARGET_RENDERING_CONTRACT_FILENAME = "target-rendering-contract.json"
@@ -193,6 +198,10 @@ class RenderingSummary:
             "rows": self.rows,
             "trainable_tokens": self.trainable_tokens,
         }
+
+
+_RENDER_WORKER_TOKENIZER: PreTrainedTokenizer | None = None
+_RENDER_WORKER_RENDERER: Renderer | None = None
 
 
 def _is_plain_int(value: object) -> bool:
@@ -926,6 +935,123 @@ def _scan_split(
     return summary
 
 
+def _merge_rendering_summaries(left: RenderingSummary, right: RenderingSummary) -> RenderingSummary:
+    return RenderingSummary(
+        rows=left.rows + right.rows,
+        rendered_tokens=left.rendered_tokens + right.rendered_tokens,
+        max_rendered_tokens=max(left.max_rendered_tokens, right.max_rendered_tokens),
+        trainable_tokens=left.trainable_tokens + right.trainable_tokens,
+        reasoning_fields=left.reasoning_fields + right.reasoning_fields,
+        nonempty_reasoning_fields=left.nonempty_reasoning_fields + right.nonempty_reasoning_fields,
+        reasoning_fields_rendered=left.reasoning_fields_rendered + right.reasoning_fields_rendered,
+    )
+
+
+def _validate_render_workers(value: object) -> int:
+    if not _is_plain_int(value) or not 1 <= value <= MAX_RENDER_WORKERS:
+        raise SFTPreflightError("render_workers_invalid")
+    return value
+
+
+def _render_workers_from_environment() -> int:
+    value = os.environ.get(PREFLIGHT_RENDER_WORKERS_ENV)
+    if value is None:
+        return 1
+    if not value.isascii() or not value.isdecimal() or len(value) > 2:
+        raise SFTPreflightError("render_workers_invalid")
+    return _validate_render_workers(int(value))
+
+
+def _initialize_render_worker(tokenizer_snapshot: TokenizerSnapshotBinding | None) -> None:
+    global _RENDER_WORKER_RENDERER, _RENDER_WORKER_TOKENIZER
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+    try:
+        tokenizer = _load_render_tokenizer(tokenizer_snapshot)
+        renderer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["renderer"]
+        renderer_config = Nemotron3RendererConfig.model_validate(renderer_contract["config"])
+        renderer = create_renderer(tokenizer, renderer_config)
+    except SFTPreflightError as error:
+        raise SFTPreflightError(error.code) from None
+    except Exception:
+        raise SFTPreflightError("preflight_failed") from None
+    _RENDER_WORKER_TOKENIZER = tokenizer
+    _RENDER_WORKER_RENDERER = renderer
+
+
+def _render_row_in_worker(
+    raw_line: bytes,
+    max_sequence_tokens: int,
+) -> tuple[str | None, RenderingSummary | None]:
+    if _RENDER_WORKER_TOKENIZER is None or _RENDER_WORKER_RENDERER is None:
+        return "preflight_failed", None
+    try:
+        row = _parse_json_object(raw_line, "export_row_invalid")
+        return (
+            None,
+            _validate_and_render_row(
+                row,
+                _RENDER_WORKER_TOKENIZER,
+                _RENDER_WORKER_RENDERER,
+                max_sequence_tokens,
+            ),
+        )
+    except SFTPreflightError as error:
+        return error.code, None
+    except Exception:
+        return "row_render_failed", None
+
+
+def _resolve_render_future(future: Future[tuple[str | None, RenderingSummary | None]]) -> RenderingSummary:
+    try:
+        error, summary = future.result()
+    except Exception:
+        raise SFTPreflightError("row_render_failed") from None
+    if error is not None:
+        raise SFTPreflightError(error)
+    if summary is None:
+        raise SFTPreflightError("row_render_failed")
+    return summary
+
+
+def _scan_split_parallel(
+    path: Path,
+    expected: FileArtifact,
+    executor: ProcessPoolExecutor,
+    max_sequence_tokens: int,
+    workers: int,
+) -> RenderingSummary:
+    source, before = _open_regular(path, "export_split_invalid", required_mode=0o600)
+    digest = hashlib.sha256()
+    size = 0
+    summary = RenderingSummary(0, 0, 0, 0, 0, 0, 0)
+    pending: deque[Future[tuple[str | None, RenderingSummary | None]]] = deque()
+
+    def consume_one() -> None:
+        nonlocal summary
+        summary = _merge_rendering_summaries(summary, _resolve_render_future(pending.popleft()))
+
+    try:
+        while raw_line := source.readline(MAX_JSONL_ROW_BYTES + 1):
+            if len(raw_line) > MAX_JSONL_ROW_BYTES or not raw_line.endswith(b"\n") or not raw_line.strip():
+                raise SFTPreflightError("export_split_invalid")
+            digest.update(raw_line)
+            size += len(raw_line)
+            try:
+                pending.append(executor.submit(_render_row_in_worker, raw_line, max_sequence_tokens))
+            except Exception:
+                raise SFTPreflightError("row_render_failed") from None
+            if len(pending) >= workers * 2:
+                consume_one()
+        while pending:
+            consume_one()
+        after = os.fstat(source.fileno())
+    finally:
+        source.close()
+    if not _same_file(before, after) or FileArtifact(size, digest.hexdigest()) != expected:
+        raise SFTPreflightError("export_split_digest_mismatch")
+    return summary
+
+
 def _load_render_tokenizer(snapshot: TokenizerSnapshotBinding | None) -> PreTrainedTokenizer:
     tokenizer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["tokenizer"]
     if snapshot is not None:
@@ -947,22 +1073,44 @@ def _load_render_tokenizer(snapshot: TokenizerSnapshotBinding | None) -> PreTrai
 def _render_export(
     binding: ExportBinding,
     tokenizer_snapshot: TokenizerSnapshotBinding | None = None,
+    workers: int = 1,
 ) -> dict[str, Any]:
-    tokenizer = _load_render_tokenizer(tokenizer_snapshot)
-    renderer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["renderer"]
-    renderer_config = Nemotron3RendererConfig.model_validate(renderer_contract["config"])
-    renderer = create_renderer(tokenizer, renderer_config)
+    workers = _validate_render_workers(workers)
     max_tokens = EXPECTED_TARGET_RENDERING_CONTRACT["max_sequence_tokens"]
-    summaries = {
-        split: _scan_split(
-            binding.root / split / "train.jsonl",
-            binding.artifacts[f"{split}/train.jsonl"],
-            tokenizer,
-            renderer,
-            max_tokens,
-        )
-        for split in ("train", "validation")
-    }
+    if workers == 1:
+        tokenizer = _load_render_tokenizer(tokenizer_snapshot)
+        renderer_contract = EXPECTED_TARGET_RENDERING_CONTRACT["renderer"]
+        renderer_config = Nemotron3RendererConfig.model_validate(renderer_contract["config"])
+        renderer = create_renderer(tokenizer, renderer_config)
+        summaries = {
+            split: _scan_split(
+                binding.root / split / "train.jsonl",
+                binding.artifacts[f"{split}/train.jsonl"],
+                tokenizer,
+                renderer,
+                max_tokens,
+            )
+            for split in ("train", "validation")
+        }
+    else:
+        if tokenizer_snapshot is None:
+            raise SFTPreflightError("parallel_preflight_requires_tokenizer_snapshot")
+        with ProcessPoolExecutor(
+            max_workers=workers,
+            mp_context=multiprocessing.get_context("spawn"),
+            initializer=_initialize_render_worker,
+            initargs=(tokenizer_snapshot,),
+        ) as executor:
+            summaries = {
+                split: _scan_split_parallel(
+                    binding.root / split / "train.jsonl",
+                    binding.artifacts[f"{split}/train.jsonl"],
+                    executor,
+                    max_tokens,
+                    workers,
+                )
+                for split in ("train", "validation")
+            }
     total = RenderingSummary(
         rows=sum(summary.rows for summary in summaries.values()),
         rendered_tokens=sum(summary.rendered_tokens for summary in summaries.values()),
@@ -1121,6 +1269,7 @@ def create_sft_preflight_attestation(
     output: Path,
     tokenizer_snapshot_path: Path | None = None,
     expected_tokenizer_snapshot_sha256: str | None = None,
+    workers: int = 1,
 ) -> dict[str, Any]:
     """Render every exported row and write an aggregate-only immutable attestation."""
     if not output.is_absolute() or output != Path(os.path.normpath(output)) or os.path.lexists(output):
@@ -1128,15 +1277,18 @@ def create_sft_preflight_attestation(
     _canonical_directory(output.parent, "attestation_path_invalid")
     if not isinstance(expected_require_exact_provider_json, bool):
         raise SFTPreflightError("source_validation_expectation_invalid")
+    workers = _validate_render_workers(workers)
     tokenizer_snapshot = _bind_tokenizer_snapshot(
         tokenizer_snapshot_path,
         expected_tokenizer_snapshot_sha256,
     )
+    if workers > 1 and tokenizer_snapshot is None:
+        raise SFTPreflightError("parallel_preflight_requires_tokenizer_snapshot")
     binding = _load_export_binding(export_root, expected_manifest_sha256)
     if binding.source_validation["require_exact_provider_json"] is not expected_require_exact_provider_json:
         raise SFTPreflightError("source_validation_expectation_mismatch")
     code = _repository_provenance(project_dir, expected_project_revision)
-    rendering = _render_export(binding, tokenizer_snapshot)
+    rendering = _render_export(binding, tokenizer_snapshot, workers)
     if rendering["rows"] < 1 or rendering["trainable_tokens"] < 1:
         raise SFTPreflightError("export_has_no_trainable_rows")
     _validate_rendering_counts(binding, rendering)
@@ -1425,7 +1577,7 @@ def validate_sft_training_preflight(config: SFTConfig) -> bool:
     _validate_config_binding(config, data_configs, attestation)
     if format_v3_roots and format_v3_roots != {binding.root}:
         raise SFTPreflightError("training_data_contract_mismatch")
-    observed_rendering = _render_export(binding, tokenizer_snapshot)
+    observed_rendering = _render_export(binding, tokenizer_snapshot, _render_workers_from_environment())
     if observed_rendering != attestation["rendering"]:
         raise SFTPreflightError("attested_rendering_mismatch")
     _validate_rendering_counts(binding, observed_rendering)

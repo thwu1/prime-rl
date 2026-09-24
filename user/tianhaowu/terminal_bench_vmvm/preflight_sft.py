@@ -8,7 +8,11 @@ import json
 import sys
 from pathlib import Path
 
-from prime_rl.trainer.sft.export_preflight import SFTPreflightError, create_sft_preflight_attestation
+from prime_rl.trainer.sft.export_preflight import (
+    MAX_RENDER_WORKERS,
+    SFTPreflightError,
+    create_sft_preflight_attestation,
+)
 
 
 class StableArgumentParser(argparse.ArgumentParser):
@@ -29,9 +33,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--tokenizer-snapshot-path", type=Path)
     parser.add_argument("--expected-tokenizer-snapshot-sha256")
+    parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(argv)
-    if (args.tokenizer_snapshot_path is None) != (args.expected_tokenizer_snapshot_sha256 is None):
+    if (args.tokenizer_snapshot_path is None) != (
+        args.expected_tokenizer_snapshot_sha256 is None
+    ) or not 1 <= args.workers <= MAX_RENDER_WORKERS:
         raise SFTPreflightError("arguments_invalid")
     return args
 
@@ -48,6 +55,7 @@ def main(argv: list[str] | None = None) -> int:
             output=args.output,
             tokenizer_snapshot_path=args.tokenizer_snapshot_path,
             expected_tokenizer_snapshot_sha256=args.expected_tokenizer_snapshot_sha256,
+            workers=args.workers,
         )
     except SFTPreflightError as error:
         print(json.dumps({"error": error.code, "status": "error"}, sort_keys=True), file=sys.stderr)

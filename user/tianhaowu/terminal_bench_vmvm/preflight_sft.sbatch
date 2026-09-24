@@ -7,7 +7,7 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=64G
+#SBATCH --mem=96G
 #SBATCH --no-requeue
 #SBATCH --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/sft_render_preflight_%j.log
 #SBATCH --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/sft_render_preflight_%j.log
@@ -33,6 +33,11 @@ if [[ $SFT_PREFLIGHT_REQUIRE_EXACT_PROVIDER_JSON != 0 \
     printf '{"code":"provider_json_expectation_invalid","state":"error"}\n'
     exit 2
 fi
+render_workers=${SFT_PREFLIGHT_WORKERS:-8}
+case $render_workers in
+    1 | 2 | 3 | 4 | 5 | 6 | 7 | 8) ;;
+    *) printf '{"code":"render_workers_invalid","state":"error"}\n'; exit 2 ;;
+esac
 [[ $(uname -m) == x86_64 ]] || { printf '{"code":"x86_64_required","state":"error"}\n'; exit 2; }
 
 project_dir=$SFT_PREFLIGHT_PROJECT_DIR
@@ -70,4 +75,5 @@ exec "$x86_uv" run --no-project --offline --python "$python_bin" \
     "$provider_json_flag" \
     --tokenizer-snapshot-path "$SFT_PREFLIGHT_TOKENIZER_SNAPSHOT" \
     --expected-tokenizer-snapshot-sha256 "$SFT_PREFLIGHT_TOKENIZER_SHA256" \
+    --workers "$render_workers" \
     --output "$SFT_PREFLIGHT_OUTPUT"
