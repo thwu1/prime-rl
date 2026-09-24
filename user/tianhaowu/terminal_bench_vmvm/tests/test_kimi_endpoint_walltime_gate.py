@@ -113,6 +113,7 @@ def test_capture_gate_accepts_exact_stable_24_job_generation(
     assert receipt["all_running"] is True
     assert receipt["all_restarts_zero"] is True
     assert receipt["observed_minimum_remaining_seconds"] == 504_800
+    assert receipt["task_count"] == 25
     assert receipt["status_snapshot_before_sha256"] != receipt["status_snapshot_after_sha256"]
     assert output.stat().st_mode & 0o777 == 0o600
     raw_receipt = output.read_text()
@@ -234,6 +235,24 @@ def test_receipt_digest_and_90_hour_floor_are_fail_closed() -> None:
     )
 
     value["observed_minimum_remaining_seconds"] -= 1
+    unsigned = dict(value)
+    unsigned.pop("receipt_sha256")
+    value["receipt_sha256"] = hashlib.sha256(gate._canonical_json(unsigned)).hexdigest()
+    with pytest.raises(gate.EndpointWalltimeGateError, match="endpoint_walltime_receipt_invalid"):
+        gate.validate_receipt(
+            value,
+            manifest_sha256=manifest_sha256,
+            endpoint_bundle_sha256=endpoint_bundle_sha256,
+            profile=gate.EXTENDED_PROFILE,
+            minimum_remaining_seconds=gate.EXTENDED_MINIMUM_REMAINING_SECONDS,
+            task_count=25,
+        )
+
+    value["observed_minimum_remaining_seconds"] = gate.EXTENDED_MINIMUM_REMAINING_SECONDS
+    value["task_count"] = 26
+    unsigned = dict(value)
+    unsigned.pop("receipt_sha256")
+    value["receipt_sha256"] = hashlib.sha256(gate._canonical_json(unsigned)).hexdigest()
     with pytest.raises(gate.EndpointWalltimeGateError, match="endpoint_walltime_receipt_invalid"):
         gate.validate_receipt(
             value,
