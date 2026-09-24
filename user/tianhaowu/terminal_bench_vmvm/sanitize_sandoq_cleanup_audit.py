@@ -110,7 +110,10 @@ def sanitize(
     measured_assignment_high_water = 0
     release_rows = 0
     cleanup_gateway_retry_count = 0
-    pool_drained = 0
+    pool_lifecycles_started = 0
+    pool_lifecycles_drained = 0
+    pool_lifecycle_open = False
+    lifecycle_active_assignments: set[str] = set()
     gateway_close_warnings = 0
     recovered_poisoned_assignments = 0
     managed_shell_recovery_events: Counter[str] = Counter()
@@ -133,7 +136,14 @@ def sanitize(
             if not isinstance(outer_id, str) or not outer_id:
                 raise CleanupAuditError("pool_event_outer_identity_invalid")
             event_outer_ids.add(outer_id)
-        if event_name == "assignment_acquired":
+        if event_name == "pool_started":
+            if pool_lifecycle_open or lifecycle_active_assignments:
+                raise CleanupAuditError("pool_lifecycle_overlap")
+            pool_lifecycle_open = True
+            pool_lifecycles_started += 1
+        elif event_name == "assignment_acquired":
+            if not pool_lifecycle_open:
+                raise CleanupAuditError("assignment_outside_pool_lifecycle")
             if not isinstance(assignment_id, str) or not assignment_id:
                 raise CleanupAuditError("pool_event_assignment_identity_invalid")
             if not isinstance(outer_id, str) or not outer_id:
@@ -145,6 +155,7 @@ def sanitize(
             if _is_int(event.get("generation")) and event["generation"] >= 1:
                 assignment_generations[assignment_id] = event["generation"]
             active_assignments.add(assignment_id)
+            lifecycle_active_assignments.add(assignment_id)
             assignment_high_water = max(assignment_high_water, len(active_assignments))
             measured_active = event.get("active_assignment_count")
             if not _is_int(measured_active) or measured_active < 1:
@@ -157,6 +168,7 @@ def sanitize(
                 not isinstance(assignment_id, str)
                 or not isinstance(outer_id, str)
                 or assignment_outer.get(assignment_id) != outer_id
+                or assignment_id not in lifecycle_active_assignments
                 or event.get("cancellation_verified") is not True
                 or event.get("status") is not None
                 or bool(event.get("error"))
@@ -164,6 +176,7 @@ def sanitize(
                 raise CleanupAuditError("assignment_cancellation_not_verified")
             cancellation_counts[assignment_id] += 1
             active_assignments.discard(assignment_id)
+            lifecycle_active_assignments.discard(assignment_id)
         elif event_name == "assignment_released":
             release_rows += 1
             status = event.get("status")
@@ -191,6 +204,7 @@ def sanitize(
                 not isinstance(assignment_id, str)
                 or not isinstance(outer_id, str)
                 or assignment_outer.get(assignment_id) != outer_id
+                or assignment_id not in lifecycle_active_assignments
                 or not verified
                 or not _is_int(event.get("cleanup_gateway_retry_count", 0))
                 or event.get("cleanup_gateway_retry_count", 0) < 0
@@ -201,6 +215,7 @@ def sanitize(
             release_counts[assignment_id] += 1
             cleanup_gateway_retry_count += event.get("cleanup_gateway_retry_count", 0)
             active_assignments.discard(assignment_id)
+            lifecycle_active_assignments.discard(assignment_id)
             if event.get("status") == "poisoned":
                 recovered_poisoned_assignments += 1
         elif event_name == "managed_shell_recovered":
@@ -279,13 +294,16 @@ def sanitize(
             raise CleanupAuditError("pool_drain_incomplete")
         elif event_name == "pool_drained":
             if (
-                event.get("reason") != "final_client_departure"
+                not pool_lifecycle_open
+                or lifecycle_active_assignments
+                or event.get("reason") != "final_client_departure"
                 or event.get("failures") != {}
                 or not _is_int(event.get("event_records_dropped"))
                 or event.get("event_records_dropped") != 0
             ):
                 raise CleanupAuditError("pool_drain_event_invalid")
-            pool_drained += 1
+            pool_lifecycle_open = False
+            pool_lifecycles_drained += 1
         elif event_name == "gateway_close_failed":
             gateway_close_warnings += 1
     if (
@@ -294,7 +312,10 @@ def sanitize(
         or any(count != 1 for count in acquired_counts.values())
         or any(count != 1 for count in (release_counts + cancellation_counts).values())
         or active_assignments
-        or pool_drained != 1
+        or lifecycle_active_assignments
+        or pool_lifecycle_open
+        or pool_lifecycles_started < 1
+        or pool_lifecycles_drained != pool_lifecycles_started
     ):
         raise CleanupAuditError("assignment_cleanup_coverage_incomplete")
     outer_created_counts: Counter[str] = Counter()
