@@ -636,6 +636,8 @@ def test_direct_kimi_sandoq_scored_smoke_launcher_is_pinned() -> None:
     assert "--direct-worker-count 24" in stage
     assert "from eval_run_identity import _vmvm_source_sha256" in stage
     assert 'sha256sum "$project_dir"/environments/vmvm_tb_v2' not in stage
+    assert 'role == "kimi-direct-tb4" and timeout == 144_000' in launcher
+    assert 'timeout in {1_800, 10_800, 43_200}' in launcher
 
 
 def test_direct_kimi_tb4_miniswe246_host_tunnel_lane_is_pinned() -> None:

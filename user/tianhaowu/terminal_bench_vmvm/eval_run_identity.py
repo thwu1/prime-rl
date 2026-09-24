@@ -3737,6 +3737,18 @@ def _prepare_direct_qwen(args: argparse.Namespace) -> str:
     return digest
 
 
+def _direct_kimi_router_request_timeout(role: str, contract: dict[str, Any]) -> int:
+    harness_contract = contract.get("harness")
+    if (
+        role == "kimi-direct-tb4"
+        and isinstance(harness_contract, dict)
+        and harness_contract.get("id") == "mini-swe-agent"
+        and harness_contract.get("request_timeout_seconds") == KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS
+    ):
+        return KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS
+    return KIMI_REQUEST_TIMEOUT_SECONDS
+
+
 def _prepare_direct_kimi(args: argparse.Namespace) -> str:
     from direct_kimi_workers import validate_saved_manifest
 
@@ -3825,9 +3837,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
     except (OSError, ValueError) as error:
         raise EvalIdentityError("direct_kimi_worker_manifest_invalid") from error
     router = manifest["router"]
-    expected_router_request_timeout = (
-        KIMI_REQUEST_TIMEOUT_SECONDS if args.role == KIMI_CAPACITY_SMOKE_ROLE else config["client"].get("timeout")
-    )
+    expected_router_request_timeout = _direct_kimi_router_request_timeout(args.role, contract)
     if (
         args.client_base_url != f"http://127.0.0.1:{router['port']}/v1"
         or args.direct_spec_sha256 != manifest["source_spec_sha256"]

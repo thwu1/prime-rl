@@ -443,15 +443,22 @@ if [[ -n ${eval_config_sha256:-} \
     exit 2
 fi
 router_request_timeout=$(
-    "$x86_uv" run --no-project --offline --python "$python_bin" python3 - "$eval_config" <<'PY'
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 - "$eval_config" "$identity_role" <<'PY'
 import sys
 import tomllib
 from pathlib import Path
 
 timeout = tomllib.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["client"]["timeout"]
-if type(timeout) is not int or timeout not in {43_200, 144_000}:
+role = sys.argv[2]
+if type(timeout) is not int:
     raise SystemExit(2)
-print(timeout)
+if role == "kimi-direct-tb4" and timeout == 144_000:
+    print(144_000)
+elif timeout in {1_800, 10_800, 43_200}:
+    print(43_200)
+else:
+    raise SystemExit(2)
 PY
 )
 

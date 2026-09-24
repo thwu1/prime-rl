@@ -566,6 +566,41 @@ def test_direct_kimi_tb4_sandoq_concurrency_is_plan_bound() -> None:
             )
 
 
+def test_direct_kimi_router_timeout_is_extended_only_for_extended_tb4_miniswe() -> None:
+    legacy_contract = {"harness": {"id": "mini-swe-agent", "request_timeout_seconds": 43_200}}
+    extended_contract = {"harness": {"id": "mini-swe-agent", "request_timeout_seconds": 144_000}}
+    capacity_contract = {"harness": {"id": "mini-swe-agent", "request_timeout_seconds": 1_800}}
+
+    assert (
+        eval_run_identity._direct_kimi_router_request_timeout(
+            "kimi-direct-tb4",
+            legacy_contract,
+        )
+        == 43_200
+    )
+    assert (
+        eval_run_identity._direct_kimi_router_request_timeout(
+            "kimi-direct-tb4",
+            extended_contract,
+        )
+        == 144_000
+    )
+    assert (
+        eval_run_identity._direct_kimi_router_request_timeout(
+            "kimi-direct-capacity-smoke",
+            capacity_contract,
+        )
+        == 43_200
+    )
+    assert (
+        eval_run_identity._direct_kimi_router_request_timeout(
+            "kimi-direct-smoke",
+            legacy_contract,
+        )
+        == 43_200
+    )
+
+
 def test_direct_kimi_production_identity_binds_w2_router_and_launch() -> None:
     identity = _direct_kimi_identity(smoke=False)
     identity["role"] = "kimi-direct-mobius"
