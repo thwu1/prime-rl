@@ -252,6 +252,36 @@ def test_legacy_router_profile_retains_c24_snapshot_shape() -> None:
     assert "capacity_rejections" not in snapshot
 
 
+def test_legacy_router_metrics_report_real_operational_counters() -> None:
+    workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
+    state = RouterState(workers, worker_queue_timeout_seconds=0.01)
+    for _ in range(24):
+        assert state.acquire(chat=False, index=0)
+    assert not state.acquire(chat=False, index=0)
+    for _ in range(24):
+        state.release(chat=False)
+
+    assert state.acquire_worker(0)
+    assert not state.acquire_worker(0)
+    state.record_worker_queue_timeout()
+    state.release_worker(0)
+    state.record_upstream_status(429)
+    state.record_upstream_status(503)
+
+    # Preserve the schema-1 /stats compatibility contract while ensuring the
+    # profile-independent Prometheus endpoint does not silently render zeros.
+    snapshot = state.snapshot()
+    assert snapshot["schema_version"] == 1
+    assert "capacity_rejections" not in snapshot
+    metrics = _metrics(state)
+    assert "direct_kimi_router_capacity_rejections 1\n" in metrics
+    assert "direct_kimi_router_worker_queue_timeouts 1\n" in metrics
+    assert "direct_kimi_router_max_active_forwarded_requests 1\n" in metrics
+    assert "direct_kimi_router_max_active_requests_on_worker 1\n" in metrics
+    assert "direct_kimi_router_upstream_http_429 1\n" in metrics
+    assert "direct_kimi_router_upstream_http_5xx 1\n" in metrics
+
+
 def test_same_worker_requests_queue_while_other_workers_remain_available() -> None:
     workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
     state = RouterState(workers, worker_queue_timeout_seconds=1)

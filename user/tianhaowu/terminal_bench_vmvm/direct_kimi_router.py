@@ -308,6 +308,21 @@ class RouterState:
         with self.lock:
             self.worker_queue_timeouts += 1
 
+    def operational_metrics(self) -> dict[str, Any]:
+        """Return profile-independent counters for the Prometheus endpoint."""
+        with self.lock:
+            return {
+                "configured_per_worker_capacity": self.per_worker_capacity,
+                "active_forwarded_requests": self.active_forwarded_requests,
+                "max_active_forwarded_requests": self.max_active_forwarded_requests,
+                "worker_max_active_request_counts": list(self.worker_max_active_requests),
+                "worker_queue_timeouts": self.worker_queue_timeouts,
+                "capacity_rejections": self.capacity_rejections,
+                "cross_route_anomalies": self.cross_route_anomalies,
+                "upstream_http_429": self.upstream_http_429,
+                "upstream_http_5xx": self.upstream_http_5xx,
+            }
+
     def snapshot(self) -> dict[str, Any]:
         with self.lock:
             snapshot = {
@@ -528,24 +543,25 @@ class MetricsHandler(BaseHTTPRequestHandler):
             return
         state: RouterState = self.server.router_state  # type: ignore[attr-defined]
         snapshot = state.snapshot()
+        operational = state.operational_metrics()
         raw = (
             f"vllm_router_active_workers {snapshot['active_workers']}\n"
             f"direct_kimi_router_active_requests {snapshot['active_requests']}\n"
             f"direct_kimi_router_max_active_requests {snapshot['max_active_requests']}\n"
             f"direct_kimi_router_total_requests {snapshot['total_requests']}\n"
             f"direct_kimi_router_upstream_failures {snapshot['upstream_failures']}\n"
-            f"direct_kimi_router_capacity_rejections {snapshot.get('capacity_rejections', 0)}\n"
-            f"direct_kimi_router_cross_route_anomalies {snapshot.get('cross_route_anomalies', 0)}\n"
+            f"direct_kimi_router_capacity_rejections {operational['capacity_rejections']}\n"
+            f"direct_kimi_router_cross_route_anomalies {operational['cross_route_anomalies']}\n"
             f"direct_kimi_router_configured_per_worker_capacity "
-            f"{snapshot.get('configured_per_worker_capacity', state.per_worker_capacity)}\n"
-            f"direct_kimi_router_active_forwarded_requests {snapshot.get('active_forwarded_requests', 0)}\n"
+            f"{operational['configured_per_worker_capacity']}\n"
+            f"direct_kimi_router_active_forwarded_requests {operational['active_forwarded_requests']}\n"
             f"direct_kimi_router_max_active_forwarded_requests "
-            f"{snapshot.get('max_active_forwarded_requests', 0)}\n"
+            f"{operational['max_active_forwarded_requests']}\n"
             f"direct_kimi_router_max_active_requests_on_worker "
-            f"{max(snapshot.get('worker_max_active_request_counts', [0]))}\n"
-            f"direct_kimi_router_worker_queue_timeouts {snapshot.get('worker_queue_timeouts', 0)}\n"
-            f"direct_kimi_router_upstream_http_429 {snapshot.get('upstream_http_429', 0)}\n"
-            f"direct_kimi_router_upstream_http_5xx {snapshot.get('upstream_http_5xx', 0)}\n"
+            f"{max(operational['worker_max_active_request_counts'])}\n"
+            f"direct_kimi_router_worker_queue_timeouts {operational['worker_queue_timeouts']}\n"
+            f"direct_kimi_router_upstream_http_429 {operational['upstream_http_429']}\n"
+            f"direct_kimi_router_upstream_http_5xx {operational['upstream_http_5xx']}\n"
         ).encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; version=0.0.4")
