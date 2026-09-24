@@ -255,6 +255,7 @@ def test_direct_launcher_gates_only_explicit_extended_profile() -> None:
     assert "KIMI_ENDPOINT_WALLTIME_PROFILE:-legacy" in launcher
     assert launcher.index(legacy_branch) < launcher.index(extended_branch) < launcher.index(config_read)
     assert '"$eval_client_timeout" != 144000' in launcher
+    assert '"$task_count" -le 24 || "$task_count" -gt 48' in launcher
     assert '"$endpoint_minimum_remaining_seconds" -lt 324000' in launcher
     assert launcher.index(capture) < launcher.index(identity)
     assert 'python3 "$workflow_dir/kimi_endpoint_walltime_gate.py" validate' in launcher

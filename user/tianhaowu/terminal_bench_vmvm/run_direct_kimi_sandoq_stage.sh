@@ -398,6 +398,7 @@ PY
     )
     if [[ "$eval_client_timeout" != 144000 \
         || "$role" != kimi-direct-tb4 || "$rollout_concurrency" != 24 \
+        || ! "$task_count" =~ ^[1-9][0-9]*$ || "$task_count" -le 24 || "$task_count" -gt 48 \
         || ! "$endpoint_minimum_remaining_seconds" =~ ^[1-9][0-9]*$ \
         || "$endpoint_minimum_remaining_seconds" -lt 324000 ]]; then
         printf 'Extended direct Kimi TB4 requires its sealed 90-hour endpoint walltime profile\n' >&2
