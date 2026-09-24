@@ -25,6 +25,10 @@ sandbox_provider=${DIRECT_KIMI_SANDBOX_PROVIDER:-sandoq}
 execution_mode=${DIRECT_KIMI_EXECUTION_MODE:-certified}
 router_capacity_profile=${DIRECT_KIMI_ROUTER_CAPACITY_PROFILE:-legacy-c24}
 endpoint_identifier=${DIRECT_KIMI_ENDPOINT_IDENTIFIER:-}
+endpoint_walltime_profile=${KIMI_ENDPOINT_WALLTIME_PROFILE:-legacy}
+endpoint_minimum_remaining_seconds=${KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS:-324000}
+endpoint_walltime_receipt=
+endpoint_walltime_receipt_file_sha256=
 
 if [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-capacity-smoke \
     && "$role" != kimi-direct-tb4 \
@@ -373,6 +377,46 @@ if [[ ! "$direct_spec_sha256" =~ ^[0-9a-f]{64}$ \
     exit 2
 fi
 
+eval_client_timeout=$(
+    "$x86_uv" run --no-project --offline --python "$python_bin" python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+from pathlib import Path
+
+value = tomllib.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+timeout = value.get("client", {}).get("timeout")
+if type(timeout) is not int or timeout <= 0:
+    raise SystemExit(2)
+print(timeout)
+PY
+)
+if [[ "$eval_client_timeout" == 144000 ]]; then
+    if [[ "$endpoint_walltime_profile" != tb4-extended-c24-two-wave-v1 \
+        || "$role" != kimi-direct-tb4 || "$rollout_concurrency" != 24 \
+        || ! "$endpoint_minimum_remaining_seconds" =~ ^[1-9][0-9]*$ \
+        || "$endpoint_minimum_remaining_seconds" -lt 324000 ]]; then
+        printf 'Extended direct Kimi TB4 requires its sealed 90-hour endpoint walltime profile\n' >&2
+        exit 2
+    fi
+    endpoint_walltime_receipt="$(dirname -- "$worker_manifest")/direct_kimi_endpoint_walltime_gate.json"
+    if [[ -e "$endpoint_walltime_receipt" || -L "$endpoint_walltime_receipt" ]]; then
+        printf 'Direct Kimi endpoint walltime receipt namespace is not fresh\n' >&2
+        exit 2
+    fi
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/kimi_endpoint_walltime_gate.py" capture \
+        --manifest "$worker_manifest" \
+        --manifest-sha256 "$worker_manifest_sha256" \
+        --profile "$endpoint_walltime_profile" \
+        --minimum-remaining-seconds "$endpoint_minimum_remaining_seconds" \
+        --output "$endpoint_walltime_receipt"
+    endpoint_walltime_receipt_file_sha256=$(sha256sum -- "$endpoint_walltime_receipt" | cut -d' ' -f1)
+elif [[ "$endpoint_walltime_profile" != legacy \
+    || -n ${KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS:-} ]]; then
+    printf 'Legacy direct Kimi runs cannot consume an endpoint walltime profile\n' >&2
+    exit 2
+fi
+
 identity_args=(
     --mode fresh
     --role "$role"
@@ -593,6 +637,20 @@ elif [[ ! -s "$output_dir/control/vmvm_runtime_lifecycle.jsonl" \
     || ! -s "$output_dir/control/vmvm_cleanup_receipts.jsonl" \
     || ! -s "$output_dir/control/vmvm_capacity_receipt.json" ]]; then
     cleanup_status=1
+fi
+if [[ -n "$endpoint_walltime_receipt" ]]; then
+    if [[ "$(sha256sum -- "$endpoint_walltime_receipt" | cut -d' ' -f1)" \
+        != "$endpoint_walltime_receipt_file_sha256" ]]; then
+        printf 'Direct Kimi endpoint walltime receipt changed during evaluation\n' >&2
+        exit 2
+    fi
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/kimi_endpoint_walltime_gate.py" validate \
+        --manifest "$worker_manifest" \
+        --manifest-sha256 "$worker_manifest_sha256" \
+        --profile "$endpoint_walltime_profile" \
+        --minimum-remaining-seconds "$endpoint_minimum_remaining_seconds" \
+        --receipt "$endpoint_walltime_receipt" >/dev/null
 fi
 if [[ "$eval_status" -ne 0 ]]; then
     exit "$eval_status"

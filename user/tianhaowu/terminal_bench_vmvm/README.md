@@ -1152,6 +1152,18 @@ Sandoq partition with 38 VMVM CPU tasks and record three GPU tasks unsupported. 
 all-Sandoq `tb4-miniswe` stage stays blocked, and production requires separate
 aggregate resource coverage or a provider partition for all 2,499 tasks.
 
+An extended 144,000-second direct-Kimi TB4 config is admitted only when the
+launcher also receives
+`KIMI_ENDPOINT_WALLTIME_PROFILE=tb4-extended-c24-two-wave-v1`. The optional
+`KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS` may raise, but never lower, the
+324,000-second (90-hour) floor. Before model traffic, the gate reads the live
+deployment status twice around one read-only Slurm accounting query. It
+requires the exact 24 manifest-bound endpoints to remain unchanged and every
+job to be RUNNING, unrestarted, and above the floor. The owner-only receipt is
+stored beside the direct-worker manifest and contains only aggregate values
+and digests. Legacy timeout profiles do not run this gate and reject these
+extended-profile variables.
+
 Materialize the MiniSWE TB4 union with
 `prepare_kimi_tb4_miniswe246_union.py materialize`. Submit the same sealed plan
 twice through `run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch`, once
