@@ -1518,6 +1518,163 @@ def test_audit_trace_allows_hash_bound_explicit_empty_reasoning_tool_turn() -> N
     assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
 
 
+def test_audit_trace_allows_exact_kimi_null_reasoning_tool_turn() -> None:
+    trace = _trace_with_model_io()
+    second = _trace("second", "same-task")["nodes"][0]
+    second["parent"] = 0
+    second["finish_reason"] = "tool_calls"
+    second["message"] = {
+        "role": "assistant",
+        "tool_calls": [{"id": "call-2", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
+    }
+    request = _request()
+    second["model_io"] = _model_io(
+        request,
+        response=_exact_response(
+            finish_reason="tool_calls",
+            message={
+                "role": "assistant",
+                "content": None,
+                "reasoning": None,
+                "tool_calls": [
+                    {
+                        "id": "call-2",
+                        "type": "function",
+                        "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+                    }
+                ],
+            },
+        ),
+    )
+    trace["nodes"].append(second)
+
+    assert _captured_zero_reasoning_tool_turn(second, request) == "provider_explicit_empty"
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == []
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "reasoning_absent",
+        "content_non_null",
+        "response_model_non_kimi",
+        "request_model_non_kimi",
+        "reasoning_effort_missing",
+        "reasoning_effort_medium",
+        "thinking_missing",
+        "thinking_disabled",
+        "template_extra",
+        "normalized_response",
+        "response_finish_stop",
+        "node_finish_stop",
+        "raw_extra_field",
+        "flat_content_non_null",
+        "flat_reasoning_non_null",
+        "tool_call_mismatch",
+        "provider_route_mismatch",
+        "multiple_choices",
+        "response_hash_mismatch",
+    ],
+)
+def test_exact_kimi_null_reasoning_tool_turn_fails_closed(mutation: str) -> None:
+    node = _trace("second", "same-task")["nodes"][0]
+    node["finish_reason"] = "tool_calls"
+    node["message"] = {
+        "role": "assistant",
+        "tool_calls": [{"id": "call-2", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
+    }
+    request = _request()
+    provider_message = {
+        "role": "assistant",
+        "content": None,
+        "reasoning": None,
+        "tool_calls": [
+            {
+                "id": "call-2",
+                "type": "function",
+                "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+            }
+        ],
+    }
+    response = _exact_response(message=provider_message, finish_reason="tool_calls")
+    node["model_io"] = _model_io(request, response=response)
+
+    if mutation == "reasoning_absent":
+        provider_message.pop("reasoning")
+    elif mutation == "content_non_null":
+        provider_message["content"] = "unexpected"
+    elif mutation == "response_model_non_kimi":
+        response["model"] = "other-model"
+    elif mutation == "request_model_non_kimi":
+        request["model"] = "other-model"
+    elif mutation == "reasoning_effort_missing":
+        request.pop("reasoning_effort")
+    elif mutation == "reasoning_effort_medium":
+        request["reasoning_effort"] = "medium"
+    elif mutation == "thinking_missing":
+        request["chat_template_kwargs"].pop("enable_thinking")
+    elif mutation == "thinking_disabled":
+        request["chat_template_kwargs"]["enable_thinking"] = False
+    elif mutation == "template_extra":
+        request["chat_template_kwargs"]["unexpected"] = True
+    elif mutation == "normalized_response":
+        node["model_io"]["response"]["kind"] = "normalized_stream_response"
+    elif mutation == "response_finish_stop":
+        response["choices"][0]["finish_reason"] = "stop"
+    elif mutation == "node_finish_stop":
+        node["finish_reason"] = "stop"
+    elif mutation == "raw_extra_field":
+        provider_message["provider_specific_fields"] = {"reasoning": None}
+    elif mutation == "flat_content_non_null":
+        node["message"]["content"] = "unexpected"
+    elif mutation == "flat_reasoning_non_null":
+        node["message"]["reasoning_content"] = "unexpected"
+    elif mutation == "tool_call_mismatch":
+        provider_message["tool_calls"][0]["function"]["name"] = "different"
+    elif mutation == "provider_route_mismatch":
+        node["model_io"]["provider_route"] = "/other"
+    elif mutation == "multiple_choices":
+        response["choices"].append(dict(response["choices"][0]))
+    elif mutation == "response_hash_mismatch":
+        node["model_io"]["response"]["sha256"] = "0" * 64
+
+    node["model_io"]["request"]["sha256"] = _digest(request)
+    if mutation != "response_hash_mismatch":
+        node["model_io"]["response"]["sha256"] = _digest(response)
+
+    assert _captured_zero_reasoning_tool_turn(node, request) is None
+
+
+def test_audit_trace_still_requires_reasoning_across_exact_kimi_null_turns() -> None:
+    trace = _trace_with_model_io()
+    node = trace["nodes"][0]
+    node["finish_reason"] = "tool_calls"
+    node["message"] = {
+        "role": "assistant",
+        "tool_calls": [{"id": "call-1", "name": "bash", "arguments": '{"cmd":"pwd"}'}],
+    }
+    response = _exact_response(
+        finish_reason="tool_calls",
+        message={
+            "role": "assistant",
+            "content": None,
+            "reasoning": None,
+            "tool_calls": [
+                {
+                    "id": "call-1",
+                    "type": "function",
+                    "function": {"name": "bash", "arguments": '{"cmd":"pwd"}'},
+                }
+            ],
+        },
+    )
+    node["model_io"] = _model_io(_request(), response=response)
+
+    assert _audit_trace(trace, require_reasoning=True, require_model_io=True) == [
+        "no_sampled_reasoning_content"
+    ]
+
+
 @pytest.mark.parametrize(
     ("reasoning_tokens", "accepted"),
     [pytest.param(0, True, id="reported-zero"), pytest.param(None, False, id="counter-missing")],

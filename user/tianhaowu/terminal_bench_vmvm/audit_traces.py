@@ -814,14 +814,47 @@ def _captured_zero_reasoning_tool_turn(
 
     if provider_reported_zero:
         return "provider_reported_zero"
-    if response["kind"] != "exact_provider_json" or not explicit_empty_reasoning:
+    if response["kind"] != "exact_provider_json":
         return None
     template = request_body.get("chat_template_kwargs") if isinstance(request_body, dict) else None
-    if (
+    thinking_preserved = (
         isinstance(template, dict)
         and template.get("enable_thinking") is True
         and template.get("preserve_thinking") is True
-    ):
+    )
+    if explicit_empty_reasoning and thinking_preserved:
+        return "provider_explicit_empty"
+
+    # Kimi can emit an exact, explicit JSON null for a tool-call turn that has
+    # no exposed reasoning.  Accept only the observed provider wire shape,
+    # after the response hash and flattened tool calls have both been checked.
+    # Missing fields, normalized responses, other models, non-tool finishes,
+    # or extra provider metadata remain ambiguous and fail closed.
+    choices = body.get("choices")
+    choice = choices[0] if isinstance(choices, list) and len(choices) == 1 else None
+    null_kimi_tool_turn = (
+        model_io.get("provider_route") == KIMI_K3_MAX_MODEL_IO_CONTRACT.provider_route
+        and body.get("model") == KIMI_K3_MAX_MODEL_IO_CONTRACT.response_model
+        and isinstance(request_body, dict)
+        and request_body.get("model") == KIMI_K3_MAX_MODEL_IO_CONTRACT.request_model
+        and request_body.get("reasoning_effort") == KIMI_K3_MAX_MODEL_IO_CONTRACT.reasoning_effort
+        and template == dict(KIMI_K3_MAX_MODEL_IO_CONTRACT.chat_template_kwargs)
+        and isinstance(choice, dict)
+        and choice.get("finish_reason") == "tool_calls"
+        and node.get("finish_reason") == "tool_calls"
+        and set(message) == {"role", "content", "reasoning", "tool_calls"}
+        and message.get("role") == "assistant"
+        and message.get("content") is None
+        and "reasoning" in message
+        and message["reasoning"] is None
+        and isinstance(flattened_message, dict)
+        and {"role", "tool_calls"}.issubset(flattened_message)
+        and set(flattened_message).issubset({"role", "content", "reasoning_content", "tool_calls"})
+        and flattened_message.get("role") == "assistant"
+        and flattened_message.get("content") is None
+        and flattened_message.get("reasoning_content") is None
+    )
+    if null_kimi_tool_turn:
         return "provider_explicit_empty"
     return None
 
