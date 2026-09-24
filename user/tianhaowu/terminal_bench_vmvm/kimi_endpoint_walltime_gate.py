@@ -24,6 +24,8 @@ EXPECTED_CLUSTER = "fair-cw-use2-1"
 EXPECTED_ENDPOINTS = 24
 EXTENDED_PROFILE = "tb4-extended-c24-two-wave-v1"
 EXTENDED_MINIMUM_REMAINING_SECONDS = 90 * 60 * 60
+EXTENDED_REQUEST_TIMEOUT_SECONDS = 144_000
+EXTENDED_ROUTER_CONCURRENCY = 24
 RECEIPT_KIND = "direct-kimi-endpoint-walltime-gate"
 RECEIPT_SCHEMA_VERSION = 1
 MAX_STATUS_BYTES = 8 * 1024 * 1024
@@ -306,6 +308,20 @@ def _load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
         manifest = validate_saved_manifest(path, body=raw)
     except (OSError, RuntimeError, ValueError) as error:
         raise EndpointWalltimeGateError("direct_worker_manifest_invalid") from error
+    if not isinstance(manifest, dict):
+        raise EndpointWalltimeGateError("direct_worker_manifest_invalid")
+    router = manifest.get("router")
+    if (
+        manifest.get("schema_version") != 1
+        or not isinstance(router, dict)
+        or "capacity_profile" in router
+        or router.get("max_concurrent_requests") != EXTENDED_ROUTER_CONCURRENCY
+        or router.get("queue_size") != EXTENDED_ROUTER_CONCURRENCY
+        or router.get("request_timeout_seconds") != EXTENDED_REQUEST_TIMEOUT_SECONDS
+        or router.get("queue_timeout_seconds") != EXTENDED_REQUEST_TIMEOUT_SECONDS
+        or router.get("retries") != 0
+    ):
+        raise EndpointWalltimeGateError("extended_router_manifest_invalid")
     return manifest
 
 

@@ -66,7 +66,18 @@ def _scheduler(
 def _manifest() -> dict[str, object]:
     workers = [{"backend_sha256": _backend(f"worker-{index}")} for index in range(gate.EXPECTED_ENDPOINTS)]
     bundle = hashlib.sha256("".join(f"{worker['backend_sha256']}\n" for worker in workers).encode()).hexdigest()
-    return {"workers": workers, "endpoint_bundle_sha256": bundle}
+    return {
+        "schema_version": 1,
+        "workers": workers,
+        "endpoint_bundle_sha256": bundle,
+        "router": {
+            "max_concurrent_requests": 24,
+            "queue_size": 24,
+            "request_timeout_seconds": 144_000,
+            "queue_timeout_seconds": 144_000,
+            "retries": 0,
+        },
+    }
 
 
 def test_capture_gate_accepts_exact_stable_24_job_generation(
@@ -159,6 +170,35 @@ def test_status_snapshot_must_match_direct_worker_bundle() -> None:
     expected[-1] = "f" * 64
     with pytest.raises(gate.EndpointWalltimeGateError, match="deployment_endpoint_bundle_mismatch"):
         gate.parse_status_snapshot(_status(), expected)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("request_timeout_seconds", 43_200),
+        ("max_concurrent_requests", 64),
+        ("queue_size", 64),
+        ("queue_timeout_seconds", 43_200),
+        ("retries", 1),
+        ("capacity_profile", "sandoq-c64-w2-v1"),
+    ],
+)
+def test_gate_rejects_non_extended_router_manifest(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    field: str,
+    value: object,
+) -> None:
+    manifest = _manifest()
+    manifest["router"][field] = value
+    manifest_path = tmp_path / "direct_kimi_workers.json"
+    manifest_raw = (json.dumps(manifest, sort_keys=True) + "\n").encode()
+    manifest_path.write_bytes(manifest_raw)
+    manifest_sha256 = hashlib.sha256(manifest_raw).hexdigest()
+    monkeypatch.setattr(direct_kimi_workers, "validate_saved_manifest", lambda *_args, **_kwargs: manifest)
+
+    with pytest.raises(gate.EndpointWalltimeGateError, match="extended_router_manifest_invalid"):
+        gate._load_manifest(manifest_path, manifest_sha256)
 
 
 def test_status_rotation_between_scheduler_reads_fails_closed(
