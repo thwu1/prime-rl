@@ -514,13 +514,22 @@ def _direct_kimi_identity(*, smoke: bool) -> dict:
     return identity
 
 
-def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage() -> None:
+def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage(tmp_path: Path) -> None:
     smoke = _direct_kimi_identity(smoke=True)
     assert _validate_identity_shape(smoke) == smoke
     full = _direct_kimi_identity(smoke=False)
     assert _validate_identity_shape(full) == full
     assert smoke["contract"]["reasoning_effort"] == "max"
     assert full["contract"]["reasoning_effort"] == "max"
+
+    c24_dir = tmp_path / "c24"
+    c24_dir.mkdir()
+    args = SimpleNamespace(mode="fresh", invocation_host="host", slurm_job_id="123")
+    _bind_provenance(c24_dir, full, "7" * 64, args)
+    _verify_saved_provenance(c24_dir, full, "7" * 64)
+    records = dict(line.split("=", 1) for line in (c24_dir / "provenance.txt").read_text().splitlines())
+    assert "direct_router_capacity_profile" not in records
+    assert "direct_per_worker_capacity" not in records
 
     for path, value in (
         (("deployment", "router", "policy"), "round_robin"),
@@ -538,7 +547,7 @@ def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage() -> None:
 
 
 @pytest.mark.parametrize("smoke", [False, True])
-def test_direct_kimi_c23_identity_binds_selected_worker_profile(smoke: bool) -> None:
+def test_direct_kimi_c23_identity_binds_selected_worker_profile(smoke: bool, tmp_path: Path) -> None:
     identity = _direct_kimi_identity(smoke=smoke)
     router = identity["deployment"]["router"]
     router.update(
@@ -558,6 +567,13 @@ def test_direct_kimi_c23_identity_binds_selected_worker_profile(smoke: bool) -> 
         ):
             identity["execution"][key] = 23
     assert _validate_identity_shape(identity) == identity
+
+    args = SimpleNamespace(mode="fresh", invocation_host="host", slurm_job_id="123")
+    _bind_provenance(tmp_path, identity, "7" * 64, args)
+    _verify_saved_provenance(tmp_path, identity, "7" * 64)
+    records = dict(line.split("=", 1) for line in (tmp_path / "provenance.txt").read_text().splitlines())
+    assert records["direct_router_capacity_profile"] == eval_run_identity.KIMI_C23_CAPACITY_PROFILE
+    assert "direct_per_worker_capacity" not in records
 
     mismatched = json.loads(json.dumps(identity))
     mismatched["deployment"]["router"]["worker_count"] = 24
@@ -629,7 +645,7 @@ def test_direct_kimi_router_timeout_is_extended_only_for_extended_tb4_miniswe() 
     )
 
 
-def test_direct_kimi_production_identity_binds_w2_router_and_launch() -> None:
+def test_direct_kimi_production_identity_binds_w2_router_and_launch(tmp_path: Path) -> None:
     identity = _direct_kimi_identity(smoke=False)
     identity["role"] = "kimi-direct-mobius"
     identity["contract"]["harness"] = {
@@ -680,6 +696,13 @@ def test_direct_kimi_production_identity_binds_w2_router_and_launch() -> None:
     )
 
     assert _validate_identity_shape(identity) == identity
+
+    args = SimpleNamespace(mode="fresh", invocation_host="host", slurm_job_id="123")
+    _bind_provenance(tmp_path, identity, "7" * 64, args)
+    _verify_saved_provenance(tmp_path, identity, "7" * 64)
+    records = dict(line.split("=", 1) for line in (tmp_path / "provenance.txt").read_text().splitlines())
+    assert records["direct_router_capacity_profile"] == eval_run_identity.KIMI_W2_CAPACITY_PROFILE
+    assert records["direct_per_worker_capacity"] == str(eval_run_identity.KIMI_W2_PER_WORKER_CAPACITY)
 
     old_profile = json.loads(json.dumps(identity))
     old_profile["deployment"]["router"]["capacity_profile"] = "sandoq-c64-v1"

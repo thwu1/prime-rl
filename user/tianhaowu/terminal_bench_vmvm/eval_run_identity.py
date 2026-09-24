@@ -3074,12 +3074,9 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
         )
         direct_router = identity["deployment"]["router"]
         if "capacity_profile" in direct_router:
-            stable.update(
-                {
-                    "direct_router_capacity_profile": direct_router["capacity_profile"],
-                    "direct_per_worker_capacity": str(direct_router["per_worker_capacity"]),
-                }
-            )
+            stable["direct_router_capacity_profile"] = direct_router["capacity_profile"]
+            if "per_worker_capacity" in direct_router:
+                stable["direct_per_worker_capacity"] = str(direct_router["per_worker_capacity"])
         if identity["role"] == "kimi-direct-tb4":
             stable["direct_kimi_smoke_checkpoint_sha256"] = identity["deployment"]["smoke_checkpoint"]["sha256"]
         if identity["role"] == KIMI_PRODUCTION_ROLE:
@@ -3385,12 +3382,9 @@ def _bind_provenance(
         )
         direct_router = identity["deployment"]["router"]
         if "capacity_profile" in direct_router:
-            stable.update(
-                {
-                    "direct_router_capacity_profile": direct_router["capacity_profile"],
-                    "direct_per_worker_capacity": str(direct_router["per_worker_capacity"]),
-                }
-            )
+            stable["direct_router_capacity_profile"] = direct_router["capacity_profile"]
+            if "per_worker_capacity" in direct_router:
+                stable["direct_per_worker_capacity"] = str(direct_router["per_worker_capacity"])
         if identity["role"] == "kimi-direct-tb4":
             stable["direct_kimi_smoke_checkpoint_sha256"] = identity["deployment"]["smoke_checkpoint"]["sha256"]
         if identity["role"] == KIMI_PRODUCTION_ROLE:
