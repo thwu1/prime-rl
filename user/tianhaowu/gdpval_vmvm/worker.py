@@ -12,7 +12,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 import httpx
-from agent import ABANDON_FINISH_TOOL, FINISH_TOOL, GDPValAgent
+from agent import ABANDON_FINISH_TOOL, GDPValAgent, build_finish_tool
 from asset_fetch import asset_specs as mirror_asset_specs
 from common import Endpoint, atomic_write_json, load_config, load_info_endpoint, load_jsonl, load_policy_endpoint
 from judge import JudgeFatalError, JudgeRetryableError, score_comparison, score_rubric
@@ -204,15 +204,46 @@ def _history_json(history: Any) -> list[Any]:
     return output
 
 
-def _workspace_relative(path: str) -> str:
+def _sft_compatibility_aliases(config: dict[str, Any]) -> bool:
+    enabled = config.get("tools", {}).get("sft_compatibility_aliases", False)
+    if not isinstance(enabled, bool):
+        raise TypeError("tools.sft_compatibility_aliases must be a boolean")
+    return enabled
+
+
+def _tool_capabilities(config: dict[str, Any]) -> dict[str, Any]:
+    sft_compatibility_aliases = _sft_compatibility_aliases(config)
+    return {
+        "run_shell": True,
+        "code_exec": sft_compatibility_aliases,
+        "web_fetch": True,
+        "web_fetch_trust_env": config["tools"]["web_fetch_trust_env"],
+        "web_search": bool(config["tools"]["require_brave_search"]),
+        "finish": True,
+        "finish_reason": True,
+        "finish_summary_alias": sft_compatibility_aliases,
+        "abandon_task_finish": True,
+        "workspace_root": "/workspace",
+        "home_user_workspace_alias": sft_compatibility_aliases,
+    }
+
+
+def _workspace_relative(path: str, *, allow_home_user: bool = False) -> str:
     pure = PurePosixPath(path)
     if pure.is_absolute():
-        if len(pure.parts) < 2 or pure.parts[1] not in {"workspace", "working_dir"}:
+        if len(pure.parts) >= 2 and pure.parts[1] in {"workspace", "working_dir"}:
+            pure = PurePosixPath(*pure.parts[2:])
+        elif allow_home_user and len(pure.parts) >= 3 and pure.parts[1:3] == ("home", "user"):
+            pure = PurePosixPath(*pure.parts[3:])
+        else:
             raise CandidateSubmissionError(f"Submitted path is outside /workspace: {path!r}")
-        pure = PurePosixPath(*pure.parts[2:])
     if not pure.parts or ".." in pure.parts:
         raise CandidateSubmissionError(f"Invalid submitted path: {path!r}")
     return pure.as_posix()
+
+
+def _canonical_submission_paths(paths: list[str], *, allow_home_user: bool = False) -> list[str]:
+    return list(dict.fromkeys(_workspace_relative(path, allow_home_user=allow_home_user) for path in paths))
 
 
 async def _save_remote_tree(provider: VMVMCodeExecToolProvider, remote_root: str, local_root: Path) -> None:
@@ -230,6 +261,8 @@ async def _save_submitted_artifacts(
     provider: VMVMCodeExecToolProvider,
     submitted_paths: list[str],
     local_root: Path,
+    *,
+    allow_home_user: bool = False,
 ) -> list[dict[str, Any]]:
     saved: list[dict[str, Any]] = []
     destinations: set[str] = set()
@@ -246,7 +279,7 @@ async def _save_submitted_artifacts(
         saved.append({"path": relative, "size": len(content), "sha256": hashlib.sha256(content).hexdigest()})
 
     for submitted_path in submitted_paths:
-        relative = _workspace_relative(submitted_path)
+        relative = _workspace_relative(submitted_path, allow_home_user=allow_home_user)
         remote_path = f"/workspace/{relative}"
         if await provider.is_directory(remote_path):
             members = await provider.list_files(remote_path)
@@ -381,6 +414,7 @@ async def _render_references_only(
     if all(_render_bundle_valid(instance["rendered_dir"], instance["identity"]) for instance in instances):
         return
     runtime = config["runtime"]
+    sft_compatibility_aliases = _sft_compatibility_aliases(config)
     provider = VMVMCodeExecToolProvider(
         image=runtime["image"],
         fallback_image=runtime.get("fallback_image") or None,
@@ -392,6 +426,7 @@ async def _render_references_only(
         max_connection_drops=int(runtime["max_connection_drops"]),
         asset_cache_dir=config["source"]["asset_cache_dir"],
         preload_image=bool(runtime.get("preload_image", True)),
+        sft_compatibility_aliases=sft_compatibility_aliases,
     )
     async with provider:
         await _render_references(provider, instances, task, config)
@@ -424,6 +459,7 @@ async def _rollout(
     submission_dir = temporary / "submission"
     submission_dir.mkdir()
     runtime = config["runtime"]
+    sft_compatibility_aliases = _sft_compatibility_aliases(config)
     provider = VMVMCodeExecToolProvider(
         image=runtime["image"],
         fallback_image=runtime.get("fallback_image") or None,
@@ -436,6 +472,7 @@ async def _rollout(
         bootstrap_assets=input_assets,
         asset_cache_dir=config["source"]["asset_cache_dir"],
         preload_image=bool(runtime.get("preload_image", True)),
+        sft_compatibility_aliases=sft_compatibility_aliases,
     )
     policy_config = config["policy"]
     web_search_enabled = bool(config.get("tools", {}).get("require_brave_search"))
@@ -468,7 +505,10 @@ async def _rollout(
         name="gdpval_stirrup_agent",
         max_turns=int(config["benchmark"]["max_turns"]),
         tools=[provider, web_provider],
-        finish_tool=[FINISH_TOOL, ABANDON_FINISH_TOOL],
+        finish_tool=[
+            build_finish_tool(sft_compatibility_aliases=sft_compatibility_aliases),
+            ABANDON_FINISH_TOOL,
+        ],
     )
     started = time.time()
     try:
@@ -479,10 +519,14 @@ async def _rollout(
             )
             finish_payload = finish_params.model_dump() if hasattr(finish_params, "model_dump") else finish_params
             submitted_paths = list(getattr(finish_params, "paths", []) or [])
+            submitted_relative_paths = _canonical_submission_paths(
+                submitted_paths,
+                allow_home_user=sft_compatibility_aliases,
+            )
             try:
                 rendered_paths = await provider.render_office(
                     "/workspace",
-                    paths=[_workspace_relative(path) for path in submitted_paths],
+                    paths=submitted_relative_paths,
                 )
             except VMVMFatalError as error:
                 if "GDPval Office rendering failed:" not in str(error):
@@ -490,16 +534,21 @@ async def _rollout(
                 raise CandidateSubmissionError(str(error)) from error
             rendered_set = set(rendered_paths)
             helper_paths: list[str] = []
-            for submitted_path in submitted_paths:
-                relative = _workspace_relative(submitted_path)
+            helper_relative_paths: list[str] = []
+            for relative in submitted_relative_paths:
                 if Path(relative).suffix.lower() not in {".docx", ".pptx", ".xlsx"}:
                     continue
                 rendered_relative = str(PurePosixPath(relative).with_suffix(".pdf"))
                 if rendered_relative not in rendered_set:
-                    raise CandidateSubmissionError(f"Submitted Office artifact was not rendered: {submitted_path}")
+                    raise CandidateSubmissionError(f"Submitted Office artifact was not rendered: {relative}")
+                helper_relative_paths.append(rendered_relative)
                 helper_paths.append(f"/workspace/{rendered_relative}")
-            final_paths = list(dict.fromkeys([*submitted_paths, *helper_paths]))
-            submitted_files = await _save_submitted_artifacts(provider, final_paths, submission_dir)
+            final_paths = list(dict.fromkeys([*submitted_relative_paths, *helper_relative_paths]))
+            submitted_files = await _save_submitted_artifacts(
+                provider,
+                final_paths,
+                submission_dir,
+            )
             if hasattr(finish_params, "paths"):
                 finish_params.paths = []
 
@@ -525,6 +574,7 @@ async def _rollout(
             "office_render_history": list(provider.render_history),
             "web_fetch_trust_env": web_provider.trust_env,
             "web_search_available": web_search_enabled,
+            "tool_capabilities": _tool_capabilities(config),
             "files": _manifest(temporary, exclude={"candidate.json"}),
         }
         manifest["candidate_sha256"] = hashlib.sha256(

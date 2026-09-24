@@ -179,6 +179,78 @@ EXPECTED_CATALOG_SHAPE = {
 }
 
 
+def _sft_compatibility_aliases(config: dict[str, Any]) -> bool:
+    enabled = config.get("tools", {}).get("sft_compatibility_aliases", False)
+    if not isinstance(enabled, bool):
+        raise ValueError("tools.sft_compatibility_aliases must be a boolean")
+    return enabled
+
+
+def _expected_tool_capabilities(config: dict[str, Any]) -> dict[str, Any]:
+    sft_compatibility_aliases = _sft_compatibility_aliases(config)
+    return {
+        "run_shell": True,
+        "code_exec": sft_compatibility_aliases,
+        "web_fetch": True,
+        "web_fetch_trust_env": config["tools"]["web_fetch_trust_env"],
+        "web_search": bool(config["tools"]["require_brave_search"]),
+        "finish": True,
+        "finish_reason": True,
+        "finish_summary_alias": sft_compatibility_aliases,
+        "abandon_task_finish": True,
+        "workspace_root": "/workspace",
+        "home_user_workspace_alias": sft_compatibility_aliases,
+    }
+
+
+def _expected_code_execution_tool_names(config: dict[str, Any]) -> list[str]:
+    names = ["run_shell"]
+    if _sft_compatibility_aliases(config):
+        names.append("code_exec")
+    return names
+
+
+def _expected_workspace_contract(config: dict[str, Any]) -> dict[str, Any]:
+    sft_compatibility_aliases = _sft_compatibility_aliases(config)
+    return {
+        "canonical_root": "/workspace",
+        "command_working_directory": "/workspace",
+        "home_directory": "/home/user" if sft_compatibility_aliases else None,
+        "home_user_resolves_to_workspace": sft_compatibility_aliases,
+        "write_through_verified": sft_compatibility_aliases,
+    }
+
+
+def _expected_finish_contract(config: dict[str, Any]) -> dict[str, Any]:
+    sft_compatibility_aliases = _sft_compatibility_aliases(config)
+    return {
+        "tool_name": "finish",
+        "canonical_field": "reason",
+        "schema_fields": ["reason", "paths", "summary"] if sft_compatibility_aliases else ["reason", "paths"],
+        "summary_alias_enabled": sft_compatibility_aliases,
+        "summary_alias_accepted": sft_compatibility_aliases,
+        "conflicting_aliases_rejected": sft_compatibility_aliases,
+    }
+
+
+def _validate_sandbox_tool_contract(sandbox: dict[str, Any], config: dict[str, Any], *, context: str) -> None:
+    if sandbox.get("tool_capabilities") != _expected_tool_capabilities(config):
+        raise ValueError(f"{context} has mismatched tool capabilities")
+    if sandbox.get("code_execution_tool_names") != _expected_code_execution_tool_names(config):
+        raise ValueError(f"{context} has mismatched code-execution tool names")
+    if sandbox.get("workspace_contract") != _expected_workspace_contract(config):
+        raise ValueError(f"{context} has mismatched workspace alias evidence")
+    if sandbox.get("finish_contract") != _expected_finish_contract(config):
+        raise ValueError(f"{context} has mismatched finish-tool evidence")
+    expected_provider_capabilities = {
+        "run_shell": True,
+        "code_exec": _sft_compatibility_aliases(config),
+        "home_user_workspace_alias": _sft_compatibility_aliases(config),
+    }
+    if sandbox.get("vmvm", {}).get("tool_capabilities") != expected_provider_capabilities:
+        raise ValueError(f"{context} has mismatched VMVM provider capabilities")
+
+
 class MissingWorkerResult(RuntimeError):
     pass
 
@@ -298,6 +370,7 @@ def _validate_config(config: dict[str, Any]) -> None:
         raise ValueError("The [tools] configuration is required")
     if not isinstance(tools.get("require_brave_search"), bool):
         raise ValueError("tools.require_brave_search must be a boolean")
+    _sft_compatibility_aliases(config)
     if tools.get("web_fetch_trust_env") is not False:
         raise ValueError("tools.web_fetch_trust_env must be false on the Slurm CPU runtime")
     runtime = config["runtime"]
@@ -531,6 +604,7 @@ def _validate_generation_preflight_payload(
         or not isinstance(sandbox.get("vmvm"), dict)
     ):
         raise ValueError("Generation preflight artifact has incomplete sandbox and Office-render evidence")
+    _validate_sandbox_tool_contract(sandbox, config, context="Generation preflight artifact")
     asset_mirror = sandbox.get("asset_mirror")
     expected_mirror = {
         "repository": config["source"]["asset_mirror_repository"],
@@ -1801,6 +1875,7 @@ def _validate_preflight_payload(payload: dict[str, Any], config: dict[str, Any],
         or not isinstance(sandbox.get("vmvm"), dict)
     ):
         raise ValueError("Preflight artifact does not contain complete sandbox and Office-render evidence")
+    _validate_sandbox_tool_contract(sandbox, config, context="Preflight artifact")
     asset_mirror = sandbox.get("asset_mirror")
     expected_mirror = {
         "repository": config["source"]["asset_mirror_repository"],
@@ -2268,14 +2343,7 @@ def main() -> int:
             {"path": str(preflight_path), "sha256": sha256_file(preflight_path)} if preflight_path is not None else None
         ),
         "scoring_mode": config["scoring"]["mode"],
-        "tools": {
-            "run_shell": True,
-            "web_fetch": True,
-            "web_fetch_trust_env": config["tools"]["web_fetch_trust_env"],
-            "web_search": bool(config["tools"]["require_brave_search"]),
-            "finish": True,
-            "abandon_task_finish": True,
-        },
+        "tools": _expected_tool_capabilities(config),
         "workers": worker_count,
         "catalog_tasks": len(catalog),
         "selected_tasks": len(selected),
