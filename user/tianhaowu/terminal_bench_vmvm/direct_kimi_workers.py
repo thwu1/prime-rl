@@ -19,6 +19,7 @@ from typing import Any
 import yaml
 from direct_kimi_router import (
     ALLOWED_REQUEST_TIMEOUT_SECONDS,
+    C23_CAPACITY_PROFILE,
     C64_CAPACITY_PROFILE,
     C64_W2_CAPACITY_PROFILE,
     DEFAULT_CAPACITY_PROFILE,
@@ -27,6 +28,7 @@ from direct_kimi_router import (
     per_worker_capacity_for_profile,
     validate_endpoint_identifier,
     validate_request_timeout_seconds,
+    worker_count_for_profile,
 )
 
 EXPECTED_MODEL = "Kimi-K3"
@@ -47,10 +49,13 @@ ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v2"
 HISTORICAL_LEGACY_ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v1"
 HISTORICAL_LEGACY_ROUTER_SHA256 = "7fd5bc463bd0fa86567c21b72e2b4988fbb42aeca4c0a7d40959f8466c8f820d"
 HISTORICAL_CURRENT_ROUTER_SHA256 = "03ea138f164526dc39ab721a9ff3413d3b7299900d496204a5510799d7fb4e56"
+HISTORICAL_PRE_C23_ROUTER_SHA256 = "33cb7dbc46e00a04a29b7cc765885a7aefba6a100b54019259d93a855bc61ffe"
 EXPECTED_ENDPOINT_IDENTIFIER = "cpu-132-021_8103"
 MANIFEST_SCHEMA_VERSION = 1
 C64_MANIFEST_SCHEMA_VERSION = 2
 W2_MANIFEST_SCHEMA_VERSION = 3
+C23_MANIFEST_SCHEMA_VERSION = 4
+C23_SELECTION_PROFILE = "exclude-one-from-c24-v1"
 W2_PER_WORKER_CAPACITY = 2
 W2_FORWARDED_CAPACITY = EXPECTED_ENDPOINTS * W2_PER_WORKER_CAPACITY
 MAX_CONFIG_BYTES = 4 * 1024 * 1024
@@ -253,6 +258,10 @@ def _sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def _endpoint_bundle_sha256(workers: list[Worker]) -> str:
+    return _sha256_bytes("".join(f"{worker.backend_sha256}\n" for worker in workers).encode())
+
+
 def _read_bound_file(
     path: Path,
     *,
@@ -433,7 +442,7 @@ def load_workers(
     if len(backend_models) != 1:
         raise DirectKimiWorkerError("worker_model_generation_mismatch")
     workers.sort(key=lambda worker: worker.backend_sha256)
-    endpoint_bundle_sha256 = _sha256_bytes("".join(f"{worker.backend_sha256}\n" for worker in workers).encode())
+    endpoint_bundle_sha256 = _endpoint_bundle_sha256(workers)
     return workers, EXPECTED_SPEC_SHA256, EXPECTED_PROXY_CONFIG_SHA256, endpoint_bundle_sha256
 
 
@@ -516,18 +525,33 @@ def _manifest(
     capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
     endpoint_identifier: str | None = None,
     request_timeout_seconds: int = ROUTER_REQUEST_TIMEOUT_SECONDS,
+    source_endpoint_bundle_sha256: str | None = None,
+    excluded_worker: Worker | None = None,
 ) -> dict[str, Any]:
     capacity = capacity_for_profile(capacity_profile)
+    expected_worker_count = worker_count_for_profile(capacity_profile)
     request_timeout_seconds = validate_request_timeout_seconds(request_timeout_seconds)
     endpoint_identifier = validate_endpoint_identifier(
         endpoint_identifier,
         capacity_profile=capacity_profile,
     )
     if (
-        capacity_profile in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE)
+        capacity_profile in (C23_CAPACITY_PROFILE, C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE)
         and endpoint_identifier != EXPECTED_ENDPOINT_IDENTIFIER
     ):
         raise DirectKimiWorkerError("endpoint_identifier_invalid")
+    if len(workers) != expected_worker_count:
+        raise DirectKimiWorkerError("worker_count_invalid")
+    if capacity_profile == C23_CAPACITY_PROFILE:
+        if (
+            SHA256_RE.fullmatch(str(source_endpoint_bundle_sha256 or "")) is None
+            or excluded_worker is None
+            or excluded_worker.backend_sha256 in {worker.backend_sha256 for worker in workers}
+            or excluded_worker.model_sha256 != _sha256_bytes(EXPECTED_MODEL.encode())
+        ):
+            raise DirectKimiWorkerError("worker_selection_invalid")
+    elif source_endpoint_bundle_sha256 is not None or excluded_worker is not None:
+        raise DirectKimiWorkerError("worker_selection_unexpected")
     router = {
         "implementation": ROUTER_IMPLEMENTATION,
         "implementation_sha256": _sha256_file(Path(__file__).with_name("direct_kimi_router.py")),
@@ -544,10 +568,12 @@ def _manifest(
         "retries": ROUTER_RETRIES,
     }
     schema_version = MANIFEST_SCHEMA_VERSION
-    if capacity_profile in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE):
-        schema_version = (
-            W2_MANIFEST_SCHEMA_VERSION if capacity_profile == C64_W2_CAPACITY_PROFILE else C64_MANIFEST_SCHEMA_VERSION
-        )
+    if capacity_profile in (C23_CAPACITY_PROFILE, C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE):
+        schema_version = {
+            C23_CAPACITY_PROFILE: C23_MANIFEST_SCHEMA_VERSION,
+            C64_CAPACITY_PROFILE: C64_MANIFEST_SCHEMA_VERSION,
+            C64_W2_CAPACITY_PROFILE: W2_MANIFEST_SCHEMA_VERSION,
+        }[capacity_profile]
         router.update(
             {
                 "capacity_profile": capacity_profile,
@@ -556,7 +582,7 @@ def _manifest(
         )
         if capacity_profile == C64_W2_CAPACITY_PROFILE:
             router["per_worker_capacity"] = per_worker_capacity_for_profile(capacity_profile)
-    return {
+    manifest = {
         "schema_version": schema_version,
         "kind": "direct-kimi-worker-generation",
         "deployment_root": str(deployment_root.resolve()),
@@ -567,6 +593,16 @@ def _manifest(
         "workers": [worker.public_record for worker in workers],
         "router": router,
     }
+    if capacity_profile == C23_CAPACITY_PROFILE:
+        assert source_endpoint_bundle_sha256 is not None and excluded_worker is not None
+        manifest.update(
+            {
+                "selection_profile": C23_SELECTION_PROFILE,
+                "source_endpoint_bundle_sha256": source_endpoint_bundle_sha256,
+                "excluded_worker": excluded_worker.public_record,
+            }
+        )
+    return manifest
 
 
 def _atomic_write(
@@ -901,6 +937,7 @@ def prepare_generation(
     capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
     endpoint_identifier: str | None = None,
     request_timeout_seconds: int = ROUTER_REQUEST_TIMEOUT_SECONDS,
+    excluded_backend_sha256: str | None = None,
 ) -> dict[str, Any]:
     output_root = _absolute_path(output_root, code="output_parent_invalid")
     publication_paths = tuple(
@@ -914,7 +951,20 @@ def prepare_generation(
         or publication_paths[2].name != GENERATION_PORTS_NAME
     ):
         raise DirectKimiWorkerError("output_path_invalid")
-    workers, spec_sha256, proxy_config_sha256, endpoint_bundle_sha256 = load_workers(deployment_root)
+    source_workers, spec_sha256, proxy_config_sha256, source_endpoint_bundle_sha256 = load_workers(deployment_root)
+    workers = source_workers
+    excluded_worker = None
+    if capacity_profile == C23_CAPACITY_PROFILE:
+        if SHA256_RE.fullmatch(str(excluded_backend_sha256 or "")) is None:
+            raise DirectKimiWorkerError("excluded_backend_sha256_invalid")
+        excluded = [worker for worker in source_workers if worker.backend_sha256 == excluded_backend_sha256]
+        if len(excluded) != 1:
+            raise DirectKimiWorkerError("excluded_backend_not_found")
+        excluded_worker = excluded[0]
+        workers = [worker for worker in source_workers if worker.backend_sha256 != excluded_backend_sha256]
+    elif excluded_backend_sha256 is not None:
+        raise DirectKimiWorkerError("excluded_backend_unexpected")
+    endpoint_bundle_sha256 = _endpoint_bundle_sha256(workers)
     router_port, metrics_port = derive_ports(output_root)
     manifest = _manifest(
         deployment_root,
@@ -927,6 +977,10 @@ def prepare_generation(
         capacity_profile=capacity_profile,
         endpoint_identifier=endpoint_identifier,
         request_timeout_seconds=request_timeout_seconds,
+        source_endpoint_bundle_sha256=(
+            source_endpoint_bundle_sha256 if capacity_profile == C23_CAPACITY_PROFILE else None
+        ),
+        excluded_worker=excluded_worker,
     )
     files = {
         publication_paths[0].name: (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode(),
@@ -975,8 +1029,18 @@ def validate_manifest_value(
         if isinstance(router, dict) and "capacity_profile" in router
         else DEFAULT_CAPACITY_PROFILE
     )
+    c23_profile = capacity_profile == C23_CAPACITY_PROFILE
+    if c23_profile:
+        expected_keys.update(
+            {
+                "selection_profile",
+                "source_endpoint_bundle_sha256",
+                "excluded_worker",
+            }
+        )
     try:
         capacity = capacity_for_profile(capacity_profile)
+        expected_worker_count = worker_count_for_profile(capacity_profile)
         request_timeout_seconds = validate_request_timeout_seconds(
             router.get("request_timeout_seconds") if isinstance(router, dict) else None
         )
@@ -987,7 +1051,7 @@ def validate_manifest_value(
     except ValueError as error:
         raise DirectKimiWorkerError("manifest_invalid") from error
     if (
-        capacity_profile in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE)
+        capacity_profile in (C23_CAPACITY_PROFILE, C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE)
         and endpoint_identifier != EXPECTED_ENDPOINT_IDENTIFIER
     ):
         raise DirectKimiWorkerError("manifest_invalid")
@@ -1005,8 +1069,14 @@ def validate_manifest_value(
     historical_current = (
         isinstance(router, dict)
         and router.get("implementation") == ROUTER_IMPLEMENTATION
-        and router.get("implementation_sha256") == HISTORICAL_CURRENT_ROUTER_SHA256
-        and request_timeout_seconds == ROUTER_REQUEST_TIMEOUT_SECONDS
+        and not c23_profile
+        and (
+            (
+                router.get("implementation_sha256") == HISTORICAL_CURRENT_ROUTER_SHA256
+                and request_timeout_seconds == ROUTER_REQUEST_TIMEOUT_SECONDS
+            )
+            or router.get("implementation_sha256") == HISTORICAL_PRE_C23_ROUTER_SHA256
+        )
     )
     current_router = (
         isinstance(router, dict)
@@ -1030,7 +1100,7 @@ def validate_manifest_value(
         "queue_timeout_seconds": request_timeout_seconds,
         "retries": ROUTER_RETRIES,
     }
-    if capacity_profile in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE):
+    if capacity_profile in (C23_CAPACITY_PROFILE, C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE):
         expected_router.update(
             {
                 "capacity_profile": capacity_profile,
@@ -1041,6 +1111,7 @@ def validate_manifest_value(
             expected_router["per_worker_capacity"] = W2_PER_WORKER_CAPACITY
     expected_schema_version = {
         LEGACY_CAPACITY_PROFILE: MANIFEST_SCHEMA_VERSION,
+        C23_CAPACITY_PROFILE: C23_MANIFEST_SCHEMA_VERSION,
         C64_CAPACITY_PROFILE: C64_MANIFEST_SCHEMA_VERSION,
         C64_W2_CAPACITY_PROFILE: W2_MANIFEST_SCHEMA_VERSION,
     }.get(capacity_profile)
@@ -1054,7 +1125,7 @@ def validate_manifest_value(
         or manifest.get("source_proxy_config_sha256") != EXPECTED_PROXY_CONFIG_SHA256
         or SHA256_RE.fullmatch(str(manifest.get("endpoint_bundle_sha256", ""))) is None
         or not isinstance(workers, list)
-        or len(workers) != EXPECTED_ENDPOINTS
+        or len(workers) != expected_worker_count
         or not isinstance(router, dict)
         or not (historical_legacy or historical_current or current_router)
         or router != expected_router
@@ -1073,23 +1144,55 @@ def validate_manifest_value(
         raise DirectKimiWorkerError("manifest_invalid")
     backend_sha256s = [worker["backend_sha256"] for worker in workers]
     if (
-        len(set(backend_sha256s)) != EXPECTED_ENDPOINTS
+        len(set(backend_sha256s)) != expected_worker_count
         or backend_sha256s != sorted(backend_sha256s)
         or any(worker["model_sha256"] != _sha256_bytes(EXPECTED_MODEL.encode()) for worker in workers)
         or manifest["endpoint_bundle_sha256"]
         != _sha256_bytes("".join(f"{digest}\n" for digest in backend_sha256s).encode())
     ):
         raise DirectKimiWorkerError("manifest_invalid")
+    if c23_profile:
+        excluded_worker = manifest.get("excluded_worker")
+        source_endpoint_bundle_sha256 = manifest.get("source_endpoint_bundle_sha256")
+        if (
+            manifest.get("selection_profile") != C23_SELECTION_PROFILE
+            or SHA256_RE.fullmatch(str(source_endpoint_bundle_sha256 or "")) is None
+            or not isinstance(excluded_worker, dict)
+            or set(excluded_worker) != {"backend_sha256", "model_sha256"}
+            or SHA256_RE.fullmatch(str(excluded_worker.get("backend_sha256", ""))) is None
+            or excluded_worker.get("model_sha256") != _sha256_bytes(EXPECTED_MODEL.encode())
+            or excluded_worker["backend_sha256"] in set(backend_sha256s)
+            or source_endpoint_bundle_sha256
+            != _sha256_bytes(
+                "".join(
+                    f"{digest}\n" for digest in sorted([*backend_sha256s, excluded_worker["backend_sha256"]])
+                ).encode()
+            )
+        ):
+            raise DirectKimiWorkerError("manifest_invalid")
     if revalidate_live_source:
         observed, spec_sha256, proxy_config_sha256, endpoint_bundle_sha256 = load_workers(
             Path(manifest["deployment_root"]),
             held=held,
         )
+        observed_workers = observed
+        observed_endpoint_bundle_sha256 = endpoint_bundle_sha256
+        if c23_profile:
+            excluded_backend_sha256 = manifest["excluded_worker"]["backend_sha256"]
+            excluded = [worker for worker in observed if worker.backend_sha256 == excluded_backend_sha256]
+            if len(excluded) != 1 or excluded[0].public_record != manifest["excluded_worker"]:
+                raise DirectKimiWorkerError("source_generation_changed")
+            observed_workers = [worker for worker in observed if worker.backend_sha256 != excluded_backend_sha256]
+            observed_endpoint_bundle_sha256 = _endpoint_bundle_sha256(observed_workers)
         if (
-            [worker.public_record for worker in observed] != workers
+            [worker.public_record for worker in observed_workers] != workers
             or spec_sha256 != manifest["source_spec_sha256"]
             or proxy_config_sha256 != manifest["source_proxy_config_sha256"]
-            or endpoint_bundle_sha256 != manifest["endpoint_bundle_sha256"]
+            or observed_endpoint_bundle_sha256 != manifest["endpoint_bundle_sha256"]
+            or (
+                c23_profile
+                and endpoint_bundle_sha256 != manifest["source_endpoint_bundle_sha256"]
+            )
         ):
             raise DirectKimiWorkerError("source_generation_changed")
     return manifest
@@ -1117,7 +1220,7 @@ def worker_generation_contract(
     router = dict(value["router"])
     for key in ("host", "port", "metrics_host", "metrics_port"):
         router.pop(key)
-    return {
+    contract = {
         "schema_version": value["schema_version"],
         "kind": value["kind"],
         "deployment_root": value["deployment_root"],
@@ -1128,6 +1231,15 @@ def worker_generation_contract(
         "workers": value["workers"],
         "router": router,
     }
+    if value["router"].get("capacity_profile") == C23_CAPACITY_PROFILE:
+        contract.update(
+            {
+                "selection_profile": value["selection_profile"],
+                "source_endpoint_bundle_sha256": value["source_endpoint_bundle_sha256"],
+                "excluded_worker": value["excluded_worker"],
+            }
+        )
+    return contract
 
 
 def load_saved_manifest(
@@ -1210,7 +1322,7 @@ def _probe_worker(worker: Worker, timeout: float) -> None:
 
 
 def probe_workers(workers: list[Worker], *, timeout: float = 30.0) -> None:
-    with concurrent.futures.ThreadPoolExecutor(max_workers=EXPECTED_ENDPOINTS) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(workers))) as executor:
         futures = [executor.submit(_probe_worker, worker, timeout) for worker in workers]
         for future in concurrent.futures.as_completed(futures):
             future.result()
@@ -1534,7 +1646,11 @@ def _validate_deployment_binding(
         "retries": manifest["router"]["retries"],
         "worker_count": len(manifest["workers"]),
     }
-    if manifest["router"].get("capacity_profile") in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE):
+    if manifest["router"].get("capacity_profile") in (
+        C23_CAPACITY_PROFILE,
+        C64_CAPACITY_PROFILE,
+        C64_W2_CAPACITY_PROFILE,
+    ):
         expected_router.update(
             {
                 "capacity_profile": manifest["router"]["capacity_profile"],
@@ -1578,7 +1694,9 @@ def certify_router(
         if SHA256_RE.fullmatch(manifest_sha256) is None or _sha256_bytes(manifest_body) != manifest_sha256:
             raise DirectKimiWorkerError("manifest_sha256_mismatch")
         _validate_deployment_binding(identity["deployment"], manifest_path, manifest_sha256, manifest)
-        if active_workers != EXPECTED_ENDPOINTS:
+        capacity_profile = manifest["router"].get("capacity_profile", DEFAULT_CAPACITY_PROFILE)
+        expected_worker_count = worker_count_for_profile(capacity_profile)
+        if active_workers != expected_worker_count:
             raise DirectKimiWorkerError("active_worker_count_mismatch")
         try:
             router_stats = json.loads(
@@ -1592,14 +1710,19 @@ def certify_router(
             )
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise DirectKimiWorkerError("router_stats_invalid") from error
-        capacity_profile = manifest["router"].get("capacity_profile", DEFAULT_CAPACITY_PROFILE)
         capacity = capacity_for_profile(capacity_profile)
+        c23_profile = capacity_profile == C23_CAPACITY_PROFILE
         c64_profile = capacity_profile == C64_CAPACITY_PROFILE
         w2_profile = capacity_profile == C64_W2_CAPACITY_PROFILE
-        profiled_capacity = c64_profile or w2_profile
+        profiled_capacity = c23_profile or c64_profile or w2_profile
         capacity_smoke = identity["role"] == "kimi-direct-capacity-smoke"
         w2_required = capacity_smoke or identity["role"] == "kimi-direct-mobius"
-        if (w2_required and not w2_profile) or (not w2_required and capacity_profile != LEGACY_CAPACITY_PROFILE):
+        c23_role_allowed = identity["role"] in {"kimi-direct-smoke", "kimi-direct-tb4"}
+        if (
+            (w2_required and not w2_profile)
+            or (not w2_required and c23_profile and not c23_role_allowed)
+            or (not w2_required and not c23_profile and capacity_profile != LEGACY_CAPACITY_PROFILE)
+        ):
             raise DirectKimiWorkerError("run_binding_invalid")
         expected_stats_keys = {
             "schema_version",
@@ -1654,7 +1777,7 @@ def certify_router(
         worker_max_active_counts = (
             router_stats.get("worker_max_active_request_counts") if isinstance(router_stats, dict) else None
         )
-        expected_stats_schema = 3 if w2_profile else 2 if c64_profile else 1
+        expected_stats_schema = 3 if w2_profile else 2 if (c23_profile or c64_profile) else 1
         if (
             not isinstance(router_stats, dict)
             or set(router_stats) != expected_stats_keys
@@ -1665,11 +1788,11 @@ def certify_router(
             or router_stats.get("request_id_headers") != list(ROUTER_REQUEST_ID_HEADERS)
             or router_stats.get("request_timeout_seconds") != manifest["router"]["request_timeout_seconds"]
             or router_stats.get("retries") != ROUTER_RETRIES
-            or router_stats.get("worker_count") != EXPECTED_ENDPOINTS
-            or router_stats.get("active_workers") != EXPECTED_ENDPOINTS
+            or router_stats.get("worker_count") != expected_worker_count
+            or router_stats.get("active_workers") != expected_worker_count
             or router_stats.get("active_requests") != 0
             or not isinstance(counts, list)
-            or len(counts) != EXPECTED_ENDPOINTS
+            or len(counts) != expected_worker_count
             or any(type(value) is not int or value < 0 for value in counts)
             or any(
                 type(router_stats.get(key)) is not int or router_stats[key] < 0
@@ -1719,10 +1842,10 @@ def certify_router(
             or type(router_stats.get("max_active_forwarded_requests")) is not int
             or not 1 <= router_stats["max_active_forwarded_requests"] <= W2_FORWARDED_CAPACITY
             or not isinstance(worker_active_counts, list)
-            or len(worker_active_counts) != EXPECTED_ENDPOINTS
+            or len(worker_active_counts) != expected_worker_count
             or any(type(value) is not int or value != 0 for value in worker_active_counts)
             or not isinstance(worker_max_active_counts, list)
-            or len(worker_max_active_counts) != EXPECTED_ENDPOINTS
+            or len(worker_max_active_counts) != expected_worker_count
             or any(
                 type(value) is not int or not 0 <= value <= W2_PER_WORKER_CAPACITY for value in worker_max_active_counts
             )
@@ -1736,7 +1859,7 @@ def certify_router(
         ):
             raise DirectKimiWorkerError("router_stats_invalid")
         receipt = {
-            "schema_version": 4 if w2_profile else 3 if c64_profile else 2,
+            "schema_version": 4 if w2_profile else 3 if (c23_profile or c64_profile) else 2,
             "kind": "direct-kimi-router-final",
             "state": "passed",
             "eval_run_identity_sha256": eval_run_identity_sha256,
@@ -1809,10 +1932,11 @@ def main() -> None:
     prepare.add_argument("--ports-output", type=Path, required=True)
     prepare.add_argument(
         "--capacity-profile",
-        choices=(LEGACY_CAPACITY_PROFILE, C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE),
+        choices=(LEGACY_CAPACITY_PROFILE, C23_CAPACITY_PROFILE, C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE),
         default=DEFAULT_CAPACITY_PROFILE,
     )
     prepare.add_argument("--endpoint-identifier")
+    prepare.add_argument("--excluded-backend-sha256")
     prepare.add_argument(
         "--request-timeout-seconds",
         type=int,
@@ -1861,9 +1985,12 @@ def main() -> None:
         capacity_profile=args.capacity_profile,
         endpoint_identifier=args.endpoint_identifier,
         request_timeout_seconds=args.request_timeout_seconds,
+        excluded_backend_sha256=args.excluded_backend_sha256,
     )
     if args.probe:
         workers, _, _, _ = load_workers(args.deployment_root)
+        if args.capacity_profile == C23_CAPACITY_PROFILE:
+            workers = [worker for worker in workers if worker.backend_sha256 != args.excluded_backend_sha256]
         probe_workers(workers)
     print(
         json.dumps(

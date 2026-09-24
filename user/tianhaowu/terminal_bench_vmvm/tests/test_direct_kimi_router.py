@@ -8,6 +8,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 from direct_kimi_router import (
+    C23_CAPACITY_PROFILE,
     C64_CAPACITY_PROFILE,
     C64_W2_CAPACITY_PROFILE,
     ApiHandler,
@@ -261,6 +262,38 @@ def test_legacy_router_profile_retains_c24_snapshot_shape() -> None:
     assert snapshot["max_active_requests"] == 24
     assert "capacity_profile" not in snapshot
     assert "capacity_rejections" not in snapshot
+
+
+def test_c23_profile_requires_exactly_23_workers_and_reports_profiled_capacity() -> None:
+    workers = tuple(("127.0.0.1", 31_000 + index) for index in range(23))
+    state = RouterState(
+        workers,
+        capacity_profile=C23_CAPACITY_PROFILE,
+        endpoint_identifier="cpu-132-021_8103",
+    )
+    for _ in range(23):
+        assert state.acquire(chat=False, index=0)
+    assert not state.acquire(chat=False, index=0)
+    for _ in range(23):
+        state.release(chat=False)
+
+    snapshot = state.snapshot()
+    assert snapshot["schema_version"] == 2
+    assert snapshot["capacity_profile"] == C23_CAPACITY_PROFILE
+    assert snapshot["endpoint_identifier"] == "cpu-132-021_8103"
+    assert snapshot["configured_capacity"] == 23
+    assert snapshot["worker_count"] == 23
+    assert snapshot["active_workers"] == 23
+    assert len(snapshot["worker_request_counts"]) == 23
+
+    with pytest.raises(RouterError, match="worker_count_invalid"):
+        RouterState(
+            (*workers, ("127.0.0.1", 31_023)),
+            capacity_profile=C23_CAPACITY_PROFILE,
+            endpoint_identifier="cpu-132-021_8103",
+        )
+    with pytest.raises(RouterError, match="worker_count_invalid"):
+        RouterState(workers)
 
 
 def test_legacy_router_metrics_report_real_operational_counters() -> None:

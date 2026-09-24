@@ -3,9 +3,8 @@ from __future__ import annotations
 import json
 from types import SimpleNamespace
 
-import pytest
-
 import certify_kimi_tb4_sandoq_clamped_union as certifier
+import pytest
 
 
 def _row(task_id: str, score: int) -> dict[str, object]:
@@ -56,11 +55,12 @@ def test_merge_rows_rejects_overlap() -> None:
         )
 
 
-def test_clamped_config_requires_exact_caps() -> None:
+@pytest.mark.parametrize("concurrency", [23, 24])
+def test_clamped_config_requires_exact_caps(concurrency: int) -> None:
     config = {
         "num_tasks": 27,
-        "max_concurrent": 24,
-        "multiplex": 24,
+        "max_concurrent": concurrency,
+        "multiplex": concurrency,
         "taskset": {
             "enable_compose": False,
             "resource_multiplier": 1.0,
@@ -69,7 +69,7 @@ def test_clamped_config_requires_exact_caps() -> None:
             "resource_storage_mb_cap": 10240,
         },
     }
-    certifier._validate_clamped_config(config)
+    certifier._validate_clamped_config(config, concurrency)
     config["taskset"]["resource_memory_mb_cap"] = 8192
     with pytest.raises(certifier.ClampedUnionError, match="clamped_resource_contract_invalid"):
-        certifier._validate_clamped_config(config)
+        certifier._validate_clamped_config(config, concurrency)

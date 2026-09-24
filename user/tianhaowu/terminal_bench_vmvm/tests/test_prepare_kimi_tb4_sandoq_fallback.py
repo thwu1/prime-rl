@@ -400,7 +400,7 @@ def _fallback_tsv(tmp_path: Path, *, count: int, concurrency: int) -> str:
         (18, 6, "c" * 64, "Fallback diagnostic launch plan binding failed"),
         (17, 7, "c" * 64, "Fallback diagnostic launch plan binding failed"),
         (17, 6, "d" * 64, "Fallback diagnostic launch plan binding failed"),
-        (17, 6, "c" * 64, "Direct Kimi stage requires the sealed public-network Sandoq context"),
+        (17, 6, "c" * 64, "Direct Kimi stage requires its exact sealed Sandoq context"),
     ),
 )
 def test_direct_stage_parses_exact_fallback_contract_and_rejects_mismatch(

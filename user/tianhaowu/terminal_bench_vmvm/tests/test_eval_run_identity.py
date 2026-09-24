@@ -537,6 +537,34 @@ def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage() -> None:
             _validate_identity_shape(mismatched)
 
 
+@pytest.mark.parametrize("smoke", [False, True])
+def test_direct_kimi_c23_identity_binds_selected_worker_profile(smoke: bool) -> None:
+    identity = _direct_kimi_identity(smoke=smoke)
+    router = identity["deployment"]["router"]
+    router.update(
+        {
+            "capacity_profile": eval_run_identity.KIMI_C23_CAPACITY_PROFILE,
+            "endpoint_identifier": "cpu-132-021_8103",
+            "provider_concurrency": 23,
+            "worker_count": 23,
+        }
+    )
+    if not smoke:
+        for key in (
+            "rollout_concurrency",
+            "multiplex",
+            "http_max_connections",
+            "http_max_keepalive_connections",
+        ):
+            identity["execution"][key] = 23
+    assert _validate_identity_shape(identity) == identity
+
+    mismatched = json.loads(json.dumps(identity))
+    mismatched["deployment"]["router"]["worker_count"] = 24
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(mismatched)
+
+
 def test_direct_kimi_historical_tb4_identity_requires_pinned_v1_router_hash() -> None:
     historical = _direct_kimi_identity(smoke=False)
     historical["deployment"]["router"].update(

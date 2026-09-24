@@ -87,7 +87,7 @@ def test_native_miniswe_smoke_execution_binds_full_tunnel_evidence() -> None:
     assert observed["provider_profile_sha256"] == KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256
 
 
-@pytest.mark.parametrize(("rollout_concurrency", "pool_size"), [(1, 2), (24, 48), (64, 64)])
+@pytest.mark.parametrize(("rollout_concurrency", "pool_size"), [(1, 2), (23, 46), (24, 48), (64, 64)])
 def test_sandoq_pool_reserves_separate_verifier_capacity(rollout_concurrency: int, pool_size: int) -> None:
     assert _expected_sandoq_pool_size(rollout_concurrency) == pool_size
 
@@ -253,3 +253,65 @@ def test_certifier_accepts_marker_bound_schema_two_router_receipt(
         )
         == receipt
     )
+
+
+def test_certifier_accepts_c23_profiled_router_receipt(tmp_path: Path) -> None:
+    output = tmp_path / "private" / "direct_kimi_router_final.json"
+    binding = {
+        "eval_run_identity_sha256": "1" * 64,
+        "invocation_identity_sha256": "2" * 64,
+    }
+    manifest = {
+        "endpoint_bundle_sha256": "3" * 64,
+        "workers": [{} for _ in range(23)],
+        "router": {
+            "implementation": "direct-kimi-transparent-v2",
+            "implementation_sha256": "4" * 64,
+            "capacity_profile": "sandoq-c23-v1",
+            "endpoint_identifier": "cpu-132-021_8103",
+            "max_concurrent_requests": 23,
+            "request_timeout_seconds": 144_000,
+        },
+    }
+    receipt = {
+        "schema_version": 3,
+        "kind": "direct-kimi-router-final",
+        "state": "passed",
+        **binding,
+        "worker_manifest_sha256": "5" * 64,
+        "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
+        "active_workers": 23,
+        "implementation": manifest["router"]["implementation"],
+        "implementation_sha256": manifest["router"]["implementation_sha256"],
+        "policy": "consistent_hash",
+        "request_id_headers": ["x-session-id"],
+        "request_timeout_seconds": 144_000,
+        "retries": 0,
+        "max_active_requests": 2,
+        "total_requests": 3,
+        "chat_requests": 3,
+        "worker_request_counts_sha256": "6" * 64,
+        "source_generation_revalidated": True,
+        "capacity_profile": "sandoq-c23-v1",
+        "endpoint_identifier": "cpu-132-021_8103",
+        "configured_capacity": 23,
+        "max_active_chat_requests": 2,
+        "capacity_rejections": 0,
+        "queue_overflow_rejections": 0,
+        "route_tracking_overflows": 0,
+        "cross_route_anomalies": 0,
+        "tracked_sessions": 3,
+    }
+    direct_kimi_workers._atomic_write(
+        output,
+        (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+        exclusive=True,
+    )
+
+    assert _validate_router_receipt(
+        output,
+        manifest,
+        "5" * 64,
+        minimum_chat_requests=1,
+        binding=binding,
+    ) == receipt

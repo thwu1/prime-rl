@@ -36,6 +36,7 @@ from audit_traces import (
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+from direct_kimi_router import C23_CAPACITY_PROFILE
 from direct_kimi_workers import DirectKimiWorkerError, worker_generation_contract
 from eval_run_identity import load_eval_run_identity_bytes
 
@@ -1319,21 +1320,30 @@ def _deployment_contract(
     except (DirectKimiWorkerError, OSError, ValueError) as error:
         raise KimiProviderSplitError("deployment_worker_manifest_invalid") from error
     manifest_router = manifest["router"]
+    expected_router = {
+        "implementation": manifest_router.get("implementation"),
+        "implementation_sha256": manifest_router.get("implementation_sha256"),
+        "policy": manifest_router.get("policy"),
+        "request_id_headers": manifest_router.get("request_id_headers"),
+        "provider_concurrency": manifest_router.get("max_concurrent_requests"),
+        "request_timeout_seconds": manifest_router.get("request_timeout_seconds"),
+        "retries": manifest_router.get("retries"),
+        "worker_count": len(manifest["workers"]),
+    }
+    if manifest_router.get("capacity_profile") == C23_CAPACITY_PROFILE:
+        expected_router.update(
+            {
+                "capacity_profile": C23_CAPACITY_PROFILE,
+                "endpoint_identifier": manifest_router.get("endpoint_identifier"),
+            }
+        )
+    elif "capacity_profile" in manifest_router:
+        raise KimiProviderSplitError("deployment_worker_manifest_invalid")
     if (
         deployment.get("spec_sha256") != manifest.get("source_spec_sha256")
         or deployment.get("endpoint_bundle_sha256") != manifest.get("endpoint_bundle_sha256")
         or deployment.get("base_url") != f"http://127.0.0.1:{manifest_router.get('port')}/v1"
-        or router
-        != {
-            "implementation": manifest_router.get("implementation"),
-            "implementation_sha256": manifest_router.get("implementation_sha256"),
-            "policy": manifest_router.get("policy"),
-            "request_id_headers": manifest_router.get("request_id_headers"),
-            "provider_concurrency": manifest_router.get("max_concurrent_requests"),
-            "request_timeout_seconds": manifest_router.get("request_timeout_seconds"),
-            "retries": manifest_router.get("retries"),
-            "worker_count": len(manifest["workers"]),
-        }
+        or router != expected_router
     ):
         raise KimiProviderSplitError("deployment_worker_manifest_invalid")
     return {
@@ -1438,7 +1448,17 @@ def _validate_run_identity(
     execution = identity.get("execution")
     if not isinstance(execution, dict) or execution.get("cleanup_must_succeed") is not True:
         raise KimiProviderSplitError("cleanup_contract_invalid")
-    expected_concurrency = 24 if provider == "sandoq" else 4
+    deployment_router = identity.get("deployment", {}).get("router")
+    if provider == "sandoq":
+        expected_concurrency = (
+            deployment_router.get("provider_concurrency")
+            if isinstance(deployment_router, dict)
+            else None
+        )
+        if expected_concurrency not in {23, 24}:
+            raise KimiProviderSplitError("execution_contract_invalid")
+    else:
+        expected_concurrency = 4
     if any(
         execution.get(key) != expected_concurrency
         for key in ("rollout_concurrency", "multiplex", "http_max_connections", "http_max_keepalive_connections")
@@ -1560,8 +1580,9 @@ def _validate_direct_router_receipt(
     worker = deployment.get("worker_manifest")
     if not isinstance(router, dict) or not isinstance(worker, dict):
         raise KimiProviderSplitError("router_receipt_invalid")
+    c23_profile = router.get("capacity_profile") == C23_CAPACITY_PROFILE
     expected = {
-        "schema_version": 2,
+        "schema_version": 3 if c23_profile else 2,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": identity_sha256,
@@ -1578,6 +1599,24 @@ def _validate_direct_router_receipt(
         "source_generation_revalidated": True,
     }
     dynamic = {"max_active_requests", "total_requests", "chat_requests", "worker_request_counts_sha256"}
+    if c23_profile:
+        expected.update(
+            {
+                "capacity_profile": C23_CAPACITY_PROFILE,
+                "endpoint_identifier": router.get("endpoint_identifier"),
+                "configured_capacity": router.get("provider_concurrency"),
+            }
+        )
+        dynamic.update(
+            {
+                "max_active_chat_requests",
+                "capacity_rejections",
+                "queue_overflow_rejections",
+                "route_tracking_overflows",
+                "cross_route_anomalies",
+                "tracked_sessions",
+            }
+        )
     if (
         set(value) != {*expected, *dynamic}
         or any(value.get(key) != item for key, item in expected.items())
@@ -1588,6 +1627,29 @@ def _validate_direct_router_receipt(
         or value["total_requests"] < value["chat_requests"]
         or value["chat_requests"] < minimum_chat_requests
         or SHA256_RE.fullmatch(str(value.get("worker_request_counts_sha256", ""))) is None
+        or (
+            c23_profile
+            and (
+                not all(
+                    _nonnegative_integer(value.get(key))
+                    for key in (
+                        "max_active_chat_requests",
+                        "capacity_rejections",
+                        "queue_overflow_rejections",
+                        "route_tracking_overflows",
+                        "cross_route_anomalies",
+                        "tracked_sessions",
+                    )
+                )
+                or value["max_active_chat_requests"] > router["provider_concurrency"]
+                or value["max_active_chat_requests"] > value["max_active_requests"]
+                or value["capacity_rejections"] != 0
+                or value["queue_overflow_rejections"] != 0
+                or value["route_tracking_overflows"] != 0
+                or value["cross_route_anomalies"] != 0
+                or value["tracked_sessions"] > value["chat_requests"]
+            )
+        )
     ):
         raise KimiProviderSplitError("router_receipt_invalid")
     return body, artifact, marker_artifact

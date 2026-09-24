@@ -18,6 +18,7 @@ from typing import Any
 
 IMPLEMENTATION = "direct-kimi-transparent-v2"
 EXPECTED_WORKERS = 24
+C23_EXPECTED_WORKERS = 23
 POLICY = "consistent_hash"
 SESSION_HEADER = "x-session-id"
 REQUEST_TIMEOUT_SECONDS = 43_200
@@ -26,17 +27,26 @@ ALLOWED_REQUEST_TIMEOUT_SECONDS = frozenset({REQUEST_TIMEOUT_SECONDS, EXTENDED_R
 WORKER_QUEUE_TIMEOUT_SECONDS = REQUEST_TIMEOUT_SECONDS
 RETRIES = 0
 LEGACY_CAPACITY_PROFILE = "legacy-c24"
+C23_CAPACITY_PROFILE = "sandoq-c23-v1"
 C64_CAPACITY_PROFILE = "sandoq-c64-v1"
 C64_W2_CAPACITY_PROFILE = "sandoq-c64-w2-v1"
 CAPACITY_PROFILES = {
     LEGACY_CAPACITY_PROFILE: 24,
+    C23_CAPACITY_PROFILE: 23,
     C64_CAPACITY_PROFILE: 64,
     C64_W2_CAPACITY_PROFILE: 64,
 }
 PER_WORKER_CAPACITY_PROFILES = {
     LEGACY_CAPACITY_PROFILE: 1,
+    C23_CAPACITY_PROFILE: 1,
     C64_CAPACITY_PROFILE: 1,
     C64_W2_CAPACITY_PROFILE: 2,
+}
+WORKER_COUNT_PROFILES = {
+    LEGACY_CAPACITY_PROFILE: EXPECTED_WORKERS,
+    C23_CAPACITY_PROFILE: C23_EXPECTED_WORKERS,
+    C64_CAPACITY_PROFILE: EXPECTED_WORKERS,
+    C64_W2_CAPACITY_PROFILE: EXPECTED_WORKERS,
 }
 DEFAULT_CAPACITY_PROFILE = LEGACY_CAPACITY_PROFILE
 MAX_CONCURRENT_REQUESTS = CAPACITY_PROFILES[DEFAULT_CAPACITY_PROFILE]
@@ -75,6 +85,13 @@ def capacity_for_profile(value: str) -> int:
 def per_worker_capacity_for_profile(value: str) -> int:
     try:
         return PER_WORKER_CAPACITY_PROFILES[value]
+    except (KeyError, TypeError) as error:
+        raise RouterError("capacity_profile_invalid") from error
+
+
+def worker_count_for_profile(value: str) -> int:
+    try:
+        return WORKER_COUNT_PROFILES[value]
     except (KeyError, TypeError) as error:
         raise RouterError("capacity_profile_invalid") from error
 
@@ -125,7 +142,11 @@ def _canonical_worker_url(value: str) -> tuple[str, int]:
     return parsed.hostname, port
 
 
-def load_worker_urls(path: Path) -> tuple[tuple[str, int], ...]:
+def load_worker_urls(
+    path: Path,
+    *,
+    capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
+) -> tuple[tuple[str, int], ...]:
     try:
         resolved = path.resolve(strict=True)
         metadata = path.lstat()
@@ -142,7 +163,8 @@ def load_worker_urls(path: Path) -> tuple[tuple[str, int], ...]:
         raise RouterError("worker_urls_unreadable")
     lines = raw.splitlines()
     workers = tuple(_canonical_worker_url(line) for line in lines)
-    if len(workers) != EXPECTED_WORKERS or len(set(workers)) != EXPECTED_WORKERS:
+    expected_workers = worker_count_for_profile(capacity_profile)
+    if len(workers) != expected_workers or len(set(workers)) != expected_workers:
         raise RouterError("worker_urls_invalid")
     return workers
 
@@ -157,7 +179,7 @@ class RouterState:
         request_timeout_seconds: int = REQUEST_TIMEOUT_SECONDS,
         worker_queue_timeout_seconds: float | None = None,
     ) -> None:
-        if len(workers) != EXPECTED_WORKERS:
+        if len(workers) != worker_count_for_profile(capacity_profile):
             raise RouterError("worker_count_invalid")
         capacity = capacity_for_profile(capacity_profile)
         self.workers = workers
@@ -266,7 +288,7 @@ class RouterState:
                 self.capacity_rejections += 1
             return False
         with self.lock:
-            if self.capacity_profile in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE) and chat:
+            if self.capacity_profile in (C23_CAPACITY_PROFILE, C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE) and chat:
                 if session_id is None or index is None:
                     self.capacity.release()
                     raise RouterError("route_tracking_invalid")
@@ -355,7 +377,7 @@ class RouterState:
                 "upstream_failures": self.upstream_failures,
                 "worker_request_counts": list(self.worker_requests),
             }
-            if self.capacity_profile == C64_CAPACITY_PROFILE:
+            if self.capacity_profile in (C23_CAPACITY_PROFILE, C64_CAPACITY_PROFILE):
                 snapshot.update(
                     {
                         "schema_version": 2,
@@ -653,7 +675,7 @@ def main() -> None:
     )
     args = parser.parse_args()
     serve(
-        load_worker_urls(args.worker_urls_file),
+        load_worker_urls(args.worker_urls_file, capacity_profile=args.capacity_profile),
         args.host,
         args.port,
         args.metrics_port,

@@ -277,6 +277,76 @@ def test_direct_kimi_c64_manifest_requires_explicit_profile_and_endpoint(tmp_pat
         )
 
 
+def test_direct_kimi_c23_manifest_binds_full_source_and_excluded_worker(tmp_path: Path, monkeypatch) -> None:
+    root = _deployment(tmp_path, monkeypatch)
+    source_workers, _spec, _proxy, source_bundle = load_workers(root)
+    excluded = source_workers[0]
+    generation = tmp_path / "generation-c23"
+    manifest_path = generation / direct_kimi_workers.GENERATION_MANIFEST_NAME
+    urls_path = generation / direct_kimi_workers.GENERATION_URLS_NAME
+    manifest = prepare_generation(
+        root,
+        generation,
+        manifest_path,
+        urls_path,
+        generation / direct_kimi_workers.GENERATION_PORTS_NAME,
+        capacity_profile=direct_kimi_workers.C23_CAPACITY_PROFILE,
+        endpoint_identifier="cpu-132-021_8103",
+        excluded_backend_sha256=excluded.backend_sha256,
+    )
+
+    assert manifest["schema_version"] == direct_kimi_workers.C23_MANIFEST_SCHEMA_VERSION
+    assert manifest["selection_profile"] == direct_kimi_workers.C23_SELECTION_PROFILE
+    assert manifest["source_endpoint_bundle_sha256"] == source_bundle
+    assert manifest["excluded_worker"] == excluded.public_record
+    assert manifest["router"]["capacity_profile"] == direct_kimi_workers.C23_CAPACITY_PROFILE
+    assert manifest["router"]["max_concurrent_requests"] == 23
+    assert len(manifest["workers"]) == 23
+    assert excluded.public_record not in manifest["workers"]
+    assert len(urls_path.read_text().splitlines()) == 23
+    assert validate_saved_manifest(manifest_path) == manifest
+    contract = direct_kimi_workers.worker_generation_contract(manifest)
+    assert contract["source_endpoint_bundle_sha256"] == source_bundle
+    assert contract["excluded_worker"] == excluded.public_record
+
+    for field, value in (
+        ("source_endpoint_bundle_sha256", "0" * 64),
+        ("selection_profile", "unattested"),
+        ("excluded_worker", manifest["workers"][0]),
+    ):
+        changed = json.loads(json.dumps(manifest))
+        changed[field] = value
+        with pytest.raises(DirectKimiWorkerError, match="manifest_invalid"):
+            direct_kimi_workers.validate_manifest_value(changed, revalidate_live_source=False)
+    pre_c23_router = json.loads(json.dumps(manifest))
+    pre_c23_router["router"]["implementation_sha256"] = direct_kimi_workers.HISTORICAL_PRE_C23_ROUTER_SHA256
+    with pytest.raises(DirectKimiWorkerError, match="manifest_invalid"):
+        direct_kimi_workers.validate_manifest_value(pre_c23_router, revalidate_live_source=False)
+
+    missing = tmp_path / "missing-c23-selection"
+    with pytest.raises(DirectKimiWorkerError, match="excluded_backend_sha256_invalid"):
+        prepare_generation(
+            root,
+            missing,
+            missing / direct_kimi_workers.GENERATION_MANIFEST_NAME,
+            missing / direct_kimi_workers.GENERATION_URLS_NAME,
+            missing / direct_kimi_workers.GENERATION_PORTS_NAME,
+            capacity_profile=direct_kimi_workers.C23_CAPACITY_PROFILE,
+            endpoint_identifier="cpu-132-021_8103",
+        )
+
+    legacy = tmp_path / "legacy-with-exclusion"
+    with pytest.raises(DirectKimiWorkerError, match="excluded_backend_unexpected"):
+        prepare_generation(
+            root,
+            legacy,
+            legacy / direct_kimi_workers.GENERATION_MANIFEST_NAME,
+            legacy / direct_kimi_workers.GENERATION_URLS_NAME,
+            legacy / direct_kimi_workers.GENERATION_PORTS_NAME,
+            excluded_backend_sha256=excluded.backend_sha256,
+        )
+
+
 def test_direct_kimi_w2_manifest_binds_profile_worker_capacity_and_v2(tmp_path: Path, monkeypatch) -> None:
     root = _deployment(tmp_path, monkeypatch)
     generation = tmp_path / "generation"
@@ -338,6 +408,17 @@ def test_historical_legacy_manifest_accepts_only_pinned_v1_hash(tmp_path: Path, 
             historical_v2,
             revalidate_live_source=False,
         )
+
+    pre_c23 = json.loads(json.dumps(manifest))
+    pre_c23["router"]["implementation_sha256"] = direct_kimi_workers.HISTORICAL_PRE_C23_ROUTER_SHA256
+    assert direct_kimi_workers.validate_manifest_value(pre_c23, revalidate_live_source=False) == pre_c23
+    pre_c23_extended = json.loads(json.dumps(pre_c23))
+    pre_c23_extended["router"]["request_timeout_seconds"] = 144_000
+    pre_c23_extended["router"]["queue_timeout_seconds"] = 144_000
+    assert (
+        direct_kimi_workers.validate_manifest_value(pre_c23_extended, revalidate_live_source=False)
+        == pre_c23_extended
+    )
 
 
 def test_direct_kimi_atomic_publication_is_exclusive(tmp_path: Path) -> None:
@@ -562,6 +643,98 @@ def test_direct_kimi_router_receipt_is_exact(tmp_path: Path, monkeypatch) -> Non
             24,
             stats,
             generation / "linked-stats.json",
+            eval_run_identity=identity,
+            eval_invocations=invocations,
+            provenance=provenance,
+        )
+
+
+def test_direct_kimi_c23_router_receipt_accepts_smoke_and_tb4_roles(tmp_path: Path, monkeypatch) -> None:
+    root = _deployment(tmp_path, monkeypatch)
+    excluded = load_workers(root)[0][0]
+    generation = tmp_path / "generation-c23-receipt"
+    manifest_path = generation / direct_kimi_workers.GENERATION_MANIFEST_NAME
+    prepare_generation(
+        root,
+        generation,
+        manifest_path,
+        generation / direct_kimi_workers.GENERATION_URLS_NAME,
+        generation / direct_kimi_workers.GENERATION_PORTS_NAME,
+        capacity_profile=direct_kimi_workers.C23_CAPACITY_PROFILE,
+        endpoint_identifier="cpu-132-021_8103",
+        excluded_backend_sha256=excluded.backend_sha256,
+    )
+    manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    stats = generation / "router-stats.json"
+    stats.write_text(
+        json.dumps(
+            {
+                "schema_version": 2,
+                "kind": "direct-kimi-transparent-router",
+                "implementation": "direct-kimi-transparent-v2",
+                "policy": "consistent_hash",
+                "request_id_headers": ["x-session-id"],
+                "request_timeout_seconds": 43_200,
+                "retries": 0,
+                "worker_count": 23,
+                "active_workers": 23,
+                "capacity_profile": direct_kimi_workers.C23_CAPACITY_PROFILE,
+                "endpoint_identifier": "cpu-132-021_8103",
+                "configured_capacity": 23,
+                "active_requests": 0,
+                "active_chat_requests": 0,
+                "max_active_requests": 1,
+                "max_active_chat_requests": 1,
+                "total_requests": 1,
+                "chat_requests": 1,
+                "missing_session_rejections": 0,
+                "capacity_rejections": 0,
+                "queue_overflow_rejections": 0,
+                "route_tracking_overflows": 0,
+                "cross_route_anomalies": 0,
+                "upstream_failures": 0,
+                "tracked_sessions": 1,
+                "worker_request_counts": [1, *([0] * 22)],
+            }
+        )
+    )
+    stats.chmod(0o600)
+
+    for role in ("kimi-direct-smoke", "kimi-direct-tb4"):
+        run_dir = tmp_path / role
+        identity, invocations, provenance, _identity_sha256 = _binding_files(
+            run_dir,
+            role=role,
+            manifest_path=manifest_path,
+        )
+        receipt = certify_router(
+            manifest_path,
+            manifest_sha256,
+            23,
+            stats,
+            run_dir / "router.json",
+            eval_run_identity=identity,
+            eval_invocations=invocations,
+            provenance=provenance,
+        )
+        assert receipt["schema_version"] == 3
+        assert receipt["active_workers"] == 23
+        assert receipt["capacity_profile"] == direct_kimi_workers.C23_CAPACITY_PROFILE
+        assert receipt["configured_capacity"] == 23
+
+    diagnostic_dir = tmp_path / "diagnostic-c23"
+    identity, invocations, provenance, _identity_sha256 = _binding_files(
+        diagnostic_dir,
+        role="kimi-direct-tb4-diagnostic",
+        manifest_path=manifest_path,
+    )
+    with pytest.raises(DirectKimiWorkerError, match="run_binding_invalid"):
+        certify_router(
+            manifest_path,
+            manifest_sha256,
+            23,
+            stats,
+            diagnostic_dir / "router.json",
             eval_run_identity=identity,
             eval_invocations=invocations,
             provenance=provenance,

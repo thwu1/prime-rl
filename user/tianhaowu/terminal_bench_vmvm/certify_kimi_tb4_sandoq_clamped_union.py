@@ -107,12 +107,13 @@ def _fake_plan(
     }
 
 
-def _validate_clamped_config(config: Mapping[str, Any]) -> None:
+def _validate_clamped_config(config: Mapping[str, Any], expected_concurrency: int) -> None:
     taskset = config.get("taskset")
     if (
         config.get("num_tasks") != CLAMPED_TASKS
-        or config.get("max_concurrent") != recovery.CONCURRENCY
-        or config.get("multiplex") != recovery.CONCURRENCY
+        or expected_concurrency not in recovery.SUPPORTED_CONCURRENCIES
+        or config.get("max_concurrent") != expected_concurrency
+        or config.get("multiplex") != expected_concurrency
         or not isinstance(taskset, dict)
         or taskset.get("enable_compose") is not False
         or taskset.get("resource_multiplier") != 1.0
@@ -178,7 +179,7 @@ def _build_lane(
         except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
             _fail("lane_config_invalid", error)
         if require_caps:
-            _validate_clamped_config(config)
+            _validate_clamped_config(config, int(lane.get("concurrency", 0)))
         verifier_modes = {entry.task_id: entry.verifier_mode for entry in entries}
         try:
             trace_audit, rows, results_artifact = split._audit_cpu_results(

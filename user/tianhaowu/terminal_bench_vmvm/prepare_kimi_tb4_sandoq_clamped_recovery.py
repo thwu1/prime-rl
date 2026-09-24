@@ -21,7 +21,6 @@ from typing import Any
 import kimi_tb4_provider_split as split
 import prepare_kimi_tb4_miniswe246_union as union
 
-
 SCHEMA_VERSION = 1
 KIND = "kimi-tb4-sandoq-clamped-zero-model-recovery"
 STAGE = "tb4-miniswe246-sandoq-clamped-recovery"
@@ -31,7 +30,7 @@ PLAN = "launch-plan.json"
 TASK_COUNT = 27
 COMPOSE_UNSUPPORTED = 11
 GPU_UNSUPPORTED = 3
-CONCURRENCY = 24
+SUPPORTED_CONCURRENCIES = frozenset({23, 24})
 CPU_CAP = 2
 MEMORY_MB_CAP = 4096
 STORAGE_MB_CAP = 10240
@@ -197,7 +196,19 @@ def _validate_zero_model_abort(results: Path, expected_count: int) -> tuple[byte
     return body, rows
 
 
-def _expected_config(source_plan: dict[str, Any], selector: Path, selector_body: bytes) -> bytes:
+def _source_concurrency(source_plan: dict[str, Any]) -> int:
+    concurrency = source_plan["lanes"][union.SANDOQ_ROLE].get("concurrency")
+    if type(concurrency) is not int or concurrency not in SUPPORTED_CONCURRENCIES:
+        raise ClampedRecoveryError("source_concurrency_invalid")
+    return concurrency
+
+
+def _expected_config(
+    source_plan: dict[str, Any],
+    selector: Path,
+    selector_body: bytes,
+    concurrency: int,
+) -> bytes:
     record = source_plan["lanes"][union.SANDOQ_ROLE]["config"]
     source_path = Path(str(record["path"]))
     body = _read(source_path, code="source_config_invalid", private=True)
@@ -208,10 +219,10 @@ def _expected_config(source_plan: dict[str, Any], selector: Path, selector_body:
     except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
         raise ClampedRecoveryError("source_config_invalid") from error
     value["num_tasks"] = TASK_COUNT
-    value["max_concurrent"] = CONCURRENCY
-    value["multiplex"] = CONCURRENCY
-    value["client"]["max_connections"] = CONCURRENCY
-    value["client"]["max_keepalive_connections"] = CONCURRENCY
+    value["max_concurrent"] = concurrency
+    value["multiplex"] = concurrency
+    value["client"]["max_connections"] = concurrency
+    value["client"]["max_keepalive_connections"] = concurrency
     value["taskset"]["task_file"] = str(selector)
     value["taskset"]["task_file_sha256"] = split.sha256_bytes(selector_body)
     value["taskset"]["enable_compose"] = False
@@ -235,6 +246,7 @@ def _expected_plan(
     aborted_rows: int,
     selector_body: bytes,
     config_body: bytes,
+    concurrency: int,
 ) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
@@ -259,7 +271,7 @@ def _expected_plan(
         "lane": {
             "provider": "sandoq",
             "count": TASK_COUNT,
-            "concurrency": CONCURRENCY,
+            "concurrency": concurrency,
             "selector": _artifact(directory / SELECTOR, selector_body),
             "config": _artifact(directory / CONFIG, config_body),
             "output_dir": str(output_dir),
@@ -284,6 +296,7 @@ def _expected_plan(
 
 def prepare(args: argparse.Namespace) -> dict[str, Any]:
     source_plan, source_body, entries = _load_source_plan(args.source_plan, args.source_plan_sha256)
+    concurrency = _source_concurrency(source_plan)
     selected, _unsupported = _members(source_plan, entries)
     aborted_body, aborted_rows = _validate_zero_model_abort(
         args.aborted_results,
@@ -308,7 +321,7 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     if directory.exists() or directory.is_symlink() or output_dir.exists() or output_dir.is_symlink():
         raise ClampedRecoveryError("output_not_fresh")
     selector_body = union._selector_payload(selected)
-    config_body = _expected_config(source_plan, directory / SELECTOR, selector_body)
+    config_body = _expected_config(source_plan, directory / SELECTOR, selector_body, concurrency)
     plan = _expected_plan(
         directory=directory,
         output_dir=output_dir,
@@ -320,6 +333,7 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
         aborted_rows=aborted_rows,
         selector_body=selector_body,
         config_body=config_body,
+        concurrency=concurrency,
     )
     try:
         split._publish_private_bundle(
@@ -331,7 +345,7 @@ def prepare(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "state": "materialized",
         "tasks": TASK_COUNT,
-        "concurrency": CONCURRENCY,
+        "concurrency": concurrency,
         "plan_sha256": split.sha256_bytes(split.canonical_json(plan)),
     }
 
@@ -351,6 +365,7 @@ def verify(plan_path: Path, expected_sha256: str) -> dict[str, Any]:
         raise ClampedRecoveryError("plan_invalid")
     source_path = Path(str(source_record.get("path", "")))
     source_plan, source_body, entries = _load_source_plan(source_path, str(source_record.get("sha256", "")))
+    concurrency = _source_concurrency(source_plan)
     if len(source_body) != source_record.get("bytes"):
         raise ClampedRecoveryError("plan_invalid")
     selected, _unsupported = _members(source_plan, entries)
@@ -363,7 +378,7 @@ def verify(plan_path: Path, expected_sha256: str) -> dict[str, Any]:
         raise ClampedRecoveryError("aborted_results_changed")
     directory = plan_path.parent.resolve(strict=True)
     selector_body = union._selector_payload(selected)
-    config_body = _expected_config(source_plan, directory / SELECTOR, selector_body)
+    config_body = _expected_config(source_plan, directory / SELECTOR, selector_body, concurrency)
     output_dir = Path(str(plan.get("lane", {}).get("output_dir", "")))
     expected = _expected_plan(
         directory=directory,
@@ -376,6 +391,7 @@ def verify(plan_path: Path, expected_sha256: str) -> dict[str, Any]:
         aborted_rows=aborted_rows,
         selector_body=selector_body,
         config_body=config_body,
+        concurrency=concurrency,
     )
     if plan != expected:
         raise ClampedRecoveryError("plan_contract_invalid")
@@ -390,7 +406,7 @@ def verify(plan_path: Path, expected_sha256: str) -> dict[str, Any]:
         "selector": str(directory / SELECTOR),
         "selector_sha256": split.sha256_bytes(selector_body),
         "count": TASK_COUNT,
-        "concurrency": CONCURRENCY,
+        "concurrency": concurrency,
         "output_dir": str(output_dir),
     }
 

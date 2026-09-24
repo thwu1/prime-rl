@@ -855,16 +855,29 @@ def test_private_bundle_portable_commit_marker_fallback_is_authoritative(
     split._publish_private_bundle(output, {"one": b"expected"})
 
 
-def test_router_receipt_requires_exact_direct_publication_marker(tmp_path: Path) -> None:
+@pytest.mark.parametrize("concurrency", [23, 24])
+def test_router_receipt_requires_exact_direct_publication_marker(
+    tmp_path: Path,
+    concurrency: int,
+) -> None:
     tmp_path.chmod(0o700)
     identity, _config = _direct_identity(tmp_path, "sandoq")
-    identity["execution"]["rollout_concurrency"] = 24
+    identity["execution"]["rollout_concurrency"] = concurrency
     identity_sha256 = "a" * 64
     invocation_sha256 = "b" * 64
     deployment = identity["deployment"]
     router = deployment["router"]
+    if concurrency == 23:
+        router.update(
+            {
+                "capacity_profile": "sandoq-c23-v1",
+                "endpoint_identifier": "cpu-132-021_8103",
+                "provider_concurrency": 23,
+                "worker_count": 23,
+            }
+        )
     value = {
-        "schema_version": 2,
+        "schema_version": 3 if concurrency == 23 else 2,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": identity_sha256,
@@ -884,6 +897,20 @@ def test_router_receipt_requires_exact_direct_publication_marker(tmp_path: Path)
         "chat_requests": split.LEGACY_SANDOQ_TASKS,
         "worker_request_counts_sha256": "c" * 64,
     }
+    if concurrency == 23:
+        value.update(
+            {
+                "capacity_profile": "sandoq-c23-v1",
+                "endpoint_identifier": "cpu-132-021_8103",
+                "configured_capacity": 23,
+                "max_active_chat_requests": 1,
+                "capacity_rejections": 0,
+                "queue_overflow_rejections": 0,
+                "route_tracking_overflows": 0,
+                "cross_route_anomalies": 0,
+                "tracked_sessions": 1,
+            }
+        )
     receipt = tmp_path / "direct_kimi_router_final.json"
     body = split.canonical_json(value)
     _private_file(receipt, body)

@@ -25,6 +25,7 @@ sandbox_provider=${DIRECT_KIMI_SANDBOX_PROVIDER:-sandoq}
 execution_mode=${DIRECT_KIMI_EXECUTION_MODE:-certified}
 router_capacity_profile=${DIRECT_KIMI_ROUTER_CAPACITY_PROFILE:-legacy-c24}
 endpoint_identifier=${DIRECT_KIMI_ENDPOINT_IDENTIFIER:-}
+excluded_backend_sha256=${DIRECT_KIMI_EXCLUDED_BACKEND_SHA256:-}
 endpoint_walltime_profile=${KIMI_ENDPOINT_WALLTIME_PROFILE:-legacy}
 endpoint_minimum_remaining_seconds=${KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS:-324000}
 endpoint_walltime_receipt=
@@ -45,7 +46,17 @@ if [[ "$role" == kimi-direct-capacity-smoke ]]; then
         printf 'Direct Kimi capacity smoke requires the exact bounded c64-w2 profile\n' >&2
         exit 2
     fi
-elif [[ "$router_capacity_profile" != legacy-c24 || -n "$endpoint_identifier" ]]; then
+elif [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
+    if [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-tb4 ]] \
+        || [[ "$endpoint_identifier" != cpu-132-021_8103 ]] \
+        || [[ ! "$excluded_backend_sha256" =~ ^[0-9a-f]{64}$ ]] \
+        || { [[ "$role" == kimi-direct-smoke ]] && [[ "$rollout_concurrency" != 1 ]]; } \
+        || { [[ "$role" == kimi-direct-tb4 ]] && [[ "$rollout_concurrency" != 23 ]]; }; then
+        printf 'Direct Kimi c23 requires its exact smoke or TB4 profile\n' >&2
+        exit 2
+    fi
+elif [[ "$router_capacity_profile" != legacy-c24 || -n "$endpoint_identifier" \
+    || -n "$excluded_backend_sha256" ]]; then
     printf 'Legacy direct Kimi stages require the default c24 router profile\n' >&2
     exit 2
 fi
@@ -361,7 +372,11 @@ IFS=$'\t' read -r direct_spec_sha256 direct_endpoint_bundle_sha256 direct_capaci
 expected_endpoint_identifier=${endpoint_identifier:--}
 expected_router_concurrency=24
 expected_per_worker_capacity=1
-if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+expected_worker_count=24
+if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
+    expected_router_concurrency=23
+    expected_worker_count=23
+elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
     expected_router_concurrency=64
     expected_per_worker_capacity=2
 fi
@@ -378,10 +393,17 @@ if [[ ! "$direct_spec_sha256" =~ ^[0-9a-f]{64}$ \
 fi
 
 if [[ "$direct_request_timeout" == 144000 ]]; then
-    if [[ "$endpoint_walltime_profile" != tb4-extended-c24-two-wave-v1 \
-        || "$role" != kimi-direct-tb4 || "$rollout_concurrency" != 24 \
+    expected_walltime_profile=tb4-extended-c24-two-wave-v1
+    maximum_two_wave_tasks=48
+    if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
+        expected_walltime_profile=tb4-c23-v1
+        maximum_two_wave_tasks=46
+    fi
+    if [[ "$endpoint_walltime_profile" != "$expected_walltime_profile" \
+        || "$role" != kimi-direct-tb4 || "$rollout_concurrency" != "$expected_router_concurrency" \
         || ! "$approved_task_count" =~ ^[1-9][0-9]*$ \
-        || "$approved_task_count" -le 24 || "$approved_task_count" -gt 48 \
+        || "$approved_task_count" -le "$expected_router_concurrency" \
+        || "$approved_task_count" -gt "$maximum_two_wave_tasks" \
         || ! "$endpoint_minimum_remaining_seconds" =~ ^[1-9][0-9]*$ \
         || "$endpoint_minimum_remaining_seconds" -lt 324000 ]]; then
         printf 'Extended direct Kimi TB4 requires its sealed 90-hour endpoint walltime profile\n' >&2
@@ -433,7 +455,7 @@ identity_args=(
     --direct-provider-concurrency "$direct_router_concurrency"
     --direct-request-timeout-seconds "$direct_request_timeout"
     --direct-retries 0
-    --direct-worker-count 24
+    --direct-worker-count "$expected_worker_count"
     --invocation-host "$(hostname)"
     --slurm-job-id "$SLURM_JOB_ID"
 )

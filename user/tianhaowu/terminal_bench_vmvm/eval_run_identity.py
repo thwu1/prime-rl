@@ -113,6 +113,8 @@ KIMI_PRODUCTION_ROLE = "kimi-direct-mobius"
 KIMI_ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v2"
 KIMI_HISTORICAL_ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v1"
 KIMI_HISTORICAL_ROUTER_SHA256 = "7fd5bc463bd0fa86567c21b72e2b4988fbb42aeca4c0a7d40959f8466c8f820d"
+KIMI_C23_CAPACITY_PROFILE = "sandoq-c23-v1"
+KIMI_C23_WORKER_COUNT = 23
 KIMI_W2_CAPACITY_PROFILE = "sandoq-c64-w2-v1"
 KIMI_W2_PER_WORKER_CAPACITY = 2
 KIMI_MINISWE_VERSION = "2.4.6"
@@ -2256,6 +2258,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         except ValueError as error:
             raise EvalIdentityError("eval_run_identity_schema_invalid") from error
         capacity_role = role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE}
+        c23_role = (
+            role in {"kimi-direct-smoke", "kimi-direct-tb4"}
+            and isinstance(router, dict)
+            and router.get("capacity_profile") == KIMI_C23_CAPACITY_PROFILE
+        )
         router_implementation = router.get("implementation") if isinstance(router, dict) else None
         router_implementation_sha256 = router.get("implementation_sha256") if isinstance(router, dict) else None
         direct_request_timeout = router.get("request_timeout_seconds") if isinstance(router, dict) else None
@@ -2269,10 +2276,14 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "implementation_sha256": router.get("implementation_sha256") if isinstance(router, dict) else None,
             "policy": "consistent_hash",
             "request_id_headers": ["x-session-id"],
-            "provider_concurrency": 64 if role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE} else 24,
+            "provider_concurrency": (
+                64
+                if role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE}
+                else KIMI_C23_WORKER_COUNT if c23_role else 24
+            ),
             "request_timeout_seconds": direct_request_timeout,
             "retries": 0,
-            "worker_count": 24,
+            "worker_count": KIMI_C23_WORKER_COUNT if c23_role else 24,
         }
         if capacity_role:
             expected_router.update(
@@ -2282,8 +2293,16 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
                     "per_worker_capacity": KIMI_W2_PER_WORKER_CAPACITY,
                 }
             )
+        elif c23_role:
+            expected_router.update(
+                {
+                    "capacity_profile": KIMI_C23_CAPACITY_PROFILE,
+                    "endpoint_identifier": "cpu-132-021_8103",
+                }
+            )
         historical_router = (
             not capacity_role
+            and not c23_role
             and router_implementation == KIMI_HISTORICAL_ROUTER_IMPLEMENTATION
             and router_implementation_sha256 == KIMI_HISTORICAL_ROUTER_SHA256
         )
@@ -3980,15 +3999,29 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         "worker_count": len(manifest["workers"]),
     }
     if "capacity_profile" in router or "endpoint_identifier" in router or "per_worker_capacity" in router:
-        if args.role not in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE}:
+        if args.role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE}:
+            identity_router.update(
+                {
+                    "capacity_profile": router.get("capacity_profile"),
+                    "endpoint_identifier": router.get("endpoint_identifier"),
+                    "per_worker_capacity": router.get("per_worker_capacity"),
+                }
+            )
+        elif (
+            args.role in {"kimi-direct-smoke", "kimi-direct-tb4"}
+            and router.get("capacity_profile") == KIMI_C23_CAPACITY_PROFILE
+            and router.get("endpoint_identifier") == "cpu-132-021_8103"
+            and "per_worker_capacity" not in router
+            and len(manifest["workers"]) == KIMI_C23_WORKER_COUNT
+        ):
+            identity_router.update(
+                {
+                    "capacity_profile": KIMI_C23_CAPACITY_PROFILE,
+                    "endpoint_identifier": "cpu-132-021_8103",
+                }
+            )
+        else:
             raise EvalIdentityError("direct_kimi_capacity_profile_role_invalid")
-        identity_router.update(
-            {
-                "capacity_profile": router.get("capacity_profile"),
-                "endpoint_identifier": router.get("endpoint_identifier"),
-                "per_worker_capacity": router.get("per_worker_capacity"),
-            }
-        )
     elif args.role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE}:
         raise EvalIdentityError("direct_kimi_capacity_profile_required")
 

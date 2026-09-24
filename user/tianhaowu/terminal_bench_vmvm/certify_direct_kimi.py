@@ -25,6 +25,7 @@ from audit_traces import (
     _read_expected_slugs,
     _summarize_traces,
 )
+from direct_kimi_router import C23_CAPACITY_PROFILE
 from direct_kimi_workers import (
     EXPECTED_ENDPOINTS,
     EXPECTED_MODEL,
@@ -280,7 +281,12 @@ def _validate_identity(
         or task.get("count") != expected_count
     ):
         raise DirectKimiCertificateError("eval_identity_invalid")
-    expected_concurrency = 1 if role == "kimi-direct-smoke" else 24
+    identity_router = deployment.get("router") if isinstance(deployment, dict) else None
+    c23_profile = (
+        isinstance(identity_router, dict)
+        and identity_router.get("capacity_profile") == C23_CAPACITY_PROFILE
+    )
+    expected_concurrency = 1 if role == "kimi-direct-smoke" else 23 if c23_profile else 24
     expected_pool_size = _expected_sandoq_pool_size(expected_concurrency)
     environment = execution.get("sandoq_environment")
     runtime = execution.get("runtime")
@@ -335,20 +341,29 @@ def _validate_identity(
         or bound_identity != identity
     ):
         raise DirectKimiCertificateError("worker_manifest_invalid")
+    expected_router = {
+        "implementation": manifest["router"]["implementation"],
+        "implementation_sha256": manifest["router"]["implementation_sha256"],
+        "policy": ROUTER_POLICY,
+        "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
+        "provider_concurrency": manifest["router"]["max_concurrent_requests"],
+        "request_timeout_seconds": manifest["router"]["request_timeout_seconds"],
+        "retries": ROUTER_RETRIES,
+        "worker_count": len(manifest["workers"]),
+    }
+    if manifest["router"].get("capacity_profile") == C23_CAPACITY_PROFILE:
+        expected_router.update(
+            {
+                "capacity_profile": C23_CAPACITY_PROFILE,
+                "endpoint_identifier": manifest["router"].get("endpoint_identifier"),
+            }
+        )
+    elif "capacity_profile" in manifest["router"]:
+        raise DirectKimiCertificateError("worker_generation_invalid")
     if (
         deployment.get("spec_sha256") != manifest["source_spec_sha256"]
         or deployment.get("endpoint_bundle_sha256") != manifest["endpoint_bundle_sha256"]
-        or deployment.get("router")
-        != {
-            "implementation": manifest["router"]["implementation"],
-            "implementation_sha256": manifest["router"]["implementation_sha256"],
-            "policy": ROUTER_POLICY,
-            "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
-            "provider_concurrency": ROUTER_PROVIDER_CONCURRENCY,
-            "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
-            "retries": ROUTER_RETRIES,
-            "worker_count": EXPECTED_ENDPOINTS,
-        }
+        or deployment.get("router") != expected_router
     ):
         raise DirectKimiCertificateError("worker_generation_invalid")
     return (
@@ -383,20 +398,24 @@ def _validate_router_receipt(
         receipt = json.loads(read_published_file(path))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
         raise DirectKimiCertificateError("router_receipt_invalid") from error
+    c23_profile = manifest["router"].get("capacity_profile") == C23_CAPACITY_PROFILE
+    worker_count = 23 if c23_profile else EXPECTED_ENDPOINTS
+    router_capacity = manifest["router"].get("max_concurrent_requests", ROUTER_PROVIDER_CONCURRENCY)
+    request_timeout = manifest["router"].get("request_timeout_seconds", ROUTER_REQUEST_TIMEOUT_SECONDS)
     expected = {
-        "schema_version": 2,
+        "schema_version": 3 if c23_profile else 2,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": binding["eval_run_identity_sha256"],
         "invocation_identity_sha256": binding["invocation_identity_sha256"],
         "worker_manifest_sha256": manifest_sha256,
         "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
-        "active_workers": EXPECTED_ENDPOINTS,
+        "active_workers": worker_count,
         "implementation": manifest["router"]["implementation"],
         "implementation_sha256": manifest["router"]["implementation_sha256"],
         "policy": ROUTER_POLICY,
         "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
-        "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
+        "request_timeout_seconds": request_timeout,
         "retries": ROUTER_RETRIES,
         "source_generation_revalidated": True,
     }
@@ -406,6 +425,24 @@ def _validate_router_receipt(
         "chat_requests",
         "worker_request_counts_sha256",
     }
+    if c23_profile:
+        expected.update(
+            {
+                "capacity_profile": C23_CAPACITY_PROFILE,
+                "endpoint_identifier": manifest["router"].get("endpoint_identifier"),
+                "configured_capacity": router_capacity,
+            }
+        )
+        dynamic_keys.update(
+            {
+                "max_active_chat_requests",
+                "capacity_rejections",
+                "queue_overflow_rejections",
+                "route_tracking_overflows",
+                "cross_route_anomalies",
+                "tracked_sessions",
+            }
+        )
     if (
         not isinstance(receipt, dict)
         or set(receipt) != {*expected, *dynamic_keys}
@@ -414,10 +451,32 @@ def _validate_router_receipt(
             type(receipt.get(key)) is not int or receipt[key] < 0
             for key in dynamic_keys - {"worker_request_counts_sha256"}
         )
-        or not 1 <= receipt["max_active_requests"] <= 24
+        or not 1 <= receipt["max_active_requests"] <= router_capacity
         or receipt["total_requests"] < receipt["chat_requests"]
         or receipt["chat_requests"] < minimum_chat_requests
         or SHA256_RE.fullmatch(str(receipt.get("worker_request_counts_sha256", ""))) is None
+        or (
+            c23_profile
+            and (
+                any(
+                    type(receipt.get(key)) is not int or receipt[key] < 0
+                    for key in (
+                        "max_active_chat_requests",
+                        "capacity_rejections",
+                        "queue_overflow_rejections",
+                        "route_tracking_overflows",
+                        "cross_route_anomalies",
+                        "tracked_sessions",
+                    )
+                )
+                or receipt["max_active_chat_requests"] > receipt["max_active_requests"]
+                or receipt["capacity_rejections"] != 0
+                or receipt["queue_overflow_rejections"] != 0
+                or receipt["route_tracking_overflows"] != 0
+                or receipt["cross_route_anomalies"] != 0
+                or receipt["tracked_sessions"] > receipt["chat_requests"]
+            )
+        )
     ):
         raise DirectKimiCertificateError("router_receipt_invalid")
     return receipt
@@ -597,7 +656,7 @@ def certify_smoke(
             "worker_manifest_sha256": manifest_record["sha256"],
             "source_spec_sha256": manifest["source_spec_sha256"],
             "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
-            "worker_count": EXPECTED_ENDPOINTS,
+            "worker_count": len(manifest["workers"]),
             "qualification_scope": "capacity-limited-smoke-only",
             "capacity_scope": capacity_scope,
             "execution": execution,
@@ -691,7 +750,7 @@ def certify_tb4(
         cleanup, cleanup_raw = _validate_cleanup(
             run_dir / "sandoq_cleanup_audit.json",
             expected_count=EXPECTED_TASK_COUNT,
-            expected_concurrency=24,
+            expected_concurrency=int(identity["execution"]["rollout_concurrency"]),
         )
         artifacts = _common_artifacts(run_dir)
         artifacts["smoke_checkpoint"] = _artifact(smoke_checkpoint)
@@ -706,7 +765,7 @@ def certify_tb4(
             "worker_manifest_sha256": manifest_record["sha256"],
             "source_spec_sha256": manifest["source_spec_sha256"],
             "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
-            "worker_count": EXPECTED_ENDPOINTS,
+            "worker_count": len(manifest["workers"]),
             "counts": {
                 "observed_traces": summary["observed_traces"],
                 "supported_tasks": summary["supported_tasks"],
@@ -728,7 +787,7 @@ def certify_tb4(
                 "max_supported_pass_rate": TB4_MAX_SUPPORTED_PASS_RATE,
                 "router_policy": ROUTER_POLICY,
                 "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
-                "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
+                "request_timeout_seconds": manifest["router"]["request_timeout_seconds"],
                 "retries": ROUTER_RETRIES,
             },
             "pool_cleanup": {

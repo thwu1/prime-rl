@@ -7,9 +7,8 @@ import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 import prepare_kimi_tb4_sandoq_clamped_recovery as recovery
+import pytest
 
 
 def _private(path: Path, body: bytes) -> Path:
@@ -74,7 +73,8 @@ def test_members_exclude_compose_without_disclosing_names(
     assert set(selected).isdisjoint(unsupported)
 
 
-def test_expected_config_applies_qualified_resource_caps(tmp_path: Path) -> None:
+@pytest.mark.parametrize("concurrency", [23, 24])
+def test_expected_config_applies_qualified_resource_caps(tmp_path: Path, concurrency: int) -> None:
     source = {
         "num_tasks": 25,
         "max_concurrent": 24,
@@ -101,10 +101,10 @@ def test_expected_config_applies_qualified_resource_caps(tmp_path: Path) -> None
         }
     }
     selector = tmp_path / recovery.SELECTOR
-    rendered = recovery._expected_config(plan, selector, b"one\n")
+    rendered = recovery._expected_config(plan, selector, b"one\n", concurrency)
     config = tomllib.loads(rendered.decode())
     assert config["num_tasks"] == 27
-    assert config["max_concurrent"] == 24
+    assert config["max_concurrent"] == concurrency
     assert config["taskset"]["resource_cpu_cap"] == 2
     assert config["taskset"]["resource_memory_mb_cap"] == 4096
     assert config["taskset"]["resource_storage_mb_cap"] == 10240

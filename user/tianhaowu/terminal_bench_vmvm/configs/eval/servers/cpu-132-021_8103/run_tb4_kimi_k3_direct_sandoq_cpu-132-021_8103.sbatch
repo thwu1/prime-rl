@@ -61,6 +61,9 @@ provider_profile_sha256=965511eb9578aa303d287491a7414e145241d6dbbf61469d13abbe80
 miniswe_compatibility_receipt=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/qwen-miniswe246-sandoq-3step-20260921/run-1537041/receipt.json
 miniswe_compatibility_sha256=cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220
 native_miniswe_stage=0
+router_capacity_profile=${KIMI_DIRECT_ROUTER_CAPACITY_PROFILE:-legacy-c24}
+excluded_backend_sha256=${KIMI_DIRECT_EXCLUDED_BACKEND_SHA256:-}
+endpoint_identifier=
 if [[ "$stage" == miniswe-smoke || "$stage" == tb4-miniswe || "$stage" == capacity-smoke \
     || "$stage" == tb4-miniswe246-sandoq-union \
     || "$stage" == tb4-miniswe246-sandoq-clamped-recovery ]]; then
@@ -295,7 +298,8 @@ elif [[ "$stage" == tb4-miniswe246-sandoq-clamped-recovery ]]; then
         task_sha256 task_count stage_capacity output_dir verified_extra <<< "$verified_clamped"
     if [[ -n "$verified_extra" || "$verified_clamped" == *$'\n'* \
         || "$verified_stage" != "$stage" || "$verified_provider" != "$sandbox_provider" \
-        || "$task_count" != 27 || "$stage_capacity" != 24 ]]; then
+        || "$task_count" != 27 ]] \
+        || [[ "$stage_capacity" != 23 && "$stage_capacity" != 24 ]]; then
         printf 'Clamped TB4 recovery plan binding failed\n' >&2
         exit 2
     fi
@@ -405,6 +409,26 @@ else
         fi
     fi
 fi
+if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
+    endpoint_identifier=cpu-132-021_8103
+    if [[ "$sandbox_provider" != sandoq \
+        || ( "$stage" != miniswe-smoke \
+            && "$stage" != tb4-miniswe246-sandoq-union \
+            && "$stage" != tb4-miniswe246-sandoq-clamped-recovery ) \
+        || ! "$excluded_backend_sha256" =~ ^[0-9a-f]{64}$ ]] \
+        || { [[ "$stage" == miniswe-smoke ]] && [[ "$stage_capacity" != 1 ]]; } \
+        || { [[ "$stage" != miniswe-smoke ]] && [[ "$stage_capacity" != 23 ]]; }; then
+        printf 'Direct Kimi c23 launch profile is invalid\n' >&2
+        exit 2
+    fi
+elif [[ "$router_capacity_profile" != legacy-c24 \
+    && "$router_capacity_profile" != sandoq-c64-w2-v1 ]]; then
+    printf 'Direct Kimi router profile is invalid\n' >&2
+    exit 2
+elif [[ "$router_capacity_profile" != sandoq-c23-v1 && -n "$excluded_backend_sha256" ]]; then
+    printf 'Direct Kimi endpoint exclusion requires c23\n' >&2
+    exit 2
+fi
 if [[ "$stage" == miniswe-smoke ]]; then
     resource_manifest=${KIMI_RESOURCE_MANIFEST:?Set KIMI_RESOURCE_MANIFEST}
     resource_manifest_sha256=${KIMI_RESOURCE_MANIFEST_SHA256:?Set KIMI_RESOURCE_MANIFEST_SHA256}
@@ -479,6 +503,10 @@ router_profile_args=(
 if [[ -n ${endpoint_identifier:-} ]]; then
     router_profile_args+=(--endpoint-identifier "$endpoint_identifier")
 fi
+worker_profile_args=("${router_profile_args[@]}")
+if [[ -n ${excluded_backend_sha256:-} ]]; then
+    worker_profile_args+=(--excluded-backend-sha256 "$excluded_backend_sha256")
+fi
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" snapshot-source \
     --deployment-root "$deployment_root" --output-root "$deployment_snapshot" >/dev/null
@@ -486,11 +514,15 @@ fi
     python3 "$workflow_dir/direct_kimi_workers.py" prepare \
     --deployment-root "$deployment_snapshot" --output-root "$generation_dir" \
     --manifest "$manifest" --urls-output "$urls_file" --ports-output "$ports_file" --probe \
-    "${router_profile_args[@]}"
+    "${worker_profile_args[@]}"
 manifest_sha256=$(sha256sum "$manifest" | cut -d' ' -f1)
 mapfile -t worker_urls < "$urls_file"
 mapfile -t router_ports < "$ports_file"
-if [[ ${#worker_urls[@]} -ne 24 || ${#router_ports[@]} -ne 2 ]]; then
+expected_worker_count=24
+if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
+    expected_worker_count=23
+fi
+if [[ ${#worker_urls[@]} -ne "$expected_worker_count" || ${#router_ports[@]} -ne 2 ]]; then
     printf 'Direct Kimi generation materialization failed\n' >&2
     exit 2
 fi
@@ -522,7 +554,7 @@ for attempt in $(seq 1 120); do
             | awk '$1 == "vllm_router_active_workers" {print $2}' \
             | tail -n 1
     ) || true
-    if [[ "$active_workers" == 24 ]] \
+    if [[ "$active_workers" == "$expected_worker_count" ]] \
         && curl --noproxy '*' --fail --silent --show-error --max-time 10 \
             "http://127.0.0.1:${router_port}/v1/models" >/dev/null; then
         break
@@ -555,7 +587,18 @@ stage_env=(
     DIRECT_KIMI_EXECUTION_MODE="$execution_mode"
     DIRECT_KIMI_ROUTER_CAPACITY_PROFILE="${router_capacity_profile:-legacy-c24}"
     DIRECT_KIMI_ENDPOINT_IDENTIFIER="${endpoint_identifier:-}"
+    DIRECT_KIMI_EXCLUDED_BACKEND_SHA256="${excluded_backend_sha256:-}"
 )
+if [[ "$router_request_timeout" == 144000 ]]; then
+    endpoint_walltime_profile=tb4-extended-c24-two-wave-v1
+    if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
+        endpoint_walltime_profile=tb4-c23-v1
+    fi
+    stage_env+=(
+        KIMI_ENDPOINT_WALLTIME_PROFILE="$endpoint_walltime_profile"
+        KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS=324000
+    )
+fi
 if [[ "$native_miniswe_stage" == 1 ]]; then
     stage_env+=(
         DIRECT_KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256="$miniswe_compatibility_sha256"

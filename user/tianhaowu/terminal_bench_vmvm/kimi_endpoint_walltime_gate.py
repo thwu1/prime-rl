@@ -23,11 +23,16 @@ EXPECTED_DEPLOYMENT = "shared-kimi-k3"
 EXPECTED_CLUSTER = "fair-cw-use2-1"
 EXPECTED_ENDPOINTS = 24
 EXTENDED_PROFILE = "tb4-extended-c24-two-wave-v1"
+C23_PROFILE = "tb4-c23-v1"
+C23_MANIFEST_CAPACITY_PROFILE = "sandoq-c23-v1"
+C23_MANIFEST_SELECTION_PROFILE = "exclude-one-from-c24-v1"
+C23_SELECTED_ENDPOINTS = 23
 EXTENDED_MINIMUM_REMAINING_SECONDS = 90 * 60 * 60
 EXTENDED_REQUEST_TIMEOUT_SECONDS = 144_000
 EXTENDED_ROUTER_CONCURRENCY = 24
 RECEIPT_KIND = "direct-kimi-endpoint-walltime-gate"
 RECEIPT_SCHEMA_VERSION = 1
+C23_RECEIPT_SCHEMA_VERSION = 2
 MAX_STATUS_BYTES = 8 * 1024 * 1024
 MAX_SCHEDULER_BYTES = 1 * 1024 * 1024
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
@@ -209,6 +214,8 @@ def parse_scheduler_output(
     raw: bytes,
     expected_job_ids: Sequence[str],
     minimum_remaining_seconds: int,
+    *,
+    expected_endpoint_count: int = EXPECTED_ENDPOINTS,
 ) -> tuple[tuple[SchedulerObservation, ...], int, str]:
     """Validate exact sacct rows and return aggregate walltime evidence."""
 
@@ -222,8 +229,9 @@ def parse_scheduler_output(
         raise EndpointWalltimeGateError("minimum_remaining_seconds_invalid")
     expected = tuple(sorted(expected_job_ids, key=int))
     if (
-        len(expected) != EXPECTED_ENDPOINTS
-        or len(set(expected)) != EXPECTED_ENDPOINTS
+        expected_endpoint_count not in (C23_SELECTED_ENDPOINTS, EXPECTED_ENDPOINTS)
+        or len(expected) != expected_endpoint_count
+        or len(set(expected)) != expected_endpoint_count
         or any(SLURM_JOB_ID_RE.fullmatch(value) is None for value in expected)
     ):
         raise EndpointWalltimeGateError("endpoint_job_set_invalid")
@@ -259,7 +267,7 @@ def parse_scheduler_output(
     observations.sort(key=lambda item: int(item.job_id))
     if (
         tuple(item.job_id for item in observations) != expected
-        or len({item.job_id for item in observations}) != EXPECTED_ENDPOINTS
+        or len({item.job_id for item in observations}) != expected_endpoint_count
     ):
         raise EndpointWalltimeGateError("scheduler_endpoint_job_set_mismatch")
     if any(item.state != "RUNNING" for item in observations):
@@ -278,7 +286,7 @@ def parse_scheduler_output(
 
 
 def _validate_profile(profile: str, minimum_remaining_seconds: int) -> None:
-    if profile != EXTENDED_PROFILE:
+    if profile not in (EXTENDED_PROFILE, C23_PROFILE):
         raise EndpointWalltimeGateError("endpoint_walltime_profile_invalid")
     if (
         not isinstance(minimum_remaining_seconds, int)
@@ -288,12 +296,28 @@ def _validate_profile(profile: str, minimum_remaining_seconds: int) -> None:
         raise EndpointWalltimeGateError("minimum_remaining_seconds_invalid")
 
 
-def _validate_task_count(task_count: int) -> None:
-    if not isinstance(task_count, int) or isinstance(task_count, bool) or not 24 < task_count <= 48:
+def _validate_task_count(task_count: int, *, profile: str = EXTENDED_PROFILE) -> None:
+    lower_bound = EXTENDED_ROUTER_CONCURRENCY
+    upper_bound = 2 * C23_SELECTED_ENDPOINTS if profile == C23_PROFILE else 2 * EXTENDED_ROUTER_CONCURRENCY
+    if (
+        profile not in (EXTENDED_PROFILE, C23_PROFILE)
+        or not isinstance(task_count, int)
+        or isinstance(task_count, bool)
+        or not lower_bound < task_count <= upper_bound
+    ):
         raise EndpointWalltimeGateError("extended_two_wave_task_count_invalid")
 
 
-def _load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
+def _bundle_sha256(backend_sha256s: Sequence[str]) -> str:
+    return _sha256("".join(f"{digest}\n" for digest in sorted(backend_sha256s)).encode())
+
+
+def _load_manifest(
+    path: Path,
+    expected_sha256: str,
+    *,
+    profile: str = EXTENDED_PROFILE,
+) -> dict[str, Any]:
     if SHA256_RE.fullmatch(expected_sha256) is None:
         raise EndpointWalltimeGateError("direct_worker_manifest_sha256_invalid")
     try:
@@ -311,16 +335,51 @@ def _load_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
     if not isinstance(manifest, dict):
         raise EndpointWalltimeGateError("direct_worker_manifest_invalid")
     router = manifest.get("router")
-    if (
-        manifest.get("schema_version") != 1
-        or not isinstance(router, dict)
-        or "capacity_profile" in router
-        or router.get("max_concurrent_requests") != EXTENDED_ROUTER_CONCURRENCY
-        or router.get("queue_size") != EXTENDED_ROUTER_CONCURRENCY
+    common_router_invalid = (
+        not isinstance(router, dict)
         or router.get("request_timeout_seconds") != EXTENDED_REQUEST_TIMEOUT_SECONDS
         or router.get("queue_timeout_seconds") != EXTENDED_REQUEST_TIMEOUT_SECONDS
         or router.get("retries") != 0
-    ):
+    )
+    if profile == EXTENDED_PROFILE:
+        invalid = (
+            manifest.get("schema_version") != 1
+            or common_router_invalid
+            or "capacity_profile" in router
+            or router.get("max_concurrent_requests") != EXTENDED_ROUTER_CONCURRENCY
+            or router.get("queue_size") != EXTENDED_ROUTER_CONCURRENCY
+        )
+    elif profile == C23_PROFILE:
+        workers = manifest.get("workers")
+        excluded = manifest.get("excluded_worker")
+        selected_backends = (
+            [worker.get("backend_sha256") for worker in workers]
+            if isinstance(workers, list) and all(isinstance(worker, dict) for worker in workers)
+            else []
+        )
+        excluded_backend = excluded.get("backend_sha256") if isinstance(excluded, dict) else None
+        full_backends = [*selected_backends, excluded_backend]
+        invalid = (
+            manifest.get("schema_version") != 4
+            or common_router_invalid
+            or router.get("capacity_profile") != C23_MANIFEST_CAPACITY_PROFILE
+            or router.get("max_concurrent_requests") != C23_SELECTED_ENDPOINTS
+            or router.get("queue_size") != C23_SELECTED_ENDPOINTS
+            or manifest.get("selection_profile") != C23_MANIFEST_SELECTION_PROFILE
+            or not isinstance(workers, list)
+            or len(workers) != C23_SELECTED_ENDPOINTS
+            or not isinstance(excluded, dict)
+            or set(excluded) != {"backend_sha256", "model_sha256"}
+            or len(selected_backends) != C23_SELECTED_ENDPOINTS
+            or any(not isinstance(value, str) or SHA256_RE.fullmatch(value) is None for value in full_backends)
+            or len(set(full_backends)) != EXPECTED_ENDPOINTS
+            or selected_backends != sorted(selected_backends)
+            or manifest.get("endpoint_bundle_sha256") != _bundle_sha256(selected_backends)
+            or manifest.get("source_endpoint_bundle_sha256") != _bundle_sha256(full_backends)
+        )
+    else:
+        raise EndpointWalltimeGateError("endpoint_walltime_profile_invalid")
+    if invalid:
         raise EndpointWalltimeGateError("extended_router_manifest_invalid")
     return manifest
 
@@ -342,23 +401,45 @@ def capture_gate(
     """Capture a double-read status/scheduler walltime attestation."""
 
     _validate_profile(profile, minimum_remaining_seconds)
-    _validate_task_count(task_count)
+    _validate_task_count(task_count, profile=profile)
     if deployment != EXPECTED_DEPLOYMENT or cluster != EXPECTED_CLUSTER:
         raise EndpointWalltimeGateError("deployment_or_cluster_invalid")
-    manifest = _load_manifest(manifest_path, manifest_sha256)
+    manifest = _load_manifest(manifest_path, manifest_sha256, profile=profile)
     workers = manifest.get("workers") if isinstance(manifest, dict) else None
-    if not isinstance(workers, list) or len(workers) != EXPECTED_ENDPOINTS:
+    selected_endpoint_count = C23_SELECTED_ENDPOINTS if profile == C23_PROFILE else EXPECTED_ENDPOINTS
+    if not isinstance(workers, list) or len(workers) != selected_endpoint_count:
         raise EndpointWalltimeGateError("direct_worker_manifest_invalid")
-    backend_sha256s = tuple(str(worker.get("backend_sha256", "")) for worker in workers if isinstance(worker, dict))
-    if len(backend_sha256s) != EXPECTED_ENDPOINTS:
+    selected_backend_sha256s = tuple(
+        str(worker.get("backend_sha256", "")) for worker in workers if isinstance(worker, dict)
+    )
+    if len(selected_backend_sha256s) != selected_endpoint_count:
         raise EndpointWalltimeGateError("direct_worker_manifest_invalid")
+    excluded_backend_sha256: str | None = None
+    if profile == C23_PROFILE:
+        excluded = manifest.get("excluded_worker")
+        excluded_backend_sha256 = excluded.get("backend_sha256") if isinstance(excluded, dict) else None
+        if not isinstance(excluded_backend_sha256, str):
+            raise EndpointWalltimeGateError("direct_worker_manifest_invalid")
+        source_backend_sha256s = (*selected_backend_sha256s, excluded_backend_sha256)
+    else:
+        source_backend_sha256s = selected_backend_sha256s
 
     status_argv = _status_command(serve_sh, deployment)
     before_result = runner(status_argv, COMMAND_TIMEOUT_SECONDS)
     if before_result.returncode != 0 or before_result.stderr.strip():
         raise EndpointWalltimeGateError("deployment_status_command_failed")
-    before = parse_status_snapshot(before_result.stdout, backend_sha256s)
-    job_ids = tuple(route.job_id for route in before.routes)
+    before = parse_status_snapshot(before_result.stdout, source_backend_sha256s)
+    selected_backend_set = set(selected_backend_sha256s)
+    selected_routes = tuple(route for route in before.routes if route.backend_sha256 in selected_backend_set)
+    excluded_routes = tuple(route for route in before.routes if route.backend_sha256 not in selected_backend_set)
+    if len(selected_routes) != selected_endpoint_count:
+        raise EndpointWalltimeGateError("deployment_selected_endpoint_set_mismatch")
+    if profile == C23_PROFILE:
+        if len(excluded_routes) != 1 or excluded_routes[0].backend_sha256 != excluded_backend_sha256:
+            raise EndpointWalltimeGateError("deployment_excluded_endpoint_mismatch")
+    elif excluded_routes:
+        raise EndpointWalltimeGateError("deployment_selected_endpoint_set_mismatch")
+    job_ids = tuple(route.job_id for route in selected_routes)
 
     scheduler_result = runner(_scheduler_command(job_ids, cluster), COMMAND_TIMEOUT_SECONDS)
     if scheduler_result.returncode != 0 or scheduler_result.stderr.strip():
@@ -367,19 +448,22 @@ def capture_gate(
         scheduler_result.stdout,
         job_ids,
         minimum_remaining_seconds,
+        expected_endpoint_count=selected_endpoint_count,
     )
 
     after_result = runner(status_argv, COMMAND_TIMEOUT_SECONDS)
     if after_result.returncode != 0 or after_result.stderr.strip():
         raise EndpointWalltimeGateError("deployment_status_command_failed")
-    after = parse_status_snapshot(after_result.stdout, backend_sha256s)
+    after = parse_status_snapshot(after_result.stdout, source_backend_sha256s)
     if before.routes != after.routes:
         raise EndpointWalltimeGateError("deployment_endpoint_generation_changed")
 
     canonical_jobs = "".join(f"{job_id}\n" for job_id in job_ids).encode()
-    canonical_generation = "".join(f"{route.job_id}|{route.backend_sha256}\n" for route in before.routes).encode()
+    canonical_generation = "".join(
+        f"{route.job_id}|{route.backend_sha256}\n" for route in selected_routes
+    ).encode()
     receipt: dict[str, Any] = {
-        "schema_version": RECEIPT_SCHEMA_VERSION,
+        "schema_version": C23_RECEIPT_SCHEMA_VERSION if profile == C23_PROFILE else RECEIPT_SCHEMA_VERSION,
         "kind": RECEIPT_KIND,
         "state": "passed",
         "profile": profile,
@@ -400,6 +484,27 @@ def capture_gate(
         "status_snapshot_after_sha256": after.sha256,
         "scheduler_observation_sha256": scheduler_sha256,
     }
+    if profile == C23_PROFILE:
+        excluded_route = excluded_routes[0]
+        excluded_job_sha256 = _sha256(f"{excluded_route.job_id}\n".encode())
+        canonical_full_jobs = "".join(f"{route.job_id}\n" for route in before.routes).encode()
+        canonical_full_generation = "".join(
+            f"{route.job_id}|{route.backend_sha256}\n" for route in before.routes
+        ).encode()
+        receipt.update(
+            {
+                "live_endpoint_count": EXPECTED_ENDPOINTS,
+                "excluded_endpoint_count": 1,
+                "source_endpoint_bundle_sha256": manifest["source_endpoint_bundle_sha256"],
+                "full_endpoint_jobs_sha256": _sha256(canonical_full_jobs),
+                "full_endpoint_generation_sha256": _sha256(canonical_full_generation),
+                "excluded_endpoint_job_sha256": excluded_job_sha256,
+                "excluded_backend_sha256": excluded_route.backend_sha256,
+                "excluded_endpoint_binding_sha256": _sha256(
+                    f"{excluded_job_sha256}|{excluded_route.backend_sha256}\n".encode()
+                ),
+            }
+        )
     receipt["receipt_sha256"] = _sha256(_canonical_json(receipt))
     validate_receipt(
         receipt,
@@ -408,6 +513,10 @@ def capture_gate(
         profile=profile,
         minimum_remaining_seconds=minimum_remaining_seconds,
         task_count=task_count,
+        source_endpoint_bundle_sha256=(
+            manifest.get("source_endpoint_bundle_sha256") if profile == C23_PROFILE else None
+        ),
+        excluded_backend_sha256=excluded_backend_sha256,
     )
     _write_receipt(output, receipt)
     return receipt
@@ -421,11 +530,13 @@ def validate_receipt(
     profile: str,
     minimum_remaining_seconds: int,
     task_count: int,
+    source_endpoint_bundle_sha256: str | None = None,
+    excluded_backend_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Validate the aggregate receipt without consulting mutable scheduler state."""
 
     _validate_profile(profile, minimum_remaining_seconds)
-    _validate_task_count(task_count)
+    _validate_task_count(task_count, profile=profile)
     expected_keys = {
         "schema_version",
         "kind",
@@ -449,6 +560,19 @@ def validate_receipt(
         "scheduler_observation_sha256",
         "receipt_sha256",
     }
+    if profile == C23_PROFILE:
+        expected_keys.update(
+            {
+                "live_endpoint_count",
+                "excluded_endpoint_count",
+                "source_endpoint_bundle_sha256",
+                "full_endpoint_jobs_sha256",
+                "full_endpoint_generation_sha256",
+                "excluded_endpoint_job_sha256",
+                "excluded_backend_sha256",
+                "excluded_endpoint_binding_sha256",
+            }
+        )
     if not isinstance(value, dict) or set(value) != expected_keys:
         raise EndpointWalltimeGateError("endpoint_walltime_receipt_invalid")
     claimed = value.get("receipt_sha256")
@@ -463,14 +587,16 @@ def validate_receipt(
         "status_snapshot_after_sha256",
         "scheduler_observation_sha256",
     )
+    expected_schema_version = C23_RECEIPT_SCHEMA_VERSION if profile == C23_PROFILE else RECEIPT_SCHEMA_VERSION
+    expected_endpoint_count = C23_SELECTED_ENDPOINTS if profile == C23_PROFILE else EXPECTED_ENDPOINTS
     if (
-        value.get("schema_version") != RECEIPT_SCHEMA_VERSION
+        value.get("schema_version") != expected_schema_version
         or value.get("kind") != RECEIPT_KIND
         or value.get("state") != "passed"
         or value.get("profile") != profile
         or value.get("deployment") != EXPECTED_DEPLOYMENT
         or value.get("cluster") != EXPECTED_CLUSTER
-        or value.get("endpoint_count") != EXPECTED_ENDPOINTS
+        or value.get("endpoint_count") != expected_endpoint_count
         or value.get("all_running") is not True
         or value.get("all_restarts_zero") is not True
         or value.get("minimum_remaining_seconds") != minimum_remaining_seconds
@@ -485,6 +611,29 @@ def validate_receipt(
         or claimed != _sha256(_canonical_json(unsigned))
     ):
         raise EndpointWalltimeGateError("endpoint_walltime_receipt_invalid")
+    if profile == C23_PROFILE:
+        c23_digests = (
+            "source_endpoint_bundle_sha256",
+            "full_endpoint_jobs_sha256",
+            "full_endpoint_generation_sha256",
+            "excluded_endpoint_job_sha256",
+            "excluded_backend_sha256",
+            "excluded_endpoint_binding_sha256",
+        )
+        observed_excluded_job_sha256 = value.get("excluded_endpoint_job_sha256")
+        observed_excluded_backend_sha256 = value.get("excluded_backend_sha256")
+        if (
+            SHA256_RE.fullmatch(str(source_endpoint_bundle_sha256 or "")) is None
+            or SHA256_RE.fullmatch(str(excluded_backend_sha256 or "")) is None
+            or value.get("live_endpoint_count") != EXPECTED_ENDPOINTS
+            or value.get("excluded_endpoint_count") != 1
+            or value.get("source_endpoint_bundle_sha256") != source_endpoint_bundle_sha256
+            or observed_excluded_backend_sha256 != excluded_backend_sha256
+            or any(SHA256_RE.fullmatch(str(value.get(key, ""))) is None for key in c23_digests)
+            or value.get("excluded_endpoint_binding_sha256")
+            != _sha256(f"{observed_excluded_job_sha256}|{observed_excluded_backend_sha256}\n".encode())
+        ):
+            raise EndpointWalltimeGateError("endpoint_walltime_receipt_invalid")
     checked_at = value.get("checked_at")
     if not isinstance(checked_at, str):
         raise EndpointWalltimeGateError("endpoint_walltime_receipt_invalid")
@@ -503,6 +652,8 @@ def load_receipt(
     profile: str,
     minimum_remaining_seconds: int,
     task_count: int,
+    source_endpoint_bundle_sha256: str | None = None,
+    excluded_backend_sha256: str | None = None,
 ) -> dict[str, Any]:
     try:
         before = path.lstat()
@@ -530,6 +681,8 @@ def load_receipt(
         profile=profile,
         minimum_remaining_seconds=minimum_remaining_seconds,
         task_count=task_count,
+        source_endpoint_bundle_sha256=source_endpoint_bundle_sha256,
+        excluded_backend_sha256=excluded_backend_sha256,
     )
 
 
@@ -586,7 +739,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     for command in (capture, validate):
         command.add_argument("--manifest", type=Path, required=True)
         command.add_argument("--manifest-sha256", required=True)
-        command.add_argument("--profile", choices=(EXTENDED_PROFILE,), required=True)
+        command.add_argument("--profile", choices=(EXTENDED_PROFILE, C23_PROFILE), required=True)
         command.add_argument(
             "--minimum-remaining-seconds",
             type=int,
@@ -613,7 +766,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 cluster=args.cluster,
             )
         else:
-            manifest = _load_manifest(args.manifest, args.manifest_sha256)
+            manifest = _load_manifest(args.manifest, args.manifest_sha256, profile=args.profile)
+            excluded = manifest.get("excluded_worker") if args.profile == C23_PROFILE else None
             receipt = load_receipt(
                 args.receipt,
                 manifest_sha256=args.manifest_sha256,
@@ -621,6 +775,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 profile=args.profile,
                 minimum_remaining_seconds=args.minimum_remaining_seconds,
                 task_count=args.task_count,
+                source_endpoint_bundle_sha256=(
+                    manifest.get("source_endpoint_bundle_sha256") if args.profile == C23_PROFILE else None
+                ),
+                excluded_backend_sha256=(
+                    excluded.get("backend_sha256") if isinstance(excluded, dict) else None
+                ),
             )
     except EndpointWalltimeGateError as error:
         print(f"endpoint_walltime_gate_error:{error}", file=sys.stderr)
