@@ -1563,6 +1563,8 @@ def test_audit_trace_allows_exact_kimi_null_reasoning_tool_turn() -> None:
         "reasoning_effort_medium",
         "thinking_missing",
         "thinking_disabled",
+        "thinking_integer",
+        "preserve_integer",
         "template_extra",
         "normalized_response",
         "response_finish_stop",
@@ -1571,13 +1573,19 @@ def test_audit_trace_allows_exact_kimi_null_reasoning_tool_turn() -> None:
         "flat_content_non_null",
         "flat_reasoning_non_null",
         "tool_call_mismatch",
+        "raw_tool_extra",
+        "raw_function_extra",
+        "raw_type_missing",
+        "raw_type_wrong",
+        "flat_tool_extra",
         "provider_route_mismatch",
         "multiple_choices",
         "response_hash_mismatch",
     ],
 )
 def test_exact_kimi_null_reasoning_tool_turn_fails_closed(mutation: str) -> None:
-    node = _trace("second", "same-task")["nodes"][0]
+    trace = _trace("second", "same-task")
+    node = trace["nodes"][0]
     node["finish_reason"] = "tool_calls"
     node["message"] = {
         "role": "assistant",
@@ -1615,6 +1623,10 @@ def test_exact_kimi_null_reasoning_tool_turn_fails_closed(mutation: str) -> None
         request["chat_template_kwargs"].pop("enable_thinking")
     elif mutation == "thinking_disabled":
         request["chat_template_kwargs"]["enable_thinking"] = False
+    elif mutation == "thinking_integer":
+        request["chat_template_kwargs"]["enable_thinking"] = 1
+    elif mutation == "preserve_integer":
+        request["chat_template_kwargs"]["preserve_thinking"] = 1
     elif mutation == "template_extra":
         request["chat_template_kwargs"]["unexpected"] = True
     elif mutation == "normalized_response":
@@ -1631,6 +1643,16 @@ def test_exact_kimi_null_reasoning_tool_turn_fails_closed(mutation: str) -> None
         node["message"]["reasoning_content"] = "unexpected"
     elif mutation == "tool_call_mismatch":
         provider_message["tool_calls"][0]["function"]["name"] = "different"
+    elif mutation == "raw_tool_extra":
+        provider_message["tool_calls"][0]["unexpected"] = None
+    elif mutation == "raw_function_extra":
+        provider_message["tool_calls"][0]["function"]["unexpected"] = None
+    elif mutation == "raw_type_missing":
+        provider_message["tool_calls"][0].pop("type")
+    elif mutation == "raw_type_wrong":
+        provider_message["tool_calls"][0]["type"] = "unexpected"
+    elif mutation == "flat_tool_extra":
+        node["message"]["tool_calls"][0]["unexpected"] = None
     elif mutation == "provider_route_mismatch":
         node["model_io"]["provider_route"] = "/other"
     elif mutation == "multiple_choices":
@@ -1643,6 +1665,18 @@ def test_exact_kimi_null_reasoning_tool_turn_fails_closed(mutation: str) -> None
         node["model_io"]["response"]["sha256"] = _digest(response)
 
     assert _captured_zero_reasoning_tool_turn(node, request) is None
+    problems = _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=True,
+        require_request_graph_match=True,
+        require_exact_provider_json=True,
+        require_clean_stop=True,
+    )
+    if mutation == "flat_reasoning_non_null":
+        assert "node_0_model_io_response_message_mismatch" in problems
+    else:
+        assert "node_0_reasoning_content_not_retained" in problems
 
 
 def test_audit_trace_still_requires_reasoning_across_exact_kimi_null_turns() -> None:

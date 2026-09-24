@@ -787,8 +787,10 @@ def _captured_zero_reasoning_tool_turn(
         if not isinstance(call, dict) or not isinstance(call.get("id"), str):
             return None
         if response["kind"] == "exact_provider_json":
+            if set(call) != {"id", "type", "function"} or call.get("type") != "function":
+                return None
             function = call.get("function")
-            if not isinstance(function, dict):
+            if not isinstance(function, dict) or set(function) != {"name", "arguments"}:
                 return None
             name = function.get("name")
             arguments = function.get("arguments")
@@ -803,6 +805,7 @@ def _captured_zero_reasoning_tool_turn(
     for call in flattened_calls:
         if (
             not isinstance(call, dict)
+            or set(call) != {"id", "name", "arguments"}
             or not isinstance(call.get("id"), str)
             or not isinstance(call.get("name"), str)
             or not isinstance(call.get("arguments"), str)
@@ -817,10 +820,11 @@ def _captured_zero_reasoning_tool_turn(
     if response["kind"] != "exact_provider_json":
         return None
     template = request_body.get("chat_template_kwargs") if isinstance(request_body, dict) else None
+    expected_template = dict(KIMI_K3_MAX_MODEL_IO_CONTRACT.chat_template_kwargs)
     thinking_preserved = (
         isinstance(template, dict)
-        and template.get("enable_thinking") is True
-        and template.get("preserve_thinking") is True
+        and set(template) == set(expected_template)
+        and all(template.get(key) is value for key, value in expected_template.items())
     )
     if explicit_empty_reasoning and thinking_preserved:
         return "provider_explicit_empty"
@@ -838,7 +842,7 @@ def _captured_zero_reasoning_tool_turn(
         and isinstance(request_body, dict)
         and request_body.get("model") == KIMI_K3_MAX_MODEL_IO_CONTRACT.request_model
         and request_body.get("reasoning_effort") == KIMI_K3_MAX_MODEL_IO_CONTRACT.reasoning_effort
-        and template == dict(KIMI_K3_MAX_MODEL_IO_CONTRACT.chat_template_kwargs)
+        and thinking_preserved
         and isinstance(choice, dict)
         and choice.get("finish_reason") == "tool_calls"
         and node.get("finish_reason") == "tool_calls"
