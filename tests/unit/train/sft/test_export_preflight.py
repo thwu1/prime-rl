@@ -937,6 +937,46 @@ def test_preflight_rejects_source_validation_expectation_mismatch(
         )
 
 
+def test_preflight_accepts_pinned_model_io_source_validation_policy() -> None:
+    policy = {
+        "max_sequence_tokens": 262_144,
+        "model_io_contract": "qwen3-a95b-epoch3-source+qwen3-a95b-direct-medium",
+        "require_exact_provider_json": False,
+        "require_model_io": True,
+        "require_reasoning": True,
+        "require_request_graph_match": True,
+    }
+
+    assert export_preflight._source_validation_policy(policy, "invalid") == policy
+
+
+@pytest.mark.parametrize(
+    "policy",
+    [
+        {
+            "max_sequence_tokens": 262_144,
+            "model_io_contract": "unsupported",
+            "require_exact_provider_json": False,
+            "require_model_io": True,
+            "require_reasoning": True,
+            "require_request_graph_match": True,
+        },
+        {
+            "max_sequence_tokens": 262_144,
+            "model_io_contract": "qwen3-a95b",
+            "require_clean_stop": True,
+            "require_exact_provider_json": False,
+            "require_model_io": True,
+            "require_reasoning": True,
+            "require_request_graph_match": True,
+        },
+    ],
+)
+def test_preflight_rejects_unsupported_or_hybrid_source_validation_policy(policy: dict) -> None:
+    with pytest.raises(SFTPreflightError, match="^invalid$"):
+        export_preflight._source_validation_policy(policy, "invalid")
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [
