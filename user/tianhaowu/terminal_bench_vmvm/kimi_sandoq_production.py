@@ -43,9 +43,15 @@ from materialize_qwen_provider_union import (
 from verifiers.v1.tasksets.harbor_v1.taskset import parse_resources
 
 SCHEMA_VERSION = 1
+PROMOTION_SCHEMA_VERSION = 2
+LAUNCH_SCHEMA_VERSION = 2
+TRACE_SCHEMA_VERSION = 2
 MODEL = "Kimi-K3"
 DEPLOYMENT_NAMESPACE = "cpu-132-021_8103"
-CAPACITY_PROFILE = "sandoq-c64-v1"
+CAPACITY_PROFILE = "sandoq-c64-w2-v1"
+PER_WORKER_CAPACITY = 2
+MAX_FORWARDED_CAPACITY = 48
+ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v2"
 SELECTOR_KIND = "kimi-k3-max-sandoq-selector"
 CAPACITY_SELECTOR_KIND = "kimi-k3-max-sandoq-capacity-selector"
 PROMOTION_KIND = "kimi-k3-max-sandoq-promotion"
@@ -128,6 +134,8 @@ class TraceAudit:
 def _production_contracts() -> dict[str, Any]:
     return {
         "capacity_profile": CAPACITY_PROFILE,
+        "per_worker_capacity": PER_WORKER_CAPACITY,
+        "max_forwarded_capacity": MAX_FORWARDED_CAPACITY,
         "sandbox_environment": PROVIDER_ENVIRONMENT,
         "task_network": PROVIDER_TASK_NETWORK,
         "network_access": True,
@@ -1186,9 +1194,11 @@ def _source_binding(project_root: Path, expected_revision: str) -> dict[str, Any
         "eval_identity": root / "user/tianhaowu/terminal_bench_vmvm/eval_run_identity.py",
         "direct_workers": root / "user/tianhaowu/terminal_bench_vmvm/direct_kimi_workers.py",
         "direct_router": root / "user/tianhaowu/terminal_bench_vmvm/direct_kimi_router.py",
+        "capacity_certifier": root / "user/tianhaowu/terminal_bench_vmvm/direct_kimi_capacity.py",
+        "capacity_launcher": root / "user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/"
+        "run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch",
         "trace_auditor": root / "user/tianhaowu/terminal_bench_vmvm/audit_traces.py",
-        "tb4_clamped_certifier": root
-        / "user/tianhaowu/terminal_bench_vmvm/certify_kimi_tb4_sandoq_clamped_union.py",
+        "tb4_clamped_certifier": root / "user/tianhaowu/terminal_bench_vmvm/certify_kimi_tb4_sandoq_clamped_union.py",
         "sft_exporter": root / "user/tianhaowu/terminal_bench_vmvm/export_sft.py",
     }
     return {
@@ -1207,7 +1217,7 @@ def _validate_capacity_certificate(
 ) -> tuple[dict[str, Any], Artifact]:
     value, artifact = _json_artifact(path, expected_sha256, "capacity_certificate_invalid")
     if (
-        value.get("schema_version") != 2
+        value.get("schema_version") != 3
         or value.get("kind") != CAPACITY_KIND
         or value.get("state") != "passed"
         or value.get("capacity_profile") != CAPACITY_PROFILE
@@ -1275,7 +1285,7 @@ def create_promotion(
     if capacity.get("endpoint_bundle_sha256") != tb4_deployment.get("endpoint_bundle_sha256"):
         raise KimiProductionError("promotion_endpoint_mismatch")
     value = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": PROMOTION_SCHEMA_VERSION,
         "kind": PROMOTION_KIND,
         "state": "passed",
         "model": MODEL,
@@ -1324,7 +1334,7 @@ def validate_promotion(
     capacity_source = value.get("capacity_source")
     contracts = value.get("contracts")
     if (
-        value.get("schema_version") != SCHEMA_VERSION
+        value.get("schema_version") != PROMOTION_SCHEMA_VERSION
         or value.get("kind") != PROMOTION_KIND
         or value.get("state") != "passed"
         or value.get("model") != MODEL
@@ -1361,7 +1371,7 @@ def validate_promotion(
         observed = _artifact_record(Path(str(record["path"])), "promotion_prerequisite_changed", private=False)
         if observed != record:
             raise KimiProductionError("promotion_prerequisite_changed")
-    _validate_tb4_certificate(
+    tb4, _tb4_artifact = _validate_tb4_certificate(
         Path(str(prerequisites["tb4"]["path"])),
         str(prerequisites["tb4"]["sha256"]),
     )
@@ -1375,7 +1385,7 @@ def validate_promotion(
         str(prerequisites["idle_endurance_recovery"]["sha256"]),
         mode="idle-endurance",
     )
-    _validate_capacity_certificate(
+    capacity, _capacity_artifact = _validate_capacity_certificate(
         Path(str(prerequisites["route_capacity"]["path"])),
         str(prerequisites["route_capacity"]["sha256"]),
         required_concurrency=required_concurrency,
@@ -1384,6 +1394,25 @@ def validate_promotion(
         Path(str(prerequisites["miniswe_compatibility"]["path"])),
         str(prerequisites["miniswe_compatibility"]["sha256"]),
     )
+    tb4_deployment = tb4.get("deployment") if tb4.get("schema_version") in {2, 3} else tb4
+    expected_endpoint = {
+        "identifier": DEPLOYMENT_NAMESPACE,
+        "endpoint_bundle_sha256": capacity.get("endpoint_bundle_sha256"),
+        "source_spec_sha256": tb4_deployment.get("source_spec_sha256"),
+        "router_implementation_sha256": capacity.get("source", {}).get("router_implementation_sha256"),
+    }
+    expected_capacity_source = {
+        "prime_rl_commit": capacity.get("source", {}).get("prime_rl_commit"),
+        "prime_rl_tree_sha256": capacity.get("source", {}).get("prime_rl_tree_sha256"),
+        "verifiers_commit": capacity.get("source", {}).get("verifiers_commit"),
+    }
+    if (
+        capacity.get("endpoint_bundle_sha256") != tb4_deployment.get("endpoint_bundle_sha256")
+        or value.get("qualified_concurrency") != capacity.get("qualified_concurrency")
+        or endpoint != expected_endpoint
+        or capacity_source != expected_capacity_source
+    ):
+        raise KimiProductionError("promotion_certificate_invalid")
     return value, artifact
 
 
@@ -1402,13 +1431,15 @@ def _validate_worker_manifest(
         raise KimiProductionError("worker_manifest_invalid") from error
     router = value.get("router")
     if (
-        value.get("schema_version") != 2
+        value.get("schema_version") != 3
         or not isinstance(router, dict)
         or router.get("capacity_profile") != CAPACITY_PROFILE
         or router.get("endpoint_identifier") != DEPLOYMENT_NAMESPACE
+        or router.get("implementation") != ROUTER_IMPLEMENTATION
         or router.get("policy") != "consistent_hash"
         or router.get("request_id_headers") != ["x-session-id"]
         or router.get("max_concurrent_requests") != MAX_CAPACITY
+        or router.get("per_worker_capacity") != PER_WORKER_CAPACITY
         or router.get("retries") != 0
         or len(value.get("workers", ())) != 24
         or SHA256_RE.fullmatch(str(value.get("source_spec_sha256", ""))) is None
@@ -1435,7 +1466,7 @@ def _launch_value(
     output_dir: Path,
 ) -> dict[str, Any]:
     return {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": LAUNCH_SCHEMA_VERSION,
         "kind": LAUNCH_KIND,
         "state": "authorized",
         "model": MODEL,
@@ -1460,6 +1491,8 @@ def _launch_value(
         },
         "deployment": {
             "capacity_profile": CAPACITY_PROFILE,
+            "per_worker_capacity": PER_WORKER_CAPACITY,
+            "max_forwarded_capacity": MAX_FORWARDED_CAPACITY,
             "endpoint_identifier": DEPLOYMENT_NAMESPACE,
             "endpoint_bundle_sha256": worker_value["endpoint_bundle_sha256"],
             "source_spec_sha256": worker_value["source_spec_sha256"],
@@ -1636,7 +1669,7 @@ def validate_launch(
     capture = value.get("capture")
     source = value.get("source")
     if (
-        value.get("schema_version") != SCHEMA_VERSION
+        value.get("schema_version") != LAUNCH_SCHEMA_VERSION
         or value.get("kind") != LAUNCH_KIND
         or value.get("state") != "authorized"
         or value.get("model") != MODEL
@@ -1659,6 +1692,8 @@ def validate_launch(
         or inputs.get("dataset") != {"revision": CANONICAL_DATASET_REVISION, "tree": CANONICAL_DATASET_TREE}
         or not isinstance(deployment, dict)
         or deployment.get("capacity_profile") != CAPACITY_PROFILE
+        or deployment.get("per_worker_capacity") != PER_WORKER_CAPACITY
+        or deployment.get("max_forwarded_capacity") != MAX_FORWARDED_CAPACITY
         or deployment.get("endpoint_identifier") != DEPLOYMENT_NAMESPACE
         or deployment.get("worker_count") != 24
         or any(
@@ -1993,6 +2028,7 @@ def _validate_run_identity(
     config = identity.get("config")
     inputs = identity.get("inputs")
     deployment = identity.get("deployment")
+    router = deployment.get("router") if isinstance(deployment, dict) else None
     contract = identity.get("contract")
     execution = identity.get("execution")
     launch_inputs = launch["inputs"]
@@ -2009,6 +2045,12 @@ def _validate_run_identity(
         or inputs.get("image_manifest", {}).get("sha256") != IMAGE_MANIFEST_SHA256
         or not isinstance(deployment, dict)
         or deployment.get("kind") != "direct_kimi"
+        or not isinstance(router, dict)
+        or router.get("implementation") != ROUTER_IMPLEMENTATION
+        or router.get("capacity_profile") != CAPACITY_PROFILE
+        or router.get("endpoint_identifier") != DEPLOYMENT_NAMESPACE
+        or router.get("provider_concurrency") != MAX_CAPACITY
+        or router.get("per_worker_capacity") != PER_WORKER_CAPACITY
         or deployment.get("worker_manifest", {}).get("sha256") != launch_inputs["worker_manifest"]["sha256"]
         or deployment.get("endpoint_bundle_sha256") != launch["deployment"]["endpoint_bundle_sha256"]
         or deployment.get("spec_sha256") != launch["deployment"]["source_spec_sha256"]
@@ -2075,7 +2117,7 @@ def _validate_router_receipt(
     router_implementation_sha256: str,
     concurrency: int,
     minimum_chat_requests: int,
-) -> Artifact:
+) -> tuple[Artifact, dict[str, Any]]:
     artifact, body = _stable_artifact(path, "router_receipt_invalid", private=True)
     value = _strict_json(body, "router_receipt_invalid", canonical=True)
     expected_keys = {
@@ -2101,16 +2143,23 @@ def _validate_router_receipt(
         "capacity_profile",
         "endpoint_identifier",
         "configured_capacity",
+        "configured_per_worker_capacity",
+        "active_forwarded_requests",
+        "max_active_forwarded_requests",
+        "worker_max_active_request_counts_sha256",
         "max_active_chat_requests",
         "capacity_rejections",
         "queue_overflow_rejections",
         "route_tracking_overflows",
         "cross_route_anomalies",
+        "worker_queue_timeouts",
+        "upstream_http_429",
+        "upstream_http_5xx",
         "tracked_sessions",
     }
     if (
         set(value) != expected_keys
-        or value.get("schema_version") != 3
+        or value.get("schema_version") != 4
         or value.get("kind") != "direct-kimi-router-final"
         or value.get("state") != "passed"
         or value.get("eval_run_identity_sha256") != identity_sha256
@@ -2118,7 +2167,7 @@ def _validate_router_receipt(
         or value.get("worker_manifest_sha256") != worker_manifest_sha256
         or value.get("endpoint_bundle_sha256") != endpoint_bundle_sha256
         or value.get("active_workers") != 24
-        or value.get("implementation") != "direct-kimi-transparent-v1"
+        or value.get("implementation") != ROUTER_IMPLEMENTATION
         or value.get("implementation_sha256") != router_implementation_sha256
         or value.get("policy") != "consistent_hash"
         or value.get("request_id_headers") != ["x-session-id"]
@@ -2128,21 +2177,33 @@ def _validate_router_receipt(
         or value.get("capacity_profile") != CAPACITY_PROFILE
         or value.get("endpoint_identifier") != DEPLOYMENT_NAMESPACE
         or value.get("configured_capacity") != MAX_CAPACITY
+        or value.get("configured_per_worker_capacity") != PER_WORKER_CAPACITY
+        or value.get("active_forwarded_requests") != 0
         or value.get("capacity_rejections") != 0
         or value.get("queue_overflow_rejections") != 0
         or value.get("route_tracking_overflows") != 0
         or value.get("cross_route_anomalies") != 0
+        or value.get("worker_queue_timeouts") != 0
+        or value.get("upstream_http_429") != 0
+        or value.get("upstream_http_5xx") != 0
         or not _plain_int(value.get("max_active_requests"), minimum=1, maximum=concurrency)
         or not _plain_int(value.get("max_active_chat_requests"), minimum=1, maximum=concurrency)
+        or not _plain_int(
+            value.get("max_active_forwarded_requests"),
+            minimum=1,
+            maximum=min(concurrency, MAX_FORWARDED_CAPACITY),
+        )
+        or value["max_active_forwarded_requests"] > value["max_active_chat_requests"]
         or not _plain_int(value.get("total_requests"), minimum=minimum_chat_requests)
         or not _plain_int(value.get("chat_requests"), minimum=minimum_chat_requests)
         or value["total_requests"] < value["chat_requests"]
         or not _plain_int(value.get("tracked_sessions"), minimum=1, maximum=65_536)
         or value["tracked_sessions"] > value["chat_requests"]
         or SHA256_RE.fullmatch(str(value.get("worker_request_counts_sha256", ""))) is None
+        or SHA256_RE.fullmatch(str(value.get("worker_max_active_request_counts_sha256", ""))) is None
     ):
         raise KimiProductionError("router_receipt_invalid")
-    return artifact
+    return artifact, value
 
 
 def _provenance_job_id(path: Path) -> str:
@@ -2332,7 +2393,7 @@ def certify_traces(
             "cleanup_audit_invalid",
             private=True,
         )
-        router = _validate_router_receipt(
+        router, router_value = _validate_router_receipt(
             run / "direct_kimi_router_final.json",
             identity_sha256=identity_sha256,
             worker_manifest_sha256=validated["worker_manifest_sha256"],
@@ -2355,7 +2416,7 @@ def certify_traces(
             "provider_context": provider_context.as_dict(),
         }
         value = {
-            "schema_version": SCHEMA_VERSION,
+            "schema_version": TRACE_SCHEMA_VERSION,
             "kind": TRACE_KIND,
             "state": "passed",
             "model": MODEL,
@@ -2383,6 +2444,14 @@ def certify_traces(
             "execution": {
                 "concurrency": concurrency,
                 "capacity_profile": CAPACITY_PROFILE,
+                "per_worker_capacity": PER_WORKER_CAPACITY,
+                "max_forwarded_capacity": MAX_FORWARDED_CAPACITY,
+                "active_forwarded_requests": router_value["active_forwarded_requests"],
+                "max_active_forwarded_requests": router_value["max_active_forwarded_requests"],
+                "worker_max_active_request_counts_sha256": router_value["worker_max_active_request_counts_sha256"],
+                "worker_queue_timeouts": router_value["worker_queue_timeouts"],
+                "upstream_http_429": router_value["upstream_http_429"],
+                "upstream_http_5xx": router_value["upstream_http_5xx"],
                 "sandbox_environment": PROVIDER_ENVIRONMENT,
                 "task_network": PROVIDER_TASK_NETWORK,
                 "host_tunnel": "sandoq",
@@ -2433,7 +2502,7 @@ def validate_trace_certificate(path: Path, expected_sha256: str) -> dict[str, An
     sft_value = value.get("sft")
     artifacts = value.get("artifacts")
     if (
-        value.get("schema_version") != SCHEMA_VERSION
+        value.get("schema_version") != TRACE_SCHEMA_VERSION
         or value.get("kind") != TRACE_KIND
         or value.get("state") != "passed"
         or value.get("model") != MODEL
@@ -2463,6 +2532,18 @@ def validate_trace_certificate(path: Path, expected_sha256: str) -> dict[str, An
         or not _plain_int(capture.get("positive_sampled_tokens"), minimum=1)
         or not isinstance(execution, dict)
         or execution.get("capacity_profile") != CAPACITY_PROFILE
+        or execution.get("per_worker_capacity") != PER_WORKER_CAPACITY
+        or execution.get("max_forwarded_capacity") != MAX_FORWARDED_CAPACITY
+        or execution.get("active_forwarded_requests") != 0
+        or not _plain_int(
+            execution.get("max_active_forwarded_requests"),
+            minimum=1,
+            maximum=min(execution.get("concurrency", 0), MAX_FORWARDED_CAPACITY),
+        )
+        or SHA256_RE.fullmatch(str(execution.get("worker_max_active_request_counts_sha256", ""))) is None
+        or execution.get("worker_queue_timeouts") != 0
+        or execution.get("upstream_http_429") != 0
+        or execution.get("upstream_http_5xx") != 0
         or execution.get("sandbox_environment") != PROVIDER_ENVIRONMENT
         or execution.get("task_network") != PROVIDER_TASK_NETWORK
         or execution.get("host_tunnel") != "sandoq"
@@ -2511,6 +2592,13 @@ def validate_trace_certificate(path: Path, expected_sha256: str) -> dict[str, An
     run_dir = records["results"][0].parent
     if str(run_dir) != launch["output_dir"]:
         raise KimiProductionError("trace_launch_mismatch")
+    _identity, identity_sha256 = _validate_run_identity(
+        run_dir,
+        launch=launch["value"],
+        launch_artifact=Artifact(**launch["artifact"]),
+    )
+    if identity_sha256 != value["eval_run_identity_sha256"]:
+        raise KimiProductionError("trace_certificate_invalid")
     audited = audit_pass_only_results(records["results"][0], Path(launch["selector"]))
     if (
         audited.artifact != records["results"][1]
@@ -2520,6 +2608,27 @@ def validate_trace_certificate(path: Path, expected_sha256: str) -> dict[str, An
         or audited.positive_traces != coverage["positive_traces"]
         or audited.positive_model_io_turns != capture["positive_model_io_turns"]
         or audited.positive_sampled_tokens != capture["positive_sampled_tokens"]
+    ):
+        raise KimiProductionError("trace_certificate_invalid")
+    _router_artifact, router_value = _validate_router_receipt(
+        records["router_receipt"][0],
+        identity_sha256=identity_sha256,
+        worker_manifest_sha256=launch["worker_manifest_sha256"],
+        endpoint_bundle_sha256=launch["value"]["deployment"]["endpoint_bundle_sha256"],
+        router_implementation_sha256=launch["value"]["deployment"]["router_implementation_sha256"],
+        concurrency=launch["concurrency"],
+        minimum_chat_requests=audited.positive_traces + audited.zero_reward_traces,
+    )
+    if _router_artifact != records["router_receipt"][1] or any(
+        execution.get(key) != router_value.get(key)
+        for key in (
+            "active_forwarded_requests",
+            "max_active_forwarded_requests",
+            "worker_max_active_request_counts_sha256",
+            "worker_queue_timeouts",
+            "upstream_http_429",
+            "upstream_http_5xx",
+        )
     ):
         raise KimiProductionError("trace_certificate_invalid")
     _validate_terminal_receipt(

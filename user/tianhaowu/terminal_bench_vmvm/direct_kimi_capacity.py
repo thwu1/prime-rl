@@ -19,7 +19,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Any
 
-from direct_kimi_router import C64_CAPACITY_PROFILE, POLICY, RETRIES, SESSION_HEADER
+from direct_kimi_router import C64_W2_CAPACITY_PROFILE, IMPLEMENTATION, POLICY, RETRIES, SESSION_HEADER
 from direct_kimi_workers import (
     EXPECTED_ENDPOINT_IDENTIFIER,
     EXPECTED_ENDPOINTS,
@@ -31,11 +31,13 @@ from direct_kimi_workers import (
 )
 
 CAPACITY = 64
+PER_WORKER_CAPACITY = 2
+FORWARDED_CAPACITY = 48
 CAPACITY_KIND = "direct-kimi-sandoq-capacity"
-CAPACITY_SCHEMA_VERSION = 2
+CAPACITY_SCHEMA_VERSION = 3
 CAPACITY_FILENAME = "direct_kimi_capacity_certificate.json"
 PROBE_KIND = "direct-kimi-router-capacity-probe"
-PROBE_SCHEMA_VERSION = 1
+PROBE_SCHEMA_VERSION = 2
 PROBE_FILENAME = "direct_kimi_capacity_probe.json"
 PROBE_ROUNDS = 2
 MAX_RESPONSE_BYTES = 1 << 20
@@ -70,6 +72,10 @@ DATASET_REVISION = "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
 DATASET_TREE = "a6c036e1b9abfd7075902ca38ef757587079a59b"
 PROVIDER_CONTEXT_FILENAME = "sandoq-provider-context.json"
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
+CAPACITY_PROFILE = C64_W2_CAPACITY_PROFILE
+WORKER_MAX_ACTIVE_REQUEST_COUNTS_SHA256 = hashlib.sha256(
+    (json.dumps([PER_WORKER_CAPACITY] * EXPECTED_ENDPOINTS, separators=(",", ":")) + "\n").encode()
+).hexdigest()
 TASK_FILE_PLACEHOLDER = "/REPLACE/WITH/PRIVATE/CAPACITY_SELECTOR.txt"
 TASK_SHA256_PLACEHOLDER = "REPLACE_WITH_SHA256"
 KIMI_CAPACITY_SMOKE_ROLE = "kimi-direct-capacity-smoke"
@@ -577,9 +583,10 @@ def _capacity_identity(run_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         or environment.get("pool_min_size") != 0
         or not isinstance(deployment, dict)
         or not isinstance(router, dict)
-        or router.get("capacity_profile") != C64_CAPACITY_PROFILE
+        or router.get("capacity_profile") != CAPACITY_PROFILE
         or router.get("endpoint_identifier") != EXPECTED_ENDPOINT_IDENTIFIER
         or router.get("provider_concurrency") != CAPACITY
+        or router.get("per_worker_capacity") != PER_WORKER_CAPACITY
         or router.get("policy") != POLICY
         or router.get("request_id_headers") != [SESSION_HEADER]
         or router.get("retries") != RETRIES
@@ -610,9 +617,11 @@ def run_probe(
         or _sha256_bytes(manifest_body) != manifest_sha256
         or identity["deployment"]["worker_manifest"]
         != {"path": str(manifest_path.resolve()), "sha256": manifest_sha256}
-        or router.get("capacity_profile") != C64_CAPACITY_PROFILE
+        or manifest.get("schema_version") != 3
+        or router.get("capacity_profile") != CAPACITY_PROFILE
         or router.get("endpoint_identifier") != EXPECTED_ENDPOINT_IDENTIFIER
         or router.get("max_concurrent_requests") != CAPACITY
+        or router.get("per_worker_capacity") != PER_WORKER_CAPACITY
         or base_url != f"http://127.0.0.1:{router['port']}/v1"
         or output.resolve() != (run_dir / "control" / PROBE_FILENAME).resolve()
     ):
@@ -671,7 +680,7 @@ def run_probe(
         "schema_version": PROBE_SCHEMA_VERSION,
         "kind": PROBE_KIND,
         "state": "passed",
-        "capacity_profile": C64_CAPACITY_PROFILE,
+        "capacity_profile": CAPACITY_PROFILE,
         "endpoint_identifier": EXPECTED_ENDPOINT_IDENTIFIER,
         "eval_run_identity_sha256": envelope["eval_run_identity_sha256"],
         "worker_manifest_sha256": manifest_sha256,
@@ -683,6 +692,9 @@ def run_probe(
         "policy": POLICY,
         "request_id_header": SESSION_HEADER,
         "retries": RETRIES,
+        "configured_capacity": CAPACITY,
+        "configured_per_worker_capacity": PER_WORKER_CAPACITY,
+        "max_forwarded_capacity": FORWARDED_CAPACITY,
         "client_parallelism": CAPACITY,
         "client_peak_in_flight": peak,
         "rounds": PROBE_ROUNDS,
@@ -822,7 +834,7 @@ def _validate_probe(
         "schema_version": PROBE_SCHEMA_VERSION,
         "kind": PROBE_KIND,
         "state": "passed",
-        "capacity_profile": C64_CAPACITY_PROFILE,
+        "capacity_profile": CAPACITY_PROFILE,
         "endpoint_identifier": EXPECTED_ENDPOINT_IDENTIFIER,
         "eval_run_identity_sha256": identity_sha256,
         "worker_manifest_sha256": manifest_sha256,
@@ -834,6 +846,9 @@ def _validate_probe(
         "policy": POLICY,
         "request_id_header": SESSION_HEADER,
         "retries": RETRIES,
+        "configured_capacity": CAPACITY,
+        "configured_per_worker_capacity": PER_WORKER_CAPACITY,
+        "max_forwarded_capacity": FORWARDED_CAPACITY,
         "client_parallelism": CAPACITY,
         "client_peak_in_flight": CAPACITY,
         "rounds": PROBE_ROUNDS,
@@ -861,26 +876,33 @@ def _validate_router_receipt(
 ) -> tuple[dict[str, Any], bytes]:
     value, body = _published_json(path, "capacity_router_receipt_invalid")
     expected = {
-        "schema_version": 3,
+        "schema_version": 4,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": identity_sha256,
         "worker_manifest_sha256": manifest_sha256,
         "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
         "active_workers": EXPECTED_ENDPOINTS,
-        "implementation": "direct-kimi-transparent-v1",
+        "implementation": IMPLEMENTATION,
         "implementation_sha256": manifest["router"]["implementation_sha256"],
         "policy": POLICY,
         "request_id_headers": [SESSION_HEADER],
         "request_timeout_seconds": 43_200,
         "retries": RETRIES,
-        "capacity_profile": C64_CAPACITY_PROFILE,
+        "capacity_profile": CAPACITY_PROFILE,
         "endpoint_identifier": EXPECTED_ENDPOINT_IDENTIFIER,
         "configured_capacity": CAPACITY,
+        "configured_per_worker_capacity": PER_WORKER_CAPACITY,
+        "active_forwarded_requests": 0,
+        "max_active_forwarded_requests": FORWARDED_CAPACITY,
+        "worker_max_active_request_counts_sha256": WORKER_MAX_ACTIVE_REQUEST_COUNTS_SHA256,
         "capacity_rejections": 0,
         "queue_overflow_rejections": 0,
         "route_tracking_overflows": 0,
         "cross_route_anomalies": 0,
+        "worker_queue_timeouts": 0,
+        "upstream_http_429": 0,
+        "upstream_http_5xx": 0,
         "source_generation_revalidated": True,
     }
     dynamic = {
@@ -973,8 +995,10 @@ def certify_capacity(
         manifest_sha256 = _sha256_bytes(manifest_body)
         if (
             manifest_sha256 != manifest_record["sha256"]
-            or manifest["router"].get("capacity_profile") != C64_CAPACITY_PROFILE
+            or manifest.get("schema_version") != 3
+            or manifest["router"].get("capacity_profile") != CAPACITY_PROFILE
             or manifest["router"].get("endpoint_identifier") != EXPECTED_ENDPOINT_IDENTIFIER
+            or manifest["router"].get("per_worker_capacity") != PER_WORKER_CAPACITY
         ):
             raise DirectKimiCapacityError("capacity_manifest_invalid")
 
@@ -1062,7 +1086,7 @@ def certify_capacity(
             "kind": CAPACITY_KIND,
             "state": "passed",
             "model": EXPECTED_MODEL,
-            "capacity_profile": C64_CAPACITY_PROFILE,
+            "capacity_profile": CAPACITY_PROFILE,
             "qualified_concurrency": CAPACITY,
             "endpoint_identifier": EXPECTED_ENDPOINT_IDENTIFIER,
             "eval_run_identity_sha256": envelope["eval_run_identity_sha256"],
@@ -1115,12 +1139,20 @@ def certify_capacity(
                 "request_id_headers": [SESSION_HEADER],
                 "retries": RETRIES,
                 "configured_capacity": CAPACITY,
+                "configured_per_worker_capacity": PER_WORKER_CAPACITY,
+                "max_forwarded_capacity": FORWARDED_CAPACITY,
+                "active_forwarded_requests": router["active_forwarded_requests"],
+                "max_active_forwarded_requests": router["max_active_forwarded_requests"],
+                "worker_max_active_request_counts_sha256": router["worker_max_active_request_counts_sha256"],
                 "max_active_requests": router["max_active_requests"],
                 "max_active_chat_requests": router["max_active_chat_requests"],
                 "capacity_rejections": 0,
                 "queue_overflow_rejections": 0,
                 "route_tracking_overflows": 0,
                 "cross_route_anomalies": 0,
+                "worker_queue_timeouts": 0,
+                "upstream_http_429": 0,
+                "upstream_http_5xx": 0,
                 "tracked_sessions": router["tracked_sessions"],
             },
             "probe": {
@@ -1224,7 +1256,7 @@ def validate_capacity_certificate(
         or value.get("kind") != CAPACITY_KIND
         or value.get("state") != "passed"
         or value.get("model") != EXPECTED_MODEL
-        or value.get("capacity_profile") != C64_CAPACITY_PROFILE
+        or value.get("capacity_profile") != CAPACITY_PROFILE
         or value.get("qualified_concurrency") != CAPACITY
         or value.get("qualified_concurrency") < required_concurrency
         or value.get("endpoint_identifier") != expected_endpoint_identifier
@@ -1255,12 +1287,19 @@ def validate_capacity_certificate(
             (
                 "retries",
                 "configured_capacity",
+                "configured_per_worker_capacity",
+                "max_forwarded_capacity",
+                "active_forwarded_requests",
+                "max_active_forwarded_requests",
                 "max_active_requests",
                 "max_active_chat_requests",
                 "capacity_rejections",
                 "queue_overflow_rejections",
                 "route_tracking_overflows",
                 "cross_route_anomalies",
+                "worker_queue_timeouts",
+                "upstream_http_429",
+                "upstream_http_5xx",
                 "tracked_sessions",
             ),
         ),
@@ -1359,12 +1398,20 @@ def validate_capacity_certificate(
             "request_id_headers",
             "retries",
             "configured_capacity",
+            "configured_per_worker_capacity",
+            "max_forwarded_capacity",
+            "active_forwarded_requests",
+            "max_active_forwarded_requests",
+            "worker_max_active_request_counts_sha256",
             "max_active_requests",
             "max_active_chat_requests",
             "capacity_rejections",
             "queue_overflow_rejections",
             "route_tracking_overflows",
             "cross_route_anomalies",
+            "worker_queue_timeouts",
+            "upstream_http_429",
+            "upstream_http_5xx",
             "tracked_sessions",
         }
         or set(probe) != {"rounds", "client_parallelism", "successful_requests", "receipt_sha256"}
@@ -1429,6 +1476,11 @@ def validate_capacity_certificate(
         or router.get("request_id_headers") != [SESSION_HEADER]
         or router.get("retries") != RETRIES
         or router.get("configured_capacity") != CAPACITY
+        or router.get("configured_per_worker_capacity") != PER_WORKER_CAPACITY
+        or router.get("max_forwarded_capacity") != FORWARDED_CAPACITY
+        or router.get("active_forwarded_requests") != 0
+        or router.get("max_active_forwarded_requests") != FORWARDED_CAPACITY
+        or router.get("worker_max_active_request_counts_sha256") != WORKER_MAX_ACTIVE_REQUEST_COUNTS_SHA256
         or router["max_active_requests"] != CAPACITY
         or router["max_active_chat_requests"] != CAPACITY
         or router["tracked_sessions"] < CAPACITY
@@ -1439,6 +1491,9 @@ def validate_capacity_certificate(
                 "queue_overflow_rejections",
                 "route_tracking_overflows",
                 "cross_route_anomalies",
+                "worker_queue_timeouts",
+                "upstream_http_429",
+                "upstream_http_5xx",
             )
         )
         or probe.get("rounds") != PROBE_ROUNDS

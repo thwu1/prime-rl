@@ -19,9 +19,11 @@ from typing import Any
 import yaml
 from direct_kimi_router import (
     C64_CAPACITY_PROFILE,
+    C64_W2_CAPACITY_PROFILE,
     DEFAULT_CAPACITY_PROFILE,
     LEGACY_CAPACITY_PROFILE,
     capacity_for_profile,
+    per_worker_capacity_for_profile,
     validate_endpoint_identifier,
 )
 
@@ -39,10 +41,15 @@ ROUTER_PROVIDER_CONCURRENCY = 24
 ROUTER_MAX_PROVIDER_CONCURRENCY = 64
 ROUTER_QUEUE_SIZE = ROUTER_PROVIDER_CONCURRENCY
 ROUTER_QUEUE_TIMEOUT_SECONDS = 43_200
-ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v1"
+ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v2"
+HISTORICAL_LEGACY_ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v1"
+HISTORICAL_LEGACY_ROUTER_SHA256 = "7fd5bc463bd0fa86567c21b72e2b4988fbb42aeca4c0a7d40959f8466c8f820d"
 EXPECTED_ENDPOINT_IDENTIFIER = "cpu-132-021_8103"
 MANIFEST_SCHEMA_VERSION = 1
 C64_MANIFEST_SCHEMA_VERSION = 2
+W2_MANIFEST_SCHEMA_VERSION = 3
+W2_PER_WORKER_CAPACITY = 2
+W2_FORWARDED_CAPACITY = EXPECTED_ENDPOINTS * W2_PER_WORKER_CAPACITY
 MAX_CONFIG_BYTES = 4 * 1024 * 1024
 MAX_MODELS_BYTES = 1 << 20
 MAX_RUN_BINDING_BYTES = 2 * 1024 * 1024
@@ -511,7 +518,10 @@ def _manifest(
         endpoint_identifier,
         capacity_profile=capacity_profile,
     )
-    if capacity_profile == C64_CAPACITY_PROFILE and endpoint_identifier != EXPECTED_ENDPOINT_IDENTIFIER:
+    if (
+        capacity_profile in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE)
+        and endpoint_identifier != EXPECTED_ENDPOINT_IDENTIFIER
+    ):
         raise DirectKimiWorkerError("endpoint_identifier_invalid")
     router = {
         "implementation": ROUTER_IMPLEMENTATION,
@@ -529,14 +539,18 @@ def _manifest(
         "retries": ROUTER_RETRIES,
     }
     schema_version = MANIFEST_SCHEMA_VERSION
-    if capacity_profile == C64_CAPACITY_PROFILE:
-        schema_version = C64_MANIFEST_SCHEMA_VERSION
+    if capacity_profile in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE):
+        schema_version = (
+            W2_MANIFEST_SCHEMA_VERSION if capacity_profile == C64_W2_CAPACITY_PROFILE else C64_MANIFEST_SCHEMA_VERSION
+        )
         router.update(
             {
                 "capacity_profile": capacity_profile,
                 "endpoint_identifier": endpoint_identifier,
             }
         )
+        if capacity_profile == C64_W2_CAPACITY_PROFILE:
+            router["per_worker_capacity"] = per_worker_capacity_for_profile(capacity_profile)
     return {
         "schema_version": schema_version,
         "kind": "direct-kimi-worker-generation",
@@ -962,13 +976,27 @@ def validate_manifest_value(
         )
     except ValueError as error:
         raise DirectKimiWorkerError("manifest_invalid") from error
-    if capacity_profile == C64_CAPACITY_PROFILE and endpoint_identifier != EXPECTED_ENDPOINT_IDENTIFIER:
+    if (
+        capacity_profile in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE)
+        and endpoint_identifier != EXPECTED_ENDPOINT_IDENTIFIER
+    ):
         raise DirectKimiWorkerError("manifest_invalid")
+    historical_legacy = (
+        capacity_profile == LEGACY_CAPACITY_PROFILE
+        and schema_version == MANIFEST_SCHEMA_VERSION
+        and isinstance(router, dict)
+        and router.get("implementation") == HISTORICAL_LEGACY_ROUTER_IMPLEMENTATION
+        and router.get("implementation_sha256") == HISTORICAL_LEGACY_ROUTER_SHA256
+    )
     expected_router = {
-        "implementation": ROUTER_IMPLEMENTATION,
-        "implementation_sha256": _sha256_file(
-            Path(__file__).with_name("direct_kimi_router.py"),
-            held=held,
+        "implementation": (HISTORICAL_LEGACY_ROUTER_IMPLEMENTATION if historical_legacy else ROUTER_IMPLEMENTATION),
+        "implementation_sha256": (
+            HISTORICAL_LEGACY_ROUTER_SHA256
+            if historical_legacy
+            else _sha256_file(
+                Path(__file__).with_name("direct_kimi_router.py"),
+                held=held,
+            )
         ),
         "host": "127.0.0.1",
         "port": router.get("port") if isinstance(router, dict) else None,
@@ -982,16 +1010,20 @@ def validate_manifest_value(
         "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
         "retries": ROUTER_RETRIES,
     }
-    if capacity_profile == C64_CAPACITY_PROFILE:
+    if capacity_profile in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE):
         expected_router.update(
             {
                 "capacity_profile": capacity_profile,
                 "endpoint_identifier": endpoint_identifier,
             }
         )
-    expected_schema_version = (
-        C64_MANIFEST_SCHEMA_VERSION if capacity_profile == C64_CAPACITY_PROFILE else MANIFEST_SCHEMA_VERSION
-    )
+        if capacity_profile == C64_W2_CAPACITY_PROFILE:
+            expected_router["per_worker_capacity"] = W2_PER_WORKER_CAPACITY
+    expected_schema_version = {
+        LEGACY_CAPACITY_PROFILE: MANIFEST_SCHEMA_VERSION,
+        C64_CAPACITY_PROFILE: C64_MANIFEST_SCHEMA_VERSION,
+        C64_W2_CAPACITY_PROFILE: W2_MANIFEST_SCHEMA_VERSION,
+    }.get(capacity_profile)
     if (
         not isinstance(manifest, dict)
         or set(manifest) != expected_keys
@@ -1481,13 +1513,15 @@ def _validate_deployment_binding(
         "retries": manifest["router"]["retries"],
         "worker_count": len(manifest["workers"]),
     }
-    if manifest["router"].get("capacity_profile") == C64_CAPACITY_PROFILE:
+    if manifest["router"].get("capacity_profile") in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE):
         expected_router.update(
             {
-                "capacity_profile": C64_CAPACITY_PROFILE,
+                "capacity_profile": manifest["router"]["capacity_profile"],
                 "endpoint_identifier": manifest["router"]["endpoint_identifier"],
             }
         )
+        if manifest["router"]["capacity_profile"] == C64_W2_CAPACITY_PROFILE:
+            expected_router["per_worker_capacity"] = manifest["router"]["per_worker_capacity"]
     if (
         set(router) != set(expected_router)
         or router != expected_router
@@ -1540,6 +1574,12 @@ def certify_router(
         capacity_profile = manifest["router"].get("capacity_profile", DEFAULT_CAPACITY_PROFILE)
         capacity = capacity_for_profile(capacity_profile)
         c64_profile = capacity_profile == C64_CAPACITY_PROFILE
+        w2_profile = capacity_profile == C64_W2_CAPACITY_PROFILE
+        profiled_capacity = c64_profile or w2_profile
+        capacity_smoke = identity["role"] == "kimi-direct-capacity-smoke"
+        w2_required = capacity_smoke or identity["role"] == "kimi-direct-mobius"
+        if (w2_required and not w2_profile) or (not w2_required and capacity_profile != LEGACY_CAPACITY_PROFILE):
+            raise DirectKimiWorkerError("run_binding_invalid")
         expected_stats_keys = {
             "schema_version",
             "kind",
@@ -1558,7 +1598,7 @@ def certify_router(
             "upstream_failures",
             "worker_request_counts",
         }
-        if c64_profile:
+        if profiled_capacity:
             expected_stats_keys.update(
                 {
                     "capacity_profile",
@@ -1573,13 +1613,33 @@ def certify_router(
                     "tracked_sessions",
                 }
             )
+        if w2_profile:
+            expected_stats_keys.update(
+                {
+                    "configured_per_worker_capacity",
+                    "active_forwarded_requests",
+                    "max_active_forwarded_requests",
+                    "worker_active_request_counts",
+                    "worker_max_active_request_counts",
+                    "worker_queue_timeouts",
+                    "upstream_http_429",
+                    "upstream_http_5xx",
+                }
+            )
         counts = router_stats.get("worker_request_counts") if isinstance(router_stats, dict) else None
+        worker_active_counts = (
+            router_stats.get("worker_active_request_counts") if isinstance(router_stats, dict) else None
+        )
+        worker_max_active_counts = (
+            router_stats.get("worker_max_active_request_counts") if isinstance(router_stats, dict) else None
+        )
+        expected_stats_schema = 3 if w2_profile else 2 if c64_profile else 1
         if (
             not isinstance(router_stats, dict)
             or set(router_stats) != expected_stats_keys
-            or router_stats.get("schema_version") != (2 if c64_profile else 1)
+            or router_stats.get("schema_version") != expected_stats_schema
             or router_stats.get("kind") != "direct-kimi-transparent-router"
-            or router_stats.get("implementation") != ROUTER_IMPLEMENTATION
+            or router_stats.get("implementation") != manifest["router"]["implementation"]
             or router_stats.get("policy") != ROUTER_POLICY
             or router_stats.get("request_id_headers") != list(ROUTER_REQUEST_ID_HEADERS)
             or router_stats.get("request_timeout_seconds") != ROUTER_REQUEST_TIMEOUT_SECONDS
@@ -1607,8 +1667,8 @@ def certify_router(
             or router_stats["upstream_failures"] != 0
         ):
             raise DirectKimiWorkerError("router_stats_invalid")
-        if c64_profile and (
-            router_stats.get("capacity_profile") != C64_CAPACITY_PROFILE
+        if profiled_capacity and (
+            router_stats.get("capacity_profile") != capacity_profile
             or router_stats.get("endpoint_identifier") != manifest["router"]["endpoint_identifier"]
             or router_stats.get("configured_capacity") != capacity
             or router_stats.get("active_chat_requests") != 0
@@ -1632,8 +1692,30 @@ def certify_router(
             or router_stats["tracked_sessions"] > router_stats["chat_requests"]
         ):
             raise DirectKimiWorkerError("router_stats_invalid")
+        if w2_profile and (
+            router_stats.get("configured_per_worker_capacity") != W2_PER_WORKER_CAPACITY
+            or router_stats.get("active_forwarded_requests") != 0
+            or type(router_stats.get("max_active_forwarded_requests")) is not int
+            or not 1 <= router_stats["max_active_forwarded_requests"] <= W2_FORWARDED_CAPACITY
+            or not isinstance(worker_active_counts, list)
+            or len(worker_active_counts) != EXPECTED_ENDPOINTS
+            or any(type(value) is not int or value != 0 for value in worker_active_counts)
+            or not isinstance(worker_max_active_counts, list)
+            or len(worker_max_active_counts) != EXPECTED_ENDPOINTS
+            or any(
+                type(value) is not int or not 0 <= value <= W2_PER_WORKER_CAPACITY for value in worker_max_active_counts
+            )
+            or router_stats.get("worker_queue_timeouts") != 0
+            or router_stats.get("upstream_http_429") != 0
+            or router_stats.get("upstream_http_5xx") != 0
+            or router_stats["max_active_forwarded_requests"] > router_stats["max_active_requests"]
+            or router_stats["max_active_forwarded_requests"] > sum(worker_max_active_counts)
+            or (capacity_smoke and router_stats["max_active_forwarded_requests"] != W2_FORWARDED_CAPACITY)
+            or (capacity_smoke and any(value != W2_PER_WORKER_CAPACITY for value in worker_max_active_counts))
+        ):
+            raise DirectKimiWorkerError("router_stats_invalid")
         receipt = {
-            "schema_version": 3 if c64_profile else 2,
+            "schema_version": 4 if w2_profile else 3 if c64_profile else 2,
             "kind": "direct-kimi-router-final",
             "state": "passed",
             "eval_run_identity_sha256": eval_run_identity_sha256,
@@ -1641,7 +1723,7 @@ def certify_router(
             "worker_manifest_sha256": manifest_sha256,
             "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
             "active_workers": active_workers,
-            "implementation": ROUTER_IMPLEMENTATION,
+            "implementation": manifest["router"]["implementation"],
             "implementation_sha256": manifest["router"]["implementation_sha256"],
             "policy": ROUTER_POLICY,
             "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
@@ -1653,10 +1735,10 @@ def certify_router(
             "worker_request_counts_sha256": _sha256_bytes((json.dumps(counts, separators=(",", ":")) + "\n").encode()),
             "source_generation_revalidated": True,
         }
-        if c64_profile:
+        if profiled_capacity:
             receipt.update(
                 {
-                    "capacity_profile": C64_CAPACITY_PROFILE,
+                    "capacity_profile": capacity_profile,
                     "endpoint_identifier": manifest["router"]["endpoint_identifier"],
                     "configured_capacity": capacity,
                     "max_active_chat_requests": router_stats["max_active_chat_requests"],
@@ -1665,6 +1747,21 @@ def certify_router(
                     "route_tracking_overflows": router_stats["route_tracking_overflows"],
                     "cross_route_anomalies": router_stats["cross_route_anomalies"],
                     "tracked_sessions": router_stats["tracked_sessions"],
+                }
+            )
+        if w2_profile:
+            assert isinstance(worker_max_active_counts, list)
+            receipt.update(
+                {
+                    "configured_per_worker_capacity": W2_PER_WORKER_CAPACITY,
+                    "active_forwarded_requests": router_stats["active_forwarded_requests"],
+                    "max_active_forwarded_requests": router_stats["max_active_forwarded_requests"],
+                    "worker_max_active_request_counts_sha256": _sha256_bytes(
+                        (json.dumps(worker_max_active_counts, separators=(",", ":")) + "\n").encode()
+                    ),
+                    "worker_queue_timeouts": router_stats["worker_queue_timeouts"],
+                    "upstream_http_429": router_stats["upstream_http_429"],
+                    "upstream_http_5xx": router_stats["upstream_http_5xx"],
                 }
             )
         held.revalidate()
@@ -1691,7 +1788,7 @@ def main() -> None:
     prepare.add_argument("--ports-output", type=Path, required=True)
     prepare.add_argument(
         "--capacity-profile",
-        choices=(LEGACY_CAPACITY_PROFILE, C64_CAPACITY_PROFILE),
+        choices=(LEGACY_CAPACITY_PROFILE, C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE),
         default=DEFAULT_CAPACITY_PROFILE,
     )
     prepare.add_argument("--endpoint-identifier")

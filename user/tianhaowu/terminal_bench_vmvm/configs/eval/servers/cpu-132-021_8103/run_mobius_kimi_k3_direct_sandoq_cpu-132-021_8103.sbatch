@@ -114,7 +114,7 @@ export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_d
     --manifest "$manifest" \
     --urls-output "$urls_file" \
     --ports-output "$ports_file" \
-    --capacity-profile sandoq-c64-v1 \
+    --capacity-profile sandoq-c64-w2-v1 \
     --endpoint-identifier cpu-132-021_8103 \
     --probe
 manifest_sha256=$(sha256sum -- "$manifest" | cut -d' ' -f1)
@@ -156,7 +156,7 @@ setsid "$x86_uv" run --no-project --offline --python "$python_bin" \
     --host 127.0.0.1 \
     --port "$router_port" \
     --metrics-port "$metrics_port" \
-    --capacity-profile sandoq-c64-v1 \
+    --capacity-profile sandoq-c64-w2-v1 \
     --endpoint-identifier cpu-132-021_8103 >"$router_log" 2>&1 &
 router_pid=$!
 

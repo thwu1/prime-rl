@@ -500,7 +500,7 @@ def _direct_kimi_identity(*, smoke: bool) -> dict:
         "endpoint_bundle_sha256": "a" * 64,
         "base_url": "http://127.0.0.1:23456/v1",
         "router": {
-            "implementation": "direct-kimi-transparent-v1",
+            "implementation": "direct-kimi-transparent-v2",
             "implementation_sha256": "c" * 64,
             "policy": "consistent_hash",
             "request_id_headers": ["x-session-id"],
@@ -537,6 +537,21 @@ def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage() -> None:
             _validate_identity_shape(mismatched)
 
 
+def test_direct_kimi_historical_tb4_identity_requires_pinned_v1_router_hash() -> None:
+    historical = _direct_kimi_identity(smoke=False)
+    historical["deployment"]["router"].update(
+        {
+            "implementation": "direct-kimi-transparent-v1",
+            "implementation_sha256": eval_run_identity.KIMI_HISTORICAL_ROUTER_SHA256,
+        }
+    )
+    assert _validate_identity_shape(historical) == historical
+
+    historical["deployment"]["router"]["implementation_sha256"] = "0" * 64
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(historical)
+
+
 def test_direct_kimi_tb4_sandoq_concurrency_is_plan_bound() -> None:
     role = "kimi-direct-tb4"
     assert eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 25, 4) == 4
@@ -551,7 +566,7 @@ def test_direct_kimi_tb4_sandoq_concurrency_is_plan_bound() -> None:
             )
 
 
-def test_direct_kimi_production_identity_binds_c64_router_and_launch() -> None:
+def test_direct_kimi_production_identity_binds_w2_router_and_launch() -> None:
     identity = _direct_kimi_identity(smoke=False)
     identity["role"] = "kimi-direct-mobius"
     identity["contract"]["harness"] = {
@@ -595,12 +610,19 @@ def test_direct_kimi_production_identity_binds_c64_router_and_launch() -> None:
     identity["deployment"]["router"].update(
         {
             "provider_concurrency": 64,
-            "capacity_profile": "sandoq-c64-v1",
+            "capacity_profile": "sandoq-c64-w2-v1",
             "endpoint_identifier": "cpu-132-021_8103",
+            "per_worker_capacity": 2,
         }
     )
 
     assert _validate_identity_shape(identity) == identity
+
+    old_profile = json.loads(json.dumps(identity))
+    old_profile["deployment"]["router"]["capacity_profile"] = "sandoq-c64-v1"
+    old_profile["deployment"]["router"].pop("per_worker_capacity")
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(old_profile)
 
     identity["deployment"]["promotion_certificate"] = None
     with pytest.raises(EvalIdentityError, match="schema_invalid"):
@@ -810,8 +832,9 @@ def test_direct_kimi_production_launch_binds_config_selector_and_capacity(tmp_pa
     manifest_sha256 = "3" * 64
     spec_sha256 = "4" * 64
     endpoints_sha256 = "5" * 64
+    router_sha256 = "6" * 64
     unsigned = {
-        "schema_version": 1,
+        "schema_version": 2,
         "kind": "kimi-k3-max-sandoq-launch",
         "state": "authorized",
         "model": "Kimi-K3",
@@ -822,10 +845,13 @@ def test_direct_kimi_production_launch_binds_config_selector_and_capacity(tmp_pa
             "worker_manifest": {"sha256": manifest_sha256},
         },
         "deployment": {
-            "capacity_profile": "sandoq-c64-v1",
+            "capacity_profile": "sandoq-c64-w2-v1",
             "endpoint_identifier": "cpu-132-021_8103",
+            "per_worker_capacity": 2,
+            "max_forwarded_capacity": 48,
             "source_spec_sha256": spec_sha256,
             "endpoint_bundle_sha256": endpoints_sha256,
+            "router_implementation_sha256": router_sha256,
             "worker_count": 24,
         },
         "execution": {
@@ -869,6 +895,7 @@ def test_direct_kimi_production_launch_binds_config_selector_and_capacity(tmp_pa
         worker_manifest_sha256=manifest_sha256,
         source_spec_sha256=spec_sha256,
         endpoint_bundle_sha256=endpoints_sha256,
+        router_implementation_sha256=router_sha256,
         concurrency=37,
     )
 
@@ -881,6 +908,7 @@ def test_direct_kimi_production_launch_binds_config_selector_and_capacity(tmp_pa
             worker_manifest_sha256=manifest_sha256,
             source_spec_sha256=spec_sha256,
             endpoint_bundle_sha256=endpoints_sha256,
+            router_implementation_sha256=router_sha256,
             concurrency=38,
         )
 
@@ -953,12 +981,11 @@ def test_sandoq_lease_profile_is_role_and_model_bound() -> None:
             "standard",
             "1h",
         )
-    assert eval_run_identity._sandoq_lease_contract(
-        "Kimi-K3", "kimi-direct-smoke"
-    ) == ("standard", "1h")
-    assert eval_run_identity._sandoq_lease_contract(
-        "Kimi-K3", "kimi-direct-smoke", native_miniswe=True
-    ) == ("kimi-tb4-long", "12h")
+    assert eval_run_identity._sandoq_lease_contract("Kimi-K3", "kimi-direct-smoke") == ("standard", "1h")
+    assert eval_run_identity._sandoq_lease_contract("Kimi-K3", "kimi-direct-smoke", native_miniswe=True) == (
+        "kimi-tb4-long",
+        "12h",
+    )
     assert eval_run_identity._sandoq_lease_contract("Qwen3", "tb4") == ("standard", "1h")
     qwen = _sandoq_identity()
     qwen["execution"]["sandoq_environment"].update(
@@ -1415,9 +1442,7 @@ def test_kimi_sandoq_host_contract_uses_approved_timeout_and_zero_retry(
 
 
 @pytest.mark.parametrize(("provider", "task_count"), [("sandoq", 25), ("vmvm", 38)])
-def test_kimi_miniswe_pass_at_one_has_zero_whole_rollout_retries(
-    provider: str, task_count: int
-) -> None:
+def test_kimi_miniswe_pass_at_one_has_zero_whole_rollout_retries(provider: str, task_count: int) -> None:
     config = _resolved_config()
     config["harness"]["id"] = "mini-swe-agent"
     config["harness"]["runtime"]["type"] = provider

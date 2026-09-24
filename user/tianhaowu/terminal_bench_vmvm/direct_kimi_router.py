@@ -16,7 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-IMPLEMENTATION = "direct-kimi-transparent-v1"
+IMPLEMENTATION = "direct-kimi-transparent-v2"
 EXPECTED_WORKERS = 24
 POLICY = "consistent_hash"
 SESSION_HEADER = "x-session-id"
@@ -25,9 +25,16 @@ WORKER_QUEUE_TIMEOUT_SECONDS = 43_200
 RETRIES = 0
 LEGACY_CAPACITY_PROFILE = "legacy-c24"
 C64_CAPACITY_PROFILE = "sandoq-c64-v1"
+C64_W2_CAPACITY_PROFILE = "sandoq-c64-w2-v1"
 CAPACITY_PROFILES = {
     LEGACY_CAPACITY_PROFILE: 24,
     C64_CAPACITY_PROFILE: 64,
+    C64_W2_CAPACITY_PROFILE: 64,
+}
+PER_WORKER_CAPACITY_PROFILES = {
+    LEGACY_CAPACITY_PROFILE: 1,
+    C64_CAPACITY_PROFILE: 1,
+    C64_W2_CAPACITY_PROFILE: 2,
 }
 DEFAULT_CAPACITY_PROFILE = LEGACY_CAPACITY_PROFILE
 MAX_CONCURRENT_REQUESTS = CAPACITY_PROFILES[DEFAULT_CAPACITY_PROFILE]
@@ -53,6 +60,13 @@ class RouterError(ValueError):
 def capacity_for_profile(value: str) -> int:
     try:
         return CAPACITY_PROFILES[value]
+    except (KeyError, TypeError) as error:
+        raise RouterError("capacity_profile_invalid") from error
+
+
+def per_worker_capacity_for_profile(value: str) -> int:
+    try:
+        return PER_WORKER_CAPACITY_PROFILES[value]
     except (KeyError, TypeError) as error:
         raise RouterError("capacity_profile_invalid") from error
 
@@ -145,15 +159,16 @@ class RouterState:
         )
         self.max_concurrent_requests = capacity
         self.capacity = threading.BoundedSemaphore(capacity)
+        per_worker_capacity = per_worker_capacity_for_profile(capacity_profile)
+        self.per_worker_capacity = per_worker_capacity
         if worker_queue_timeout_seconds <= 0:
             raise RouterError("worker_queue_timeout_invalid")
         self.worker_queue_timeout_seconds = worker_queue_timeout_seconds
-        # A deployment worker admits one generation at a time.  Session
-        # affinity can map several concurrent trajectories to the same worker,
-        # so serialize those requests locally instead of forwarding a burst
-        # that the worker rejects with HTTP 429.  The mapping itself remains
-        # deterministic and sticky for every turn of a trajectory.
-        self.worker_capacity = tuple(threading.BoundedSemaphore(1) for _ in workers)
+        # Bound each deployment worker independently.  Session affinity can
+        # map several concurrent trajectories to the same worker, so excess
+        # requests wait locally instead of being forwarded as an unbounded
+        # burst.  The mapping remains deterministic and sticky across turns.
+        self.worker_capacity = tuple(threading.BoundedSemaphore(per_worker_capacity) for _ in workers)
         self.lock = threading.Lock()
         self.active = 0
         self.max_active = 0
@@ -163,12 +178,19 @@ class RouterState:
         self.chat = 0
         self.missing_session = 0
         self.upstream_failures = 0
+        self.upstream_http_429 = 0
+        self.upstream_http_5xx = 0
+        self.worker_queue_timeouts = 0
         self.capacity_rejections = 0
         self.route_tracking_overflows = 0
         self.cross_route_anomalies = 0
         self.session_routes: dict[bytes, int] = {}
         self.worker_session_counts = [0] * len(workers)
         self.worker_requests = [0] * len(workers)
+        self.worker_active_requests = [0] * len(workers)
+        self.worker_max_active_requests = [0] * len(workers)
+        self.active_forwarded_requests = 0
+        self.max_active_forwarded_requests = 0
 
     def worker_for_session(self, session_id: str) -> int:
         """Return a sticky, bounded-load worker assignment for a session."""
@@ -199,11 +221,31 @@ class RouterState:
     def acquire_worker(self, index: int) -> bool:
         if not 0 <= index < len(self.worker_capacity):
             raise RouterError("worker_index_invalid")
-        return self.worker_capacity[index].acquire(timeout=self.worker_queue_timeout_seconds)
+        acquired = self.worker_capacity[index].acquire(timeout=self.worker_queue_timeout_seconds)
+        if acquired:
+            with self.lock:
+                self.active_forwarded_requests += 1
+                self.max_active_forwarded_requests = max(
+                    self.max_active_forwarded_requests,
+                    self.active_forwarded_requests,
+                )
+                self.worker_active_requests[index] += 1
+                self.worker_max_active_requests[index] = max(
+                    self.worker_max_active_requests[index],
+                    self.worker_active_requests[index],
+                )
+        return acquired
 
     def release_worker(self, index: int) -> None:
         if not 0 <= index < len(self.worker_capacity):
             raise RouterError("worker_index_invalid")
+        with self.lock:
+            if self.worker_active_requests[index] < 1:
+                raise RouterError("worker_capacity_release_invalid")
+            if self.active_forwarded_requests < 1:  # pragma: no cover - guarded by the per-worker count
+                raise RouterError("worker_capacity_release_invalid")
+            self.active_forwarded_requests -= 1
+            self.worker_active_requests[index] -= 1
         self.worker_capacity[index].release()
 
     def acquire(self, *, chat: bool, index: int | None, session_id: str | None = None) -> bool:
@@ -212,7 +254,7 @@ class RouterState:
                 self.capacity_rejections += 1
             return False
         with self.lock:
-            if self.capacity_profile == C64_CAPACITY_PROFILE and chat:
+            if self.capacity_profile in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE) and chat:
                 if session_id is None or index is None:
                     self.capacity.release()
                     raise RouterError("route_tracking_invalid")
@@ -255,6 +297,17 @@ class RouterState:
         with self.lock:
             self.upstream_failures += 1
 
+    def record_upstream_status(self, status: int) -> None:
+        with self.lock:
+            if status == 429:
+                self.upstream_http_429 += 1
+            elif 500 <= status <= 599:
+                self.upstream_http_5xx += 1
+
+    def record_worker_queue_timeout(self) -> None:
+        with self.lock:
+            self.worker_queue_timeouts += 1
+
     def snapshot(self) -> dict[str, Any]:
         with self.lock:
             snapshot = {
@@ -289,6 +342,30 @@ class RouterState:
                         "route_tracking_overflows": self.route_tracking_overflows,
                         "cross_route_anomalies": self.cross_route_anomalies,
                         "tracked_sessions": len(self.session_routes),
+                    }
+                )
+            elif self.capacity_profile == C64_W2_CAPACITY_PROFILE:
+                snapshot.update(
+                    {
+                        "schema_version": 3,
+                        "capacity_profile": self.capacity_profile,
+                        "endpoint_identifier": self.endpoint_identifier,
+                        "configured_capacity": self.max_concurrent_requests,
+                        "configured_per_worker_capacity": self.per_worker_capacity,
+                        "active_forwarded_requests": self.active_forwarded_requests,
+                        "max_active_forwarded_requests": self.max_active_forwarded_requests,
+                        "active_chat_requests": self.active_chat,
+                        "max_active_chat_requests": self.max_active_chat,
+                        "capacity_rejections": self.capacity_rejections,
+                        "queue_overflow_rejections": self.capacity_rejections,
+                        "route_tracking_overflows": self.route_tracking_overflows,
+                        "cross_route_anomalies": self.cross_route_anomalies,
+                        "tracked_sessions": len(self.session_routes),
+                        "worker_active_request_counts": list(self.worker_active_requests),
+                        "worker_max_active_request_counts": list(self.worker_max_active_requests),
+                        "worker_queue_timeouts": self.worker_queue_timeouts,
+                        "upstream_http_429": self.upstream_http_429,
+                        "upstream_http_5xx": self.upstream_http_5xx,
                     }
                 )
             return snapshot
@@ -389,6 +466,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         try:
             worker_acquired = self.state.acquire_worker(worker)
             if not worker_acquired:
+                self.state.record_worker_queue_timeout()
                 _json_error(self, 429, "worker_queue_timeout")
                 return
             host, port = self.state.workers[worker]
@@ -402,6 +480,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             connection = http.client.HTTPConnection(host, port, timeout=REQUEST_TIMEOUT_SECONDS)
             connection.request("POST" if body is not None else "GET", self.path, body=body, headers=headers)
             response = connection.getresponse()
+            self.state.record_upstream_status(response.status)
             self.send_response(response.status, response.reason)
             has_length = False
             for key, value in response.getheaders():
@@ -457,6 +536,16 @@ class MetricsHandler(BaseHTTPRequestHandler):
             f"direct_kimi_router_upstream_failures {snapshot['upstream_failures']}\n"
             f"direct_kimi_router_capacity_rejections {snapshot.get('capacity_rejections', 0)}\n"
             f"direct_kimi_router_cross_route_anomalies {snapshot.get('cross_route_anomalies', 0)}\n"
+            f"direct_kimi_router_configured_per_worker_capacity "
+            f"{snapshot.get('configured_per_worker_capacity', state.per_worker_capacity)}\n"
+            f"direct_kimi_router_active_forwarded_requests {snapshot.get('active_forwarded_requests', 0)}\n"
+            f"direct_kimi_router_max_active_forwarded_requests "
+            f"{snapshot.get('max_active_forwarded_requests', 0)}\n"
+            f"direct_kimi_router_max_active_requests_on_worker "
+            f"{max(snapshot.get('worker_max_active_request_counts', [0]))}\n"
+            f"direct_kimi_router_worker_queue_timeouts {snapshot.get('worker_queue_timeouts', 0)}\n"
+            f"direct_kimi_router_upstream_http_429 {snapshot.get('upstream_http_429', 0)}\n"
+            f"direct_kimi_router_upstream_http_5xx {snapshot.get('upstream_http_5xx', 0)}\n"
         ).encode()
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; version=0.0.4")

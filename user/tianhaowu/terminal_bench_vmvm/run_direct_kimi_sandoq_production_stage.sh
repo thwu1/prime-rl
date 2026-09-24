@@ -179,12 +179,22 @@ from pathlib import Path
 from direct_kimi_workers import validate_saved_manifest
 
 manifest = validate_saved_manifest(Path(sys.argv[1]))
-print(manifest["source_spec_sha256"], manifest["endpoint_bundle_sha256"], sep="\t")
+router = manifest["router"]
+print(
+    manifest["source_spec_sha256"],
+    manifest["endpoint_bundle_sha256"],
+    router.get("capacity_profile", "-"),
+    router.get("per_worker_capacity", 0),
+    sep="\t",
+)
 PY
 )
-IFS=$'\t' read -r direct_spec_sha256 direct_endpoint_bundle_sha256 manifest_extra <<< "$manifest_metadata"
+IFS=$'\t' read -r direct_spec_sha256 direct_endpoint_bundle_sha256 direct_capacity_profile \
+    direct_per_worker_capacity manifest_extra <<< "$manifest_metadata"
 [[ "$direct_spec_sha256" =~ ^[0-9a-f]{64}$ \
     && "$direct_endpoint_bundle_sha256" =~ ^[0-9a-f]{64}$ \
+    && "$direct_capacity_profile" == sandoq-c64-w2-v1 \
+    && "$direct_per_worker_capacity" == 2 \
     && -z "$manifest_extra" \
     && "$manifest_metadata" != *$'\n'* ]] \
     || blocked worker_manifest_invalid
@@ -219,6 +229,7 @@ identity_args=(
     --direct-router-policy consistent_hash
     --direct-request-id-headers x-session-id
     --direct-provider-concurrency 64
+    --direct-per-worker-capacity "$direct_per_worker_capacity"
     --direct-request-timeout-seconds 43200
     --direct-retries 0
     --direct-worker-count 24

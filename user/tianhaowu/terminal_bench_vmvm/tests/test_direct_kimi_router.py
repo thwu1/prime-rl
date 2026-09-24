@@ -9,7 +9,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import pytest
 from direct_kimi_router import (
     C64_CAPACITY_PROFILE,
+    C64_W2_CAPACITY_PROFILE,
     ApiHandler,
+    MetricsHandler,
     RouterError,
     RouterServer,
     RouterState,
@@ -55,6 +57,35 @@ class _BlockingBackend(BaseHTTPRequestHandler):
         self.end_headers()
 
 
+class _CountingBlockingBackend(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+    lock = threading.Lock()
+    active = 0
+    max_active = 0
+    entered_two = threading.Event()
+    release = threading.Event()
+
+    def log_message(self, _format: str, *_args: object) -> None:
+        return
+
+    def do_POST(self) -> None:  # noqa: N802
+        length = int(self.headers["Content-Length"])
+        self.rfile.read(length)
+        with type(self).lock:
+            type(self).active += 1
+            type(self).max_active = max(type(self).max_active, type(self).active)
+            if type(self).active == 2:
+                type(self).entered_two.set()
+        try:
+            assert type(self).release.wait(timeout=5)
+            self.send_response(200)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+        finally:
+            with type(self).lock:
+                type(self).active -= 1
+
+
 class _TestServer(ThreadingHTTPServer):
     request_queue_size = 128
 
@@ -72,6 +103,24 @@ def _session_for(index: int) -> str:
         if worker_index(value) == index:
             return value
     raise AssertionError("session not found")
+
+
+def _metrics(state: RouterState) -> str:
+    server = RouterServer(("127.0.0.1", 0), MetricsHandler, state)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        connection = http.client.HTTPConnection("127.0.0.1", server.server_address[1], timeout=5)
+        connection.request("GET", "/metrics")
+        response = connection.getresponse()
+        assert response.status == 200
+        raw = response.read().decode()
+        connection.close()
+        return raw
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
 
 
 def test_transparent_router_preserves_max_body_and_streams_without_retry() -> None:
@@ -227,6 +276,128 @@ def test_same_worker_requests_queue_while_other_workers_remain_available() -> No
     assert second_acquired.wait(timeout=1)
     thread.join(timeout=1)
     assert not thread.is_alive()
+
+
+def test_c64_w2_profile_admits_two_requests_per_worker_and_reports_high_water() -> None:
+    workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
+    state = RouterState(
+        workers,
+        capacity_profile=C64_W2_CAPACITY_PROFILE,
+        endpoint_identifier="cpu-132-021_8103",
+        worker_queue_timeout_seconds=0.01,
+    )
+
+    for worker in range(24):
+        assert state.acquire_worker(worker)
+        assert state.acquire_worker(worker)
+    assert not state.acquire_worker(0)
+    snapshot = state.snapshot()
+    assert snapshot["schema_version"] == 3
+    assert snapshot["capacity_profile"] == C64_W2_CAPACITY_PROFILE
+    assert snapshot["configured_per_worker_capacity"] == 2
+    assert snapshot["active_forwarded_requests"] == 48
+    assert snapshot["max_active_forwarded_requests"] == 48
+    assert snapshot["worker_active_request_counts"] == [2] * 24
+    assert snapshot["worker_max_active_request_counts"] == [2] * 24
+    assert snapshot["worker_queue_timeouts"] == 0
+    assert snapshot["upstream_http_429"] == 0
+    assert snapshot["upstream_http_5xx"] == 0
+    metrics = _metrics(state)
+    assert "direct_kimi_router_configured_per_worker_capacity 2\n" in metrics
+    assert "direct_kimi_router_active_forwarded_requests 48\n" in metrics
+    assert "direct_kimi_router_max_active_forwarded_requests 48\n" in metrics
+    assert "direct_kimi_router_max_active_requests_on_worker 2\n" in metrics
+    assert "direct_kimi_router_worker_queue_timeouts 0\n" in metrics
+    assert "direct_kimi_router_upstream_http_429 0\n" in metrics
+    assert "direct_kimi_router_upstream_http_5xx 0\n" in metrics
+
+    for worker in range(24):
+        state.release_worker(worker)
+        state.release_worker(worker)
+    snapshot = state.snapshot()
+    assert snapshot["active_forwarded_requests"] == 0
+    assert snapshot["max_active_forwarded_requests"] == 48
+    assert snapshot["worker_active_request_counts"] == [0] * 24
+    assert snapshot["worker_max_active_request_counts"] == [2] * 24
+
+
+def test_existing_c64_profile_retains_one_request_per_worker_and_v2_schema() -> None:
+    workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
+    state = RouterState(
+        workers,
+        capacity_profile=C64_CAPACITY_PROFILE,
+        endpoint_identifier="cpu-132-021_8103",
+        worker_queue_timeout_seconds=0.01,
+    )
+
+    assert state.acquire_worker(0)
+    assert not state.acquire_worker(0)
+    state.release_worker(0)
+    snapshot = state.snapshot()
+    assert snapshot["schema_version"] == 2
+    assert "configured_per_worker_capacity" not in snapshot
+    assert "worker_active_request_counts" not in snapshot
+    assert "worker_max_active_request_counts" not in snapshot
+
+
+def test_c64_w2_http_path_forwards_two_same_worker_requests_and_queues_third() -> None:
+    _CountingBlockingBackend.active = 0
+    _CountingBlockingBackend.max_active = 0
+    _CountingBlockingBackend.entered_two = threading.Event()
+    _CountingBlockingBackend.release = threading.Event()
+    backend, backend_thread = _server(_CountingBlockingBackend)
+    workers = tuple(("127.0.0.1", backend.server_address[1]) for _ in range(24))
+    state = RouterState(
+        workers,
+        capacity_profile=C64_W2_CAPACITY_PROFILE,
+        endpoint_identifier="cpu-132-021_8103",
+    )
+    router = RouterServer(("127.0.0.1", 0), ApiHandler, state)
+    router_thread = threading.Thread(target=router.serve_forever, daemon=True)
+    router_thread.start()
+    statuses: list[int] = []
+    session = _session_for(0)
+
+    def request() -> None:
+        connection = http.client.HTTPConnection("127.0.0.1", router.server_address[1], timeout=5)
+        connection.request(
+            "POST",
+            "/v1/chat/completions",
+            body=b"{}",
+            headers={"Content-Length": "2", "x-session-id": session},
+        )
+        response = connection.getresponse()
+        statuses.append(response.status)
+        response.read()
+        connection.close()
+
+    threads = [threading.Thread(target=request) for _index in range(3)]
+    try:
+        for thread in threads:
+            thread.start()
+        assert _CountingBlockingBackend.entered_two.wait(timeout=2)
+        deadline = time.monotonic() + 2
+        while state.snapshot()["active_requests"] != 3 and time.monotonic() < deadline:
+            time.sleep(0.01)
+        snapshot = state.snapshot()
+        assert snapshot["active_requests"] == 3
+        assert snapshot["active_forwarded_requests"] == 2
+        assert snapshot["max_active_forwarded_requests"] == 2
+        assert _CountingBlockingBackend.max_active == 2
+    finally:
+        _CountingBlockingBackend.release.set()
+        for thread in threads:
+            thread.join(timeout=5)
+        router.shutdown()
+        backend.shutdown()
+        router.server_close()
+        backend.server_close()
+        router_thread.join(timeout=5)
+        backend_thread.join(timeout=5)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert sorted(statuses) == [200, 200, 200]
+    assert state.snapshot()["worker_queue_timeouts"] == 0
 
 
 def test_new_sessions_fill_workers_evenly_and_remain_sticky() -> None:

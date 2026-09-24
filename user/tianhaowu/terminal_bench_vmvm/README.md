@@ -1083,12 +1083,14 @@ direct workers before starting its loopback router.
 ### Bounded direct-Kimi c64 capacity gate
 
 The router remains on the legacy `legacy-c24` profile unless a caller
-explicitly selects `sandoq-c64-v1`. The latter is fixed at 64 requests, accepts
-only endpoint identifier `cpu-132-021_8103`, has no overflow queue or retry,
-and is restricted to the Sandoq `kimi-direct-capacity-smoke` role. Values above
-64 and unbounded values are rejected. A production launcher must not select
-this profile until it has validated a capacity certificate from the exact
-source, config, worker manifest, and endpoint namespace it will use.
+explicitly selects `sandoq-c64-w2-v1`. The latter admits 64 client requests,
+permits two forwarded requests per each of the 24 workers (48 model requests
+at once), accepts only endpoint identifier `cpu-132-021_8103`, and has no
+overflow queue or retry. It is restricted to the Sandoq
+`kimi-direct-capacity-smoke` role. Values above 64 and unbounded values are
+rejected. A production launcher must not select this profile until it has
+validated a capacity certificate from the exact source, config, worker
+manifest, and endpoint namespace it will use.
 
 The checked-in `mobius_kimi_k3_sandoq_capacity64.example.toml` is a template,
 not a runnable selector. Materialize the 64-task selector content-blind from
@@ -1108,15 +1110,17 @@ uv run --no-project python \
 
 Set the four `KIMI_SANDOQ_CAPACITY_*` config/selector path and SHA-256
 variables, choose `KIMI_SANDOQ_STAGE=capacity-smoke`, and submit the
-server-scoped launcher with an exact two-hour wall only after that review. The
+server-scoped launcher with an exact six-hour wall only after that review. The
 stage runs one aggregate-only trace per selected task, two 64-request router
 probe waves, and cleanup certification. It publishes
 `direct_kimi_capacity_certificate.json` only when router request and chat
-overlap both reach 64; Sandoq assignment-order, measured-assignment, and outer
-session high-water marks all reach 64; every assignment and outer session is
-cleaned; and queue overflow, retry, cross-route, cleanup, and trace anomaly
-counts are zero. The certificate stores hashes and aggregate counts, never
-task identifiers, prompts, responses, or raw errors.
+overlap both reach 64; actual model forwarding reaches 48 with every worker
+reaching its cap of two; Sandoq assignment-order, measured-assignment, and
+outer-session high-water marks all reach 64; every assignment and outer
+session is cleaned; and queue timeout, upstream HTTP 429/5xx, retry,
+cross-route, cleanup, and trace anomaly counts are zero. The certificate stores
+hashes and aggregate counts, never task identifiers, prompts, responses, or
+raw errors.
 
 Consumers validate the write-once certificate and its live artifacts before
 using the measured cap:

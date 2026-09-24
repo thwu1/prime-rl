@@ -103,6 +103,11 @@ SANDOQ_UPSTREAM_INVENTORY_SHA256 = "a5f4868eaf1f6ce678796fe9479fc0ee8d3fa103eabc
 KIMI_SANDOQ_FALLBACK_ROLE = "kimi-direct-tb4-sandoq-fallback-diagnostic"
 KIMI_CAPACITY_SMOKE_ROLE = "kimi-direct-capacity-smoke"
 KIMI_PRODUCTION_ROLE = "kimi-direct-mobius"
+KIMI_ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v2"
+KIMI_HISTORICAL_ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v1"
+KIMI_HISTORICAL_ROUTER_SHA256 = "7fd5bc463bd0fa86567c21b72e2b4988fbb42aeca4c0a7d40959f8466c8f820d"
+KIMI_W2_CAPACITY_PROFILE = "sandoq-c64-w2-v1"
+KIMI_W2_PER_WORKER_CAPACITY = 2
 KIMI_MINISWE_VERSION = "2.4.6"
 KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT = "oci-runner-firecracker"
 KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256 = "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df"
@@ -173,10 +178,7 @@ def _direct_kimi_expected_concurrency(
         # transparent router at its independently certified 24-request
         # capacity, but allow a lower rollout concurrency when live endpoint
         # admission requires it.
-        if (
-            not _validate_positive_integer(configured_concurrency)
-            or int(configured_concurrency) > 24
-        ):
+        if not _validate_positive_integer(configured_concurrency) or int(configured_concurrency) > 24:
             raise EvalIdentityError("direct_kimi_tb4_scope_invalid")
         return int(configured_concurrency)
     return 24 if sandbox_provider == "sandoq" else 4
@@ -336,8 +338,7 @@ def _sandoq_lease_contract(
     native_miniswe: bool = False,
 ) -> tuple[str, str]:
     if expected_model == "Kimi-K3" and (
-        role in KIMI_SANDOQ_LONG_LEASE_ROLES
-        or (role == "kimi-direct-smoke" and native_miniswe)
+        role in KIMI_SANDOQ_LONG_LEASE_ROLES or (role == "kimi-direct-smoke" and native_miniswe)
     ):
         return "kimi-tb4-long", "12h"
     return "standard", "1h"
@@ -469,10 +470,7 @@ def validate_kimi_retry_contract(config: dict[str, Any]) -> dict[str, Any]:
     runtime = harness.get("runtime") if isinstance(harness, dict) else None
     native_sandoq_miniswe = miniswe_agent and isinstance(runtime, dict) and runtime.get("type") == "sandoq"
     union_vmvm_miniswe = (
-        miniswe_agent
-        and isinstance(runtime, dict)
-        and runtime.get("type") == "vmvm"
-        and config.get("num_tasks") == 38
+        miniswe_agent and isinstance(runtime, dict) and runtime.get("type") == "vmvm" and config.get("num_tasks") == 38
     )
     # A Mini-SWE pass@1 trajectory is one model rollout regardless of sandbox
     # provider. The sealed 38-task VMVM union lane is distinct from the legacy
@@ -614,6 +612,7 @@ def _validate_direct_kimi_production_launch(
     worker_manifest_sha256: str,
     source_spec_sha256: str,
     endpoint_bundle_sha256: str,
+    router_implementation_sha256: str,
     concurrency: int,
 ) -> dict[str, Any]:
     _validate_artifact_shape(record)
@@ -626,7 +625,7 @@ def _validate_direct_kimi_production_launch(
     execution = value.get("execution")
     capture = value.get("capture")
     if (
-        value.get("schema_version") != 1
+        value.get("schema_version") != 2
         or value.get("kind") != "kimi-k3-max-sandoq-launch"
         or value.get("state") != "authorized"
         or value.get("model") != "Kimi-K3"
@@ -640,10 +639,13 @@ def _validate_direct_kimi_production_launch(
         or not isinstance(inputs.get("worker_manifest"), dict)
         or inputs["worker_manifest"].get("sha256") != worker_manifest_sha256
         or not isinstance(deployment, dict)
-        or deployment.get("capacity_profile") != "sandoq-c64-v1"
+        or deployment.get("capacity_profile") != KIMI_W2_CAPACITY_PROFILE
+        or deployment.get("per_worker_capacity") != KIMI_W2_PER_WORKER_CAPACITY
+        or deployment.get("max_forwarded_capacity") != 48
         or deployment.get("endpoint_identifier") != "cpu-132-021_8103"
         or deployment.get("source_spec_sha256") != source_spec_sha256
         or deployment.get("endpoint_bundle_sha256") != endpoint_bundle_sha256
+        or deployment.get("router_implementation_sha256") != router_implementation_sha256
         or deployment.get("worker_count") != 24
         or not isinstance(execution, dict)
         or execution.get("requested_concurrency") != concurrency
@@ -2226,8 +2228,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             base_url_port = parsed_base_url.port
         except ValueError as error:
             raise EvalIdentityError("eval_run_identity_schema_invalid") from error
+        capacity_role = role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE}
+        router_implementation = router.get("implementation") if isinstance(router, dict) else None
+        router_implementation_sha256 = router.get("implementation_sha256") if isinstance(router, dict) else None
         expected_router = {
-            "implementation": "direct-kimi-transparent-v1",
+            "implementation": router_implementation,
             "implementation_sha256": router.get("implementation_sha256") if isinstance(router, dict) else None,
             "policy": "consistent_hash",
             "request_id_headers": ["x-session-id"],
@@ -2236,13 +2241,23 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "retries": 0,
             "worker_count": 24,
         }
-        if role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE}:
+        if capacity_role:
             expected_router.update(
                 {
-                    "capacity_profile": "sandoq-c64-v1",
+                    "capacity_profile": KIMI_W2_CAPACITY_PROFILE,
                     "endpoint_identifier": "cpu-132-021_8103",
+                    "per_worker_capacity": KIMI_W2_PER_WORKER_CAPACITY,
                 }
             )
+        historical_router = (
+            not capacity_role
+            and router_implementation == KIMI_HISTORICAL_ROUTER_IMPLEMENTATION
+            and router_implementation_sha256 == KIMI_HISTORICAL_ROUTER_SHA256
+        )
+        current_router = (
+            router_implementation == KIMI_ROUTER_IMPLEMENTATION
+            and SHA256_RE.fullmatch(str(router_implementation_sha256 or "")) is not None
+        )
         if (
             deployment.get("kind") != "direct_kimi"
             or SHA256_RE.fullmatch(str(deployment.get("spec_sha256", ""))) is None
@@ -2259,7 +2274,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or parsed_base_url.fragment
             or not isinstance(router, dict)
             or router != expected_router
-            or SHA256_RE.fullmatch(str(router.get("implementation_sha256", ""))) is None
+            or not (historical_router or current_router)
             or (role != "kimi-direct-tb4" and smoke_checkpoint is not None)
         ):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
@@ -2991,6 +3006,14 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
                 "direct_endpoint_bundle_sha256": identity["deployment"]["endpoint_bundle_sha256"],
             }
         )
+        direct_router = identity["deployment"]["router"]
+        if "capacity_profile" in direct_router:
+            stable.update(
+                {
+                    "direct_router_capacity_profile": direct_router["capacity_profile"],
+                    "direct_per_worker_capacity": str(direct_router["per_worker_capacity"]),
+                }
+            )
         if identity["role"] == "kimi-direct-tb4":
             stable["direct_kimi_smoke_checkpoint_sha256"] = identity["deployment"]["smoke_checkpoint"]["sha256"]
         if identity["role"] == KIMI_PRODUCTION_ROLE:
@@ -3151,6 +3174,7 @@ def load_eval_run_identity_bytes(
                 worker_manifest_sha256=deployment["worker_manifest"]["sha256"],
                 source_spec_sha256=deployment["spec_sha256"],
                 endpoint_bundle_sha256=deployment["endpoint_bundle_sha256"],
+                router_implementation_sha256=deployment["router"]["implementation_sha256"],
                 concurrency=identity["execution"]["rollout_concurrency"],
             )
         endpoint_client_base_url = deployment["base_url"]
@@ -3293,6 +3317,14 @@ def _bind_provenance(
                 "direct_endpoint_bundle_sha256": identity["deployment"]["endpoint_bundle_sha256"],
             }
         )
+        direct_router = identity["deployment"]["router"]
+        if "capacity_profile" in direct_router:
+            stable.update(
+                {
+                    "direct_router_capacity_profile": direct_router["capacity_profile"],
+                    "direct_per_worker_capacity": str(direct_router["per_worker_capacity"]),
+                }
+            )
         if identity["role"] == "kimi-direct-tb4":
             stable["direct_kimi_smoke_checkpoint_sha256"] = identity["deployment"]["smoke_checkpoint"]["sha256"]
         if identity["role"] == KIMI_PRODUCTION_ROLE:
@@ -3760,6 +3792,12 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         or _positive_int(args.direct_worker_count, "direct_worker_count") != len(manifest["workers"])
     ):
         raise EvalIdentityError("direct_kimi_router_contract_invalid")
+    direct_per_worker_capacity = getattr(args, "direct_per_worker_capacity", "")
+    if args.role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE}:
+        if _positive_int(direct_per_worker_capacity, "direct_per_worker_capacity") != router.get("per_worker_capacity"):
+            raise EvalIdentityError("direct_kimi_router_contract_invalid")
+    elif direct_per_worker_capacity not in (None, ""):
+        raise EvalIdentityError("direct_kimi_router_contract_invalid")
 
     smoke_checkpoint = None
     if args.role in {
@@ -3864,6 +3902,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
             worker_manifest_sha256=worker_manifest["sha256"],
             source_spec_sha256=manifest["source_spec_sha256"],
             endpoint_bundle_sha256=manifest["endpoint_bundle_sha256"],
+            router_implementation_sha256=manifest["router"]["implementation_sha256"],
             concurrency=expected_concurrency,
         )
     elif args.promotion_certificate is not None or args.promotion_certificate_sha256 is not None:
@@ -3879,13 +3918,14 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         "retries": router["retries"],
         "worker_count": len(manifest["workers"]),
     }
-    if "capacity_profile" in router or "endpoint_identifier" in router:
+    if "capacity_profile" in router or "endpoint_identifier" in router or "per_worker_capacity" in router:
         if args.role not in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE}:
             raise EvalIdentityError("direct_kimi_capacity_profile_role_invalid")
         identity_router.update(
             {
                 "capacity_profile": router.get("capacity_profile"),
                 "endpoint_identifier": router.get("endpoint_identifier"),
+                "per_worker_capacity": router.get("per_worker_capacity"),
             }
         )
     elif args.role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE}:
@@ -4038,6 +4078,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--direct-router-policy")
     parser.add_argument("--direct-request-id-headers")
     parser.add_argument("--direct-provider-concurrency", default="")
+    parser.add_argument("--direct-per-worker-capacity", default="")
     parser.add_argument("--direct-request-timeout-seconds", default="")
     parser.add_argument("--direct-retries", default="")
     parser.add_argument("--direct-worker-count", default="")

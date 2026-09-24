@@ -340,7 +340,7 @@ def _validate_identity(
         or deployment.get("endpoint_bundle_sha256") != manifest["endpoint_bundle_sha256"]
         or deployment.get("router")
         != {
-            "implementation": "direct-kimi-transparent-v1",
+            "implementation": manifest["router"]["implementation"],
             "implementation_sha256": manifest["router"]["implementation_sha256"],
             "policy": ROUTER_POLICY,
             "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
@@ -392,7 +392,7 @@ def _validate_router_receipt(
         "worker_manifest_sha256": manifest_sha256,
         "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
         "active_workers": EXPECTED_ENDPOINTS,
-        "implementation": "direct-kimi-transparent-v1",
+        "implementation": manifest["router"]["implementation"],
         "implementation_sha256": manifest["router"]["implementation_sha256"],
         "policy": ROUTER_POLICY,
         "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),

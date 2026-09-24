@@ -88,9 +88,7 @@ def test_native_miniswe_smoke_execution_binds_full_tunnel_evidence() -> None:
 
 
 @pytest.mark.parametrize(("rollout_concurrency", "pool_size"), [(1, 2), (24, 48), (64, 64)])
-def test_sandoq_pool_reserves_separate_verifier_capacity(
-    rollout_concurrency: int, pool_size: int
-) -> None:
+def test_sandoq_pool_reserves_separate_verifier_capacity(rollout_concurrency: int, pool_size: int) -> None:
     assert _expected_sandoq_pool_size(rollout_concurrency) == pool_size
 
 
@@ -199,7 +197,14 @@ def test_full_run_still_requires_concurrency_saturation(tmp_path: Path) -> None:
         _validate_cleanup(cleanup, expected_count=2, expected_concurrency=2)
 
 
-def test_certifier_accepts_marker_bound_schema_two_router_receipt(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "implementation",
+    ("direct-kimi-transparent-v1", "direct-kimi-transparent-v2"),
+)
+def test_certifier_accepts_marker_bound_schema_two_router_receipt(
+    tmp_path: Path,
+    implementation: str,
+) -> None:
     output = tmp_path / "private" / "direct_kimi_router_final.json"
     binding = {
         "eval_run_identity_sha256": "1" * 64,
@@ -207,7 +212,10 @@ def test_certifier_accepts_marker_bound_schema_two_router_receipt(tmp_path: Path
     }
     manifest = {
         "endpoint_bundle_sha256": "3" * 64,
-        "router": {"implementation_sha256": "4" * 64},
+        "router": {
+            "implementation": implementation,
+            "implementation_sha256": "4" * 64,
+        },
     }
     receipt = {
         "schema_version": 2,
@@ -217,7 +225,7 @@ def test_certifier_accepts_marker_bound_schema_two_router_receipt(tmp_path: Path
         "worker_manifest_sha256": "5" * 64,
         "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
         "active_workers": 24,
-        "implementation": "direct-kimi-transparent-v1",
+        "implementation": implementation,
         "implementation_sha256": manifest["router"]["implementation_sha256"],
         "policy": "consistent_hash",
         "request_id_headers": ["x-session-id"],

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import direct_kimi_capacity as capacity
 import pytest
-from direct_qwen_union_contract import canonical_json
 from direct_kimi_workers import _atomic_write
+from direct_qwen_union_contract import canonical_json
 
 
 def _artifact(path: Path) -> dict[str, str]:
@@ -122,6 +122,15 @@ def _capacity_certificate(
     *,
     queue_overflow_rejections: int = 0,
     nonzero_tool_exits: int = 0,
+    active_forwarded_requests: int = 0,
+    max_active_forwarded_requests: int = capacity.FORWARDED_CAPACITY,
+    worker_max_active_request_counts_sha256: str = capacity.WORKER_MAX_ACTIVE_REQUEST_COUNTS_SHA256,
+    configured_per_worker_capacity: int = capacity.PER_WORKER_CAPACITY,
+    max_forwarded_capacity: int = capacity.FORWARDED_CAPACITY,
+    capacity_profile: str = capacity.CAPACITY_PROFILE,
+    worker_queue_timeouts: int = 0,
+    upstream_http_429: int = 0,
+    upstream_http_5xx: int = 0,
 ) -> tuple[Path, str]:
     root = tmp_path / "private"
     root.mkdir(mode=0o700)
@@ -160,7 +169,7 @@ def _capacity_certificate(
         "kind": "direct-kimi-sandoq-capacity",
         "state": "passed",
         "model": "Kimi-K3",
-        "capacity_profile": "sandoq-c64-v1",
+        "capacity_profile": capacity_profile,
         "qualified_concurrency": 64,
         "endpoint_identifier": "cpu-132-021_8103",
         "eval_run_identity_sha256": "1" * 64,
@@ -209,12 +218,20 @@ def _capacity_certificate(
             "request_id_headers": ["x-session-id"],
             "retries": 0,
             "configured_capacity": 64,
+            "configured_per_worker_capacity": configured_per_worker_capacity,
+            "max_forwarded_capacity": max_forwarded_capacity,
+            "active_forwarded_requests": active_forwarded_requests,
+            "max_active_forwarded_requests": max_active_forwarded_requests,
+            "worker_max_active_request_counts_sha256": worker_max_active_request_counts_sha256,
             "max_active_requests": 64,
             "max_active_chat_requests": 64,
             "capacity_rejections": queue_overflow_rejections,
             "queue_overflow_rejections": queue_overflow_rejections,
             "route_tracking_overflows": 0,
             "cross_route_anomalies": 0,
+            "worker_queue_timeouts": worker_queue_timeouts,
+            "upstream_http_429": upstream_http_429,
+            "upstream_http_5xx": upstream_http_5xx,
             "tracked_sessions": 64,
         },
         "probe": {
@@ -258,7 +275,7 @@ def _capacity_certificate(
     return output, hashlib.sha256(output.read_bytes()).hexdigest()
 
 
-def test_capacity_certificate_validator_accepts_exact_c64_evidence(
+def test_capacity_certificate_validator_accepts_exact_c64_w2_evidence(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -276,6 +293,14 @@ def test_capacity_certificate_validator_accepts_exact_c64_evidence(
     )
 
     assert certificate["qualified_concurrency"] == 64
+    assert certificate["schema_version"] == 3
+    assert certificate["capacity_profile"] == "sandoq-c64-w2-v1"
+    assert certificate["router"]["configured_per_worker_capacity"] == 2
+    assert certificate["router"]["max_active_forwarded_requests"] == 48
+    assert (
+        certificate["router"]["worker_max_active_request_counts_sha256"]
+        == capacity.WORKER_MAX_ACTIVE_REQUEST_COUNTS_SHA256
+    )
     assert certificate["traces"]["successful_tool_exits"] == 64
     assert stat.S_IMODE(path.stat().st_mode) == 0o600
 
@@ -297,6 +322,151 @@ def test_capacity_certificate_validator_rejects_nonzero_tool_exit(
     path, digest = _capacity_certificate(tmp_path, monkeypatch, nonzero_tool_exits=1)
 
     with pytest.raises(capacity.DirectKimiCapacityError, match="capacity_certificate_not_qualified"):
+        capacity.validate_capacity_certificate(path, expected_sha256=digest)
+
+
+def test_capacity_probe_schema2_binds_w2_forwarding_contract(tmp_path: Path) -> None:
+    identity_sha256 = "1" * 64
+    manifest_sha256 = "2" * 64
+    identity = {
+        "source": {"prime_rl_commit": "3" * 40, "prime_rl_tree_sha256": "4" * 64},
+        "config": {
+            "source": {"sha256": "5" * 64},
+            "resolved": {"sha256": "6" * 64},
+        },
+        "deployment": {"endpoint_bundle_sha256": "7" * 64},
+    }
+    value = {
+        "schema_version": 2,
+        "kind": capacity.PROBE_KIND,
+        "state": "passed",
+        "capacity_profile": capacity.CAPACITY_PROFILE,
+        "endpoint_identifier": "cpu-132-021_8103",
+        "eval_run_identity_sha256": identity_sha256,
+        "worker_manifest_sha256": manifest_sha256,
+        "endpoint_bundle_sha256": "7" * 64,
+        "prime_rl_commit": "3" * 40,
+        "prime_rl_tree_sha256": "4" * 64,
+        "source_config_sha256": "5" * 64,
+        "resolved_config_sha256": "6" * 64,
+        "policy": "consistent_hash",
+        "request_id_header": "x-session-id",
+        "retries": 0,
+        "configured_capacity": 64,
+        "configured_per_worker_capacity": 2,
+        "max_forwarded_capacity": 48,
+        "client_parallelism": 64,
+        "client_peak_in_flight": 64,
+        "rounds": 2,
+        "successful_requests": 128,
+        "request_payload_sha256": hashlib.sha256(capacity._capacity_payload()).hexdigest(),
+        "response_digests_sha256": "8" * 64,
+        "elapsed_milliseconds": 1,
+    }
+    path = tmp_path / "probe.json"
+    _atomic_write(path, capacity._canonical_json(value) + b"\n", exclusive=True)
+
+    observed, body = capacity._validate_probe(
+        path,
+        identity=identity,
+        identity_sha256=identity_sha256,
+        manifest_sha256=manifest_sha256,
+    )
+
+    assert observed["configured_per_worker_capacity"] == 2
+    assert observed["max_forwarded_capacity"] == 48
+    assert body == path.read_bytes()
+
+
+def test_capacity_router_receipt_requires_saturated_w2_forwarding(tmp_path: Path) -> None:
+    manifest = {
+        "endpoint_bundle_sha256": "1" * 64,
+        "router": {"implementation_sha256": "2" * 64},
+    }
+    value = {
+        "schema_version": 4,
+        "kind": "direct-kimi-router-final",
+        "state": "passed",
+        "eval_run_identity_sha256": "3" * 64,
+        "invocation_identity_sha256": "4" * 64,
+        "worker_manifest_sha256": "5" * 64,
+        "endpoint_bundle_sha256": "1" * 64,
+        "active_workers": 24,
+        "implementation": "direct-kimi-transparent-v2",
+        "implementation_sha256": "2" * 64,
+        "policy": "consistent_hash",
+        "request_id_headers": ["x-session-id"],
+        "request_timeout_seconds": 43_200,
+        "retries": 0,
+        "source_generation_revalidated": True,
+        "max_active_requests": 64,
+        "total_requests": 128,
+        "chat_requests": 128,
+        "worker_request_counts_sha256": "6" * 64,
+        "capacity_profile": capacity.CAPACITY_PROFILE,
+        "endpoint_identifier": "cpu-132-021_8103",
+        "configured_capacity": 64,
+        "configured_per_worker_capacity": 2,
+        "active_forwarded_requests": 0,
+        "max_active_forwarded_requests": 48,
+        "worker_max_active_request_counts_sha256": capacity.WORKER_MAX_ACTIVE_REQUEST_COUNTS_SHA256,
+        "max_active_chat_requests": 64,
+        "capacity_rejections": 0,
+        "queue_overflow_rejections": 0,
+        "route_tracking_overflows": 0,
+        "cross_route_anomalies": 0,
+        "worker_queue_timeouts": 0,
+        "upstream_http_429": 0,
+        "upstream_http_5xx": 0,
+        "tracked_sessions": 64,
+    }
+    path = tmp_path / "router-final.json"
+    _atomic_write(path, capacity._canonical_json(value) + b"\n", exclusive=True)
+
+    observed, body = capacity._validate_router_receipt(
+        path,
+        identity_sha256="3" * 64,
+        manifest=manifest,
+        manifest_sha256="5" * 64,
+    )
+
+    assert observed["max_active_forwarded_requests"] == 48
+    assert observed["active_forwarded_requests"] == 0
+    assert body == path.read_bytes()
+
+
+@pytest.mark.parametrize(
+    ("overrides", "error"),
+    (
+        ({"active_forwarded_requests": 1}, "capacity_certificate_not_qualified"),
+        ({"max_active_forwarded_requests": 47}, "capacity_certificate_not_qualified"),
+        ({"worker_max_active_request_counts_sha256": "f" * 64}, "capacity_certificate_not_qualified"),
+        ({"configured_per_worker_capacity": 1}, "capacity_certificate_not_qualified"),
+        ({"max_forwarded_capacity": 47}, "capacity_certificate_not_qualified"),
+        ({"worker_queue_timeouts": 1}, "capacity_certificate_not_qualified"),
+        ({"upstream_http_429": 1}, "capacity_certificate_not_qualified"),
+        ({"upstream_http_5xx": 1}, "capacity_certificate_not_qualified"),
+    ),
+)
+def test_capacity_certificate_validator_requires_exact_w2_forwarding_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    overrides: dict[str, int | str],
+    error: str,
+) -> None:
+    path, digest = _capacity_certificate(tmp_path, monkeypatch, **overrides)
+
+    with pytest.raises(capacity.DirectKimiCapacityError, match=error):
+        capacity.validate_capacity_certificate(path, expected_sha256=digest)
+
+
+def test_capacity_certificate_validator_rejects_legacy_profile(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path, digest = _capacity_certificate(tmp_path, monkeypatch, capacity_profile="sandoq-c64-v1")
+
+    with pytest.raises(capacity.DirectKimiCapacityError, match="capacity_certificate_invalid"):
         capacity.validate_capacity_certificate(path, expected_sha256=digest)
 
 

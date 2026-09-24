@@ -56,10 +56,11 @@ Promotion requires all of the following immutable inputs:
    recovery receipts for the 12-hour Kimi lease profile in the same
    full Firecracker host-tunnel environment and both its cleanup/tunnel and
    minimum-resource/tunnel capability receipts.
-3. A server-bound Firecracker capacity certificate for `cpu-132-021_8103`, the exact worker
-   manifest/config/source hashes, zero route anomalies or capacity rejections,
-   verified cleanup, and a measured concurrency no lower than the requested
-   production concurrency.
+3. A server-bound Firecracker `sandoq-c64-w2-v1` capacity certificate for
+   `cpu-132-021_8103`, the exact worker manifest/config/source hashes, 64
+   admitted requests, two forwarded requests per worker (48 total), zero
+   queue timeouts/upstream 429s/upstream 5xxs/route anomalies/capacity
+   rejections, and verified cleanup.
 4. The canonical approved 2,500-task source, canonical dataset revision, and
    digest-pinned Sandoq image manifest.
 5. The pinned, sanitized Mini-SWE-Agent 2.4.6 compatibility receipt proving

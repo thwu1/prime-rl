@@ -117,7 +117,7 @@ if [[ "$stage" == smoke || "$stage" == miniswe-smoke \
     elif [[ "$stage" == mobius-smoke ]]; then
         expected_smoke_wall_limit=12:00
     elif [[ "$stage" == capacity-smoke ]]; then
-        expected_smoke_wall_limit=2:00:00
+        expected_smoke_wall_limit=6:00:00
     fi
     if [[ "$smoke_wall_limit" != "$expected_smoke_wall_limit" ]]; then
         printf 'Direct Kimi smoke requires its exact Slurm wall limit\n' >&2
@@ -319,7 +319,7 @@ elif [[ "$stage" == capacity-smoke ]]; then
     stage_capacity=64
     identity_role=kimi-direct-capacity-smoke
     certificate_mode=capacity
-    router_capacity_profile=sandoq-c64-v1
+    router_capacity_profile=sandoq-c64-w2-v1
     endpoint_identifier=cpu-132-021_8103
 elif [[ "$stage" == smoke || "$stage" == miniswe-smoke ]]; then
     eval_config="$server_dir/tb4_kimi_k3_sandoq_smoke.toml"

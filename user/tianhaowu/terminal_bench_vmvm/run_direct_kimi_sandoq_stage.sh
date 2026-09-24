@@ -36,9 +36,9 @@ fi
 if [[ "$role" == kimi-direct-capacity-smoke ]]; then
     if [[ "$sandbox_provider" != sandoq || "$execution_mode" != certified \
         || "$rollout_concurrency" != 64 \
-        || "$router_capacity_profile" != sandoq-c64-v1 \
+        || "$router_capacity_profile" != sandoq-c64-w2-v1 \
         || "$endpoint_identifier" != cpu-132-021_8103 ]]; then
-        printf 'Direct Kimi capacity smoke requires the exact bounded c64 profile\n' >&2
+        printf 'Direct Kimi capacity smoke requires the exact bounded c64-w2 profile\n' >&2
         exit 2
     fi
 elif [[ "$router_capacity_profile" != legacy-c24 || -n "$endpoint_identifier" ]]; then
@@ -344,22 +344,27 @@ print(
     router.get("capacity_profile", "legacy-c24"),
     router.get("endpoint_identifier", "-"),
     router["max_concurrent_requests"],
+    router.get("per_worker_capacity", 1),
     sep="\t",
 )
 PY
 )
 IFS=$'\t' read -r direct_spec_sha256 direct_endpoint_bundle_sha256 direct_capacity_profile \
-    direct_endpoint_identifier direct_router_concurrency manifest_extra <<< "$manifest_metadata"
+    direct_endpoint_identifier direct_router_concurrency direct_per_worker_capacity manifest_extra \
+    <<< "$manifest_metadata"
 expected_endpoint_identifier=${endpoint_identifier:--}
 expected_router_concurrency=24
-if [[ "$router_capacity_profile" == sandoq-c64-v1 ]]; then
+expected_per_worker_capacity=1
+if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
     expected_router_concurrency=64
+    expected_per_worker_capacity=2
 fi
 if [[ ! "$direct_spec_sha256" =~ ^[0-9a-f]{64}$ \
     || ! "$direct_endpoint_bundle_sha256" =~ ^[0-9a-f]{64}$ \
     || "$direct_capacity_profile" != "$router_capacity_profile" \
     || "$direct_endpoint_identifier" != "$expected_endpoint_identifier" \
     || "$direct_router_concurrency" != "$expected_router_concurrency" \
+    || "$direct_per_worker_capacity" != "$expected_per_worker_capacity" \
     || -n "$manifest_extra" || "$manifest_metadata" == *$'\n'* ]]; then
     printf 'Direct Kimi worker manifest validation failed\n' >&2
     exit 2
@@ -395,6 +400,9 @@ identity_args=(
     --invocation-host "$(hostname)"
     --slurm-job-id "$SLURM_JOB_ID"
 )
+if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+    identity_args+=(--direct-per-worker-capacity "$direct_per_worker_capacity")
+fi
 if [[ -n "$eval_config_sha256" ]]; then
     identity_args+=(--approved-config-sha256 "$eval_config_sha256")
 fi
