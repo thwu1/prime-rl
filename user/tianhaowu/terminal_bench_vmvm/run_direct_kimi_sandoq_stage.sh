@@ -345,12 +345,14 @@ print(
     router.get("endpoint_identifier", "-"),
     router["max_concurrent_requests"],
     router.get("per_worker_capacity", 1),
+    router["request_timeout_seconds"],
     sep="\t",
 )
 PY
 )
 IFS=$'\t' read -r direct_spec_sha256 direct_endpoint_bundle_sha256 direct_capacity_profile \
-    direct_endpoint_identifier direct_router_concurrency direct_per_worker_capacity manifest_extra \
+    direct_endpoint_identifier direct_router_concurrency direct_per_worker_capacity \
+    direct_request_timeout manifest_extra \
     <<< "$manifest_metadata"
 expected_endpoint_identifier=${endpoint_identifier:--}
 expected_router_concurrency=24
@@ -365,6 +367,7 @@ if [[ ! "$direct_spec_sha256" =~ ^[0-9a-f]{64}$ \
     || "$direct_endpoint_identifier" != "$expected_endpoint_identifier" \
     || "$direct_router_concurrency" != "$expected_router_concurrency" \
     || "$direct_per_worker_capacity" != "$expected_per_worker_capacity" \
+    || ( "$direct_request_timeout" != 43200 && "$direct_request_timeout" != 144000 ) \
     || -n "$manifest_extra" || "$manifest_metadata" == *$'\n'* ]]; then
     printf 'Direct Kimi worker manifest validation failed\n' >&2
     exit 2
@@ -394,7 +397,7 @@ identity_args=(
     --direct-router-policy consistent_hash
     --direct-request-id-headers x-session-id
     --direct-provider-concurrency "$direct_router_concurrency"
-    --direct-request-timeout-seconds 43200
+    --direct-request-timeout-seconds "$direct_request_timeout"
     --direct-retries 0
     --direct-worker-count 24
     --invocation-host "$(hostname)"

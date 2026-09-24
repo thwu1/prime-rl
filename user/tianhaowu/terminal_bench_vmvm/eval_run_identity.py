@@ -66,6 +66,9 @@ EXPECTED_MODEL_IO_CONTRACT = {
 }
 MAX_METADATA_BYTES = 64 * 1024 * 1024
 KIMI_REQUEST_TIMEOUT_SECONDS = 43_200
+KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS = 144_000
+KIMI_TB4_EXTENDED_ROLLOUT_TIMEOUT_SECONDS = 129_600
+KIMI_TB4_EXTENDED_SESSION_TIMEOUT_SECONDS = 144_000
 KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS = 15_000
 KIMI_DIRECT_SCORED_SMOKE_REQUEST_TIMEOUT_SECONDS = 10_800
 KIMI_DIRECT_SCORED_SMOKE_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS = 9_600
@@ -78,6 +81,10 @@ KIMI_TIMEOUT_PROFILES = {
     "smoke": {"rollout_timeout": 28_800, "session_timeout": 32_400},
     "recovery": {"rollout_timeout": 43_200, "session_timeout": 43_200},
     "full": {"rollout_timeout": 36_000, "session_timeout": 43_200},
+    "tb4_extended": {
+        "rollout_timeout": KIMI_TB4_EXTENDED_ROLLOUT_TIMEOUT_SECONDS,
+        "session_timeout": KIMI_TB4_EXTENDED_SESSION_TIMEOUT_SECONDS,
+    },
     "quick": {"rollout_timeout": 900, "session_timeout": 2_400},
     "native_miniswe_smoke": {
         "rollout_timeout": 2_700,
@@ -371,6 +378,9 @@ def validate_kimi_timeout_contract(
     elif direct_capacity:
         expected_request_timeout = KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
         expected_host_harness_request_timeout = KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
+    elif required_profile == "tb4_extended":
+        expected_request_timeout = KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS
+        expected_host_harness_request_timeout = KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS
     else:
         expected_request_timeout = KIMI_REQUEST_TIMEOUT_SECONDS
         expected_host_harness_request_timeout = KIMI_HOST_HARNESS_REQUEST_TIMEOUT_SECONDS
@@ -386,7 +396,7 @@ def validate_kimi_timeout_contract(
         harness_timeout_override = f"model.model_kwargs.timeout={expected_request_timeout}"
         harness_timeout_entries = [value for value in overrides if value.startswith("model.model_kwargs.timeout=")]
         harness_timeout_valid = harness_timeout_entries == [harness_timeout_override]
-        harness_request_timeout = KIMI_REQUEST_TIMEOUT_SECONDS
+        harness_request_timeout = expected_request_timeout
     request_timeout = client.get("timeout")
     connect_timeout = client.get("connect_timeout")
     setup_timeout = timeouts.get("setup")
@@ -1166,6 +1176,7 @@ def _contract(
     direct_kimi_scored_smoke = direct_kimi_archive_smoke and not _allow_legacy_direct_scored_smoke
     direct_kimi_capacity_smoke = model == "Kimi-K3" and role == KIMI_CAPACITY_SMOKE_ROLE
     require_kimi_steady_state_concurrency = role in {"mobius", KIMI_PRODUCTION_ROLE}
+    kimi_timeout_contract: dict[str, int | float] | None = None
     if model == "Kimi-K3":
         required_profile: str | None = None
         if role in {
@@ -1177,6 +1188,17 @@ def _contract(
             KIMI_PRODUCTION_ROLE,
         }:
             required_profile = "full"
+            runtime = harness.get("runtime")
+            timeouts = config.get("timeout")
+            if (
+                role == "kimi-direct-tb4"
+                and isinstance(runtime, dict)
+                and isinstance(timeouts, dict)
+                and client.get("timeout") == KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS
+                and timeouts.get("rollout") == KIMI_TB4_EXTENDED_ROLLOUT_TIMEOUT_SECONDS
+                and runtime.get("session_timeout") == KIMI_TB4_EXTENDED_SESSION_TIMEOUT_SECONDS
+            ):
+                required_profile = "tb4_extended"
         elif role == "kimi-direct-smoke":
             if not isinstance(taskset, dict):
                 raise EvalIdentityError("resolved_contract_invalid")
@@ -1212,7 +1234,10 @@ def _contract(
                 required_profile = "recovery"
             else:
                 required_profile = "smoke"
-        validate_kimi_timeout_contract(config, required_profile=required_profile)
+        kimi_timeout_contract = validate_kimi_timeout_contract(
+            config,
+            required_profile=required_profile,
+        )
         validate_kimi_retry_contract(config)
     if config.get("num_rollouts") != 1:
         raise EvalIdentityError("pass_at_1_required")
@@ -1360,6 +1385,8 @@ def _contract(
         }
     elif native_sandoq_miniswe:
         step_limit = 3 if role in {"kimi-direct-smoke", KIMI_CAPACITY_SMOKE_ROLE} else 200
+        if kimi_timeout_contract is None:
+            raise EvalIdentityError("kimi_timeout_contract_invalid")
         contract["harness"] = {
             "id": "mini-swe-agent",
             "version": KIMI_MINISWE_VERSION,
@@ -1368,7 +1395,7 @@ def _contract(
             "request_timeout_seconds": (
                 KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
                 if role == KIMI_CAPACITY_SMOKE_ROLE
-                else KIMI_REQUEST_TIMEOUT_SECONDS
+                else int(kimi_timeout_contract["harness_request_timeout"])
             ),
             "request_max_retries": 0,
         }
@@ -2231,13 +2258,19 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         capacity_role = role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE}
         router_implementation = router.get("implementation") if isinstance(router, dict) else None
         router_implementation_sha256 = router.get("implementation_sha256") if isinstance(router, dict) else None
+        direct_request_timeout = router.get("request_timeout_seconds") if isinstance(router, dict) else None
+        if direct_request_timeout not in {
+            KIMI_REQUEST_TIMEOUT_SECONDS,
+            KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS,
+        }:
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
         expected_router = {
             "implementation": router_implementation,
             "implementation_sha256": router.get("implementation_sha256") if isinstance(router, dict) else None,
             "policy": "consistent_hash",
             "request_id_headers": ["x-session-id"],
             "provider_concurrency": 64 if role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE} else 24,
-            "request_timeout_seconds": KIMI_REQUEST_TIMEOUT_SECONDS,
+            "request_timeout_seconds": direct_request_timeout,
             "retries": 0,
             "worker_count": 24,
         }
@@ -2395,19 +2428,31 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         if not isinstance(observed_harness, dict):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         if observed_harness.get("id") == "mini-swe-agent":
+            expected_miniswe_request_timeout = (
+                observed_harness.get("request_timeout_seconds")
+                if role == "kimi-direct-tb4"
+                else KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
+                if role == KIMI_CAPACITY_SMOKE_ROLE
+                else KIMI_REQUEST_TIMEOUT_SECONDS
+            )
             expected_miniswe = {
                 "id": "mini-swe-agent",
                 "version": KIMI_MINISWE_VERSION,
                 "placement": "sandbox",
                 "step_limit": 3 if role in {"kimi-direct-smoke", KIMI_CAPACITY_SMOKE_ROLE} else 200,
-                "request_timeout_seconds": (
-                    KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
-                    if role == KIMI_CAPACITY_SMOKE_ROLE
-                    else KIMI_REQUEST_TIMEOUT_SECONDS
-                ),
+                "request_timeout_seconds": expected_miniswe_request_timeout,
                 "request_max_retries": 0,
             }
-            if role not in KIMI_NATIVE_MINISWE_ROLES or observed_harness != expected_miniswe:
+            if (
+                role not in KIMI_NATIVE_MINISWE_ROLES
+                or expected_miniswe_request_timeout
+                not in {
+                    KIMI_REQUEST_TIMEOUT_SECONDS,
+                    KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS,
+                    KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS,
+                }
+                or observed_harness != expected_miniswe
+            ):
                 raise EvalIdentityError("eval_run_identity_schema_invalid")
         elif observed_harness.get(
             "request_timeout_seconds"
@@ -2960,6 +3005,8 @@ def _verify_config_and_inputs(
         if direct_kimi_scored_smoke and not legacy_direct_kimi_scored_smoke and not native_miniswe_smoke
         else KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
         if identity["role"] == KIMI_CAPACITY_SMOKE_ROLE
+        else observed_contract.get("harness", {}).get("request_timeout_seconds")
+        if direct_role and observed_contract.get("harness", {}).get("id") == "mini-swe-agent"
         else request_timeout_for_model(observed_contract["model"])
     )
     if config["client"].get("timeout") != expected_request_timeout or (
@@ -3778,6 +3825,9 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
     except (OSError, ValueError) as error:
         raise EvalIdentityError("direct_kimi_worker_manifest_invalid") from error
     router = manifest["router"]
+    expected_router_request_timeout = (
+        KIMI_REQUEST_TIMEOUT_SECONDS if args.role == KIMI_CAPACITY_SMOKE_ROLE else config["client"].get("timeout")
+    )
     if (
         args.client_base_url != f"http://127.0.0.1:{router['port']}/v1"
         or args.direct_spec_sha256 != manifest["source_spec_sha256"]
@@ -3788,6 +3838,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         != router["max_concurrent_requests"]
         or _positive_int(args.direct_request_timeout_seconds, "direct_request_timeout_seconds")
         != router["request_timeout_seconds"]
+        or router["request_timeout_seconds"] != expected_router_request_timeout
         or args.direct_retries != str(router["retries"])
         or _positive_int(args.direct_worker_count, "direct_worker_count") != len(manifest["workers"])
     ):

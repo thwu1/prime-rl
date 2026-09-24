@@ -255,7 +255,7 @@ def test_lane_configs_are_native_miniswe_and_provider_isolated() -> None:
     assert sandoq["harness"]["runtime"] == {
         "type": "sandoq",
         "mode": "oci-runner",
-        "session_timeout": 43200,
+        "session_timeout": union.SESSION_TIMEOUT_SECONDS,
         "network_access": True,
         "host_tunnel": "sandoq",
         "buffered_chat_completions": True,
@@ -270,8 +270,27 @@ def test_lane_configs_are_native_miniswe_and_provider_isolated() -> None:
     assert vmvm["taskset"]["enable_compose"] is True
     assert vmvm["harness"]["runtime"]["type"] == "vmvm"
     assert union._provider_neutral_config(sandoq) == union._provider_neutral_config(vmvm)
+    assert sandoq["client"]["timeout"] == union.REQUEST_TIMEOUT_SECONDS
+    assert sandoq["timeout"]["rollout"] == union.ROLLOUT_TIMEOUT_SECONDS
     EvalConfig.model_validate(sandoq)
     EvalConfig.model_validate(vmvm)
+
+
+def test_legacy_base_remains_valid_for_saved_plan_revalidation() -> None:
+    base, _body = union._base_config(union._legacy_base_config_path().resolve())
+
+    lane = union._lane_config(
+        base,
+        role=union.SANDOQ_ROLE,
+        selector=Path("/private/sandoq.tasks"),
+        selector_sha256="a" * 64,
+        image_manifest=Path("/private/images.json"),
+        dataset_dir=Path("/private/dataset"),
+        concurrency=24,
+    )
+
+    assert union._timeout_contract(base) == union.LEGACY_TIMEOUT_CONTRACT
+    assert lane["harness"]["runtime"]["session_timeout"] == union.LEGACY_SESSION_TIMEOUT_SECONDS
 
 
 def test_materialized_plan_is_opaque_and_requires_separate_certifier(
@@ -318,6 +337,11 @@ def test_materialized_plan_is_opaque_and_requires_separate_certifier(
     plan_value = split._json_object(plan_body, code="test", canonical=True)
     assert plan_value["evaluation"]["certification_eligible"] is True
     assert plan_value["evaluation"]["blocked_on"] == []
+    assert plan_value["contracts"]["timeouts"] == {
+        "request_seconds": union.REQUEST_TIMEOUT_SECONDS,
+        "rollout_seconds": union.ROLLOUT_TIMEOUT_SECONDS,
+        "session_seconds": union.SESSION_TIMEOUT_SECONDS,
+    }
     for role, count in ((union.SANDOQ_ROLE, 25), (union.VMVM_ROLE, 38)):
         verified = union.verify_launch_plan(plan_path, hashlib.sha256(plan_body).hexdigest(), role)
         assert verified["count"] == count

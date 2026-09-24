@@ -19,7 +19,6 @@ import kimi_tb4_provider_split as split
 import prepare_kimi_tb4_miniswe246_union as native_plan
 import prepare_kimi_tb4_sandoq_clamped_recovery as recovery
 
-
 SCHEMA_VERSION = 3
 KIND = "direct-kimi-sandoq-tb4"
 ADAPTER = "kimi-tb4-miniswe246-sandoq-clamped-union-v1"
@@ -95,12 +94,14 @@ def _fake_plan(
     *,
     lane: Mapping[str, Any],
     manifest: Mapping[str, Any],
+    contracts: Mapping[str, Any],
     plan_sha256: str,
 ) -> dict[str, Any]:
     lane_value = dict(lane)
     lane_value.setdefault("resource_multiplier", 1.0)
     return {
         "source": {"manifest": dict(manifest)},
+        "contracts": dict(contracts),
         "lanes": {native_plan.SANDOQ_ROLE: lane_value},
         "plan_sha256": plan_sha256,
     }
@@ -128,12 +129,18 @@ def _build_lane(
     run_dir: Path,
     lane: Mapping[str, Any],
     manifest: Mapping[str, Any],
+    contracts: Mapping[str, Any],
     plan_sha256: str,
     members: Sequence[str],
     entries: Sequence[split.ManifestEntry],
     require_caps: bool,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
-    plan = _fake_plan(lane=lane, manifest=manifest, plan_sha256=plan_sha256)
+    plan = _fake_plan(
+        lane=lane,
+        manifest=manifest,
+        contracts=contracts,
+        plan_sha256=plan_sha256,
+    )
     run_dir = split._absolute_path(run_dir)
     with ExitStack() as stack:
         held = split._HeldArtifactSet.create()
@@ -141,9 +148,7 @@ def _build_lane(
         evidence = split._open_held_run_evidence(run_dir)
         stack.callback(evidence.close)
         router_lock = stack.enter_context(
-            split._open_private_writer_lock(
-                split._router_lock_path(evidence.files["eval_run_identity.json"].body)
-            )
+            split._open_private_writer_lock(split._router_lock_path(evidence.files["eval_run_identity.json"].body))
         )
         writer_lock = stack.enter_context(split._open_private_writer_lock_at(evidence.directory, ".writer.lock"))
         for lock in (router_lock, writer_lock):
@@ -151,15 +156,13 @@ def _build_lane(
                 fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
             except BlockingIOError as error:
                 _fail("writer_active", error)
-        identity, contracts, identity_sha256, invocation_sha256, slurm_job_id = (
-            native_cert._identity_contract(
-                run_dir=run_dir,
-                plan=plan,
-                role=native_plan.SANDOQ_ROLE,
-                members=members,
-                run_evidence=evidence,
-                held=held,
-            )
+        identity, contracts, identity_sha256, invocation_sha256, slurm_job_id = native_cert._identity_contract(
+            run_dir=run_dir,
+            plan=plan,
+            role=native_plan.SANDOQ_ROLE,
+            members=members,
+            run_evidence=evidence,
+            held=held,
         )
         config_record = lane.get("config")
         if not isinstance(config_record, dict):
@@ -271,11 +274,7 @@ def _merge_rows(
     if (
         set(native_rows) != expected_groups[0]
         or set(clamped_rows) != expected_groups[1]
-        or any(
-            expected_groups[left] & expected_groups[right]
-            for left in range(4)
-            for right in range(left + 1, 4)
-        )
+        or any(expected_groups[left] & expected_groups[right] for left in range(4) for right in range(left + 1, 4))
         or set().union(*expected_groups) != {entry.task_id for entry in entries}
     ):
         _fail("union_coverage_invalid")
@@ -312,7 +311,13 @@ def _validate_shared_contract(native: Mapping[str, Any], clamped: Mapping[str, A
     clamped_shared = clamped.get("shared_contract")
     if not isinstance(native_shared, dict) or not isinstance(clamped_shared, dict):
         _fail("lane_contract_mismatch")
-    for key in ("model_contract", "harness", "deployment_contract"):
+    for key in (
+        "model_contract",
+        "harness",
+        "deployment_contract",
+        "provider_neutral_config_sha256",
+        "timeout_contract",
+    ):
         if native_shared.get(key) != clamped_shared.get(key):
             _fail("lane_contract_mismatch")
     for shared in (native_shared, clamped_shared):
@@ -352,6 +357,7 @@ def build_union(
         run_dir=native_run_dir,
         lane=native_lane,
         manifest=source_plan["source"]["manifest"],
+        contracts=source_plan["contracts"],
         plan_sha256=str(source_plan_record["sha256"]),
         members=native_members,
         entries=entries,
@@ -362,6 +368,7 @@ def build_union(
         run_dir=clamped_run_dir,
         lane=plan["lane"],
         manifest=plan["source"]["resource_manifest"],
+        contracts=source_plan["contracts"],
         plan_sha256=recovery_plan_sha256,
         members=clamped_members,
         entries=entries,
@@ -391,6 +398,25 @@ def build_union(
         "clamped_results": dict(clamped["artifacts"]["results"]),
     }
     deployment = native["shared_contract"]["deployment_contract"]
+    policy = {
+        "expected_tasks": TOTAL_TASKS,
+        "expected_supported_tasks": SUPPORTED_TASKS,
+        "minimum_passes": MIN_PASSES,
+        "maximum_all_task_pass_rate": MAX_ALL_TASK_PASS_RATE,
+        "rollouts_per_task": 1,
+        "max_sequence_tokens": split.MAX_SEQUENCE_TOKENS,
+        "provider_partition": {
+            "native_sandoq": NATIVE_TASKS,
+            "clamped_sandoq": CLAMPED_TASKS,
+            "compose_unsupported": COMPOSE_UNSUPPORTED,
+            "gpu_unsupported": GPU_UNSUPPORTED,
+        },
+        "resource_caps": plan["policy"]["resource_caps"],
+        "harness": {"id": "mini-swe-agent", "version": native_plan.MINISWE_VERSION},
+    }
+    timeout_contract = native_cert._plan_timeout_contract(source_plan)
+    if timeout_contract is not None:
+        policy["timeouts"] = timeout_contract
     certificate: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "kind": KIND,
@@ -420,31 +446,14 @@ def build_union(
             "supported_pass_rate": passes / SUPPORTED_TASKS,
             "all_task_pass_rate": all_task_pass_rate,
         },
-        "policy": {
-            "expected_tasks": TOTAL_TASKS,
-            "expected_supported_tasks": SUPPORTED_TASKS,
-            "minimum_passes": MIN_PASSES,
-            "maximum_all_task_pass_rate": MAX_ALL_TASK_PASS_RATE,
-            "rollouts_per_task": 1,
-            "max_sequence_tokens": split.MAX_SEQUENCE_TOKENS,
-            "provider_partition": {
-                "native_sandoq": NATIVE_TASKS,
-                "clamped_sandoq": CLAMPED_TASKS,
-                "compose_unsupported": COMPOSE_UNSUPPORTED,
-                "gpu_unsupported": GPU_UNSUPPORTED,
-            },
-            "resource_caps": plan["policy"]["resource_caps"],
-            "harness": {"id": "mini-swe-agent", "version": native_plan.MINISWE_VERSION},
-        },
+        "policy": policy,
         "providers": {"native_sandoq": native, "clamped_sandoq": clamped},
         "trace_audit": {
             "cpu_traces": SUPPORTED_TASKS,
             "unsupported_outcomes": UNSUPPORTED_TASKS,
             "total_traces": TOTAL_TASKS,
-            "model_io_turns": native["trace_audit"]["model_io_turns"]
-            + clamped["trace_audit"]["model_io_turns"],
-            "sampled_tokens": native["trace_audit"]["sampled_tokens"]
-            + clamped["trace_audit"]["sampled_tokens"],
+            "model_io_turns": native["trace_audit"]["model_io_turns"] + clamped["trace_audit"]["model_io_turns"],
+            "sampled_tokens": native["trace_audit"]["sampled_tokens"] + clamped["trace_audit"]["sampled_tokens"],
             "tool_observations": native["tool_execution"]["tool_observations"]
             + clamped["tool_execution"]["tool_observations"],
             "reasoning_required": True,

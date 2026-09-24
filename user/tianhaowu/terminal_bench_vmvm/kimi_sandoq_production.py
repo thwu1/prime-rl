@@ -866,6 +866,23 @@ def _validate_tb4_miniswe_union_certificate(
         "vmvm_cpu": 38,
         "gpu_unsupported": 3,
     }
+    base_policy = {
+        "expected_tasks": 66,
+        "expected_supported_tasks": 63,
+        "rollouts_per_task": 1,
+        "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
+        "min_supported_pass_rate": 7 / 63,
+        "max_supported_pass_rate": 0.22,
+        "provider_partition": expected_partition,
+        "harness": {"id": "mini-swe-agent", "version": MINISWE_VERSION},
+        "tool_exit_evidence_required": True,
+    }
+    accepted_policies = [base_policy]
+    for timeouts in (
+        {"request_seconds": 43_200, "rollout_seconds": 36_000, "session_seconds": 43_200},
+        {"request_seconds": 144_000, "rollout_seconds": 129_600, "session_seconds": 144_000},
+    ):
+        accepted_policies.append({**base_policy, "timeouts": timeouts})
     if (
         set(value)
         != {
@@ -917,18 +934,7 @@ def _validate_tb4_miniswe_union_certificate(
         or not math.isclose(scores["supported_pass_rate"], counts["supported_passes"] / 63)
         or not math.isclose(scores.get("all_task_pass_rate", -1), counts["supported_passes"] / 66)
         or not 7 / 63 <= scores["supported_pass_rate"] <= 0.22
-        or policy
-        != {
-            "expected_tasks": 66,
-            "expected_supported_tasks": 63,
-            "rollouts_per_task": 1,
-            "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
-            "min_supported_pass_rate": 7 / 63,
-            "max_supported_pass_rate": 0.22,
-            "provider_partition": expected_partition,
-            "harness": {"id": "mini-swe-agent", "version": MINISWE_VERSION},
-            "tool_exit_evidence_required": True,
-        }
+        or policy not in accepted_policies
         or not isinstance(providers, dict)
         or set(providers) != {"sandoq_firecracker", "vmvm_cpu"}
         or not isinstance(trace, dict)

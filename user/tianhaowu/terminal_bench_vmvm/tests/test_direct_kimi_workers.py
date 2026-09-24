@@ -223,6 +223,25 @@ def test_direct_kimi_manifest_is_secret_free_and_revalidates(tmp_path: Path, mon
         validate_saved_manifest(manifest_path)
 
 
+def test_direct_kimi_extended_timeout_is_bound_and_revalidated(tmp_path: Path, monkeypatch) -> None:
+    root = _deployment(tmp_path, monkeypatch)
+    generation = tmp_path / "generation"
+    manifest_path = generation / direct_kimi_workers.GENERATION_MANIFEST_NAME
+
+    manifest = prepare_generation(
+        root,
+        generation,
+        manifest_path,
+        generation / direct_kimi_workers.GENERATION_URLS_NAME,
+        generation / direct_kimi_workers.GENERATION_PORTS_NAME,
+        request_timeout_seconds=144_000,
+    )
+
+    assert manifest["router"]["request_timeout_seconds"] == 144_000
+    assert manifest["router"]["queue_timeout_seconds"] == 144_000
+    assert validate_saved_manifest(manifest_path) == manifest
+
+
 def test_direct_kimi_c64_manifest_requires_explicit_profile_and_endpoint(tmp_path: Path, monkeypatch) -> None:
     root = _deployment(tmp_path, monkeypatch)
     generation = tmp_path / "generation"
@@ -302,6 +321,23 @@ def test_historical_legacy_manifest_accepts_only_pinned_v1_hash(tmp_path: Path, 
     historical["router"]["implementation_sha256"] = "0" * 64
     with pytest.raises(DirectKimiWorkerError, match="manifest_invalid"):
         direct_kimi_workers.validate_manifest_value(historical, revalidate_live_source=False)
+
+    historical_v2 = json.loads(json.dumps(manifest))
+    historical_v2["router"]["implementation_sha256"] = direct_kimi_workers.HISTORICAL_CURRENT_ROUTER_SHA256
+    assert (
+        direct_kimi_workers.validate_manifest_value(
+            historical_v2,
+            revalidate_live_source=False,
+        )
+        == historical_v2
+    )
+    historical_v2["router"]["request_timeout_seconds"] = 144_000
+    historical_v2["router"]["queue_timeout_seconds"] = 144_000
+    with pytest.raises(DirectKimiWorkerError, match="manifest_invalid"):
+        direct_kimi_workers.validate_manifest_value(
+            historical_v2,
+            revalidate_live_source=False,
+        )
 
 
 def test_direct_kimi_atomic_publication_is_exclusive(tmp_path: Path) -> None:

@@ -149,6 +149,13 @@ runtime = { type = "vmvm" }
     config_sha256 = hashlib.sha256(config_body).hexdigest()
     plan = {
         "plan_sha256": "f" * 64,
+        "contracts": {
+            "timeouts": {
+                "request_seconds": union.REQUEST_TIMEOUT_SECONDS,
+                "rollout_seconds": union.ROLLOUT_TIMEOUT_SECONDS,
+                "session_seconds": union.SESSION_TIMEOUT_SECONDS,
+            }
+        },
         "lanes": {
             union.VMVM_ROLE: {
                 "concurrency": 4,
@@ -171,7 +178,7 @@ runtime = { type = "vmvm" }
         "version": "2.4.6",
         "placement": "sandbox",
         "step_limit": 200,
-        "request_timeout_seconds": 43_200,
+        "request_timeout_seconds": union.REQUEST_TIMEOUT_SECONDS,
         "request_max_retries": 0,
     }
     source = {
@@ -281,6 +288,13 @@ def test_merge_emits_aggregate_schema2_certificate(
     partition = union.derive_union_partition(entries)
     manifest_sha256 = "a" * 64
     plan = {
+        "contracts": {
+            "timeouts": {
+                "request_seconds": union.REQUEST_TIMEOUT_SECONDS,
+                "rollout_seconds": union.ROLLOUT_TIMEOUT_SECONDS,
+                "session_seconds": union.SESSION_TIMEOUT_SECONDS,
+            }
+        },
         "source": {
             "manifest": {"path": "/private/manifest", "bytes": 1, "sha256": manifest_sha256},
             "partition_receipt": {
@@ -288,7 +302,7 @@ def test_merge_emits_aggregate_schema2_certificate(
                 "bytes": partition_path.stat().st_size,
                 "sha256": hashlib.sha256(partition_path.read_bytes()).hexdigest(),
             },
-        }
+        },
     }
     monkeypatch.setattr(certify, "_load_plan", lambda *_args: (plan, plan_body, entries))
 

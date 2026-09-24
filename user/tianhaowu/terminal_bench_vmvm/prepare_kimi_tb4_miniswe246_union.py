@@ -44,7 +44,24 @@ VERIFIERS_COMMIT = "f9dcefb73ac341de5f707600d54dba838ad1ce97"
 PROVIDER_PROFILE_SHA256 = "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df"
 FULL_TUNNEL_RECEIPT_SHA256 = "39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276"
 FULL_RESOURCE_RECEIPT_SHA256 = "ce3fc3ed2ead1aaf8c71fc35e5dae324f1be9d51b4e7fffff7bc99d1a47adbf6"
-BASE_CONFIG_SHA256 = "de0e1961bf5440c257de8c623698955d80893079a78e7f5e05b9913174b4e9d1"
+LEGACY_BASE_CONFIG_SHA256 = "de0e1961bf5440c257de8c623698955d80893079a78e7f5e05b9913174b4e9d1"
+BASE_CONFIG_SHA256 = "3c3ad8ea3f8001b307bac59f024fd7d8927bef2c6467cffd5b18c9d9d4480e64"
+LEGACY_REQUEST_TIMEOUT_SECONDS = 43_200
+LEGACY_ROLLOUT_TIMEOUT_SECONDS = 36_000
+LEGACY_SESSION_TIMEOUT_SECONDS = 43_200
+REQUEST_TIMEOUT_SECONDS = 144_000
+ROLLOUT_TIMEOUT_SECONDS = 129_600
+SESSION_TIMEOUT_SECONDS = 144_000
+LEGACY_TIMEOUT_CONTRACT = {
+    "request_seconds": LEGACY_REQUEST_TIMEOUT_SECONDS,
+    "rollout_seconds": LEGACY_ROLLOUT_TIMEOUT_SECONDS,
+    "session_seconds": LEGACY_SESSION_TIMEOUT_SECONDS,
+}
+TIMEOUT_CONTRACT = {
+    "request_seconds": REQUEST_TIMEOUT_SECONDS,
+    "rollout_seconds": ROLLOUT_TIMEOUT_SECONDS,
+    "session_seconds": SESSION_TIMEOUT_SECONDS,
+}
 FULL_TUNNEL_RECEIPT = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/sandoq-full-tunnel-20260922/run-1537377/receipt.json"
 )
@@ -83,6 +100,10 @@ def _workflow_dir() -> Path:
 
 
 def _base_config_path() -> Path:
+    return _workflow_dir() / "configs/eval/servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_union.extended.base.toml"
+
+
+def _legacy_base_config_path() -> Path:
     return _workflow_dir() / "configs/eval/servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_union.base.toml"
 
 
@@ -376,12 +397,44 @@ def _render_toml(value: dict[str, Any]) -> bytes:
     return body
 
 
+def _timeout_contract(value: dict[str, Any]) -> dict[str, int]:
+    client = value.get("client")
+    harness = value.get("harness")
+    timeouts = value.get("timeout")
+    if not isinstance(client, dict) or not isinstance(harness, dict) or not isinstance(timeouts, dict):
+        raise UnionPreparationError("base_config_contract_invalid")
+    overrides = harness.get("config_overrides")
+    if not isinstance(overrides, list):
+        raise UnionPreparationError("base_config_contract_invalid")
+    for contract in (LEGACY_TIMEOUT_CONTRACT, TIMEOUT_CONTRACT):
+        request = contract["request_seconds"]
+        rollout = contract["rollout_seconds"]
+        if (
+            client.get("timeout") == request
+            and timeouts
+            == {
+                "setup": 3_600,
+                "rollout": rollout,
+                "finalize": 3_600,
+                "scoring": 21_600,
+            }
+            and f"environment.timeout={rollout}" in overrides
+            and f"model.model_kwargs.timeout={request}" in overrides
+        ):
+            return dict(contract)
+    raise UnionPreparationError("base_config_contract_invalid")
+
+
 def _base_config(path: Path) -> tuple[dict[str, Any], bytes]:
-    canonical = _base_config_path().resolve(strict=True)
-    if path.resolve(strict=True) != canonical:
+    canonical = path.resolve(strict=True)
+    accepted = {
+        _base_config_path().resolve(strict=True): BASE_CONFIG_SHA256,
+        _legacy_base_config_path().resolve(strict=True): LEGACY_BASE_CONFIG_SHA256,
+    }
+    if canonical not in accepted:
         raise UnionPreparationError("base_config_path_invalid")
     body = _read(canonical, code="base_config_invalid", maximum_bytes=2 * 1024 * 1024)
-    if _sha256(body) != BASE_CONFIG_SHA256:
+    if _sha256(body) != accepted[canonical]:
         raise UnionPreparationError("base_config_digest_mismatch")
     try:
         value = tomllib.loads(body.decode())
@@ -392,6 +445,7 @@ def _base_config(path: Path) -> tuple[dict[str, Any], bytes]:
     taskset = value.get("taskset") if isinstance(value, dict) else None
     harness = value.get("harness") if isinstance(value, dict) else None
     rollout_retry = value.get("retries", {}).get("rollout") if isinstance(value, dict) else None
+    timeout_contract = _timeout_contract(value)
     if (
         value.get("model") != "Kimi-K3"
         or value.get("num_tasks") != split.TOTAL_TASKS
@@ -432,6 +486,10 @@ def _base_config(path: Path) -> tuple[dict[str, Any], bytes]:
         or rollout_retry.get("max_retries") != 0
     ):
         raise UnionPreparationError("base_config_contract_invalid")
+    if canonical == _base_config_path().resolve(strict=True) and timeout_contract != TIMEOUT_CONTRACT:
+        raise UnionPreparationError("base_config_contract_invalid")
+    if canonical == _legacy_base_config_path().resolve(strict=True) and timeout_contract != LEGACY_TIMEOUT_CONTRACT:
+        raise UnionPreparationError("base_config_contract_invalid")
     return value, body
 
 
@@ -448,6 +506,7 @@ def _lane_config(
     if role not in {SANDOQ_ROLE, VMVM_ROLE}:
         raise UnionPreparationError("lane_role_invalid")
     value = copy.deepcopy(base)
+    session_timeout = _timeout_contract(value)["session_seconds"]
     is_sandoq = role == SANDOQ_ROLE
     value["num_tasks"] = SANDOQ_TASKS if is_sandoq else VMVM_TASKS
     value["max_concurrent"] = concurrency
@@ -465,7 +524,7 @@ def _lane_config(
         value["harness"]["runtime"] = {
             "type": "sandoq",
             "mode": "oci-runner",
-            "session_timeout": 43_200,
+            "session_timeout": session_timeout,
             "network_access": True,
             "host_tunnel": "sandoq",
             "buffered_chat_completions": True,
@@ -478,7 +537,7 @@ def _lane_config(
     else:
         value["harness"]["runtime"] = {
             "type": "vmvm",
-            "session_timeout": 43_200,
+            "session_timeout": session_timeout,
             "tenant_id": "async_2347641",
             "lease_ttl": "60s",
             "max_session_buffer_size": 67_108_864,
@@ -539,6 +598,7 @@ def _plan_value(
     receipt_body: bytes,
     sandoq_config_body: bytes,
     vmvm_config_body: bytes,
+    timeout_contract: dict[str, int],
     sandoq_concurrency: int,
     vmvm_concurrency: int,
 ) -> dict[str, Any]:
@@ -573,6 +633,7 @@ def _plan_value(
             "verifiers_commit": VERIFIERS_COMMIT,
             "context_tokens": split.MAX_SEQUENCE_TOKENS,
             "generation_tokens": split.SAMPLING_MAX_TOKENS,
+            "timeouts": dict(timeout_contract),
             "reasoning_required": True,
             "exact_provider_json_required": True,
             "request_graph_match_required": True,
@@ -691,6 +752,7 @@ def materialize(
         receipt_body=receipt_body,
         sandoq_config_body=sandoq_config_body,
         vmvm_config_body=vmvm_config_body,
+        timeout_contract=_timeout_contract(base),
         sandoq_concurrency=sandoq_concurrency,
         vmvm_concurrency=vmvm_concurrency,
     )
@@ -735,6 +797,19 @@ def verify_launch_plan(plan_path: Path, expected_sha256: str, role: str) -> dict
     contracts = plan.get("contracts")
     source = plan.get("source")
     lanes = plan.get("lanes")
+    base_contracts = {
+        "model": "Kimi-K3",
+        "harness": {"id": "mini-swe-agent", "version": MINISWE_VERSION},
+        "verifiers_commit": VERIFIERS_COMMIT,
+        "context_tokens": split.MAX_SEQUENCE_TOKENS,
+        "generation_tokens": split.SAMPLING_MAX_TOKENS,
+        "reasoning_required": True,
+        "exact_provider_json_required": True,
+        "request_graph_match_required": True,
+    }
+    accepted_contracts = [base_contracts]
+    for timeout_contract in (LEGACY_TIMEOUT_CONTRACT, TIMEOUT_CONTRACT):
+        accepted_contracts.append({**base_contracts, "timeouts": timeout_contract})
     if (
         set(plan) != {"schema_version", "kind", "state", "evaluation", "source", "contracts", "lanes"}
         or plan.get("schema_version") != SCHEMA_VERSION
@@ -750,17 +825,7 @@ def verify_launch_plan(plan_path: Path, expected_sha256: str, role: str) -> dict
             "required_certifier_adapter": CERTIFIER_ADAPTER,
             "legacy_31_32_certificates_accepted": False,
         }
-        or contracts
-        != {
-            "model": "Kimi-K3",
-            "harness": {"id": "mini-swe-agent", "version": MINISWE_VERSION},
-            "verifiers_commit": VERIFIERS_COMMIT,
-            "context_tokens": split.MAX_SEQUENCE_TOKENS,
-            "generation_tokens": split.SAMPLING_MAX_TOKENS,
-            "reasoning_required": True,
-            "exact_provider_json_required": True,
-            "request_graph_match_required": True,
-        }
+        or contracts not in accepted_contracts
         or not isinstance(source, dict)
         or set(source)
         != {
@@ -790,6 +855,11 @@ def verify_launch_plan(plan_path: Path, expected_sha256: str, role: str) -> dict
     base, expected_base_body = _base_config(base_path)
     if base_body != expected_base_body:
         raise UnionPreparationError("base_config_invalid")
+    timeout_contract = _timeout_contract(base)
+    if (isinstance(contracts, dict) and "timeouts" in contracts and contracts["timeouts"] != timeout_contract) or (
+        isinstance(contracts, dict) and "timeouts" not in contracts and timeout_contract != LEGACY_TIMEOUT_CONTRACT
+    ):
+        raise UnionPreparationError("launch_plan_contract_invalid")
     evidence = _fixed_provider_evidence()
     if any(source[name] != record for name, record in evidence.items()):
         raise UnionPreparationError("provider_evidence_invalid")

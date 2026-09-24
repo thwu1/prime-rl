@@ -42,6 +42,16 @@ def _fail(code: str, error: BaseException | None = None) -> None:
     raise UnionCertificationError(code) from error
 
 
+def _plan_timeout_contract(plan: dict[str, Any]) -> dict[str, int] | None:
+    contracts = plan.get("contracts")
+    timeout_contract = contracts.get("timeouts") if isinstance(contracts, dict) else None
+    if timeout_contract is None:
+        return None
+    if timeout_contract not in (union.LEGACY_TIMEOUT_CONTRACT, union.TIMEOUT_CONTRACT):
+        _fail("timeout_contract_invalid")
+    return dict(timeout_contract)
+
+
 def _sha256(body: bytes) -> str:
     return hashlib.sha256(body).hexdigest()
 
@@ -208,12 +218,16 @@ def _identity_contract(
     source_config = config_identity.get("source") if isinstance(config_identity, dict) else None
     resolved = config_identity.get("resolved") if isinstance(config_identity, dict) else None
     contract = identity.get("contract") if isinstance(identity, dict) else None
+    timeout_contract = _plan_timeout_contract(plan)
+    request_timeout = (
+        timeout_contract["request_seconds"] if timeout_contract is not None else union.LEGACY_REQUEST_TIMEOUT_SECONDS
+    )
     expected_harness = {
         "id": "mini-swe-agent",
         "version": union.MINISWE_VERSION,
         "placement": "sandbox",
         "step_limit": 200,
-        "request_timeout_seconds": 43_200,
+        "request_timeout_seconds": request_timeout,
         "request_max_retries": 0,
     }
     if (
@@ -314,6 +328,8 @@ def _identity_contract(
         "source_revisions": revisions,
         "plan_sha256": plan["plan_sha256"] if "plan_sha256" in plan else None,
     }
+    if timeout_contract is not None:
+        shared["timeout_contract"] = timeout_contract
     return (
         identity,
         {"shared": shared, "provider_context": provider_context},
@@ -604,6 +620,24 @@ def _derived_union_fields(
     cpu_pass_rate = passes / union.CPU_TASKS
     if passes < MIN_CPU_PASSES or not MIN_CPU_PASS_RATE <= cpu_pass_rate <= MAX_CPU_PASS_RATE:
         _fail("tb4_score_outside_expected_range")
+    policy = {
+        "expected_tasks": split.TOTAL_TASKS,
+        "expected_supported_tasks": union.CPU_TASKS,
+        "rollouts_per_task": 1,
+        "max_sequence_tokens": split.MAX_SEQUENCE_TOKENS,
+        "min_supported_pass_rate": MIN_CPU_PASS_RATE,
+        "max_supported_pass_rate": MAX_CPU_PASS_RATE,
+        "provider_partition": {
+            union.SANDOQ_ROLE: union.SANDOQ_TASKS,
+            union.VMVM_ROLE: union.VMVM_TASKS,
+            union.GPU_ROLE: union.GPU_TASKS,
+        },
+        "harness": {"id": "mini-swe-agent", "version": union.MINISWE_VERSION},
+        "tool_exit_evidence_required": True,
+    }
+    timeout_contract = _plan_timeout_contract(dict(plan))
+    if timeout_contract is not None:
+        policy["timeouts"] = timeout_contract
     return {
         "manifest_sha256": plan["source"]["manifest"]["sha256"],
         "results_sha256": _sha256(results_body),
@@ -624,21 +658,7 @@ def _derived_union_fields(
             "supported_pass_rate": cpu_pass_rate,
             "all_task_pass_rate": passes / split.TOTAL_TASKS,
         },
-        "policy": {
-            "expected_tasks": split.TOTAL_TASKS,
-            "expected_supported_tasks": union.CPU_TASKS,
-            "rollouts_per_task": 1,
-            "max_sequence_tokens": split.MAX_SEQUENCE_TOKENS,
-            "min_supported_pass_rate": MIN_CPU_PASS_RATE,
-            "max_supported_pass_rate": MAX_CPU_PASS_RATE,
-            "provider_partition": {
-                union.SANDOQ_ROLE: union.SANDOQ_TASKS,
-                union.VMVM_ROLE: union.VMVM_TASKS,
-                union.GPU_ROLE: union.GPU_TASKS,
-            },
-            "harness": {"id": "mini-swe-agent", "version": union.MINISWE_VERSION},
-            "tool_exit_evidence_required": True,
-        },
+        "policy": policy,
         "providers": {
             union.SANDOQ_ROLE: {
                 "state": "passed",
@@ -755,6 +775,24 @@ def merge_certified_lanes(
         },
         "partition_receipt": dict(plan["source"]["partition_receipt"]),
     }
+    policy = {
+        "expected_tasks": split.TOTAL_TASKS,
+        "expected_supported_tasks": union.CPU_TASKS,
+        "rollouts_per_task": 1,
+        "max_sequence_tokens": split.MAX_SEQUENCE_TOKENS,
+        "min_supported_pass_rate": MIN_CPU_PASS_RATE,
+        "max_supported_pass_rate": MAX_CPU_PASS_RATE,
+        "provider_partition": {
+            union.SANDOQ_ROLE: union.SANDOQ_TASKS,
+            union.VMVM_ROLE: union.VMVM_TASKS,
+            union.GPU_ROLE: union.GPU_TASKS,
+        },
+        "harness": {"id": "mini-swe-agent", "version": union.MINISWE_VERSION},
+        "tool_exit_evidence_required": True,
+    }
+    timeout_contract = _plan_timeout_contract(plan)
+    if timeout_contract is not None:
+        policy["timeouts"] = timeout_contract
     value: dict[str, Any] = {
         "schema_version": UNION_CERTIFICATE_SCHEMA_VERSION,
         "kind": UNION_CERTIFICATE_KIND,
@@ -781,21 +819,7 @@ def merge_certified_lanes(
             "supported_pass_rate": cpu_pass_rate,
             "all_task_pass_rate": passes / split.TOTAL_TASKS,
         },
-        "policy": {
-            "expected_tasks": split.TOTAL_TASKS,
-            "expected_supported_tasks": union.CPU_TASKS,
-            "rollouts_per_task": 1,
-            "max_sequence_tokens": split.MAX_SEQUENCE_TOKENS,
-            "min_supported_pass_rate": MIN_CPU_PASS_RATE,
-            "max_supported_pass_rate": MAX_CPU_PASS_RATE,
-            "provider_partition": {
-                union.SANDOQ_ROLE: union.SANDOQ_TASKS,
-                union.VMVM_ROLE: union.VMVM_TASKS,
-                union.GPU_ROLE: union.GPU_TASKS,
-            },
-            "harness": {"id": "mini-swe-agent", "version": union.MINISWE_VERSION},
-            "tool_exit_evidence_required": True,
-        },
+        "policy": policy,
         "providers": {
             union.SANDOQ_ROLE: {
                 "state": "passed",

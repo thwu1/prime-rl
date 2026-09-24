@@ -442,6 +442,18 @@ if [[ -n ${eval_config_sha256:-} \
     printf 'Direct Kimi sealed evaluation config changed\n' >&2
     exit 2
 fi
+router_request_timeout=$(
+    "$x86_uv" run --no-project --offline --python "$python_bin" python3 - "$eval_config" <<'PY'
+import sys
+import tomllib
+from pathlib import Path
+
+timeout = tomllib.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["client"]["timeout"]
+if type(timeout) is not int or timeout not in {43_200, 144_000}:
+    raise SystemExit(2)
+print(timeout)
+PY
+)
 
 mkdir -p "$generation_dir"
 chmod 0700 "$generation_dir"
@@ -453,7 +465,10 @@ if ! flock -n 8; then
 fi
 export PYTHONDONTWRITEBYTECODE=1
 export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site"
-router_profile_args=(--capacity-profile "${router_capacity_profile:-legacy-c24}")
+router_profile_args=(
+    --capacity-profile "${router_capacity_profile:-legacy-c24}"
+    --request-timeout-seconds "$router_request_timeout"
+)
 if [[ -n ${endpoint_identifier:-} ]]; then
     router_profile_args+=(--endpoint-identifier "$endpoint_identifier")
 fi

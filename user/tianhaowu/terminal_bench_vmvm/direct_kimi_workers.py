@@ -18,6 +18,7 @@ from typing import Any
 
 import yaml
 from direct_kimi_router import (
+    ALLOWED_REQUEST_TIMEOUT_SECONDS,
     C64_CAPACITY_PROFILE,
     C64_W2_CAPACITY_PROFILE,
     DEFAULT_CAPACITY_PROFILE,
@@ -25,6 +26,7 @@ from direct_kimi_router import (
     capacity_for_profile,
     per_worker_capacity_for_profile,
     validate_endpoint_identifier,
+    validate_request_timeout_seconds,
 )
 
 EXPECTED_MODEL = "Kimi-K3"
@@ -40,10 +42,10 @@ ROUTER_RETRIES = 0
 ROUTER_PROVIDER_CONCURRENCY = 24
 ROUTER_MAX_PROVIDER_CONCURRENCY = 64
 ROUTER_QUEUE_SIZE = ROUTER_PROVIDER_CONCURRENCY
-ROUTER_QUEUE_TIMEOUT_SECONDS = 43_200
 ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v2"
 HISTORICAL_LEGACY_ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v1"
 HISTORICAL_LEGACY_ROUTER_SHA256 = "7fd5bc463bd0fa86567c21b72e2b4988fbb42aeca4c0a7d40959f8466c8f820d"
+HISTORICAL_CURRENT_ROUTER_SHA256 = "03ea138f164526dc39ab721a9ff3413d3b7299900d496204a5510799d7fb4e56"
 EXPECTED_ENDPOINT_IDENTIFIER = "cpu-132-021_8103"
 MANIFEST_SCHEMA_VERSION = 1
 C64_MANIFEST_SCHEMA_VERSION = 2
@@ -512,8 +514,10 @@ def _manifest(
     *,
     capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
     endpoint_identifier: str | None = None,
+    request_timeout_seconds: int = ROUTER_REQUEST_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     capacity = capacity_for_profile(capacity_profile)
+    request_timeout_seconds = validate_request_timeout_seconds(request_timeout_seconds)
     endpoint_identifier = validate_endpoint_identifier(
         endpoint_identifier,
         capacity_profile=capacity_profile,
@@ -532,10 +536,10 @@ def _manifest(
         "metrics_port": metrics_port,
         "policy": ROUTER_POLICY,
         "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
-        "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
+        "request_timeout_seconds": request_timeout_seconds,
         "max_concurrent_requests": capacity,
         "queue_size": capacity,
-        "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
+        "queue_timeout_seconds": request_timeout_seconds,
         "retries": ROUTER_RETRIES,
     }
     schema_version = MANIFEST_SCHEMA_VERSION
@@ -895,6 +899,7 @@ def prepare_generation(
     *,
     capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
     endpoint_identifier: str | None = None,
+    request_timeout_seconds: int = ROUTER_REQUEST_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     output_root = _absolute_path(output_root, code="output_parent_invalid")
     publication_paths = tuple(
@@ -920,6 +925,7 @@ def prepare_generation(
         metrics_port,
         capacity_profile=capacity_profile,
         endpoint_identifier=endpoint_identifier,
+        request_timeout_seconds=request_timeout_seconds,
     )
     files = {
         publication_paths[0].name: (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode(),
@@ -970,6 +976,9 @@ def validate_manifest_value(
     )
     try:
         capacity = capacity_for_profile(capacity_profile)
+        request_timeout_seconds = validate_request_timeout_seconds(
+            router.get("request_timeout_seconds") if isinstance(router, dict) else None
+        )
         endpoint_identifier = validate_endpoint_identifier(
             router.get("endpoint_identifier") if isinstance(router, dict) else None,
             capacity_profile=capacity_profile,
@@ -988,15 +997,25 @@ def validate_manifest_value(
         and router.get("implementation") == HISTORICAL_LEGACY_ROUTER_IMPLEMENTATION
         and router.get("implementation_sha256") == HISTORICAL_LEGACY_ROUTER_SHA256
     )
+    current_router_sha256 = _sha256_file(
+        Path(__file__).with_name("direct_kimi_router.py"),
+        held=held,
+    )
+    historical_current = (
+        isinstance(router, dict)
+        and router.get("implementation") == ROUTER_IMPLEMENTATION
+        and router.get("implementation_sha256") == HISTORICAL_CURRENT_ROUTER_SHA256
+        and request_timeout_seconds == ROUTER_REQUEST_TIMEOUT_SECONDS
+    )
+    current_router = (
+        isinstance(router, dict)
+        and router.get("implementation") == ROUTER_IMPLEMENTATION
+        and router.get("implementation_sha256") == current_router_sha256
+    )
     expected_router = {
         "implementation": (HISTORICAL_LEGACY_ROUTER_IMPLEMENTATION if historical_legacy else ROUTER_IMPLEMENTATION),
         "implementation_sha256": (
-            HISTORICAL_LEGACY_ROUTER_SHA256
-            if historical_legacy
-            else _sha256_file(
-                Path(__file__).with_name("direct_kimi_router.py"),
-                held=held,
-            )
+            HISTORICAL_LEGACY_ROUTER_SHA256 if historical_legacy else router.get("implementation_sha256")
         ),
         "host": "127.0.0.1",
         "port": router.get("port") if isinstance(router, dict) else None,
@@ -1004,10 +1023,10 @@ def validate_manifest_value(
         "metrics_port": router.get("metrics_port") if isinstance(router, dict) else None,
         "policy": ROUTER_POLICY,
         "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
-        "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
+        "request_timeout_seconds": request_timeout_seconds,
         "max_concurrent_requests": capacity,
         "queue_size": capacity,
-        "queue_timeout_seconds": ROUTER_QUEUE_TIMEOUT_SECONDS,
+        "queue_timeout_seconds": request_timeout_seconds,
         "retries": ROUTER_RETRIES,
     }
     if capacity_profile in (C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE):
@@ -1036,6 +1055,7 @@ def validate_manifest_value(
         or not isinstance(workers, list)
         or len(workers) != EXPECTED_ENDPOINTS
         or not isinstance(router, dict)
+        or not (historical_legacy or historical_current or current_router)
         or router != expected_router
         or any(
             not isinstance(router.get(key), int) or isinstance(router.get(key), bool) or not 1 <= router[key] <= 65_535
@@ -1642,7 +1662,7 @@ def certify_router(
             or router_stats.get("implementation") != manifest["router"]["implementation"]
             or router_stats.get("policy") != ROUTER_POLICY
             or router_stats.get("request_id_headers") != list(ROUTER_REQUEST_ID_HEADERS)
-            or router_stats.get("request_timeout_seconds") != ROUTER_REQUEST_TIMEOUT_SECONDS
+            or router_stats.get("request_timeout_seconds") != manifest["router"]["request_timeout_seconds"]
             or router_stats.get("retries") != ROUTER_RETRIES
             or router_stats.get("worker_count") != EXPECTED_ENDPOINTS
             or router_stats.get("active_workers") != EXPECTED_ENDPOINTS
@@ -1727,7 +1747,7 @@ def certify_router(
             "implementation_sha256": manifest["router"]["implementation_sha256"],
             "policy": ROUTER_POLICY,
             "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
-            "request_timeout_seconds": ROUTER_REQUEST_TIMEOUT_SECONDS,
+            "request_timeout_seconds": manifest["router"]["request_timeout_seconds"],
             "retries": ROUTER_RETRIES,
             "max_active_requests": router_stats["max_active_requests"],
             "total_requests": router_stats["total_requests"],
@@ -1792,6 +1812,12 @@ def main() -> None:
         default=DEFAULT_CAPACITY_PROFILE,
     )
     prepare.add_argument("--endpoint-identifier")
+    prepare.add_argument(
+        "--request-timeout-seconds",
+        type=int,
+        choices=tuple(sorted(ALLOWED_REQUEST_TIMEOUT_SECONDS)),
+        default=ROUTER_REQUEST_TIMEOUT_SECONDS,
+    )
     prepare.add_argument("--probe", action="store_true")
     snapshot = subparsers.add_parser("snapshot-source")
     snapshot.add_argument("--deployment-root", type=Path, required=True)
@@ -1833,6 +1859,7 @@ def main() -> None:
         args.ports_output,
         capacity_profile=args.capacity_profile,
         endpoint_identifier=args.endpoint_identifier,
+        request_timeout_seconds=args.request_timeout_seconds,
     )
     if args.probe:
         workers, _, _, _ = load_workers(args.deployment_root)

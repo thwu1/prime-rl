@@ -57,6 +57,7 @@ KIMI_SANDOQ_STREAM_RETRY_CONFIGS = [
     CONFIG_DIR / "servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_sandoq_pass1.toml",
     CONFIG_DIR / "servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_sandoq_smoke.toml",
     CONFIG_DIR / "servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_union.base.toml",
+    CONFIG_DIR / "servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_union.extended.base.toml",
     Path(__file__).parents[1] / "frontierbench_sandoq/configs/cpu-132-021_8103/kimi.toml",
 ]
 

@@ -21,7 +21,9 @@ EXPECTED_WORKERS = 24
 POLICY = "consistent_hash"
 SESSION_HEADER = "x-session-id"
 REQUEST_TIMEOUT_SECONDS = 43_200
-WORKER_QUEUE_TIMEOUT_SECONDS = 43_200
+EXTENDED_REQUEST_TIMEOUT_SECONDS = 144_000
+ALLOWED_REQUEST_TIMEOUT_SECONDS = frozenset({REQUEST_TIMEOUT_SECONDS, EXTENDED_REQUEST_TIMEOUT_SECONDS})
+WORKER_QUEUE_TIMEOUT_SECONDS = REQUEST_TIMEOUT_SECONDS
 RETRIES = 0
 LEGACY_CAPACITY_PROFILE = "legacy-c24"
 C64_CAPACITY_PROFILE = "sandoq-c64-v1"
@@ -55,6 +57,12 @@ _HOP_BY_HOP = {
 
 class RouterError(ValueError):
     """The transparent router contract is invalid."""
+
+
+def validate_request_timeout_seconds(value: int) -> int:
+    if type(value) is not int or value not in ALLOWED_REQUEST_TIMEOUT_SECONDS:
+        raise RouterError("request_timeout_invalid")
+    return value
 
 
 def capacity_for_profile(value: str) -> int:
@@ -146,7 +154,8 @@ class RouterState:
         *,
         capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
         endpoint_identifier: str | None = None,
-        worker_queue_timeout_seconds: float = WORKER_QUEUE_TIMEOUT_SECONDS,
+        request_timeout_seconds: int = REQUEST_TIMEOUT_SECONDS,
+        worker_queue_timeout_seconds: float | None = None,
     ) -> None:
         if len(workers) != EXPECTED_WORKERS:
             raise RouterError("worker_count_invalid")
@@ -157,10 +166,13 @@ class RouterState:
             endpoint_identifier,
             capacity_profile=capacity_profile,
         )
+        self.request_timeout_seconds = validate_request_timeout_seconds(request_timeout_seconds)
         self.max_concurrent_requests = capacity
         self.capacity = threading.BoundedSemaphore(capacity)
         per_worker_capacity = per_worker_capacity_for_profile(capacity_profile)
         self.per_worker_capacity = per_worker_capacity
+        if worker_queue_timeout_seconds is None:
+            worker_queue_timeout_seconds = self.request_timeout_seconds
         if worker_queue_timeout_seconds <= 0:
             raise RouterError("worker_queue_timeout_invalid")
         self.worker_queue_timeout_seconds = worker_queue_timeout_seconds
@@ -331,7 +343,7 @@ class RouterState:
                 "implementation": IMPLEMENTATION,
                 "policy": POLICY,
                 "request_id_headers": [SESSION_HEADER],
-                "request_timeout_seconds": REQUEST_TIMEOUT_SECONDS,
+                "request_timeout_seconds": self.request_timeout_seconds,
                 "retries": RETRIES,
                 "worker_count": len(self.workers),
                 "active_workers": len(self.workers),
@@ -492,7 +504,11 @@ class ApiHandler(BaseHTTPRequestHandler):
             }
             if body is not None:
                 headers["Content-Length"] = str(len(body))
-            connection = http.client.HTTPConnection(host, port, timeout=REQUEST_TIMEOUT_SECONDS)
+            connection = http.client.HTTPConnection(
+                host,
+                port,
+                timeout=self.state.request_timeout_seconds,
+            )
             connection.request("POST" if body is not None else "GET", self.path, body=body, headers=headers)
             response = connection.getresponse()
             self.state.record_upstream_status(response.status)
@@ -588,6 +604,7 @@ def serve(
     *,
     capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
     endpoint_identifier: str | None = None,
+    request_timeout_seconds: int = REQUEST_TIMEOUT_SECONDS,
 ) -> None:
     if host != "127.0.0.1" or not all(1 <= value <= 65_535 for value in (port, metrics_port)) or port == metrics_port:
         raise RouterError("listen_address_invalid")
@@ -595,6 +612,7 @@ def serve(
         workers,
         capacity_profile=capacity_profile,
         endpoint_identifier=endpoint_identifier,
+        request_timeout_seconds=request_timeout_seconds,
     )
     api = RouterServer((host, port), ApiHandler, state)
     metrics = RouterServer((host, metrics_port), MetricsHandler, state)
@@ -627,6 +645,12 @@ def main() -> None:
         default=DEFAULT_CAPACITY_PROFILE,
     )
     parser.add_argument("--endpoint-identifier")
+    parser.add_argument(
+        "--request-timeout-seconds",
+        type=int,
+        choices=tuple(sorted(ALLOWED_REQUEST_TIMEOUT_SECONDS)),
+        default=REQUEST_TIMEOUT_SECONDS,
+    )
     args = parser.parse_args()
     serve(
         load_worker_urls(args.worker_urls_file),
@@ -635,6 +659,7 @@ def main() -> None:
         args.metrics_port,
         capacity_profile=args.capacity_profile,
         endpoint_identifier=args.endpoint_identifier,
+        request_timeout_seconds=args.request_timeout_seconds,
     )
 
 

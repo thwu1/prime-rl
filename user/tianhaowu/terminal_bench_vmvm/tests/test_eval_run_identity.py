@@ -1346,6 +1346,21 @@ def test_kimi_timeout_contract_accepts_pydantic_resolved_exact_floats() -> None:
     validate_kimi_retry_contract(config)
 
 
+def test_kimi_timeout_contract_accepts_only_exact_extended_tb4_profile() -> None:
+    config = _resolved_config()
+    config["client"]["timeout"] = 144_000
+    config["timeout"]["rollout"] = 129_600
+    config["harness"]["runtime"]["session_timeout"] = 144_000
+    config["harness"]["config_overrides"] = ["model.model_kwargs.timeout=144000"]
+
+    observed = validate_kimi_timeout_contract(config, required_profile="tb4_extended")
+
+    assert observed["harness_request_timeout"] == 144_000
+    config["timeout"]["rollout"] = 129_599
+    with pytest.raises(EvalIdentityError, match="^kimi_timeout_contract_invalid$"):
+        validate_kimi_timeout_contract(config, required_profile="tb4_extended")
+
+
 @pytest.mark.parametrize(
     ("rollout_timeout", "session_timeout"),
     [

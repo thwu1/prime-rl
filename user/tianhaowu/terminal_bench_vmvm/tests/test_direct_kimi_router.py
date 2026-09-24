@@ -205,6 +205,17 @@ def test_transparent_router_requires_sticky_header_and_does_not_retry() -> None:
         router_thread.join(timeout=5)
 
 
+def test_router_accepts_only_sealed_extended_request_timeout() -> None:
+    workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
+
+    state = RouterState(workers, request_timeout_seconds=144_000)
+
+    assert state.snapshot()["request_timeout_seconds"] == 144_000
+    assert state.worker_queue_timeout_seconds == 144_000
+    with pytest.raises(RouterError, match="request_timeout_invalid"):
+        RouterState(workers, request_timeout_seconds=144_001)
+
+
 def test_c64_profile_is_explicit_bounded_and_tracks_sticky_routes() -> None:
     workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
     state = RouterState(
