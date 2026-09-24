@@ -3133,25 +3133,42 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
                 '  [ -n "$nested" ] || return 1',
                 '  podman exec task bash -lc \'kill -0 -- "-$1" 2>/dev/null\' bash "$nested" >/dev/null 2>&1',
                 "}",
+                "supervisor_alive() {",
+                '  [ -n "$supervisor" ] || return 1',
+                '  [ ! -f "$job_dir/result" ] || return 1',
+                '  state=$(ps -o stat= -p "$supervisor" 2>/dev/null | tr -d " ")',
+                '  case "$state" in Z*) return 1 ;; esac',
+                '  kill -0 -- "-$supervisor" 2>/dev/null',
+                "}",
                 "if nested_alive; then podman exec task bash -lc 'kill -TERM -- \"-$1\" 2>/dev/null' "
                 'bash "$nested" >/dev/null 2>&1; fi',
-                'if [ -n "$supervisor" ] && kill -0 -- "-$supervisor" 2>/dev/null; then',
-                '  kill -TERM -- "-$supervisor" 2>/dev/null',
-                "fi",
-                f"deadline=$((SECONDS + {grace_seconds}))",
-                'while { nested_alive || { [ -n "$supervisor" ] && kill -0 -- "-$supervisor" 2>/dev/null; }; } '
-                '&& [ "$SECONDS" -lt "$deadline" ]; do sleep 0.2; done',
+                f"nested_deadline=$((SECONDS + {grace_seconds}))",
+                'while nested_alive && [ "$SECONDS" -lt "$nested_deadline" ]; do sleep 0.2; done',
                 "if nested_alive; then podman exec task bash -lc 'kill -KILL -- \"-$1\" 2>/dev/null' "
                 'bash "$nested" >/dev/null 2>&1; fi',
-                'if [ -n "$supervisor" ] && kill -0 -- "-$supervisor" 2>/dev/null; then',
-                '  kill -KILL -- "-$supervisor" 2>/dev/null',
-                "fi",
                 "for _ in $(seq 1 20); do",
-                '  if ! nested_alive && { [ -z "$supervisor" ] || ! kill -0 -- "-$supervisor" 2>/dev/null; }; then break; fi',
+                "  ! nested_alive && break",
                 "  sleep 0.1",
                 "done",
                 "nested_alive && exit 1",
-                '[ -n "$supervisor" ] && kill -0 -- "-$supervisor" 2>/dev/null && exit 1',
+                # Let the supervisor reap the nested command and publish its
+                # terminal files before signalling it. Killing both process
+                # groups together can strand an unreaped group leader and make
+                # every otherwise-clean rollout timeout look like failed
+                # cancellation.
+                f"supervisor_deadline=$((SECONDS + {grace_seconds}))",
+                'while supervisor_alive && [ "$SECONDS" -lt "$supervisor_deadline" ]; do sleep 0.2; done',
+                'if supervisor_alive; then kill -TERM -- "-$supervisor" 2>/dev/null; fi',
+                "for _ in $(seq 1 20); do",
+                "  ! supervisor_alive && break",
+                "  sleep 0.1",
+                "done",
+                'if supervisor_alive; then kill -KILL -- "-$supervisor" 2>/dev/null; fi',
+                "for _ in $(seq 1 20); do",
+                "  ! supervisor_alive && break",
+                "  sleep 0.1",
+                "done",
+                "supervisor_alive && exit 1",
                 "bash -lc true",
             ]
         )
@@ -3159,7 +3176,7 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             result = await self._outer_exec_idempotent(
                 info,
                 command,
-                timeout=grace_seconds + 20,
+                timeout=(2 * grace_seconds) + 30,
                 operation="background_job_terminate",
                 retry_ambiguous_transport=True,
             )

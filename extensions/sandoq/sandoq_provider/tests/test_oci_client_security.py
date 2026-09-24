@@ -671,6 +671,48 @@ def _background_job_test_client() -> tuple[OCIRunnerAsyncSandboxClient, SimpleNa
     return client, info
 
 
+def test_background_termination_reaps_nested_before_signalling_supervisor() -> None:
+    async def scenario() -> None:
+        client = object.__new__(OCIRunnerAsyncSandboxClient)
+        info = SimpleNamespace(session_id="session-1")
+        captured: dict[str, object] = {}
+
+        async def outer_exec(
+            _info: object,
+            command: str,
+            **kwargs: object,
+        ) -> CommandResponse:
+            captured["command"] = command
+            captured["kwargs"] = kwargs
+            return CommandResponse(stdout="", stderr="", exit_code=0)
+
+        async def verify(_info: object) -> bool:
+            return True
+
+        client._outer_exec_idempotent = outer_exec
+        client._verify_shell_usable = verify
+        assert await client._terminate_background_job(
+            info,
+            "job-0123456789abcdef0123456789abcdef",
+        )
+
+        command = str(captured["command"])
+        nested_term = command.index("kill -TERM", command.index("if nested_alive"))
+        nested_join = command.index("nested_alive && exit 1")
+        supervisor_wait = command.index("supervisor_deadline=")
+        supervisor_term = command.index("kill -TERM", supervisor_wait)
+        assert nested_term < nested_join < supervisor_wait < supervisor_term
+        assert '[ ! -f "$job_dir/result" ] || return 1' in command
+        assert 'case "$state" in Z*) return 1 ;; esac' in command
+        assert captured["kwargs"] == {
+            "timeout": 50,
+            "operation": "background_job_terminate",
+            "retry_ambiguous_transport": True,
+        }
+
+    asyncio.run(scenario())
+
+
 def test_background_job_cancellation_terminates_before_propagation() -> None:
     async def scenario() -> None:
         client, info = _background_job_test_client()
