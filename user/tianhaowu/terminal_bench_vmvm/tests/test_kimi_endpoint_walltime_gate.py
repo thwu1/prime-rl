@@ -249,9 +249,12 @@ def test_direct_launcher_gates_only_explicit_extended_profile() -> None:
     launcher = Path(gate.__file__).with_name("run_direct_kimi_sandoq_stage.sh").read_text()
     capture = 'python3 "$workflow_dir/kimi_endpoint_walltime_gate.py" capture'
     identity = 'python3 "$workflow_dir/eval_run_identity.py"'
+    legacy_branch = 'if [[ "$endpoint_walltime_profile" == legacy ]]'
+    extended_branch = 'elif [[ "$endpoint_walltime_profile" == tb4-extended-c24-two-wave-v1 ]]'
+    config_read = 'tomllib.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))'
     assert "KIMI_ENDPOINT_WALLTIME_PROFILE:-legacy" in launcher
-    assert '"$eval_client_timeout" == 144000' in launcher
-    assert "tb4-extended-c24-two-wave-v1" in launcher
+    assert launcher.index(legacy_branch) < launcher.index(extended_branch) < launcher.index(config_read)
+    assert '"$eval_client_timeout" != 144000' in launcher
     assert '"$endpoint_minimum_remaining_seconds" -lt 324000' in launcher
     assert launcher.index(capture) < launcher.index(identity)
     assert 'python3 "$workflow_dir/kimi_endpoint_walltime_gate.py" validate' in launcher
