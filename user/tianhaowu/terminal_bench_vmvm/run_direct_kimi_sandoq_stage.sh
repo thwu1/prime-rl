@@ -377,26 +377,8 @@ if [[ ! "$direct_spec_sha256" =~ ^[0-9a-f]{64}$ \
     exit 2
 fi
 
-if [[ "$endpoint_walltime_profile" == legacy ]]; then
-    if [[ -n ${KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS:-} ]]; then
-        printf 'Legacy direct Kimi runs cannot consume an endpoint walltime minimum\n' >&2
-        exit 2
-    fi
-elif [[ "$endpoint_walltime_profile" == tb4-extended-c24-two-wave-v1 ]]; then
-    eval_client_timeout=$(
-        "$x86_uv" run --no-project --offline --python "$python_bin" python3 - "$eval_config" <<'PY'
-import sys
-import tomllib
-from pathlib import Path
-
-value = tomllib.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
-timeout = value.get("client", {}).get("timeout")
-if type(timeout) is not int or timeout <= 0:
-    raise SystemExit(2)
-print(timeout)
-PY
-    )
-    if [[ "$eval_client_timeout" != 144000 \
+if [[ "$direct_request_timeout" == 144000 ]]; then
+    if [[ "$endpoint_walltime_profile" != tb4-extended-c24-two-wave-v1 \
         || "$role" != kimi-direct-tb4 || "$rollout_concurrency" != 24 \
         || ! "$approved_task_count" =~ ^[1-9][0-9]*$ \
         || "$approved_task_count" -le 24 || "$approved_task_count" -gt 48 \
@@ -418,8 +400,9 @@ PY
         --minimum-remaining-seconds "$endpoint_minimum_remaining_seconds" \
         --output "$endpoint_walltime_receipt"
     endpoint_walltime_receipt_file_sha256=$(sha256sum -- "$endpoint_walltime_receipt" | cut -d' ' -f1)
-else
-    printf 'Direct Kimi endpoint walltime profile is invalid\n' >&2
+elif [[ "$endpoint_walltime_profile" != legacy \
+    || -n ${KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS:-} ]]; then
+    printf 'Legacy direct Kimi runs cannot consume an endpoint walltime profile\n' >&2
     exit 2
 fi
 
