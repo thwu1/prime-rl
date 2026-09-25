@@ -7,6 +7,7 @@ import os
 import shutil
 import subprocess
 import tarfile
+import time
 from pathlib import Path
 
 import pytest
@@ -420,7 +421,7 @@ def _launcher_environment(tmp_path: Path) -> tuple[dict[str, str], Path, Path]:
         "#!/bin/bash\n"
         'printf \'%s\\n\' "$*" >>"$SBATCH_CALLS"\n'
         '/bin/sleep "${SBATCH_SLEEP:-0}"\n'
-        "printf '%s\\n' '2000002'\n",
+        "printf '%s\\n' \"${SBATCH_RESULT:-2000002}\"\n",
     )
     environment.update(
         {
@@ -642,6 +643,56 @@ def test_launcher_reservation_allows_only_one_submission(tmp_path: Path) -> None
     assert len(calls.read_text().splitlines()) == 1
     assert jobid_file.read_text() == "2000002\n"
     assert not Path(f"{jobid_file}.lock").exists()
+
+
+def test_launcher_normalizes_cluster_qualified_job_id(tmp_path: Path) -> None:
+    environment, _calls, jobid_file = _launcher_environment(tmp_path)
+    environment["SBATCH_RESULT"] = "2000002;cluster"
+    completed = subprocess.run(
+        ["bash", str(LAUNCHER), "1579999"],
+        env=environment,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=30,
+    )
+    assert completed.returncode == 0, completed.stderr
+    assert jobid_file.read_text() == "2000002\n"
+    assert json.loads(completed.stdout)["job_id"] == 2000002
+
+
+def test_launcher_term_during_submission_stops_and_preserves_reservation(tmp_path: Path) -> None:
+    environment, calls, jobid_file = _launcher_environment(tmp_path)
+    environment["SBATCH_SLEEP"] = "0.5"
+    process = subprocess.Popen(
+        ["bash", str(LAUNCHER), "1579999"],
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    for _attempt in range(100):
+        if calls.exists():
+            break
+        time.sleep(0.01)
+    assert calls.exists()
+    process.terminate()
+    stdout, stderr = process.communicate(timeout=30)
+    assert process.returncode == 143
+    assert stdout == ""
+    assert stderr == ""
+    assert not jobid_file.exists()
+    assert Path(f"{jobid_file}.lock").is_dir()
+
+
+def test_package_scripts_use_terminating_signal_handlers() -> None:
+    for script in (PACKAGER, LAUNCHER):
+        body = script.read_text()
+        assert "trap cleanup EXIT INT TERM" not in body
+        assert "trap cleanup EXIT\n" in body
+        assert "trap 'exit 130' INT\n" in body
+        assert "trap 'exit 143' TERM\n" in body
 
 
 @pytest.mark.parametrize(

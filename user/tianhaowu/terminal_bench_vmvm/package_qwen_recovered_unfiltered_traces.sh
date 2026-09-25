@@ -111,6 +111,8 @@ temporary=
 contract_summary=
 published=0
 cleanup() {
+    status=$?
+    trap - EXIT INT TERM
     if [[ -n $contract_summary ]]; then
         rm -f -- "$contract_summary"
     fi
@@ -120,8 +122,11 @@ cleanup() {
     if [[ $lock_owned == 1 && -d $publication_lock ]]; then
         rmdir -- "$publication_lock" || true
     fi
+    exit "$status"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 results="$unfiltered/results.jsonl"
 recovered_certificate="$unfiltered/qwen_2499_recovered_results_certificate.json"

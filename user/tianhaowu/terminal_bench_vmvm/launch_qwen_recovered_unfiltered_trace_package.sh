@@ -96,11 +96,16 @@ reservation="$QWEN_V6_PACKAGE_JOBID_FILE.lock"
 mkdir -m 700 -- "$reservation" 2>/dev/null || fail submission_already_reserved
 submitted=0
 cleanup() {
-    if [[ $submitted == 0 && -d $reservation ]]; then
-        rmdir -- "$reservation" || true
+    status=$?
+    trap - EXIT INT TERM
+    if [[ $submitted == 0 ]]; then
+        rmdir -- "$reservation" 2>/dev/null || true
     fi
+    exit "$status"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 mapfile -t accounting < <(sacct -j "$postrun_job" -X -n -P -o JobIDRaw,State,ExitCode \
     | sed '/^[[:space:]]*$/d')
@@ -149,9 +154,13 @@ exports+=",QWEN_V6_PACKAGE_ZSTD_LEVEL=$compression_level"
 
 submitted=1
 jobid=$(sbatch --parsable --dependency="afterok:$postrun_job" --export="$exports" "$worker")
+jobid=${jobid%%;*}
 [[ $jobid =~ ^[1-9][0-9]*$ ]] || fail submission_receipt_invalid
-set -o noclobber
-printf '%s\n' "$jobid" >"$QWEN_V6_PACKAGE_JOBID_FILE"
+if ! (set -o noclobber; printf '%s\n' "$jobid" >"$QWEN_V6_PACKAGE_JOBID_FILE"); then
+    fail submission_receipt_write_failed
+fi
+chmod 0600 "$QWEN_V6_PACKAGE_JOBID_FILE"
 rmdir -- "$reservation"
 submitted=2
+trap - EXIT INT TERM
 printf '{"dependency":%s,"job_id":%s,"state":"submitted"}\n' "$postrun_job" "$jobid"
