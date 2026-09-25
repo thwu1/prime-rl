@@ -29,6 +29,28 @@ approved_task_file_sha256=${DIRECT_QWEN_APPROVED_TASK_FILE_SHA256:?Missing direc
 deployment_root=${DIRECT_QWEN_DEPLOYMENT_ROOT:-/checkpoint/ram/shared/vllm_deployments_v2/shared_qwen38_2p4t}
 worker_manifest="$output_dir/direct_workers.json"
 unset PYTHONPATH PYTHONHOME
+diagnostic_config_sha256=${QWEN_SANDOQ_NONCERTIFYING_DIAGNOSTIC_CONFIG_SHA256:-}
+diagnostic_mode=0
+error_retry_contract=${QWEN_2499_ERROR_RETRY_CONTRACT:-}
+error_retry_contract_sha256=${QWEN_2499_ERROR_RETRY_CONTRACT_SHA256:-}
+error_retry_mode=0
+if [[ -n "$diagnostic_config_sha256" ]]; then
+    diagnostic_mode=1
+    if [[ ! "$diagnostic_config_sha256" =~ ^[0-9a-f]{64}$ ]]; then
+        printf 'Non-certifying diagnostic config SHA-256 is invalid\n' >&2
+        exit 2
+    fi
+fi
+if [[ -n "$error_retry_contract" || -n "$error_retry_contract_sha256" ]]; then
+    if [[ -z "$error_retry_contract" \
+        || ! "$error_retry_contract_sha256" =~ ^[0-9a-f]{64}$ \
+        || "$diagnostic_mode" -eq 1 \
+        || -n "$resume_dir" ]]; then
+        printf 'Qwen 2499 error-retry contract inputs are invalid\n' >&2
+        exit 2
+    fi
+    error_retry_mode=1
+fi
 
 if [[ -n ${EVAL_RUN_ROLE:-} || -n ${EVAL_MODEL:-} || -n ${EVAL_APPROVED_TASK_FILE:-} \
     || -n ${INFERENCE_DEPLOYMENT_ID:-} || -n ${INFERENCE_JOB_ID:-} \
@@ -66,6 +88,10 @@ if [[ "$sandbox_provider" != vmvm && "$sandbox_provider" != sandoq ]]; then
     printf 'Direct Qwen config must select vmvm or sandoq explicitly\n' >&2
     exit 2
 fi
+if [[ "$error_retry_mode" -eq 1 && "$sandbox_provider" != sandoq ]]; then
+    printf 'Qwen 2499 error retry requires Sandoq\n' >&2
+    exit 2
+fi
 if [[ "$sandbox_provider" == sandoq && -n "$resume_dir" ]]; then
     printf 'Sandoq direct Qwen runs require a fresh output directory\n' >&2
     exit 2
@@ -78,7 +104,8 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         "$output_dir/provenance.txt" "$output_dir/eval_run_identity.json" \
         "$output_dir/pool_events.jsonl" "$output_dir/control/sandoq-pool.wal.jsonl" \
         "$output_dir/pool_cleanup_audit.json" "$output_dir/sandoq_cleanup_audit.json" \
-        "$output_dir/direct_qwen_sandoq_certificate.json" "$expected_pool_socket" \
+        "$output_dir/direct_qwen_sandoq_certificate.json" \
+        "$output_dir/qwen_2499_error_retry_run_certificate.json" "$expected_pool_socket" \
         "$expected_pool_socket.owner.json" "${expected_pool_socket%.sock}.drained.json"; do
         if [[ -e "$stale" || -L "$stale" ]]; then
             printf 'Sandoq fresh run found stale lifecycle evidence\n' >&2
@@ -127,13 +154,22 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         printf 'Vendored Sandoq extension provenance is invalid\n' >&2
         exit 2
     fi
-    if [[ "$OCI_RUNNER_ENVIRONMENT" != oci-runner \
+    expected_sandoq_environment=oci-runner
+    expected_sandoq_provider_task_network=
+    expected_sandoq_fallback=
+    if [[ "$error_retry_mode" -eq 1 ]]; then
+        expected_sandoq_environment=oci-runner-firecracker-small
+        expected_sandoq_provider_task_network=host
+        expected_sandoq_fallback=0
+    fi
+    if [[ "$OCI_RUNNER_ENVIRONMENT" != "$expected_sandoq_environment" \
         || "$SANDOQ_EFFECTIVE_TASK_NETWORK" != public \
         || "$SANDOQ_LEASE_PROFILE" != standard \
         || "$OCI_RUNNER_LEASE_DURATION" != 1h \
         || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m \
         || "$OCI_RUNNER_MANAGED_SHELL_RECOVERY" != 0 \
-        || -n ${OCI_RUNNER_TASK_NETWORK:-} \
+        || "${OCI_RUNNER_TASK_NETWORK:-}" != "$expected_sandoq_provider_task_network" \
+        || "${OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK:-}" != "$expected_sandoq_fallback" \
         || "$OCI_RUNNER_POOL_SIZE" != "$sandoq_capacity" \
         || "$OCI_RUNNER_POOL_MIN_SIZE" != 0 \
         || "$OCI_RUNNER_POOL_CREATE_WORKERS" != "$sandoq_create_workers" \
@@ -141,6 +177,18 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         || "$OCI_RUNNER_POOL_DRAIN_WORKERS" != "$sandoq_drain_workers" \
         || "$OCI_RUNNER_POOL_RENEW_WORKERS" != "$sandoq_renew_workers" ]]; then
         printf 'Sandoq provider context does not match the approved execution contract\n' >&2
+        exit 2
+    fi
+    if [[ "$error_retry_mode" -eq 1 && ( \
+        "${SANDOQ_PROVIDER_PROFILE_SHA256:-}" \
+            != 247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084 \
+        || -n ${SANDOQ_RUNTIME_SMOKE_RECEIPT:-} \
+        || -n ${SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256:-} \
+        || -n ${SANDOQ_RUNTIME_RESOURCE_RECEIPT:-} \
+        || -n ${SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256:-} \
+        || -n ${DIRECT_KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256:-} \
+    ) ]]; then
+        printf 'Qwen error retry provider profile is invalid\n' >&2
         exit 2
     fi
     mkdir -p "$pool_socket_dir"
@@ -238,7 +286,8 @@ fi
 direct_metadata=$(
     "$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 - "$worker_manifest" "$eval_config" "$approved_task_file" \
-        "$approved_task_file_sha256" "$inference_base_url" "$deployment_root" <<'PY'
+        "$approved_task_file_sha256" "$inference_base_url" "$deployment_root" \
+        "$error_retry_mode" <<'PY'
 import hashlib
 import sys
 from pathlib import Path
@@ -252,6 +301,7 @@ task_sha256 = validate_eval_config(
     Path(sys.argv[2]),
     approved_task_file=Path(sys.argv[3]),
     approved_task_file_sha256=sys.argv[4],
+    allow_sandoq_firecracker_retry=sys.argv[7] == "1",
 )
 expected_url = f"http://127.0.0.1:{manifest['router']['port']}/v1"
 if (
@@ -284,16 +334,36 @@ if [[ ! "$worker_manifest_sha256" =~ ^[0-9a-f]{64}$ \
     exit 2
 fi
 if [[ "$sandbox_provider" == sandoq ]]; then
-    diagnostic_config_sha256=${QWEN_SANDOQ_NONCERTIFYING_DIAGNOSTIC_CONFIG_SHA256:-}
-    diagnostic_mode=0
-    if [[ -n "$diagnostic_config_sha256" ]]; then
-        diagnostic_mode=1
+    if [[ "$diagnostic_mode" -eq 1 ]]; then
         if [[ "$sandoq_stage_count" != 1 \
-            || ! "$diagnostic_config_sha256" =~ ^[0-9a-f]{64}$ \
             || "$(sha256sum -- "$eval_config" | cut -d' ' -f1)" != "$diagnostic_config_sha256" ]]; then
             printf 'Non-certifying diagnostic inputs are invalid\n' >&2
             exit 2
         fi
+    elif [[ "$error_retry_mode" -eq 1 ]]; then
+        if [[ "$sandoq_stage_count" != 64 \
+            || -n ${SANDOQ_RAMP_RECEIPT:-} \
+            || -n ${SANDOQ_RAMP_RECEIPT_SHA256:-} \
+            || -n ${SANDOQ_PREDECESSOR_CERTIFICATE:-} \
+            || -n ${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-} ]]; then
+            printf 'Qwen 2499 error-retry launch inputs are invalid\n' >&2
+            exit 2
+        fi
+        retry_profile=${SANDOQ_PROVIDER_CONTEXT_PROFILE:-$workflow_dir/configs/provider_context/use2/qwen_sandoq_firecracker_host.json}
+        retry_profile_sha256=${SANDOQ_PROVIDER_CONTEXT_PROFILE_SHA256:-247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084}
+        eval_config_sha256=$(sha256sum -- "$eval_config" | cut -d' ' -f1)
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/qwen_2499_error_retry.py" verify-launch \
+            --contract "$error_retry_contract" \
+            --contract-sha256 "$error_retry_contract_sha256" \
+            --task-file "$approved_task_file" \
+            --task-file-sha256 "$approved_task_file_sha256" \
+            --config "$eval_config" \
+            --config-sha256 "$eval_config_sha256" \
+            --provider-profile "$retry_profile" \
+            --provider-profile-sha256 "$retry_profile_sha256" \
+            --run-dir "$output_dir" \
+            --allow-wrapper-artifacts >/dev/null
     else
         ramp_receipt=${SANDOQ_RAMP_RECEIPT:?SANDOQ_RAMP_RECEIPT is required}
         ramp_receipt_sha256=${SANDOQ_RAMP_RECEIPT_SHA256:?SANDOQ_RAMP_RECEIPT_SHA256 is required}
@@ -327,7 +397,7 @@ PY
         printf 'Sandoq host harness digest is invalid\n' >&2
         exit 2
     fi
-    if [[ "$diagnostic_mode" -eq 0 ]]; then
+    if [[ "$diagnostic_mode" -eq 0 && "$error_retry_mode" -eq 0 ]]; then
         "$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 - "$sandoq_stage_count" "$approved_task_file_sha256" "$approved_task_file" \
         "$workflow_dir/configs/eval/mobius_valid_tasks_2500.txt" \
@@ -448,14 +518,25 @@ PY
 )
     image_manifest_sha256=$(sha256sum "$output_dir/inputs/image_manifest.json" | cut -d' ' -f1)
     clean_tree_sha256=$(printf '' | sha256sum | cut -d' ' -f1)
+    identity_role=qwen-direct
+    sandoq_tunnel_policy=host-interception-no-tunnel
+    sandoq_allow_dockerhub_fallback=1
+    approved_config_args=()
+    if [[ "$error_retry_mode" -eq 1 ]]; then
+        identity_role=qwen-direct-error-retry-2499
+        sandoq_tunnel_policy=native-sandoq-reverse-tunnel
+        sandoq_allow_dockerhub_fallback=0
+        approved_config_args=(--approved-config-sha256 "$eval_config_sha256")
+    fi
     eval_run_identity_sha256=$(
         "$x86_uv" run --no-project --offline --python "$python_bin" \
             python3 "$workflow_dir/eval_run_identity.py" \
-            --mode fresh --role qwen-direct --sandbox-provider sandoq \
+            --mode fresh --role "$identity_role" --sandbox-provider sandoq \
             --output-dir "$output_dir" --inputs-dir "$output_dir/inputs" \
             --client-base-url "$inference_base_url" --expected-model Qwen3.8-2.4T-A95B \
             --approved-task-file-sha256 "$validated_approval_sha256" \
             --approved-task-count "$validated_approval_count" \
+            "${approved_config_args[@]}" \
             --dataset-revision "$dataset_revision" --project-root "$project_dir" \
             --prime-rl-commit "$(git rev-parse HEAD)" --prime-rl-tree-sha256 "$clean_tree_sha256" \
             --verifiers-commit "$(git -C deps/verifiers rev-parse HEAD)" --verifiers-tree-sha256 "$clean_tree_sha256" \
@@ -467,7 +548,7 @@ PY
             --derived-image-manifest-sha256 "$image_manifest_sha256" \
             --sandoq-environment "$OCI_RUNNER_ENVIRONMENT" --sandoq-task-network "$SANDOQ_EFFECTIVE_TASK_NETWORK" \
             --sandoq-pool-size "$OCI_RUNNER_POOL_SIZE" --sandoq-pool-min-size "$OCI_RUNNER_POOL_MIN_SIZE" \
-            --sandoq-tunnel-policy host-interception-no-tunnel --sandoq-use-ecr 1 \
+            --sandoq-tunnel-policy "$sandoq_tunnel_policy" --sandoq-use-ecr 1 \
             --sandoq-base-url "$OCI_RUNNER_BASE_URL" --sandoq-owner "$SANDOQ_OWNER" \
             --sandoq-transport-proxy-policy "$sandoq_transport_proxy_policy" \
             --sandoq-pool-socket "$OCI_RUNNER_POOL_SOCKET" --sandoq-pool-wal "$OCI_RUNNER_POOL_WAL" \
@@ -475,7 +556,7 @@ PY
             --sandoq-ecr-registry "$OCI_RUNNER_ECR_REGISTRY" --sandoq-ecr-region "$OCI_RUNNER_ECR_REGION" \
             --sandoq-ecr-pull-through-prefix "$OCI_RUNNER_ECR_PULL_THROUGH_PREFIX" \
             --sandoq-ecr-token-file "$OCI_RUNNER_ECR_TOKEN_FILE" \
-            --sandoq-allow-dockerhub-fallback 1 \
+            --sandoq-allow-dockerhub-fallback "$sandoq_allow_dockerhub_fallback" \
             --sandoq-create-deadline "$OCI_RUNNER_CREATE_DEADLINE" --sandoq-pull-timeout "$OCI_RUNNER_PULL_TIMEOUT" \
             --sandoq-pull-poll-max-errors "$OCI_RUNNER_PULL_POLL_MAX_ERRORS" \
             --sandoq-gateway-retry-attempts "$OCI_RUNNER_GATEWAY_RETRY_ATTEMPTS" \
@@ -518,7 +599,10 @@ from pathlib import Path
 from eval_run_identity import load_eval_run_identity
 
 envelope = load_eval_run_identity(Path(sys.argv[1]), verify_references=True)
-if envelope["identity"].get("role") != "qwen-direct":
+expected_role = "qwen-direct-error-retry-2499" if __import__("os").environ.get(
+    "QWEN_2499_ERROR_RETRY_CONTRACT"
+) else "qwen-direct"
+if envelope["identity"].get("role") != expected_role:
     raise SystemExit(2)
 PY
     if [[ "$preflight_only" -eq 1 ]]; then

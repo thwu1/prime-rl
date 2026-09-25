@@ -261,6 +261,7 @@ def validate_eval_config(
     approved_task_file: Path | None = None,
     approved_task_file_sha256: str | None = None,
     allow_historical_retry_policy: bool = False,
+    allow_sandoq_firecracker_retry: bool = False,
     expected_capacity: tuple[int, int] | None = None,
 ) -> str:
     try:
@@ -337,6 +338,8 @@ def validate_eval_config(
         raise DirectWorkerError("eval_request_denylist_mismatch")
     if client.get("timeout") != 7_200:
         raise DirectWorkerError("eval_client_timeout_mismatch")
+    if allow_sandoq_firecracker_retry and client.get("connect_timeout") != 30:
+        raise DirectWorkerError("eval_client_connect_timeout_mismatch")
     # vllm-router 0.1.26 implements ``max_concurrent_requests`` with a
     # replenishing token bucket, not a strict in-flight semaphore.  The one
     # shared HTTP/1.1 pool is therefore the authoritative provider bound.
@@ -376,29 +379,48 @@ def validate_eval_config(
         or harness.get("env", {}) != {}
     ):
         raise DirectWorkerError("eval_host_harness_invalid")
-    if runtime.get("type") == "sandoq":
-        if (
-            not host_harness
-            or runtime.get("mode") != "oci-runner"
+    sandoq_runtime = runtime.get("type") == "sandoq"
+    firecracker_retry = sandoq_runtime and not host_harness
+    if sandoq_runtime:
+        common_runtime_invalid = (
+            runtime.get("mode") != "oci-runner"
             or runtime.get("network_access") is not True
-            or runtime.get("host_tunnel") != "none"
-            or runtime.get("expected_environment") != "oci-runner"
-            or "guest_tunnel_url" in runtime
-            or "tunnel_pool_size" in runtime
-            or "tunnel_ready_timeout" in runtime
             or not isinstance(runtime.get("ecr_token_file"), str)
             or not Path(runtime["ecr_token_file"]).is_absolute()
-        ):
-            raise DirectWorkerError("eval_sandoq_host_harness_invalid")
-        if sampling.get("reasoning_effort") != "medium":
+        )
+        if host_harness:
+            runtime_invalid = (
+                runtime.get("host_tunnel") != "none"
+                or runtime.get("expected_environment") != "oci-runner"
+                or "guest_tunnel_url" in runtime
+                or "tunnel_pool_size" in runtime
+                or "tunnel_ready_timeout" in runtime
+            )
+        else:
+            runtime_invalid = (
+                not allow_sandoq_firecracker_retry
+                or runtime.get("host_tunnel") != "sandoq"
+                or runtime.get("buffered_chat_completions") is not True
+                or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
+                or runtime.get("tunnel_pool_size") != 4
+                or runtime.get("tunnel_ready_timeout") != 30
+                or runtime.get("expected_environment")
+                not in {"oci-runner-firecracker", "oci-runner-firecracker-small"}
+            )
+        if common_runtime_invalid or runtime_invalid:
+            raise DirectWorkerError("eval_sandoq_runtime_invalid")
+        expected_reasoning_effort = "medium" if host_harness else "max"
+        if sampling.get("reasoning_effort") != expected_reasoning_effort:
             raise DirectWorkerError("eval_sandoq_reasoning_effort_mismatch")
         dataset_dir = Path(taskset.get("dataset_dir", ""))
         compose_count = sandoq_compose_task_count(dataset_dir, task_file)
         if compose_count:
             raise DirectWorkerError(f"eval_sandoq_compose_tasks_unsupported:{compose_count}")
-    elif not host_harness:
+    if not host_harness:
         if harness.get("id") != "mini-swe-agent":
             raise DirectWorkerError("eval_harness_invalid")
+        if firecracker_retry and harness.get("version") != "2.4.6":
+            raise DirectWorkerError("eval_harness_version_mismatch")
         config_overrides = harness.get("config_overrides")
         if not isinstance(config_overrides, list) or not all(isinstance(value, str) for value in config_overrides):
             raise DirectWorkerError("eval_harness_config_overrides_invalid")
@@ -409,7 +431,11 @@ def validate_eval_config(
             if timeout_overrides != [f"model.model_kwargs.timeout={PRODUCTION_MODEL_TIMEOUT_SECONDS}"]:
                 raise DirectWorkerError("eval_model_timeout_mismatch")
         harness_env = harness.get("env")
-        if not isinstance(harness_env, dict) or harness_env.get("MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT") != "10":
+        expected_model_attempts = "1" if firecracker_retry else "10"
+        if (
+            not isinstance(harness_env, dict)
+            or harness_env.get("MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT") != expected_model_attempts
+        ):
             raise DirectWorkerError("eval_model_retry_policy_mismatch")
     retries = config.get("retries")
     rollout_retries = retries.get("rollout") if isinstance(retries, dict) else None
@@ -418,7 +444,7 @@ def validate_eval_config(
     allowed_retry_policies = {ROLLOUT_RETRY_POLICY}
     if allow_historical_retry_policy:
         allowed_retry_policies.add(LEGACY_ROLLOUT_RETRY_POLICY)
-    expected_rollout_retries = 0 if host_harness else 2
+    expected_rollout_retries = 0 if host_harness or sandoq_runtime else 2
     if (
         not isinstance(rollout_retries, dict)
         or rollout_retries.get("max_retries") != expected_rollout_retries
@@ -430,9 +456,24 @@ def validate_eval_config(
         or retry_exclude
     ):
         raise DirectWorkerError("eval_rollout_retry_policy_mismatch")
-    if host_harness and taskset.get("verifier_runtime_retries") != 0:
+    if (host_harness or sandoq_runtime) and taskset.get("verifier_runtime_retries") != 0:
         provider = runtime.get("type")
         raise DirectWorkerError(f"eval_{provider}_cleanup_retry_contract_mismatch")
+    if allow_sandoq_firecracker_retry and (
+        not firecracker_retry
+        or config.get("num_tasks") != 64
+        or config.get("max_concurrent") != 64
+        or any(config.get(field) != 262_144 for field in ("max_input_tokens", "max_output_tokens", "max_total_tokens"))
+        or config.get("max_turns") != 200
+        or config.get("retain_traces") is not False
+        or sampling.get("max_tokens") != 32_768
+        or harness.get("config_file") != "mini"
+        or taskset.get("verifier_runtime_retries") != 0
+        or runtime.get("session_timeout") != 43_200
+        or config.get("timeout")
+        != {"setup": 3_600, "rollout": 36_000, "finalize": 3_600, "scoring": 21_600}
+    ):
+        raise DirectWorkerError("eval_sandoq_firecracker_retry_contract_invalid")
     return task_file_sha256
 
 
@@ -1660,6 +1701,7 @@ def prepare(
     resume: bool,
     probe_timeout: float,
     repair_admission: bool = False,
+    allow_sandoq_firecracker_retry: bool = False,
 ) -> dict[str, Any]:
     reject_incomplete_migration(manifest_path.parent)
     expected_capacity = (
@@ -1672,6 +1714,7 @@ def prepare(
         approved_task_file=approved_task_file,
         approved_task_file_sha256=approved_task_file_sha256,
         allow_historical_retry_policy=resume,
+        allow_sandoq_firecracker_retry=allow_sandoq_firecracker_retry,
         expected_capacity=expected_capacity,
     )
     config = tomllib.loads(eval_config.read_text(encoding="utf-8"))
@@ -1797,6 +1840,7 @@ def main() -> None:
     parser.add_argument("--approved-task-file", type=Path)
     parser.add_argument("--approved-task-file-sha256")
     parser.add_argument("--repair-admission", action="store_true")
+    parser.add_argument("--allow-sandoq-firecracker-retry", action="store_true")
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--probe-timeout", type=float, default=30)
     parser.add_argument("--audit-run-dir", type=Path)
@@ -1820,6 +1864,7 @@ def main() -> None:
                 )
                 or args.resume
                 or args.repair_admission
+                or args.allow_sandoq_firecracker_retry
             ):
                 parser.error("--audit-run-dir cannot be combined with launch preparation arguments")
             summary = audit_run_directory(args.audit_run_dir)
@@ -1846,6 +1891,7 @@ def main() -> None:
                 resume=args.resume,
                 probe_timeout=args.probe_timeout,
                 repair_admission=args.repair_admission,
+                allow_sandoq_firecracker_retry=args.allow_sandoq_firecracker_retry,
             )
             summary = {
                 "ok": True,

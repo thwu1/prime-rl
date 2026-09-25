@@ -61,12 +61,24 @@ unset PYTHONPATH PYTHONHOME
 serving_generation_bundle=${QWEN_SERVING_GENERATION_BUNDLE:-}
 diagnostic_config_sha256=${QWEN_SANDOQ_NONCERTIFYING_DIAGNOSTIC_CONFIG_SHA256:-}
 diagnostic_mode=0
+error_retry_contract=${QWEN_2499_ERROR_RETRY_CONTRACT:-}
+error_retry_contract_sha256=${QWEN_2499_ERROR_RETRY_CONTRACT_SHA256:-}
+error_retry_mode=0
 if [[ -n "$diagnostic_config_sha256" ]]; then
     diagnostic_mode=1
     if [[ ! "$diagnostic_config_sha256" =~ ^[0-9a-f]{64}$ ]]; then
         printf 'Non-certifying diagnostic config SHA-256 is invalid\n' >&2
         exit 2
     fi
+fi
+if [[ -n "$error_retry_contract" || -n "$error_retry_contract_sha256" ]]; then
+    if [[ -z "$error_retry_contract" \
+        || ! "$error_retry_contract_sha256" =~ ^[0-9a-f]{64}$ \
+        || "$diagnostic_mode" -eq 1 ]]; then
+        printf 'Qwen 2499 error-retry contract inputs are invalid\n' >&2
+        exit 2
+    fi
+    error_retry_mode=1
 fi
 
 if [[ -z "$approved_task_file" || -z "$approved_task_file_sha256" ]]; then
@@ -98,6 +110,10 @@ with open(sys.argv[1], "rb") as handle:
     print(tomllib.load(handle).get("harness", {}).get("runtime", {}).get("type", ""))
 PY
 )
+if [[ "$error_retry_mode" -eq 1 && "$sandbox_provider" != sandoq ]]; then
+    printf 'Qwen 2499 error retry requires Sandoq\n' >&2
+    exit 2
+fi
 if [[ "$sandbox_provider" == sandoq && -n "$serving_generation_bundle" ]]; then
     printf '%s\n' \
         'Sandoq ramps require a fresh task-bound live24 manifest, not a repair serving-generation bundle' >&2
@@ -116,7 +132,7 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         inputs config.toml results.jsonl provenance.txt eval_run_identity.json eval_invocations.jsonl \
         direct_workers.json direct_router.log pool_events.jsonl control/sandoq-pool.wal.jsonl \
         pool_cleanup_audit.json sandoq_cleanup_audit.json direct_qwen_sandoq_certificate.json \
-        qwen_sandoq_diagnostic_summary.json; do
+        qwen_sandoq_diagnostic_summary.json qwen_2499_error_retry_run_certificate.json; do
         if [[ -e "$output_dir/$stale" || -L "$output_dir/$stale" ]]; then
             printf 'Sandoq direct runs require a fresh output namespace\n' >&2
             exit 2
@@ -156,6 +172,15 @@ PY
             || -n ${SANDOQ_PREDECESSOR_CERTIFICATE:-} \
             || -n ${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-} ]]; then
             printf 'Non-certifying diagnostic inputs are invalid\n' >&2
+            exit 2
+        fi
+    elif [[ "$error_retry_mode" -eq 1 ]]; then
+        if [[ "$expected_count" != 64 \
+            || -n ${SANDOQ_RAMP_RECEIPT:-} \
+            || -n ${SANDOQ_RAMP_RECEIPT_SHA256:-} \
+            || -n ${SANDOQ_PREDECESSOR_CERTIFICATE:-} \
+            || -n ${SANDOQ_PREDECESSOR_CERTIFICATE_SHA256:-} ]]; then
+            printf 'Qwen 2499 error-retry launch inputs are invalid\n' >&2
             exit 2
         fi
     else
@@ -206,8 +231,26 @@ PY
     sandoq_capacity=${sandoq_context_values[0]}
     sandoq_ecr_token_file=${sandoq_context_values[1]}
     sandoq_ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-${sandoq_ecr_token_file}.metadata.json}
-    sandoq_provider_profile=${SANDOQ_PROVIDER_CONTEXT_PROFILE:-$workflow_dir/configs/provider_context/use2/qwen_sandoq.json}
-    sandoq_provider_profile_sha256=${SANDOQ_PROVIDER_CONTEXT_PROFILE_SHA256:-965511eb9578aa303d287491a7414e145241d6dbbf61469d13abbe801980a95a}
+    if [[ "$error_retry_mode" -eq 1 ]]; then
+        sandoq_provider_profile=${SANDOQ_PROVIDER_CONTEXT_PROFILE:-$workflow_dir/configs/provider_context/use2/qwen_sandoq_firecracker_host.json}
+        sandoq_provider_profile_sha256=${SANDOQ_PROVIDER_CONTEXT_PROFILE_SHA256:-247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084}
+        eval_config_sha256=$(sha256sum -- "$eval_config" | cut -d' ' -f1)
+        env PYTHONPATH="$post_eval_pythonpath" \
+            "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/qwen_2499_error_retry.py" verify-launch \
+            --contract "$error_retry_contract" \
+            --contract-sha256 "$error_retry_contract_sha256" \
+            --task-file "$approved_task_file" \
+            --task-file-sha256 "$approved_task_file_sha256" \
+            --config "$eval_config" \
+            --config-sha256 "$eval_config_sha256" \
+            --provider-profile "$sandoq_provider_profile" \
+            --provider-profile-sha256 "$sandoq_provider_profile_sha256" \
+            --run-dir "$output_dir" >/dev/null
+    else
+        sandoq_provider_profile=${SANDOQ_PROVIDER_CONTEXT_PROFILE:-$workflow_dir/configs/provider_context/use2/qwen_sandoq.json}
+        sandoq_provider_profile_sha256=${SANDOQ_PROVIDER_CONTEXT_PROFILE_SHA256:-965511eb9578aa303d287491a7414e145241d6dbbf61469d13abbe801980a95a}
+    fi
     sandoq_lease_create_cap=$(( sandoq_capacity < 4 ? sandoq_capacity : 4 ))
     provider_context="$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py"
     if [[ ${SANDOQ_PROVIDER_CONTEXT_ACTIVE:-} == 1 ]]; then
@@ -364,6 +407,9 @@ else
         --approved-task-file "$approved_task_file"
         --approved-task-file-sha256 "$approved_task_file_sha256"
     )
+    if [[ "$error_retry_mode" -eq 1 ]]; then
+        prepare_args+=(--allow-sandoq-firecracker-retry)
+    fi
     if [[ -n "$resume_dir" ]]; then
         prepare_args+=(--resume)
     fi
@@ -525,8 +571,14 @@ else
     bash "$workflow_dir/run_eval.sbatch" &
 fi
 eval_pid=$!
+set +e
 wait "$eval_pid"
+eval_status=$?
+set -e
 eval_pid=
+if [[ "$eval_status" -ne 0 ]]; then
+    exit "$eval_status"
+fi
 if [[ "$sandbox_provider" == sandoq && "$preflight_only" -eq 1 ]]; then
     rm -f -- "$manifest" "$router_log" "$output_dir/.direct_router.lock"
     rmdir -- "$output_dir" 2>/dev/null || true
@@ -581,6 +633,15 @@ PY
             --expected-task-file "$approved_task_file" \
             --cleanup-audit "$output_dir/sandoq_cleanup_audit.json" \
             --output "$output_dir/qwen_sandoq_diagnostic_summary.json"
+    elif [[ "$error_retry_mode" -eq 1 ]]; then
+        env PYTHONPATH="$post_eval_pythonpath" \
+            "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/qwen_2499_error_retry.py" certify \
+            --contract "$error_retry_contract" \
+            --contract-sha256 "$error_retry_contract_sha256" \
+            --run-dir "$output_dir" \
+            --cleanup-audit "$output_dir/sandoq_cleanup_audit.json" \
+            --output "$output_dir/qwen_2499_error_retry_run_certificate.json" >/dev/null
     else
         certificate_args=(
             "$workflow_dir/certify_direct_qwen_sandoq.py"

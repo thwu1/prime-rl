@@ -127,6 +127,14 @@ KIMI_NATIVE_MINISWE_SMOKE_SELECTOR_SHA256 = "c1f745d4a1d3861deefb3fba4daa23f52ff
 KIMI_NATIVE_MINISWE_ROLES = frozenset(
     {"kimi-direct-smoke", KIMI_CAPACITY_SMOKE_ROLE, "kimi-direct-tb4", KIMI_PRODUCTION_ROLE}
 )
+QWEN_ERROR_RETRY_ROLE = "qwen-direct-error-retry-2499"
+QWEN_ERROR_RETRY_TASK_COUNT = 64
+QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT = "oci-runner-firecracker-small"
+QWEN_ERROR_RETRY_FIRECRACKER_PROFILE_SHA256 = (
+    "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
+)
+QWEN_ERROR_RETRY_REQUEST_TIMEOUT_SECONDS = 7_200
+QWEN_ERROR_RETRY_HARNESS_REQUEST_TIMEOUT_SECONDS = 15_000
 KIMI_PROVIDER_SPLIT_COUNTS = frozenset({25, 27, 31, 32, 38})
 KIMI_MINISWE_UNION_COUNTS = frozenset({25, 27, 38})
 KIMI_SANDOQ_LONG_LEASE_ROLES = frozenset(
@@ -149,7 +157,8 @@ DIRECT_KIMI_ROLES = frozenset(
         KIMI_PRODUCTION_ROLE,
     }
 )
-DIRECT_ROLES = frozenset({"qwen-direct", *DIRECT_KIMI_ROLES})
+DIRECT_QWEN_ROLES = frozenset({"qwen-direct", QWEN_ERROR_RETRY_ROLE})
+DIRECT_ROLES = frozenset({*DIRECT_QWEN_ROLES, *DIRECT_KIMI_ROLES})
 
 
 class EvalIdentityError(ValueError):
@@ -314,6 +323,118 @@ def _validate_direct_kimi_production_config(config: dict[str, Any], role: str) -
         or runtime.get("session_timeout") != 43_200
     ):
         raise EvalIdentityError("direct_kimi_production_config_invalid")
+
+
+def _validate_qwen_error_retry_config(config: dict[str, Any], role: str) -> None:
+    """Bind the one approved Qwen error-retry execution envelope."""
+
+    if role != QWEN_ERROR_RETRY_ROLE:
+        return
+    client = config.get("client")
+    sampling = config.get("sampling")
+    taskset = config.get("taskset")
+    harness = config.get("harness")
+    runtime = harness.get("runtime") if isinstance(harness, dict) else None
+    timeouts = config.get("timeout")
+    retries = config.get("retries")
+    rollout_retries = retries.get("rollout") if isinstance(retries, dict) else None
+    required_overrides = {
+        "agent.step_limit=200",
+        "environment.environment_class=local",
+        "environment.timeout=36000",
+        "model.cost_tracking=ignore_errors",
+        "model.model_kwargs.drop_params=true",
+        "model.model_kwargs.timeout=15000",
+        "model.model_kwargs.temperature=0.7",
+        "model.model_kwargs.top_p=0.95",
+        "model.model_kwargs.parallel_tool_calls=false",
+    }
+    retry_exceptions = {
+        "ProviderError",
+        "SandboxError",
+        "TunnelError",
+        "InterceptionError",
+    }
+    overrides = harness.get("config_overrides") if isinstance(harness, dict) else None
+    thinking = sampling.get("chat_template_kwargs") if isinstance(sampling, dict) else None
+    denylist = client.get("outbound_body_denylist") if isinstance(client, dict) else None
+    retry_include = rollout_retries.get("include") if isinstance(rollout_retries, dict) else None
+    if (
+        config.get("model") != "Qwen3.8-2.4T-A95B"
+        or config.get("num_tasks") != QWEN_ERROR_RETRY_TASK_COUNT
+        or config.get("num_rollouts") != 1
+        or config.get("max_concurrent") != 64
+        or config.get("multiplex") != 64
+        or config.get("max_turns") != 200
+        or any(
+            config.get(field) != 262_144
+            for field in ("max_input_tokens", "max_output_tokens", "max_total_tokens")
+        )
+        or config.get("rich") is not False
+        or config.get("retain_traces") is not False
+        or not isinstance(client, dict)
+        or client.get("type") != "eval"
+        or client.get("capture_model_io") is not True
+        or client.get("timeout") != QWEN_ERROR_RETRY_REQUEST_TIMEOUT_SECONDS
+        or client.get("connect_timeout") != 30
+        or client.get("max_connections") != 32
+        or client.get("max_keepalive_connections") != 32
+        or client.get("max_retries") != 0
+        or not isinstance(denylist, list)
+        or len(denylist) != len(EXPECTED_DENYLIST)
+        or set(denylist) != EXPECTED_DENYLIST
+        or not isinstance(sampling, dict)
+        or sampling.get("reasoning_effort") != "max"
+        or sampling.get("temperature") != 0.7
+        or sampling.get("top_p") != 0.95
+        or sampling.get("top_k") != 20
+        or sampling.get("max_tokens") != 32_768
+        or thinking != {"enable_thinking": True, "preserve_thinking": True}
+        or not isinstance(taskset, dict)
+        or "tasks" in taskset
+        or taskset.get("dataset_revision") != "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
+        or taskset.get("image_manifest_sha256")
+        != "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
+        or taskset.get("ignore_dockerfile") is not True
+        or taskset.get("enable_compose") is not False
+        or taskset.get("verifier_runtime_retries") != 0
+        or taskset.get("resource_multiplier") != 1.0
+        or taskset.get("resource_cpu_cap") != 2
+        or taskset.get("resource_memory_mb_cap") != 4_096
+        or taskset.get("resource_storage_mb_cap") != 10_240
+        or taskset.get("capture_convention_artifacts") is not True
+        or not isinstance(harness, dict)
+        or harness.get("id") != "mini-swe-agent"
+        or harness.get("version") != KIMI_MINISWE_VERSION
+        or harness.get("config_file") != "mini"
+        or not isinstance(overrides, list)
+        or len(overrides) != len(set(overrides))
+        or set(overrides) != required_overrides
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+        or not isinstance(runtime, dict)
+        or runtime.get("type") != "sandoq"
+        or runtime.get("mode") != "oci-runner"
+        or runtime.get("session_timeout") != 43_200
+        or runtime.get("network_access") is not True
+        or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("buffered_chat_completions") is not True
+        or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
+        or runtime.get("tunnel_pool_size") != 4
+        or runtime.get("tunnel_ready_timeout") != 30
+        or runtime.get("expected_environment") != QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT
+        or not isinstance(timeouts, dict)
+        or timeouts.get("setup") != 3_600
+        or timeouts.get("rollout") != 36_000
+        or timeouts.get("finalize") != 3_600
+        or timeouts.get("scoring") != 21_600
+        or not isinstance(rollout_retries, dict)
+        or rollout_retries.get("max_retries") != 0
+        or not isinstance(retry_include, list)
+        or len(retry_include) != len(retry_exceptions)
+        or set(retry_include) != retry_exceptions
+        or rollout_retries.get("exclude") not in (None, [])
+    ):
+        raise EvalIdentityError("qwen_error_retry_config_invalid")
 
 
 def _validate_direct_kimi_approved_config(
@@ -1177,6 +1298,8 @@ def _contract(
         raise EvalIdentityError("resolved_contract_invalid")
     direct_kimi_scored_smoke = direct_kimi_archive_smoke and not _allow_legacy_direct_scored_smoke
     direct_kimi_capacity_smoke = model == "Kimi-K3" and role == KIMI_CAPACITY_SMOKE_ROLE
+    qwen_error_retry = model == "Qwen3.8-2.4T-A95B" and role == QWEN_ERROR_RETRY_ROLE
+    _validate_qwen_error_retry_config(config, role or "")
     require_kimi_steady_state_concurrency = role in {"mobius", KIMI_PRODUCTION_ROLE}
     kimi_timeout_contract: dict[str, int | float] | None = None
     if model == "Kimi-K3":
@@ -1245,7 +1368,9 @@ def _contract(
         raise EvalIdentityError("pass_at_1_required")
     thinking = sampling.get("chat_template_kwargs")
     expected_thinking = {"enable_thinking": True, "preserve_thinking": True}
-    expected_reasoning_effort = "medium" if model == "Qwen3.8-2.4T-A95B" else "max"
+    expected_reasoning_effort = (
+        "medium" if model == "Qwen3.8-2.4T-A95B" and not qwen_error_retry else "max"
+    )
     if sampling.get("reasoning_effort") != expected_reasoning_effort or canonical_json(thinking) != canonical_json(
         expected_thinking
     ):
@@ -1297,10 +1422,18 @@ def _contract(
         error = "vmvm_runtime_required" if sandbox_provider == "vmvm" else "sandbox_runtime_mismatch"
         raise EvalIdentityError(error)
     native_sandoq_miniswe = (
-        sandbox_provider == "sandoq" and harness.get("id") == "mini-swe-agent" and role in KIMI_NATIVE_MINISWE_ROLES
+        sandbox_provider == "sandoq"
+        and harness.get("id") == "mini-swe-agent"
+        and (role in KIMI_NATIVE_MINISWE_ROLES or qwen_error_retry)
     )
     expected_network_access = True
-    expected_environment = KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT if native_sandoq_miniswe else "oci-runner"
+    expected_environment = (
+        QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT
+        if qwen_error_retry
+        else KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
+        if native_sandoq_miniswe
+        else "oci-runner"
+    )
     expected_host_tunnel = "sandoq" if native_sandoq_miniswe else "none"
     if sandbox_provider == "sandoq" and (
         runtime.get("mode") != "oci-runner"
@@ -1387,18 +1520,22 @@ def _contract(
         }
     elif native_sandoq_miniswe:
         step_limit = 3 if role in {"kimi-direct-smoke", KIMI_CAPACITY_SMOKE_ROLE} else 200
-        if kimi_timeout_contract is None:
-            raise EvalIdentityError("kimi_timeout_contract_invalid")
+        if qwen_error_retry:
+            harness_request_timeout = QWEN_ERROR_RETRY_HARNESS_REQUEST_TIMEOUT_SECONDS
+        else:
+            if kimi_timeout_contract is None:
+                raise EvalIdentityError("kimi_timeout_contract_invalid")
+            harness_request_timeout = (
+                KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
+                if role == KIMI_CAPACITY_SMOKE_ROLE
+                else int(kimi_timeout_contract["harness_request_timeout"])
+            )
         contract["harness"] = {
             "id": "mini-swe-agent",
             "version": KIMI_MINISWE_VERSION,
             "placement": "sandbox",
             "step_limit": step_limit,
-            "request_timeout_seconds": (
-                KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
-                if role == KIMI_CAPACITY_SMOKE_ROLE
-                else int(kimi_timeout_contract["harness_request_timeout"])
-            ),
+            "request_timeout_seconds": harness_request_timeout,
             "request_max_retries": 0,
         }
     identity_runtime = dict(runtime)
@@ -1751,9 +1888,14 @@ def _effective_sandoq_environment(
         raise EvalIdentityError("sandoq_pool_min_size_invalid")
     if pool_size < rollout_concurrency:
         raise EvalIdentityError("sandoq_pool_size_below_rollout_concurrency")
-    native_tunnel = args.sandoq_environment == KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
-    if native_tunnel:
+    kimi_native_tunnel = args.sandoq_environment == KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
+    qwen_native_tunnel = args.sandoq_environment == QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT
+    native_tunnel = kimi_native_tunnel or qwen_native_tunnel
+    if kimi_native_tunnel:
         if args.role not in KIMI_NATIVE_MINISWE_ROLES:
+            raise EvalIdentityError("sandoq_environment_invalid")
+    elif qwen_native_tunnel:
+        if args.role != QWEN_ERROR_RETRY_ROLE:
             raise EvalIdentityError("sandoq_environment_invalid")
     elif args.sandoq_environment != "oci-runner":
         raise EvalIdentityError("sandoq_environment_invalid")
@@ -1816,13 +1958,25 @@ def _effective_sandoq_environment(
         or os.environ.get("OCI_RUNNER_TASK_NETWORK") != ("host" if native_tunnel else None)
         or os.environ.get("OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK") != ("0" if native_tunnel else None)
         or (
-            native_tunnel
+            kimi_native_tunnel
             and (
                 os.environ.get("SANDOQ_PROVIDER_PROFILE_SHA256") != KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256
                 or os.environ.get("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256") != KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256
                 or os.environ.get("SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256") != KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256
                 or os.environ.get("DIRECT_KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256")
                 != KIMI_MINISWE_COMPATIBILITY_SHA256
+            )
+        )
+        or (
+            qwen_native_tunnel
+            and (
+                os.environ.get("SANDOQ_PROVIDER_PROFILE_SHA256")
+                != QWEN_ERROR_RETRY_FIRECRACKER_PROFILE_SHA256
+                or os.environ.get("SANDOQ_RUNTIME_SMOKE_RECEIPT") is not None
+                or os.environ.get("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256") is not None
+                or os.environ.get("SANDOQ_RUNTIME_RESOURCE_RECEIPT") is not None
+                or os.environ.get("SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256") is not None
+                or os.environ.get("DIRECT_KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256") is not None
             )
         )
     ):
@@ -1918,10 +2072,20 @@ def _effective_sandoq_environment(
         **(
             {
                 "provider_task_network": "host",
-                "provider_profile_sha256": KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256,
-                "runtime_tunnel_receipt_sha256": KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
-                "runtime_resource_receipt_sha256": KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256,
-                "miniswe_compatibility_receipt_sha256": KIMI_MINISWE_COMPATIBILITY_SHA256,
+                "provider_profile_sha256": (
+                    QWEN_ERROR_RETRY_FIRECRACKER_PROFILE_SHA256
+                    if qwen_native_tunnel
+                    else KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256
+                ),
+                **(
+                    {}
+                    if qwen_native_tunnel
+                    else {
+                        "runtime_tunnel_receipt_sha256": KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
+                        "runtime_resource_receipt_sha256": KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256,
+                        "miniswe_compatibility_receipt_sha256": KIMI_MINISWE_COMPATIBILITY_SHA256,
+                    }
+                ),
             }
             if native_tunnel
             else {}
@@ -2210,7 +2374,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
 
     deployment = identity.get("deployment")
     direct_role = role in DIRECT_ROLES
-    if role == "qwen-direct":
+    if role in DIRECT_QWEN_ROLES:
         if not isinstance(deployment, dict) or set(deployment) != {
             "kind",
             "worker_manifest",
@@ -2232,6 +2396,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or router.get("policy") != "consistent_hash"
             or router.get("request_id_headers") != ["x-session-id"]
             or not _validate_positive_integer(router.get("provider_concurrency"))
+            or (role == QWEN_ERROR_RETRY_ROLE and router.get("provider_concurrency") != 32)
         ):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         proxy_policy = None
@@ -2415,7 +2580,12 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or any(character in model for character in "\r\n")
         or contract.get("pass_at_1") is not True
         or contract.get("num_rollouts") != 1
-        or contract.get("reasoning_effort") != ("medium" if model == "Qwen3.8-2.4T-A95B" else "max")
+        or contract.get("reasoning_effort")
+        != (
+            "medium"
+            if model == "Qwen3.8-2.4T-A95B" and role != QWEN_ERROR_RETRY_ROLE
+            else "max"
+        )
         or canonical_json(contract.get("thinking"))
         != canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or not isinstance(context, dict)
@@ -2429,6 +2599,10 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     if role in DIRECT_KIMI_ROLES and model != "Kimi-K3":
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
+    if role == QWEN_ERROR_RETRY_ROLE and (
+        model != "Qwen3.8-2.4T-A95B" or sandbox_provider != "sandoq"
+    ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     expected_harness_command_timeout = (
         60
@@ -2448,7 +2622,9 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         if observed_harness.get("id") == "mini-swe-agent":
             expected_miniswe_request_timeout = (
-                observed_harness.get("request_timeout_seconds")
+                QWEN_ERROR_RETRY_HARNESS_REQUEST_TIMEOUT_SECONDS
+                if role == QWEN_ERROR_RETRY_ROLE
+                else observed_harness.get("request_timeout_seconds")
                 if role == "kimi-direct-tb4"
                 else KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
                 if role == KIMI_CAPACITY_SMOKE_ROLE
@@ -2463,12 +2639,13 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
                 "request_max_retries": 0,
             }
             if (
-                role not in KIMI_NATIVE_MINISWE_ROLES
+                role not in KIMI_NATIVE_MINISWE_ROLES | {QWEN_ERROR_RETRY_ROLE}
                 or expected_miniswe_request_timeout
                 not in {
                     KIMI_REQUEST_TIMEOUT_SECONDS,
                     KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS,
                     KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS,
+                    QWEN_ERROR_RETRY_HARNESS_REQUEST_TIMEOUT_SECONDS,
                 }
                 or observed_harness != expected_miniswe
             ):
@@ -2517,6 +2694,15 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "http_max_connections",
             "http_max_keepalive_connections",
         )
+    ):
+        raise EvalIdentityError("eval_run_identity_schema_invalid")
+    if role == QWEN_ERROR_RETRY_ROLE and (
+        execution.get("rollout_concurrency") != 64
+        or execution.get("multiplex") != 64
+        or execution.get("http_max_connections") != 32
+        or execution.get("http_max_keepalive_connections") != 32
+        or inputs["task_file"].get("count") != QWEN_ERROR_RETRY_TASK_COUNT
+        or contract.get("sampling_max_tokens") != 32_768
     ):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     runtime = execution.get("runtime")
@@ -2574,17 +2760,24 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         }
         if not isinstance(environment, dict):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
-        native_tunnel = environment.get("environment") == KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
+        if role == QWEN_ERROR_RETRY_ROLE and (
+            environment.get("environment") != QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT
+        ):
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
+        kimi_native_tunnel = environment.get("environment") == KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
+        qwen_native_tunnel = environment.get("environment") == QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT
+        native_tunnel = kimi_native_tunnel or qwen_native_tunnel
+        native_environment_keys = {"provider_task_network", "provider_profile_sha256"}
+        if kimi_native_tunnel:
+            native_environment_keys.update(
+                {
+                    "runtime_tunnel_receipt_sha256",
+                    "runtime_resource_receipt_sha256",
+                    "miniswe_compatibility_receipt_sha256",
+                }
+            )
         expected_environment_keys = sandoq_environment_keys | (
-            {
-                "provider_task_network",
-                "provider_profile_sha256",
-                "runtime_tunnel_receipt_sha256",
-                "runtime_resource_receipt_sha256",
-                "miniswe_compatibility_receipt_sha256",
-            }
-            if native_tunnel
-            else set()
+            native_environment_keys if native_tunnel else set()
         )
         recovery_bound = set(environment) == expected_environment_keys
         profiled_lease = set(environment) == expected_environment_keys - {"managed_shell_recovery"}
@@ -2595,19 +2788,31 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         if not recovery_bound and not profiled_lease and not legacy_lease:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         if (
-            (native_tunnel and role not in KIMI_NATIVE_MINISWE_ROLES)
+            (kimi_native_tunnel and role not in KIMI_NATIVE_MINISWE_ROLES)
+            or (qwen_native_tunnel and role != QWEN_ERROR_RETRY_ROLE)
             or environment.get("environment")
-            != (KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT if native_tunnel else "oci-runner")
+            != (
+                QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT
+                if qwen_native_tunnel
+                else KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
+                if kimi_native_tunnel
+                else "oci-runner"
+            )
             or environment.get("task_network") != "public"
             or environment.get("provider_task_network") != ("host" if native_tunnel else None)
             or (
-                native_tunnel
+                kimi_native_tunnel
                 and (
                     environment.get("provider_profile_sha256") != KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256
                     or environment.get("runtime_tunnel_receipt_sha256") != KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256
                     or environment.get("runtime_resource_receipt_sha256") != KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256
                     or environment.get("miniswe_compatibility_receipt_sha256") != KIMI_MINISWE_COMPATIBILITY_SHA256
                 )
+            )
+            or (
+                qwen_native_tunnel
+                and environment.get("provider_profile_sha256")
+                != QWEN_ERROR_RETRY_FIRECRACKER_PROFILE_SHA256
             )
             or environment.get("tunnel_policy")
             != ("native-sandoq-reverse-tunnel" if native_tunnel else "host-interception-no-tunnel")
@@ -2633,7 +2838,13 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or runtime.get("network_access") is not True
             or runtime.get("host_tunnel") != ("sandoq" if native_tunnel else "none")
             or runtime.get("expected_environment")
-            != (KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT if native_tunnel else "oci-runner")
+            != (
+                QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT
+                if qwen_native_tunnel
+                else KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
+                if kimi_native_tunnel
+                else "oci-runner"
+            )
             or (
                 native_tunnel
                 and (
@@ -3020,7 +3231,9 @@ def _verify_config_and_inputs(
         and identity_harness.get("id") == "mini-swe-agent"
     )
     expected_request_timeout = (
-        KIMI_DIRECT_SCORED_SMOKE_REQUEST_TIMEOUT_SECONDS
+        QWEN_ERROR_RETRY_REQUEST_TIMEOUT_SECONDS
+        if identity["role"] == QWEN_ERROR_RETRY_ROLE
+        else KIMI_DIRECT_SCORED_SMOKE_REQUEST_TIMEOUT_SECONDS
         if direct_kimi_scored_smoke and not legacy_direct_kimi_scored_smoke and not native_miniswe_smoke
         else KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
         if identity["role"] == KIMI_CAPACITY_SMOKE_ROLE
@@ -3516,7 +3729,7 @@ def _bind_provenance(
 
 
 def prepare(args: argparse.Namespace) -> str:
-    if args.role == "qwen-direct":
+    if args.role in DIRECT_QWEN_ROLES:
         return _prepare_direct_qwen(args)
     if args.role in DIRECT_KIMI_ROLES:
         return _prepare_direct_kimi(args)
@@ -3648,8 +3861,16 @@ def prepare(args: argparse.Namespace) -> str:
 def _prepare_direct_qwen(args: argparse.Namespace) -> str:
     if args.mode != "fresh":
         raise EvalIdentityError("direct_qwen_requires_fresh_identity")
-    if args.expected_model != "Qwen3.8-2.4T-A95B":
+    if args.expected_model != "Qwen3.8-2.4T-A95B" or args.role not in DIRECT_QWEN_ROLES:
         raise EvalIdentityError("direct_qwen_model_invalid")
+    if args.role == QWEN_ERROR_RETRY_ROLE and (
+        args.sandbox_provider != "sandoq"
+        or args.approved_task_count != QWEN_ERROR_RETRY_TASK_COUNT
+        or SHA256_RE.fullmatch(args.approved_config_sha256 or "") is None
+    ):
+        raise EvalIdentityError("qwen_error_retry_scope_invalid")
+    if args.role != QWEN_ERROR_RETRY_ROLE and args.approved_config_sha256 is not None:
+        raise EvalIdentityError("qwen_error_retry_scope_invalid")
     if (
         not args.invocation_host.strip()
         or any(character in args.invocation_host for character in "\r\n=")
@@ -3674,10 +3895,12 @@ def _prepare_direct_qwen(args: argparse.Namespace) -> str:
         args.approved_task_file_sha256,
         args.approved_task_count,
     )
+    if args.role == QWEN_ERROR_RETRY_ROLE and source_config["sha256"] != args.approved_config_sha256:
+        raise EvalIdentityError("qwen_error_retry_config_digest_mismatch")
     contract, execution = _contract(
         config,
         args.expected_model,
-        role="qwen-direct",
+        role=args.role,
         sandbox_provider=args.sandbox_provider,
     )
     if args.sandbox_provider == "sandoq":
@@ -3714,7 +3937,7 @@ def _prepare_direct_qwen(args: argparse.Namespace) -> str:
         raise EvalIdentityError("direct_router_policy_invalid")
     identity = {
         "schema_version": SCHEMA_VERSION,
-        "role": "qwen-direct",
+        "role": args.role,
         "source": source,
         "config": {
             "source": source_config,
@@ -4070,6 +4293,7 @@ def _parser() -> argparse.ArgumentParser:
             "tb4",
             "mobius",
             "qwen-direct",
+            QWEN_ERROR_RETRY_ROLE,
             "kimi-direct-smoke",
             KIMI_CAPACITY_SMOKE_ROLE,
             "kimi-direct-tb4",
