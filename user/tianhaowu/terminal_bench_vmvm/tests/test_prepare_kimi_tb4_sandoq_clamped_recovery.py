@@ -29,10 +29,7 @@ def _row(index: int, *, model_bearing: bool = False) -> dict[str, object]:
 
 
 def test_zero_model_abort_accepts_only_empty_traces(tmp_path: Path) -> None:
-    body = b"".join(
-        json.dumps(_row(index), separators=(",", ":")).encode() + b"\n"
-        for index in (0, 1)
-    )
+    body = b"".join(json.dumps(_row(index), separators=(",", ":")).encode() + b"\n" for index in (0, 1))
     path = _private(tmp_path / "results.jsonl", body)
     observed, count = recovery._validate_zero_model_abort(path, 3)
     assert observed == body
@@ -74,12 +71,24 @@ def test_members_exclude_compose_without_disclosing_names(
 
 
 @pytest.mark.parametrize("concurrency", [23, 24])
-def test_expected_config_applies_qualified_resource_caps(tmp_path: Path, concurrency: int) -> None:
+@pytest.mark.parametrize(
+    "provisioning_retries",
+    [
+        recovery.union.LEGACY_SANDOQ_PROVISIONING_RETRIES,
+        recovery.union.SANDOQ_PROVISIONING_RETRIES,
+    ],
+)
+def test_expected_config_applies_qualified_resource_caps(
+    tmp_path: Path,
+    concurrency: int,
+    provisioning_retries: int,
+) -> None:
     source = {
         "num_tasks": 25,
         "max_concurrent": 24,
         "multiplex": 24,
         "client": {"max_connections": 24, "max_keepalive_connections": 24},
+        "harness": {"runtime": {"provisioning_retries": provisioning_retries}},
         "taskset": {
             "task_file": "/old",
             "task_file_sha256": "0" * 64,
@@ -109,3 +118,4 @@ def test_expected_config_applies_qualified_resource_caps(tmp_path: Path, concurr
     assert config["taskset"]["resource_memory_mb_cap"] == 4096
     assert config["taskset"]["resource_storage_mb_cap"] == 10240
     assert config["taskset"]["task_file"] == str(selector)
+    assert config["harness"]["runtime"]["provisioning_retries"] == provisioning_retries

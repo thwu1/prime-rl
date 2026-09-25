@@ -262,6 +262,7 @@ def test_lane_configs_are_native_miniswe_and_provider_isolated() -> None:
         "guest_tunnel_url": "http://127.0.0.1:8485",
         "tunnel_pool_size": 4,
         "tunnel_ready_timeout": 30,
+        "provisioning_retries": union.SANDOQ_PROVISIONING_RETRIES,
         "expected_environment": "oci-runner-firecracker",
         "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
     }
@@ -291,6 +292,28 @@ def test_legacy_base_remains_valid_for_saved_plan_revalidation() -> None:
 
     assert union._timeout_contract(base) == union.LEGACY_TIMEOUT_CONTRACT
     assert lane["harness"]["runtime"]["session_timeout"] == union.LEGACY_SESSION_TIMEOUT_SECONDS
+
+
+@pytest.mark.parametrize("provisioning_retries", [True, 0, 2, 4])
+def test_lane_config_rejects_unapproved_provisioning_retry_counts(
+    provisioning_retries: int,
+) -> None:
+    base, _body = union._base_config(union._base_config_path().resolve())
+
+    with pytest.raises(
+        union.UnionPreparationError,
+        match="sandoq_provisioning_retry_contract_invalid",
+    ):
+        union._lane_config(
+            base,
+            role=union.SANDOQ_ROLE,
+            selector=Path("/private/sandoq.tasks"),
+            selector_sha256="a" * 64,
+            image_manifest=Path("/private/images.json"),
+            dataset_dir=Path("/private/dataset"),
+            concurrency=24,
+            sandoq_provisioning_retries=provisioning_retries,
+        )
 
 
 def test_materialized_plan_is_opaque_and_requires_separate_certifier(
@@ -342,10 +365,41 @@ def test_materialized_plan_is_opaque_and_requires_separate_certifier(
         "rollout_seconds": union.ROLLOUT_TIMEOUT_SECONDS,
         "session_seconds": union.SESSION_TIMEOUT_SECONDS,
     }
+    assert plan_value["contracts"]["sandoq_provisioning_retries"] == union.SANDOQ_PROVISIONING_RETRIES
     for role, count in ((union.SANDOQ_ROLE, 25), (union.VMVM_ROLE, 38)):
         verified = union.verify_launch_plan(plan_path, hashlib.sha256(plan_body).hexdigest(), role)
         assert verified["count"] == count
         assert verified["certifier_adapter"] == union.CERTIFIER_ADAPTER
+
+    # Plans materialized before the retry hardening omitted the explicit
+    # contract and relied on SandoqConfig's historical default of one retry.
+    # Keep those immutable bundles independently re-verifiable.
+    sandoq_config_path = output / union.SANDOQ_CONFIG
+    legacy_config = tomllib.loads(sandoq_config_path.read_text())
+    legacy_config["harness"]["runtime"]["provisioning_retries"] = union.LEGACY_SANDOQ_PROVISIONING_RETRIES
+    legacy_config_body = union._render_toml(legacy_config)
+    sandoq_config_path.write_bytes(legacy_config_body)
+    plan_value["contracts"].pop("sandoq_provisioning_retries")
+    plan_value["lanes"][union.SANDOQ_ROLE]["config"] = union._artifact(
+        sandoq_config_path.resolve(),
+        legacy_config_body,
+    )
+    legacy_plan_body = split.canonical_json(plan_value)
+    plan_path.write_bytes(legacy_plan_body)
+    bundle_files = {entry.name: entry.read_bytes() for entry in output.iterdir() if entry.name != split.BUNDLE_COMMIT}
+    complete = split._committed_bundle_files(bundle_files)[split.BUNDLE_COMMIT]
+    (output / split.BUNDLE_COMMIT).write_bytes(complete)
+
+    legacy_verified = union.verify_launch_plan(
+        plan_path,
+        hashlib.sha256(legacy_plan_body).hexdigest(),
+        union.SANDOQ_ROLE,
+    )
+    assert legacy_verified["count"] == union.SANDOQ_TASKS
+    assert (
+        tomllib.loads(Path(str(legacy_verified["config"])).read_text())["harness"]["runtime"]["provisioning_retries"]
+        == union.LEGACY_SANDOQ_PROVISIONING_RETRIES
+    )
 
 
 def test_cli_redacts_failures(capsys: pytest.CaptureFixture[str]) -> None:

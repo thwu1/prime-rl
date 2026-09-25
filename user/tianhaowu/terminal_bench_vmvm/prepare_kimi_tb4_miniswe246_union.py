@@ -39,6 +39,8 @@ SANDOQ_MEMORY_LIMIT_BYTES = 4 * split.GIB
 SANDOQ_DISK_LIMIT_BYTES = 10 * split.GIB
 DEFAULT_SANDOQ_CONCURRENCY = 24
 DEFAULT_VMVM_CONCURRENCY = 4
+LEGACY_SANDOQ_PROVISIONING_RETRIES = 1
+SANDOQ_PROVISIONING_RETRIES = 3
 MINISWE_VERSION = "2.4.6"
 VERIFIERS_COMMIT = "3df6efa9e9f6bdc8a013df7759a03074aec79111"
 PROVIDER_PROFILE_SHA256 = "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df"
@@ -502,9 +504,15 @@ def _lane_config(
     image_manifest: Path,
     dataset_dir: Path,
     concurrency: int,
+    sandoq_provisioning_retries: int = SANDOQ_PROVISIONING_RETRIES,
 ) -> dict[str, Any]:
     if role not in {SANDOQ_ROLE, VMVM_ROLE}:
         raise UnionPreparationError("lane_role_invalid")
+    if type(sandoq_provisioning_retries) is not int or sandoq_provisioning_retries not in {
+        LEGACY_SANDOQ_PROVISIONING_RETRIES,
+        SANDOQ_PROVISIONING_RETRIES,
+    }:
+        raise UnionPreparationError("sandoq_provisioning_retry_contract_invalid")
     value = copy.deepcopy(base)
     session_timeout = _timeout_contract(value)["session_seconds"]
     is_sandoq = role == SANDOQ_ROLE
@@ -531,6 +539,7 @@ def _lane_config(
             "guest_tunnel_url": "http://127.0.0.1:8485",
             "tunnel_pool_size": 4,
             "tunnel_ready_timeout": 30,
+            "provisioning_retries": sandoq_provisioning_retries,
             "expected_environment": "oci-runner-firecracker",
             "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
         }
@@ -637,6 +646,7 @@ def _plan_value(
             "reasoning_required": True,
             "exact_provider_json_required": True,
             "request_graph_match_required": True,
+            "sandoq_provisioning_retries": SANDOQ_PROVISIONING_RETRIES,
         },
         "lanes": {
             SANDOQ_ROLE: {
@@ -797,7 +807,7 @@ def verify_launch_plan(plan_path: Path, expected_sha256: str, role: str) -> dict
     contracts = plan.get("contracts")
     source = plan.get("source")
     lanes = plan.get("lanes")
-    base_contracts = {
+    base_contracts: dict[str, Any] = {
         "model": "Kimi-K3",
         "harness": {"id": "mini-swe-agent", "version": MINISWE_VERSION},
         "verifiers_commit": VERIFIERS_COMMIT,
@@ -807,9 +817,16 @@ def verify_launch_plan(plan_path: Path, expected_sha256: str, role: str) -> dict
         "exact_provider_json_required": True,
         "request_graph_match_required": True,
     }
-    accepted_contracts = [base_contracts]
+    accepted_contracts: list[dict[str, Any]] = [base_contracts]
     for timeout_contract in (LEGACY_TIMEOUT_CONTRACT, TIMEOUT_CONTRACT):
         accepted_contracts.append({**base_contracts, "timeouts": timeout_contract})
+        accepted_contracts.append(
+            {
+                **base_contracts,
+                "timeouts": timeout_contract,
+                "sandoq_provisioning_retries": SANDOQ_PROVISIONING_RETRIES,
+            }
+        )
     if (
         set(plan) != {"schema_version", "kind", "state", "evaluation", "source", "contracts", "lanes"}
         or plan.get("schema_version") != SCHEMA_VERSION
@@ -860,6 +877,11 @@ def verify_launch_plan(plan_path: Path, expected_sha256: str, role: str) -> dict
         isinstance(contracts, dict) and "timeouts" not in contracts and timeout_contract != LEGACY_TIMEOUT_CONTRACT
     ):
         raise UnionPreparationError("launch_plan_contract_invalid")
+    assert isinstance(contracts, dict)
+    sandoq_provisioning_retries = contracts.get(
+        "sandoq_provisioning_retries",
+        LEGACY_SANDOQ_PROVISIONING_RETRIES,
+    )
     evidence = _fixed_provider_evidence()
     if any(source[name] != record for name, record in evidence.items()):
         raise UnionPreparationError("provider_evidence_invalid")
@@ -933,6 +955,7 @@ def verify_launch_plan(plan_path: Path, expected_sha256: str, role: str) -> dict
             image_manifest=image_path,
             dataset_dir=Path(str(taskset.get("dataset_dir", ""))),
             concurrency=lane["concurrency"],
+            sandoq_provisioning_retries=sandoq_provisioning_retries,
         )
         if config != expected_config:
             raise UnionPreparationError("launch_config_invalid")
