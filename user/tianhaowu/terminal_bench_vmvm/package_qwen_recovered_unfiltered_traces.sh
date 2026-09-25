@@ -12,6 +12,15 @@ required=(
     QWEN_V6_PACKAGE_EXPECTED_PROJECT_REVISION
     QWEN_V6_PACKAGE_EXPECTED_POSTPROCESSOR_REVISION
     QWEN_V6_PACKAGE_EXPECTED_PREDECESSOR_REVISION
+    QWEN_V6_PACKAGE_EXPECTED_RETRY_MODULE_SHA256
+    QWEN_V6_PACKAGE_EXPECTED_PREDECESSOR_EXPORTER_SHA256
+    QWEN_V6_PACKAGE_EXPECTED_SUPERSEDING_EXPORTER_SHA256
+    QWEN_V6_PACKAGE_EXPECTED_SUPERSESSION_MODULE_SHA256
+    QWEN_V6_PACKAGE_EXPECTED_AUDIT_TRACES_SHA256
+    QWEN_V6_PACKAGE_EXPECTED_VERIFIER_REVISION
+    QWEN_V6_PACKAGE_EXPECTED_RENDERER_REVISION
+    QWEN_V6_PACKAGE_EXPECTED_MODEL_IO_CONTRACT_ID
+    QWEN_V6_PACKAGE_EXPECTED_MODEL_IO_CONTRACT_SHA256
     QWEN_V6_PACKAGE_EXPECTED_SOURCE_JOB
     QWEN_V6_PACKAGE_SELECTION_CONTRACT_SHA256
     QWEN_V6_PACKAGE_PACKAGER_SHA256
@@ -66,10 +75,17 @@ packager=$(realpath -e -- "${BASH_SOURCE[0]}")
 package_worker="$project/user/tianhaowu/terminal_bench_vmvm/package_qwen_recovered_unfiltered_traces.sbatch"
 
 [[ $QWEN_V6_PACKAGE_EXPECTED_PROJECT_REVISION =~ ^[0-9a-f]{40}$ \
-    && $QWEN_V6_PACKAGE_EXPECTED_POSTPROCESSOR_REVISION \
-        == 108b713af332b6865c49c3b146f3fa2158fe790a \
-    && $QWEN_V6_PACKAGE_EXPECTED_PREDECESSOR_REVISION \
-        == d9a4eb07de3b769899c0e77eedf5da5f6c35ab61 \
+    && $QWEN_V6_PACKAGE_EXPECTED_POSTPROCESSOR_REVISION =~ ^[0-9a-f]{40}$ \
+    && $QWEN_V6_PACKAGE_EXPECTED_PREDECESSOR_REVISION =~ ^[0-9a-f]{40}$ \
+    && $QWEN_V6_PACKAGE_EXPECTED_RETRY_MODULE_SHA256 =~ ^[0-9a-f]{64}$ \
+    && $QWEN_V6_PACKAGE_EXPECTED_PREDECESSOR_EXPORTER_SHA256 =~ ^[0-9a-f]{64}$ \
+    && $QWEN_V6_PACKAGE_EXPECTED_SUPERSEDING_EXPORTER_SHA256 =~ ^[0-9a-f]{64}$ \
+    && $QWEN_V6_PACKAGE_EXPECTED_SUPERSESSION_MODULE_SHA256 =~ ^[0-9a-f]{64}$ \
+    && $QWEN_V6_PACKAGE_EXPECTED_AUDIT_TRACES_SHA256 =~ ^[0-9a-f]{64}$ \
+    && $QWEN_V6_PACKAGE_EXPECTED_VERIFIER_REVISION =~ ^[0-9a-f]{40}$ \
+    && $QWEN_V6_PACKAGE_EXPECTED_RENDERER_REVISION =~ ^[0-9a-f]{40}$ \
+    && $QWEN_V6_PACKAGE_EXPECTED_MODEL_IO_CONTRACT_ID =~ ^[A-Za-z0-9._+-]+$ \
+    && $QWEN_V6_PACKAGE_EXPECTED_MODEL_IO_CONTRACT_SHA256 =~ ^[0-9a-f]{64}$ \
     && $QWEN_V6_PACKAGE_EXPECTED_SOURCE_JOB == 1579607 \
     && $QWEN_V6_PACKAGE_POSTRUN_JOB_ID =~ ^[1-9][0-9]*$ \
     && $QWEN_V6_PACKAGE_SELECTION_CONTRACT_SHA256 \
@@ -219,6 +235,15 @@ if ! python3 - \
     "$QWEN_V6_PACKAGE_EXPECTED_SOURCE_JOB" \
     "$QWEN_V6_PACKAGE_SELECTION_CONTRACT_SHA256" \
     "$QWEN_V6_PACKAGE_CANONICAL_TASK_FILE_SHA256" \
+    "$QWEN_V6_PACKAGE_EXPECTED_RETRY_MODULE_SHA256" \
+    "$QWEN_V6_PACKAGE_EXPECTED_PREDECESSOR_EXPORTER_SHA256" \
+    "$QWEN_V6_PACKAGE_EXPECTED_SUPERSEDING_EXPORTER_SHA256" \
+    "$QWEN_V6_PACKAGE_EXPECTED_SUPERSESSION_MODULE_SHA256" \
+    "$QWEN_V6_PACKAGE_EXPECTED_AUDIT_TRACES_SHA256" \
+    "$QWEN_V6_PACKAGE_EXPECTED_VERIFIER_REVISION" \
+    "$QWEN_V6_PACKAGE_EXPECTED_RENDERER_REVISION" \
+    "$QWEN_V6_PACKAGE_EXPECTED_MODEL_IO_CONTRACT_ID" \
+    "$QWEN_V6_PACKAGE_EXPECTED_MODEL_IO_CONTRACT_SHA256" \
     >"$contract_summary" 2>/dev/null <<'PY'
 import json
 import re
@@ -246,18 +271,18 @@ from pathlib import Path
     expected_source_job,
     expected_selection_contract_sha256,
     canonical_task_file_sha256,
+    predecessor_retry_module_sha256,
+    predecessor_exporter_sha256,
+    superseding_exporter_sha256,
+    supersession_module_sha256,
+    audit_traces_sha256,
+    verifier_revision,
+    renderer_revision,
+    model_io_contract_id,
+    model_io_contract_sha256,
 ) = sys.argv[1:]
 
 SHA256 = re.compile(r"[0-9a-f]{64}")
-PREDECESSOR_RETRY_MODULE_SHA256 = "09b7f757ad64c1a49aac5cf4dd34d09ea495734192101a2001a6cb205dcacba0"
-PREDECESSOR_EXPORTER_SHA256 = "7254c193464213651c0005d7ebbc731d44f0c96552086a1879556a2397349a18"
-SUPERSEDING_EXPORTER_SHA256 = "d6386bc08eec676ec1e48913aca37e934cf65c90dabbd0fa99ee5221d5118fbb"
-SUPERSESSION_MODULE_SHA256 = "33d090437237bc94cea514856cb0d45b04e16edfafdd9772a5b36b5d4b12fae9"
-AUDIT_TRACES_SHA256 = "7b20a4e600cdff8213b9be322029087962e700df87dd06f1c702cb4278970ad3"
-VERIFIER_REVISION = "3df6efa9e9f6bdc8a013df7759a03074aec79111"
-RENDERER_REVISION = "044d9e2541f6a911cacae9da353fc063911ef1f8"
-MODEL_IO_CONTRACT_ID = "qwen3-a95b"
-MODEL_IO_CONTRACT_SHA256 = "338772c5840f201851c30a29df1f3986af414b1fa22c325aff5783cb8b460a84"
 BASE_POSITIVE = 1562
 BASE_ZERO = 873
 BASE_ERROR = 64
@@ -345,15 +370,15 @@ results_path = str((Path(recovered_path).parent / "results.jsonl").resolve(stric
 resolved_recovered_path = str(Path(recovered_path).resolve(strict=True))
 
 expected_code = {
-    "audit_traces_sha256": AUDIT_TRACES_SHA256,
-    "exporter_sha256": SUPERSEDING_EXPORTER_SHA256,
-    "qwen_2499_error_retry_sha256": PREDECESSOR_RETRY_MODULE_SHA256,
+    "audit_traces_sha256": audit_traces_sha256,
+    "exporter_sha256": superseding_exporter_sha256,
+    "qwen_2499_error_retry_sha256": predecessor_retry_module_sha256,
     "repository_revision": postprocessor_revision,
     "submodules": {
-        "deps/renderers": RENDERER_REVISION,
-        "deps/verifiers": VERIFIER_REVISION,
+        "deps/renderers": renderer_revision,
+        "deps/verifiers": verifier_revision,
     },
-    "supersession_module_sha256": SUPERSESSION_MODULE_SHA256,
+    "supersession_module_sha256": supersession_module_sha256,
 }
 
 retry_outcomes = retry.get("retry_outcomes")
@@ -401,11 +426,11 @@ if not (
     )
     and retry_trace
         == {
-            "id": MODEL_IO_CONTRACT_ID,
+            "id": model_io_contract_id,
             "max_sequence_tokens": 262144,
-            "sha256": MODEL_IO_CONTRACT_SHA256,
+            "sha256": model_io_contract_sha256,
         }
-    and retry.get("code") == {"module_sha256": PREDECESSOR_RETRY_MODULE_SHA256}
+    and retry.get("code") == {"module_sha256": predecessor_retry_module_sha256}
     and exact_keys(
         retry_run,
         {"cleanup", "eval_run_identity", "resolved_config", "results", "worker_manifest"},
@@ -474,9 +499,9 @@ if not (
         expected_path=None,
     )
     and super_predecessor["accepted_positive"] == retry_outcomes["accepted_positive"]
-    and super_predecessor["exporter_sha256"] == PREDECESSOR_EXPORTER_SHA256
+    and super_predecessor["exporter_sha256"] == predecessor_exporter_sha256
     and super_predecessor["kind"] == retry["kind"]
-    and super_predecessor["module_sha256"] == PREDECESSOR_RETRY_MODULE_SHA256
+    and super_predecessor["module_sha256"] == predecessor_retry_module_sha256
     and super_predecessor["repository_revision"] == predecessor_revision
     and super_predecessor["sha256"] == retry_sha256
     and superseding["migration"]
@@ -523,13 +548,13 @@ if not (
     )
     and super_trace
         == {
-            "id": MODEL_IO_CONTRACT_ID,
+            "id": model_io_contract_id,
             "max_sequence_tokens": 262144,
             "require_exact_provider_json": True,
             "require_model_io": True,
             "require_reasoning": True,
             "require_request_graph_match": True,
-            "sha256": MODEL_IO_CONTRACT_SHA256,
+            "sha256": model_io_contract_sha256,
         }
     and superseding["code"] == expected_code
 ):

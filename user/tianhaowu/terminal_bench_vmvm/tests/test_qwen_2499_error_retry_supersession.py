@@ -73,6 +73,29 @@ def test_predecessor_validation_binds_run_evidence() -> None:
         )
 
 
+def test_predecessor_validation_requires_explicit_updated_producer_pin() -> None:
+    evidence = {"results": {"bytes": 1, "sha256": "4" * 64}}
+    runtime = {"cleanup_failures": 0}
+    updated_sha256 = "9" * 64
+    value = _predecessor(evidence, runtime)
+    value["code"] = {"module_sha256": updated_sha256}
+
+    with pytest.raises(supersession.SupersessionError, match="^predecessor_certificate_invalid$"):
+        supersession._validate_predecessor_value(
+            value,
+            contract_sha256="3" * 64,
+            evidence=evidence,
+            runtime=runtime,
+        )
+    supersession._validate_predecessor_value(
+        value,
+        contract_sha256="3" * 64,
+        evidence=evidence,
+        runtime=runtime,
+        expected_retry_module_sha256=updated_sha256,
+    )
+
+
 def test_project_code_pins_superseding_exporter_and_auditor(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -93,13 +116,24 @@ def test_project_code_pins_superseding_exporter_and_auditor(
         raise AssertionError(arguments)
 
     monkeypatch.setattr(supersession, "_git", fake_git)
-    code = supersession._project_code(project, revision)
+    retry_sha256 = hashlib.sha256(
+        (project / "user/tianhaowu/terminal_bench_vmvm/qwen_2499_error_retry.py").read_bytes()
+    ).hexdigest()
+    code = supersession._project_code(
+        project,
+        revision,
+        expected_retry_module_sha256=retry_sha256,
+    )
     assert code["exporter_sha256"] == supersession.SUPERSEDING_EXPORTER_SHA256
     assert code["audit_traces_sha256"] == supersession.AUDIT_TRACES_SHA256
 
     monkeypatch.setattr(supersession, "SUPERSEDING_EXPORTER_SHA256", "0" * 64)
     with pytest.raises(supersession.SupersessionError, match="^project_code_invalid$"):
-        supersession._project_code(project, revision)
+        supersession._project_code(
+            project,
+            revision,
+            expected_retry_module_sha256=retry_sha256,
+        )
 
 
 def test_frozen_replay_rejects_structurally_consistent_predecessor_tamper(

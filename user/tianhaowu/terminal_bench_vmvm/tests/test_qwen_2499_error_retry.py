@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import stat
@@ -11,6 +12,14 @@ import qwen_2499_error_retry as retry
 
 def _sha256(body: bytes) -> str:
     return hashlib.sha256(body).hexdigest()
+
+
+def test_retry_trace_contract_is_direct_medium() -> None:
+    assert retry.RETRY_MODEL_IO_CONTRACT is retry.audit_traces.QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT
+    assert (
+        retry.RETRY_MODEL_IO_CONTRACT_ID
+        == retry.audit_traces.QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT_ID
+    )
 
 
 def _write_private(path: Path, body: bytes) -> None:
@@ -40,6 +49,198 @@ def _trace(slug: str, index: int, outcome: str) -> dict:
 
 def _jsonl(rows: list[dict]) -> bytes:
     return b"".join((json.dumps(row, sort_keys=True) + "\n").encode() for row in rows)
+
+
+def _resolved_config_pair(run_dir: Path, task_sha256: str) -> tuple[dict, dict]:
+    source = {
+        "client": {"base_url": "http://source.invalid/v1"},
+        "harness": {"runtime": {"type": "sandoq"}},
+        "marker": "preserved",
+        "retries": {"rollout": {"include": [], "max_retries": 0}},
+        "taskset": {
+            "image_manifest": "/selection/image_manifest.json",
+            "image_manifest_sha256": retry.CANONICAL_IMAGE_MANIFEST_SHA256,
+            "task_file": "/selection/retry_tasks.txt",
+            "task_file_sha256": task_sha256,
+        },
+    }
+    resolved = copy.deepcopy(source)
+    resolved.update(
+        {
+            "args": {},
+            "dry_run": False,
+            "extra_env_kwargs": {},
+            "output_dir": str(run_dir),
+            "pool": {"multiplex": 128, "type": "elastic"},
+            "server": False,
+            "shuffle": False,
+            "verbose": False,
+        }
+    )
+    resolved["client"].update(
+        {
+            "base_url": "http://127.0.0.1:8485/v1",
+            "extra_headers_from_state": {},
+            "headers": {},
+        }
+    )
+    resolved["taskset"].update(
+        {
+            "dataset": "hello-world",
+            "image_manifest": str(run_dir / "inputs/image_manifest.json"),
+            "oracle_solution_network_mode": "declared",
+            "require_image": False,
+            "task_file": str(run_dir / "inputs/task_file.txt"),
+            "use_declared_images": False,
+            "verifier_image_suffix": "-verifier",
+        }
+    )
+    resolved["harness"]["runtime"].update(
+        {
+            "cpu": 1.0,
+            "disk": 5.0,
+            "image": "python:3.11-slim",
+            "memory": 2.0,
+            "provisioning_retries": retry.SANDOQ_PROVISIONING_RETRIES,
+            "workdir": "/app",
+        }
+    )
+    resolved["retries"]["rollout"]["exclude"] = []
+    return source, resolved
+
+
+def test_resolved_config_accepts_pinned_sandoq_provisioning_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    task_sha256 = "a" * 64
+    source, resolved = _resolved_config_pair(tmp_path, task_sha256)
+    monkeypatch.setattr(
+        retry,
+        "_parse_toml",
+        lambda body, _code: resolved if body == b"resolved" else source,
+    )
+
+    assert (
+        retry._validate_resolved_config(
+            b"resolved",
+            source_body=b"source",
+            run_dir=tmp_path,
+            task_sha256=task_sha256,
+        )
+        is resolved
+    )
+
+
+@pytest.mark.parametrize("observed", [None, 0, 2, True, "1", "missing"])
+def test_resolved_config_rejects_unpinned_sandoq_provisioning_retry(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    observed: object,
+) -> None:
+    task_sha256 = "a" * 64
+    source, resolved = _resolved_config_pair(tmp_path, task_sha256)
+    if observed == "missing":
+        resolved["harness"]["runtime"].pop("provisioning_retries")
+    else:
+        resolved["harness"]["runtime"]["provisioning_retries"] = observed
+    monkeypatch.setattr(
+        retry,
+        "_parse_toml",
+        lambda body, _code: resolved if body == b"resolved" else source,
+    )
+
+    with pytest.raises(retry.QwenRetryError, match="^run_config_binding_mismatch$"):
+        retry._validate_resolved_config(
+            b"resolved",
+            source_body=b"source",
+            run_dir=tmp_path,
+            task_sha256=task_sha256,
+        )
+
+
+def _cleanup_value(*, assignment_high_water: int, outer_high_water: int) -> dict:
+    return {
+        "already_absent": 65,
+        "assignment_cancellation_rows": 0,
+        "assignment_event_order_high_water": assignment_high_water,
+        "assignment_measured_high_water": assignment_high_water,
+        "assignment_release_rows": 65,
+        "assignments_acquired": 65,
+        "assignments_cleanup_verified": 65,
+        "cleanup_gateway_retry_count": 0,
+        "deleted_and_verified": 0,
+        "failures": 0,
+        "gateway_close_warnings": 1,
+        "kind": "sandoq-pool-cleanup",
+        "outer_session_high_water": outer_high_water,
+        "outer_sessions_created": 65,
+        "outer_sessions_deleted": 65,
+        "pool_drain_deleted": 0,
+        "pool_drain_sha256": "1" * 64,
+        "pool_event_log_sha256": "2" * 64,
+        "pool_wal_sha256": "3" * 64,
+        "raw_audit_sha256": "4" * 64,
+        "recorded_outer_sessions": 65,
+        "recovered_poisoned_assignments": 23,
+        "schema_version": 1,
+        "state": "passed",
+        "verified_http_404": 65,
+    }
+
+
+@pytest.mark.parametrize("high_water", [63, 64])
+def test_cleanup_accepts_exact_or_one_short_concurrency_high_water(
+    tmp_path: Path,
+    high_water: int,
+) -> None:
+    path = tmp_path / "sandoq_cleanup_audit.json"
+    _write_private(
+        path,
+        retry._canonical_json(
+            _cleanup_value(
+                assignment_high_water=high_water,
+                outer_high_water=high_water,
+            )
+        ),
+    )
+
+    value, _artifact = retry._validate_cleanup(path)
+    assert value["assignment_measured_high_water"] == high_water
+
+
+@pytest.mark.parametrize(
+    ("assignment_high_water", "outer_high_water"),
+    [(62, 62), (65, 65), (64, 63), (63, 66)],
+)
+def test_cleanup_rejects_unbounded_concurrency_high_water(
+    tmp_path: Path,
+    assignment_high_water: int,
+    outer_high_water: int,
+) -> None:
+    path = tmp_path / "sandoq_cleanup_audit.json"
+    _write_private(
+        path,
+        retry._canonical_json(
+            _cleanup_value(
+                assignment_high_water=assignment_high_water,
+                outer_high_water=outer_high_water,
+            )
+        ),
+    )
+
+    with pytest.raises(retry.QwenRetryError, match="^cleanup_invalid$"):
+        retry._validate_cleanup(path)
+
+
+def test_cleanup_rejects_disagreeing_assignment_high_water(tmp_path: Path) -> None:
+    path = tmp_path / "sandoq_cleanup_audit.json"
+    value = _cleanup_value(assignment_high_water=63, outer_high_water=63)
+    value["assignment_event_order_high_water"] = 62
+    _write_private(path, retry._canonical_json(value))
+
+    with pytest.raises(retry.QwenRetryError, match="^cleanup_invalid$"):
+        retry._validate_cleanup(path)
 
 
 def _template() -> bytes:

@@ -35,6 +35,10 @@ RESULTS_FILENAME = "results.jsonl"
 PREDECESSOR_RETRY_MODULE_SHA256 = "09b7f757ad64c1a49aac5cf4dd34d09ea495734192101a2001a6cb205dcacba0"
 PREDECESSOR_EXPORTER_SHA256 = "7254c193464213651c0005d7ebbc731d44f0c96552086a1879556a2397349a18"
 PREDECESSOR_REPOSITORY_REVISION = "d9a4eb07de3b769899c0e77eedf5da5f6c35ab61"
+# The immutable selection manifest predates failed-complete recovery and keeps
+# its original producer pin even when a newer, explicitly supplied certifier
+# revision replays the run.
+SELECTION_RETRY_MODULE_SHA256 = PREDECESSOR_RETRY_MODULE_SHA256
 PREDECESSOR_SUBMODULES = {
     "deps/renderers": "044d9e2541f6a911cacae9da353fc063911ef1f8",
     "deps/verifiers": "3df6efa9e9f6bdc8a013df7759a03074aec79111",
@@ -139,7 +143,12 @@ def _git(project: Path, *arguments: str) -> str:
     return completed.stdout.strip()
 
 
-def _project_code(project: Path, expected_revision: str) -> dict[str, Any]:
+def _project_code(
+    project: Path,
+    expected_revision: str,
+    *,
+    expected_retry_module_sha256: str = PREDECESSOR_RETRY_MODULE_SHA256,
+) -> dict[str, Any]:
     try:
         resolved = project.resolve(strict=True)
     except OSError as error:
@@ -159,7 +168,8 @@ def _project_code(project: Path, expected_revision: str) -> dict[str, Any]:
     audit_module = retry._artifact(workflow / "audit_traces.py", "module_unreadable")
     if (
         module.sha256 != _module_sha256()
-        or base_module.sha256 != PREDECESSOR_RETRY_MODULE_SHA256
+        or not _valid_sha256(expected_retry_module_sha256)
+        or base_module.sha256 != expected_retry_module_sha256
         or exporter.sha256 != SUPERSEDING_EXPORTER_SHA256
         or audit_module.sha256 != AUDIT_TRACES_SHA256
     ):
@@ -194,9 +204,15 @@ def _validate_predecessor_with_frozen_code(
     run_dir: Path,
     predecessor_certificate: Path,
     predecessor_certificate_sha256: str,
+    expected_retry_module_sha256: str = PREDECESSOR_RETRY_MODULE_SHA256,
+    expected_exporter_sha256: str = PREDECESSOR_EXPORTER_SHA256,
 ) -> None:
     """Replay the old certificate computation with the exact frozen producer."""
-    if expected_project_revision != PREDECESSOR_REPOSITORY_REVISION:
+    if (
+        GIT_SHA_RE.fullmatch(expected_project_revision or "") is None
+        or not _valid_sha256(expected_retry_module_sha256)
+        or not _valid_sha256(expected_exporter_sha256)
+    ):
         raise SupersessionError("predecessor_project_revision_invalid")
     try:
         project = project_dir.resolve(strict=True)
@@ -212,9 +228,9 @@ def _validate_predecessor_with_frozen_code(
     workflow = project / "user" / "tianhaowu" / "terminal_bench_vmvm"
     if (
         retry._artifact(workflow / "qwen_2499_error_retry.py", "module_unreadable").sha256
-        != PREDECESSOR_RETRY_MODULE_SHA256
+        != expected_retry_module_sha256
         or retry._artifact(workflow / "export_sft.py", "module_unreadable").sha256
-        != PREDECESSOR_EXPORTER_SHA256
+        != expected_exporter_sha256
         or retry._artifact(workflow / "audit_traces.py", "module_unreadable").sha256
         != AUDIT_TRACES_SHA256
     ):
@@ -374,6 +390,7 @@ def _validate_predecessor_value(
     contract_sha256: str,
     evidence: Mapping[str, Any],
     runtime: Mapping[str, Any],
+    expected_retry_module_sha256: str = PREDECESSOR_RETRY_MODULE_SHA256,
 ) -> None:
     outcomes = value.get("retry_outcomes")
     accepted = value.get("accepted")
@@ -423,7 +440,8 @@ def _validate_predecessor_value(
             "max_sequence_tokens": retry.MAX_SEQUENCE_TOKENS,
             "sha256": audit_traces.model_io_contract_sha256(retry.RETRY_MODEL_IO_CONTRACT),
         }
-        or code != {"module_sha256": PREDECESSOR_RETRY_MODULE_SHA256}
+        or not _valid_sha256(expected_retry_module_sha256)
+        or code != {"module_sha256": expected_retry_module_sha256}
     ):
         raise SupersessionError("predecessor_certificate_invalid")
 
@@ -436,6 +454,7 @@ def _load_predecessor(
     contract_sha256: str,
     evidence: Mapping[str, Any],
     runtime: Mapping[str, Any],
+    expected_retry_module_sha256: str = PREDECESSOR_RETRY_MODULE_SHA256,
 ) -> tuple[dict[str, Any], retry.Artifact]:
     if path != run_dir / retry.RETRY_CERTIFICATE_FILENAME:
         raise SupersessionError("predecessor_certificate_binding_invalid")
@@ -448,6 +467,7 @@ def _load_predecessor(
         contract_sha256=contract_sha256,
         evidence=evidence,
         runtime=runtime,
+        expected_retry_module_sha256=expected_retry_module_sha256,
     )
     return value, retry.Artifact(len(body), _sha256(body))
 
@@ -479,6 +499,8 @@ def _superseding_certificate_value(
     predecessor: Mapping[str, Any],
     predecessor_artifact: retry.Artifact,
     predecessor_project_revision: str,
+    predecessor_retry_module_sha256: str,
+    predecessor_exporter_sha256: str,
     evidence: Mapping[str, Any],
     runtime: Mapping[str, Any],
     context: retry.SelectionContext,
@@ -493,9 +515,9 @@ def _superseding_certificate_value(
         "predecessor": {
             "artifact": predecessor_artifact.value(),
             "accepted_positive": predecessor["accepted"]["count"],
-            "exporter_sha256": PREDECESSOR_EXPORTER_SHA256,
+            "exporter_sha256": predecessor_exporter_sha256,
             "kind": predecessor["kind"],
-            "module_sha256": PREDECESSOR_RETRY_MODULE_SHA256,
+            "module_sha256": predecessor_retry_module_sha256,
             "repository_revision": predecessor_project_revision,
             "sha256": predecessor_sha256,
         },
@@ -540,7 +562,7 @@ def _load_context_and_run(
 ) -> tuple[dict[str, Any], retry.SelectionContext, retry.TraceScan, dict[str, Any], dict[str, Any]]:
     try:
         selection, _body = retry._load_contract(contract, contract_sha256)
-        if selection.get("code") != {"module_sha256": PREDECESSOR_RETRY_MODULE_SHA256}:
+        if selection.get("code") != {"module_sha256": SELECTION_RETRY_MODULE_SHA256}:
             raise SupersessionError("selection_code_invalid")
         context = retry._context_from_contract(selection)
         scan, evidence, runtime = retry._run_evidence(context, selection, run_dir)
@@ -558,6 +580,8 @@ def _build_superseding_certificate(
     predecessor_certificate_sha256: str,
     predecessor_project_dir: Path,
     expected_predecessor_project_revision: str,
+    expected_predecessor_retry_module_sha256: str = PREDECESSOR_RETRY_MODULE_SHA256,
+    expected_predecessor_exporter_sha256: str = PREDECESSOR_EXPORTER_SHA256,
     project_dir: Path,
     expected_project_revision: str,
 ) -> tuple[dict[str, Any], retry.SelectionContext, Classification]:
@@ -569,17 +593,24 @@ def _build_superseding_certificate(
         contract_sha256=contract_sha256,
         evidence=evidence,
         runtime=runtime,
+        expected_retry_module_sha256=expected_predecessor_retry_module_sha256,
     )
     classification = _classify_retry_rows(context, scan)
     if classification.invalid_positive or classification.invalid_zero:
         raise SupersessionError("retry_row_invalid")
-    code = _project_code(project_dir, expected_project_revision)
+    code = _project_code(
+        project_dir,
+        expected_project_revision,
+        expected_retry_module_sha256=expected_predecessor_retry_module_sha256,
+    )
     certificate = _superseding_certificate_value(
         contract_sha256=contract_sha256,
         predecessor_sha256=predecessor_certificate_sha256,
         predecessor=predecessor,
         predecessor_artifact=predecessor_artifact,
         predecessor_project_revision=expected_predecessor_project_revision,
+        predecessor_retry_module_sha256=expected_predecessor_retry_module_sha256,
+        predecessor_exporter_sha256=expected_predecessor_exporter_sha256,
         evidence=evidence,
         runtime=runtime,
         context=context,
@@ -601,6 +632,8 @@ def certify(
     project_dir: Path,
     expected_project_revision: str,
     output: Path,
+    expected_predecessor_retry_module_sha256: str = PREDECESSOR_RETRY_MODULE_SHA256,
+    expected_predecessor_exporter_sha256: str = PREDECESSOR_EXPORTER_SHA256,
 ) -> dict[str, Any]:
     run_dir = retry._normalized_absolute(run_dir, "run_dir_invalid")
     output = retry._normalized_absolute(output, "certificate_output_invalid", must_exist=False)
@@ -614,6 +647,8 @@ def certify(
         run_dir=run_dir,
         predecessor_certificate=predecessor_certificate,
         predecessor_certificate_sha256=predecessor_certificate_sha256,
+        expected_retry_module_sha256=expected_predecessor_retry_module_sha256,
+        expected_exporter_sha256=expected_predecessor_exporter_sha256,
     )
     with retry._completed_run_lock(run_dir):
         certificate, _context, classification = _build_superseding_certificate(
@@ -624,6 +659,8 @@ def certify(
             predecessor_certificate_sha256=predecessor_certificate_sha256,
             predecessor_project_dir=predecessor_project_dir,
             expected_predecessor_project_revision=expected_predecessor_project_revision,
+            expected_predecessor_retry_module_sha256=expected_predecessor_retry_module_sha256,
+            expected_predecessor_exporter_sha256=expected_predecessor_exporter_sha256,
             project_dir=project_dir,
             expected_project_revision=expected_project_revision,
         )
@@ -731,6 +768,8 @@ def merge(
     expected_project_revision: str,
     mode: str,
     output_dir: Path,
+    expected_predecessor_retry_module_sha256: str = PREDECESSOR_RETRY_MODULE_SHA256,
+    expected_predecessor_exporter_sha256: str = PREDECESSOR_EXPORTER_SHA256,
 ) -> dict[str, Any]:
     if mode not in MERGE_MODES:
         raise SupersessionError("merge_mode_invalid")
@@ -749,6 +788,8 @@ def merge(
         run_dir=run_dir,
         predecessor_certificate=predecessor_certificate,
         predecessor_certificate_sha256=predecessor_certificate_sha256,
+        expected_retry_module_sha256=expected_predecessor_retry_module_sha256,
+        expected_exporter_sha256=expected_predecessor_exporter_sha256,
     )
     with retry._completed_run_lock(run_dir):
         expected, context, classification = _build_superseding_certificate(
@@ -759,6 +800,8 @@ def merge(
             predecessor_certificate_sha256=predecessor_certificate_sha256,
             predecessor_project_dir=predecessor_project_dir,
             expected_predecessor_project_revision=expected_predecessor_project_revision,
+            expected_predecessor_retry_module_sha256=expected_predecessor_retry_module_sha256,
+            expected_predecessor_exporter_sha256=expected_predecessor_exporter_sha256,
             project_dir=project_dir,
             expected_project_revision=expected_project_revision,
         )
@@ -861,6 +904,14 @@ def _add_common(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--predecessor-certificate-sha256", required=True)
     parser.add_argument("--predecessor-project-dir", type=Path, required=True)
     parser.add_argument("--expected-predecessor-project-revision", required=True)
+    parser.add_argument(
+        "--expected-predecessor-retry-module-sha256",
+        default=PREDECESSOR_RETRY_MODULE_SHA256,
+    )
+    parser.add_argument(
+        "--expected-predecessor-exporter-sha256",
+        default=PREDECESSOR_EXPORTER_SHA256,
+    )
     parser.add_argument("--project-dir", type=Path, required=True)
     parser.add_argument("--expected-project-revision", required=True)
 

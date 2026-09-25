@@ -62,6 +62,7 @@ CONTINUATION_TRACE_COUNT = 1_233
 RETAINED_ORIGINAL_COUNT = 1_266
 ORIGINAL_CONTINUATION_OVERLAP_COUNT = 125
 ERROR_RETRY_COUNT = 64
+SANDOQ_PROVISIONING_RETRIES = 1
 BASE_POSITIVE_COUNT = 1_562
 BASE_ZERO_COUNT = 873
 BASE_ERROR_COUNT = 64
@@ -78,8 +79,8 @@ MAX_CONFIG_BYTES = 2 << 20
 MAX_PROFILE_BYTES = 1 << 20
 MAX_JSONL_ROW_BYTES = 128 << 20
 MAX_SEQUENCE_TOKENS = 262_144
-RETRY_MODEL_IO_CONTRACT = audit_traces.QWEN3_A95B_MODEL_IO_CONTRACT
-RETRY_MODEL_IO_CONTRACT_ID = audit_traces.QWEN3_A95B_MODEL_IO_CONTRACT_ID
+RETRY_MODEL_IO_CONTRACT = audit_traces.QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT
+RETRY_MODEL_IO_CONTRACT_ID = audit_traces.QWEN3_A95B_DIRECT_MEDIUM_MODEL_IO_CONTRACT_ID
 RETRY_RUN_IDENTITY_ROLE = "qwen-direct-error-retry-2499"
 RETRY_CONFIG_TEMPLATE_SHA256 = "6d52dae24f3bafbff97c024a7241cf6abd0912cda02eb6e6c5d36a062453b63b"
 RETRY_PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
@@ -1400,6 +1401,10 @@ def _validate_cleanup(path: Path) -> tuple[dict[str, Any], Artifact]:
     }
     digest_fields = {"raw_audit_sha256", "pool_event_log_sha256", "pool_wal_sha256", "pool_drain_sha256"}
     expected_keys = {"schema_version", "kind", "state", *count_fields, *digest_fields}
+    # One rollout may fail before acquiring its first sandbox.  Preserve the
+    # concurrency evidence while still requiring every acquired assignment and
+    # every recorded outer session to have been cleaned up successfully.
+    accepted_high_water = {ERROR_RETRY_COUNT - 1, ERROR_RETRY_COUNT}
     if (
         set(value) != expected_keys
         or value.get("schema_version") != 1
@@ -1415,8 +1420,11 @@ def _validate_cleanup(path: Path) -> tuple[dict[str, Any], Artifact]:
         != value.get("assignments_acquired")
         or value.get("outer_sessions_created") != value.get("recorded_outer_sessions")
         or value.get("outer_sessions_deleted") != value.get("recorded_outer_sessions")
-        or value.get("assignment_measured_high_water") != 64
-        or value.get("outer_session_high_water", 0) < 64
+        or value.get("assignment_measured_high_water") not in accepted_high_water
+        or value.get("assignment_event_order_high_water")
+        != value.get("assignment_measured_high_water")
+        or value.get("outer_session_high_water", 0) < value.get("assignment_measured_high_water", 0)
+        or value.get("outer_session_high_water", 0) > value.get("assignments_acquired", 0)
     ):
         raise QwenRetryError("cleanup_invalid")
     return value, artifact
@@ -1493,6 +1501,8 @@ def _validate_run_identity(run_dir: Path, *, task_sha256: str, config_sha256: st
         or runtime.get("expected_environment") != "oci-runner-firecracker-small"
         or runtime.get("network_access") is not True
         or runtime.get("host_tunnel") != "sandoq"
+        or type(runtime.get("provisioning_retries")) is not int
+        or runtime.get("provisioning_retries") != SANDOQ_PROVISIONING_RETRIES
         or not isinstance(environment, Mapping)
         or environment.get("environment") != "oci-runner-firecracker-small"
         or environment.get("task_network") != "public"
@@ -1587,6 +1597,10 @@ def _validate_resolved_config(
     normalized_taskset["task_file"] = source_taskset["task_file"]
     normalized_taskset["image_manifest"] = source_taskset["image_manifest"]
     normalized_runtime = normalized["harness"]["runtime"]
+    provisioning_retries = normalized_runtime.get("provisioning_retries")
+    if type(provisioning_retries) is not int or provisioning_retries != SANDOQ_PROVISIONING_RETRIES:
+        raise QwenRetryError("run_config_binding_mismatch")
+    normalized_runtime.pop("provisioning_retries")
     for key, expected in (
         ("image", "python:3.11-slim"),
         ("workdir", "/app"),

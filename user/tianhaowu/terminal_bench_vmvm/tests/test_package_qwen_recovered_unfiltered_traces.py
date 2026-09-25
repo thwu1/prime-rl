@@ -14,6 +14,7 @@ import pytest
 
 WORKFLOW = Path(__file__).resolve().parents[1]
 PACKAGER = WORKFLOW / "package_qwen_recovered_unfiltered_traces.sh"
+PACKAGING_GUIDE = WORKFLOW / "QWEN_RECOVERED_TRACE_PACKAGING.md"
 PACKAGE_WORKER = WORKFLOW / "package_qwen_recovered_unfiltered_traces.sbatch"
 LAUNCHER = WORKFLOW / "launch_qwen_recovered_unfiltered_trace_package.sh"
 PREVIOUS_MANIFEST = WORKFLOW / "trace_packages/qwen-2499-unfiltered-1ae8855f-v1/manifest.json"
@@ -27,8 +28,29 @@ PREDECESSOR_EXPORTER_SHA256 = "7254c193464213651c0005d7ebbc731d44f0c96552086a187
 SUPERSEDING_EXPORTER_SHA256 = "d6386bc08eec676ec1e48913aca37e934cf65c90dabbd0fa99ee5221d5118fbb"
 SUPERSESSION_MODULE_SHA256 = "33d090437237bc94cea514856cb0d45b04e16edfafdd9772a5b36b5d4b12fae9"
 AUDIT_TRACES_SHA256 = "7b20a4e600cdff8213b9be322029087962e700df87dd06f1c702cb4278970ad3"
+VERIFIER_REVISION = "3df6efa9e9f6bdc8a013df7759a03074aec79111"
+RENDERER_REVISION = "044d9e2541f6a911cacae9da353fc063911ef1f8"
+MODEL_IO_CONTRACT_ID = "qwen3-a95b"
 MODEL_IO_CONTRACT_SHA256 = "338772c5840f201851c30a29df1f3986af414b1fa22c325aff5783cb8b460a84"
 PRIVATE_MARKER = "SYNTHETIC_PRIVATE_TRACE_CONTENT_MUST_NOT_BE_LOGGED"
+
+
+@pytest.mark.parametrize(
+    "variable",
+    [
+        "QWEN_V6_PACKAGE_EXPECTED_RETRY_MODULE_SHA256",
+        "QWEN_V6_PACKAGE_EXPECTED_PREDECESSOR_EXPORTER_SHA256",
+        "QWEN_V6_PACKAGE_EXPECTED_SUPERSEDING_EXPORTER_SHA256",
+        "QWEN_V6_PACKAGE_EXPECTED_SUPERSESSION_MODULE_SHA256",
+        "QWEN_V6_PACKAGE_EXPECTED_AUDIT_TRACES_SHA256",
+        "QWEN_V6_PACKAGE_EXPECTED_VERIFIER_REVISION",
+        "QWEN_V6_PACKAGE_EXPECTED_RENDERER_REVISION",
+        "QWEN_V6_PACKAGE_EXPECTED_MODEL_IO_CONTRACT_ID",
+        "QWEN_V6_PACKAGE_EXPECTED_MODEL_IO_CONTRACT_SHA256",
+    ],
+)
+def test_packaging_guide_exports_required_provenance(variable: str) -> None:
+    assert f"export {variable}=" in PACKAGING_GUIDE.read_text()
 
 
 def _body(value: object) -> bytes:
@@ -317,6 +339,15 @@ def _fixture(tmp_path: Path) -> tuple[dict[str, str], Path]:
         "QWEN_V6_PACKAGE_EXPECTED_PROJECT_REVISION": project_revision,
         "QWEN_V6_PACKAGE_EXPECTED_POSTPROCESSOR_REVISION": POSTPROCESSOR_REVISION,
         "QWEN_V6_PACKAGE_EXPECTED_PREDECESSOR_REVISION": PREDECESSOR_REVISION,
+        "QWEN_V6_PACKAGE_EXPECTED_RETRY_MODULE_SHA256": PREDECESSOR_RETRY_MODULE_SHA256,
+        "QWEN_V6_PACKAGE_EXPECTED_PREDECESSOR_EXPORTER_SHA256": PREDECESSOR_EXPORTER_SHA256,
+        "QWEN_V6_PACKAGE_EXPECTED_SUPERSEDING_EXPORTER_SHA256": SUPERSEDING_EXPORTER_SHA256,
+        "QWEN_V6_PACKAGE_EXPECTED_SUPERSESSION_MODULE_SHA256": SUPERSESSION_MODULE_SHA256,
+        "QWEN_V6_PACKAGE_EXPECTED_AUDIT_TRACES_SHA256": AUDIT_TRACES_SHA256,
+        "QWEN_V6_PACKAGE_EXPECTED_VERIFIER_REVISION": VERIFIER_REVISION,
+        "QWEN_V6_PACKAGE_EXPECTED_RENDERER_REVISION": RENDERER_REVISION,
+        "QWEN_V6_PACKAGE_EXPECTED_MODEL_IO_CONTRACT_ID": MODEL_IO_CONTRACT_ID,
+        "QWEN_V6_PACKAGE_EXPECTED_MODEL_IO_CONTRACT_SHA256": MODEL_IO_CONTRACT_SHA256,
         "QWEN_V6_PACKAGE_EXPECTED_SOURCE_JOB": SOURCE_JOB,
         "QWEN_V6_PACKAGE_SELECTION_CONTRACT_SHA256": SELECTION_SHA256,
         "QWEN_V6_PACKAGE_PACKAGER_SHA256": _sha256(copied_packager),
@@ -660,6 +691,35 @@ def test_launcher_normalizes_cluster_qualified_job_id(tmp_path: Path) -> None:
     assert completed.returncode == 0, completed.stderr
     assert jobid_file.read_text() == "2000002\n"
     assert json.loads(completed.stdout)["job_id"] == 2000002
+
+
+def test_launcher_rejects_successful_looking_sacct_output_with_failure(
+    tmp_path: Path,
+) -> None:
+    environment, calls, jobid_file = _launcher_environment(tmp_path)
+    sacct = Path(environment["PATH"].split(":", 1)[0]) / "sacct"
+    _write_executable(
+        sacct,
+        "#!/bin/bash\nprintf '%s\\n' '1579999|COMPLETED|0:0'\nexit 17\n",
+    )
+
+    completed = subprocess.run(
+        ["bash", str(LAUNCHER), "1579999"],
+        env=environment,
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=30,
+    )
+    assert completed.returncode == 2
+    assert json.loads(completed.stderr) == {
+        "code": "postrun_job_accounting_invalid",
+        "state": "error",
+    }
+    assert not calls.exists()
+    assert not jobid_file.exists()
+    assert not Path(f"{jobid_file}.lock").exists()
 
 
 def test_launcher_term_during_submission_stops_and_preserves_reservation(tmp_path: Path) -> None:

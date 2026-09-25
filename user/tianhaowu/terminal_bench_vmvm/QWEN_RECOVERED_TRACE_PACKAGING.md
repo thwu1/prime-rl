@@ -25,8 +25,8 @@ way.
 - predecessor `qwen_2499_error_retry_run_certificate.json`;
 - `qwen_2499_error_retry_superseding_certificate.json`;
 - `postrun_receipt-src108b713af-v6.json`;
-- the exact postrun worker whose current reviewed SHA-256 is
-  `d5abdff1e89b2d4b0fa4c0e472c84db91d397180b27a18f87a0f666bded295a3`;
+- the exact failed-complete recovery postrun worker rendered from the reviewed
+  frozen revision, with its literal SHA-256 recorded before launch;
 - the previous package manifest, SHA-256
   `5ab6b9482d7eff98aea424546592fc5a61e3af11bae9c4ea11f48f4774cb0ac2`.
 
@@ -67,13 +67,22 @@ Use that clean frozen checkout for `QWEN_V6_PACKAGE_PROJECT_DIR`; use literal
 variables as follows:
 
 ```bash
-export QWEN_V6_PACKAGE_EXPECTED_POSTPROCESSOR_REVISION=108b713af332b6865c49c3b146f3fa2158fe790a
-export QWEN_V6_PACKAGE_EXPECTED_PREDECESSOR_REVISION=d9a4eb07de3b769899c0e77eedf5da5f6c35ab61
+export QWEN_V6_PACKAGE_EXPECTED_POSTPROCESSOR_REVISION=RECOVERY_REVISION_40_HEX
+export QWEN_V6_PACKAGE_EXPECTED_PREDECESSOR_REVISION=RECOVERY_REVISION_40_HEX
+export QWEN_V6_PACKAGE_EXPECTED_RETRY_MODULE_SHA256=8117cf9709e6747046052a465c6ffe8bc0f80c6825dfb6157823af611d1fa1ed
+export QWEN_V6_PACKAGE_EXPECTED_PREDECESSOR_EXPORTER_SHA256=d6386bc08eec676ec1e48913aca37e934cf65c90dabbd0fa99ee5221d5118fbb
+export QWEN_V6_PACKAGE_EXPECTED_SUPERSEDING_EXPORTER_SHA256=d6386bc08eec676ec1e48913aca37e934cf65c90dabbd0fa99ee5221d5118fbb
+export QWEN_V6_PACKAGE_EXPECTED_SUPERSESSION_MODULE_SHA256=SUPERSESSION_MODULE_SHA256_64_HEX
+export QWEN_V6_PACKAGE_EXPECTED_AUDIT_TRACES_SHA256=7b20a4e600cdff8213b9be322029087962e700df87dd06f1c702cb4278970ad3
+export QWEN_V6_PACKAGE_EXPECTED_VERIFIER_REVISION=3df6efa9e9f6bdc8a013df7759a03074aec79111
+export QWEN_V6_PACKAGE_EXPECTED_RENDERER_REVISION=044d9e2541f6a911cacae9da353fc063911ef1f8
+export QWEN_V6_PACKAGE_EXPECTED_MODEL_IO_CONTRACT_ID=qwen3-a95b-direct-medium
+export QWEN_V6_PACKAGE_EXPECTED_MODEL_IO_CONTRACT_SHA256=c83833ac8950a17a1d9e7a65ac1fe8f585376a838e4737ce92b20c8eaa4ab777
 export QWEN_V6_PACKAGE_EXPECTED_SOURCE_JOB=1579607
 export QWEN_V6_PACKAGE_SELECTION_CONTRACT_SHA256=5369194fc1bea5dd72c20457a8fd1fac906144c8beb4bc20d77727fb77c8b228
 export QWEN_V6_PACKAGE_CANONICAL_TASK_FILE_SHA256=5b2ed7c5b166a6570b46d3dacff680c5ba6ff22f7e02e57e273eb442e6842b8c
-export QWEN_V6_PACKAGE_POSTRUN_WORKER=/storage/home/tianhaowu/.codex/tmp/qwen_exact64_postrun_d9a4eb07d_v5.sbatch
-export QWEN_V6_PACKAGE_POSTRUN_WORKER_SHA256=d5abdff1e89b2d4b0fa4c0e472c84db91d397180b27a18f87a0f666bded295a3
+export QWEN_V6_PACKAGE_POSTRUN_WORKER=/storage/home/tianhaowu/.codex/tmp/qwen_failed_complete_1579607_postrun_v1.sbatch
+export QWEN_V6_PACKAGE_POSTRUN_WORKER_SHA256=POSTRUN_WORKER_SHA256_64_HEX
 export QWEN_V6_PACKAGE_UNFILTERED_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/qwen-2499-error-retry-20260925-v5/merged-unfiltered-src108b713af-v6
 export QWEN_V6_PACKAGE_RETRY_CERTIFICATE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/qwen-2499-error-retry-cpu131165-8101-srcd9a4eb07d-c64-medium-v5/qwen_2499_error_retry_run_certificate.json
 export QWEN_V6_PACKAGE_SUPERSEDING_CERTIFICATE=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/qwen-2499-error-retry-cpu131165-8101-srcd9a4eb07d-c64-medium-v5/qwen_2499_error_retry_superseding_certificate.json
@@ -99,8 +108,10 @@ export QWEN_V6_PACKAGE_EXPECTED_POSTRUN_RECEIPT_SHA256=$(sha256sum "$QWEN_V6_PAC
 ```
 
 Record those six literal digests in the launch receipt before submission; do
-not recompute them after a failed validation. Set these four values from the
-clean frozen packaging checkout:
+not recompute them after a failed validation. Replace every `_40_HEX` and
+`_64_HEX` placeholder above from the same clean frozen recovery checkout and
+rendered postrun worker. Set these four values from the clean frozen packaging
+checkout:
 
 ```bash
 export QWEN_V6_PACKAGE_PROJECT_DIR=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-qwen-package-PACKAGE_REVISION_PREFIX
@@ -119,9 +130,56 @@ the export list, and exports only the explicit package variables. It supplies
 bash "$QWEN_V6_PACKAGE_PROJECT_DIR/user/tianhaowu/terminal_bench_vmvm/launch_qwen_recovered_unfiltered_trace_package.sh" POSTRUN_JOB_ID
 ```
 
-After the package job completes `0:0`, verify its manifest and chunks again,
-copy the whole directory through an exclusive temporary-directory rename to
-the tracked path above, confirm
-`git check-attr filter` does not report `lfs` for any chunk, then `git add` that
-single package directory. Review the staged blob sizes and hashes before a
-separate commit and push to `origin/vmvm-sandbox`.
+## Publish
+
+Use `publish_qwen_recovered_unfiltered_trace_package.sh` only after the chain
+watcher reports `stage=chain,state=completed`. The publisher independently
+checks that state, the mode-0600 package job receipt, Slurm completion, job
+name, and submitted worker hash. It then validates the complete manifest
+lineage, every streamed archive member hash and size, canonical tar
+member-padding and termination with no trailing bytes, zstd integrity, chunk hashes, and the
+deterministic contiguous chunk sequence without printing archive contents. Every
+nonfinal chunk must be exactly 95,000,000 bytes; the final chunk must be
+nonempty and no larger than that bound.
+
+The caller must pin every identity rather than relying on a mutable branch or
+recomputing values after validation. In particular, set:
+
+- `QWEN_PUBLISH_REPOSITORY`, `QWEN_PUBLISH_SOURCE`, and
+  `QWEN_PUBLISH_TARGET_RELATIVE`;
+- `QWEN_PUBLISH_WATCHER_STATE` and
+  `QWEN_PUBLISH_PACKAGE_JOBID_FILE`;
+- the durable, private `QWEN_PUBLISH_TRANSACTION_DIR`;
+- `QWEN_PUBLISH_EXPECTED_REMOTE_HEAD` and
+  `QWEN_PUBLISH_EXPECTED_REMOTE_URL`;
+- the package project revision, packager hash, package worker hash, streaming
+  archive-verifier hash, source and postrun jobs, postrun worker hash,
+  postprocessor and predecessor revisions;
+- the selection, canonical-task, predecessor-manifest, results, certificate,
+  merge-manifest, postrun-receipt, package-manifest, and README SHA-256 values;
+- `QWEN_PUBLISH_COMMIT_MESSAGE`.
+
+Pass the exact package job ID as the sole argument:
+
+```bash
+bash user/tianhaowu/terminal_bench_vmvm/publish_qwen_recovered_unfiltered_trace_package.sh PACKAGE_JOB_ID
+```
+
+The repository must be clean and its `HEAD` must equal both the pinned head and
+the live `origin/vmvm-sandbox` head. Fetch and push URLs must each be unique and
+equal the pinned URL. Production requires the self-contained absolute URL
+`https://github.com/thwu1/prime-rl.git`; cwd-dependent relative and scp-style
+URLs are rejected. The publisher holds a repository-wide lock, builds the
+commit in a persistent isolated bare transaction, bypasses Git filters, and
+disables client hooks. The main worktree, index, and `HEAD` stay unchanged.
+After another remote-race check, it pushes to the literal pinned URL with the
+explicit non-force refspec
+`RECOVERY_COMMIT:refs/heads/vmvm-sandbox`, then verifies the
+remote head, tree, blob hashes, and blob sizes.
+
+The transaction receipt is atomically updated before the push. On restart, the
+publisher checks whether the remote accepted the exact transaction commit and
+finishes idempotently without pushing again. A failed or interrupted push is
+accepted only if a fresh remote query proves that exact commit is the branch
+head; every ambiguous outcome fails closed while retaining the transaction for
+audit and retry.
