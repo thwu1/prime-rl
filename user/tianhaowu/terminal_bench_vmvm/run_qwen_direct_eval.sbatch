@@ -231,7 +231,7 @@ PY
     fi
     sandoq_capacity=${sandoq_context_values[0]}
     sandoq_ecr_token_file=${sandoq_context_values[1]}
-    sandoq_ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-${sandoq_ecr_token_file}.metadata.json}
+    sandoq_ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-/storage/home/tianhaowu/.config/oci-runner/ecr-rotation.state.json}
     if [[ "$error_retry_mode" -eq 1 ]]; then
         sandoq_provider_profile=${SANDOQ_PROVIDER_CONTEXT_PROFILE:-$workflow_dir/configs/provider_context/use2/qwen_sandoq_firecracker_host.json}
         sandoq_provider_profile_sha256=${SANDOQ_PROVIDER_CONTEXT_PROFILE_SHA256:-247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084}

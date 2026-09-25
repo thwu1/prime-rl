@@ -287,6 +287,10 @@ def test_outer_retry_always_propagates_child_failure() -> None:
 
     assert 'if [[ "$eval_status" -ne 0 ]]; then' in launcher
     assert 'if [[ "$eval_status" -ne 0 &&' not in launcher
+    assert (
+        "sandoq_ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-"
+        "/storage/home/tianhaowu/.config/oci-runner/ecr-rotation.state.json}"
+    ) in launcher
 
 
 def test_retry_certifier_requires_the_dedicated_identity_role(

@@ -921,7 +921,7 @@ def parser() -> argparse.ArgumentParser:
     orchestrate.add_argument(
         "--ecr-token-metadata",
         type=Path,
-        default=Path("/storage/home/tianhaowu/.config/oci-runner/ecr-token.metadata.json"),
+        default=Path("/storage/home/tianhaowu/.config/oci-runner/ecr-rotation.state.json"),
     )
     return result
 

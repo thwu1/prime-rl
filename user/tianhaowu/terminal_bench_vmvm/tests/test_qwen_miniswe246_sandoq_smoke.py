@@ -255,8 +255,26 @@ def test_firecracker_host_profile_and_smoke_are_narrowly_pinned(tmp_path: Path) 
     batch = (workflow / "run_qwen_miniswe246_sandoq_smoke.sbatch").read_text()
     assert "#SBATCH --time=00:05:00" in batch
     assert "sandoq_x86_64_ram_prime_f7313db4" in batch
+    assert (
+        "ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-"
+        "/storage/home/tianhaowu/.config/oci-runner/ecr-rotation.state.json}"
+    ) in batch
+    assert '--ecr-token-file "$ecr_token_file"' in batch
+    assert '--ecr-token-metadata "$ecr_token_metadata"' in batch
     assert "proxy_info.json" not in batch
     assert "sbatch " not in batch
+
+    args = smoke.parser().parse_args(
+        [
+            "orchestrate",
+            "--project-root",
+            str(tmp_path / "project"),
+            "--expected-revision",
+            "0" * 40,
+        ]
+    )
+    assert args.ecr_token_file == Path("/storage/home/tianhaowu/.config/oci-runner/ecr-token")
+    assert args.ecr_token_metadata == Path("/storage/home/tianhaowu/.config/oci-runner/ecr-rotation.state.json")
 
 
 def test_firecracker_host_profile_is_active_under_supervisor(
