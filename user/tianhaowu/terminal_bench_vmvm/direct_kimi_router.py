@@ -225,6 +225,8 @@ class RouterState:
         self.worker_max_active_requests = [0] * len(workers)
         self.active_forwarded_requests = 0
         self.max_active_forwarded_requests = 0
+        self.active_worker_waiters = 0
+        self.worker_waiting_request_counts = [0] * len(workers)
 
     def worker_for_session(self, session_id: str) -> int:
         """Return a sticky, bounded-load worker assignment for a session."""
@@ -255,19 +257,27 @@ class RouterState:
     def acquire_worker(self, index: int) -> bool:
         if not 0 <= index < len(self.worker_capacity):
             raise RouterError("worker_index_invalid")
-        acquired = self.worker_capacity[index].acquire(timeout=self.worker_queue_timeout_seconds)
-        if acquired:
+        with self.lock:
+            self.active_worker_waiters += 1
+            self.worker_waiting_request_counts[index] += 1
+        acquired = False
+        try:
+            acquired = self.worker_capacity[index].acquire(timeout=self.worker_queue_timeout_seconds)
+        finally:
             with self.lock:
-                self.active_forwarded_requests += 1
-                self.max_active_forwarded_requests = max(
-                    self.max_active_forwarded_requests,
-                    self.active_forwarded_requests,
-                )
-                self.worker_active_requests[index] += 1
-                self.worker_max_active_requests[index] = max(
-                    self.worker_max_active_requests[index],
-                    self.worker_active_requests[index],
-                )
+                self.active_worker_waiters -= 1
+                self.worker_waiting_request_counts[index] -= 1
+                if acquired:
+                    self.active_forwarded_requests += 1
+                    self.max_active_forwarded_requests = max(
+                        self.max_active_forwarded_requests,
+                        self.active_forwarded_requests,
+                    )
+                    self.worker_active_requests[index] += 1
+                    self.worker_max_active_requests[index] = max(
+                        self.worker_max_active_requests[index],
+                        self.worker_active_requests[index],
+                    )
         return acquired
 
     def release_worker(self, index: int) -> None:
@@ -377,23 +387,7 @@ class RouterState:
                 "upstream_failures": self.upstream_failures,
                 "worker_request_counts": list(self.worker_requests),
             }
-            if self.capacity_profile in (C23_CAPACITY_PROFILE, C64_CAPACITY_PROFILE):
-                snapshot.update(
-                    {
-                        "schema_version": 2,
-                        "capacity_profile": self.capacity_profile,
-                        "endpoint_identifier": self.endpoint_identifier,
-                        "configured_capacity": self.max_concurrent_requests,
-                        "active_chat_requests": self.active_chat,
-                        "max_active_chat_requests": self.max_active_chat,
-                        "capacity_rejections": self.capacity_rejections,
-                        "queue_overflow_rejections": self.capacity_rejections,
-                        "route_tracking_overflows": self.route_tracking_overflows,
-                        "cross_route_anomalies": self.cross_route_anomalies,
-                        "tracked_sessions": len(self.session_routes),
-                    }
-                )
-            elif self.capacity_profile == C64_W2_CAPACITY_PROFILE:
+            if self.capacity_profile in (C23_CAPACITY_PROFILE, C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE):
                 snapshot.update(
                     {
                         "schema_version": 3,
@@ -402,7 +396,6 @@ class RouterState:
                         "configured_capacity": self.max_concurrent_requests,
                         "configured_per_worker_capacity": self.per_worker_capacity,
                         "active_forwarded_requests": self.active_forwarded_requests,
-                        "max_active_forwarded_requests": self.max_active_forwarded_requests,
                         "active_chat_requests": self.active_chat,
                         "max_active_chat_requests": self.max_active_chat,
                         "capacity_rejections": self.capacity_rejections,
@@ -411,6 +404,16 @@ class RouterState:
                         "cross_route_anomalies": self.cross_route_anomalies,
                         "tracked_sessions": len(self.session_routes),
                         "worker_active_request_counts": list(self.worker_active_requests),
+                        "worker_session_counts": list(self.worker_session_counts),
+                        "active_worker_waiters": self.active_worker_waiters,
+                        "worker_waiting_request_counts": list(self.worker_waiting_request_counts),
+                    }
+                )
+            if self.capacity_profile == C64_W2_CAPACITY_PROFILE:
+                snapshot.update(
+                    {
+                        "schema_version": 4,
+                        "max_active_forwarded_requests": self.max_active_forwarded_requests,
                         "worker_max_active_request_counts": list(self.worker_max_active_requests),
                         "worker_queue_timeouts": self.worker_queue_timeouts,
                         "upstream_http_429": self.upstream_http_429,

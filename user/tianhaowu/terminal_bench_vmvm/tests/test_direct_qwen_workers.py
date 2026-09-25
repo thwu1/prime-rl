@@ -15,7 +15,7 @@ def test_production_worker_generation_is_exactly_the_certified_24_routes() -> No
     assert direct.EXPECTED_ENDPOINTS == 24
     assert direct.EXPECTED_SPEC_SHA256 == ("e5ddc652b1e3dbb99ed65b44b276cf9d9b8ae866b5a4471db42cf0c732a64007")
     assert direct.EXPECTED_ENDPOINT_BUNDLE_SHA256 == (
-        "db0095649feda5d1c8ea66a434c6486a6c91d6b4519664701a26dab44c7a83a0"
+        "774152610268ec6e652374ac1856d1bbb36f114dabfa0f4db27a529da0a9f4a8"
     )
 
 
@@ -162,9 +162,7 @@ def test_full_sandoq_config_fails_closed_on_aggregate_compose_count(monkeypatch:
 def test_sandoq_ramp_prefixes_have_no_compose_tasks(tmp_path: Path) -> None:
     config_dir = Path(__file__).parents[1] / "configs" / "eval"
     repository_root = config_dir.parents[4]
-    config = tomllib.loads(
-        (config_dir / "shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml").read_text()
-    )
+    config = tomllib.loads((config_dir / "shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml").read_text())
     source = repository_root / config["taskset"]["task_file"]
     dataset_dir = Path(config["taskset"]["dataset_dir"])
     partition = derive_partition(source.read_bytes(), dataset_dir)
@@ -457,10 +455,7 @@ def test_sandoq_stage2_preflight_uses_fresh_task_bound_live24_manifest(
     task_file = tmp_path / "approved-sandoq-ramp2.tasks.txt"
     task_file.write_text("approved-fixture-a\napproved-fixture-b\n")
     task_sha256 = hashlib.sha256(task_file.read_bytes()).hexdigest()
-    template = (
-        Path(__file__).parents[1]
-        / "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml"
-    )
+    template = Path(__file__).parents[1] / "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml"
     config = tmp_path / "approved-sandoq-ramp2.toml"
     config.write_bytes(
         materialize_config(
@@ -498,12 +493,15 @@ def test_sandoq_stage2_preflight_uses_fresh_task_bound_live24_manifest(
     assert manifest["router"]["policy"] == "consistent_hash"
     assert manifest["router"]["request_id_headers"] == ["x-session-id"]
     assert len(urls.read_text().splitlines()) == 24
-    assert direct.validate_post_eval_generation(
-        manifest_path,
-        deployment_root,
-        router_alive=True,
-        active_workers=24,
-    ) == hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    assert (
+        direct.validate_post_eval_generation(
+            manifest_path,
+            deployment_root,
+            router_alive=True,
+            active_workers=24,
+        )
+        == hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    )
 
 
 @pytest.mark.parametrize("retry_value", [1, False])
@@ -653,10 +651,13 @@ def test_validate_saved_manifest_accepts_reviewed_repair_admission(
 
     with pytest.raises(direct.DirectWorkerError, match="admission_exceeds_rollout_limit"):
         direct.validate_saved_manifest(path)
-    assert direct.validate_saved_manifest(
-        path,
-        expected_admission=(96, 48, 48),
-    )["admission"]["rollout_concurrency"] == 96
+    assert (
+        direct.validate_saved_manifest(
+            path,
+            expected_admission=(96, 48, 48),
+        )["admission"]["rollout_concurrency"]
+        == 96
+    )
 
 
 def test_post_eval_generation_accepts_reviewed_repair_admission(
@@ -694,13 +695,16 @@ def test_post_eval_generation_accepts_reviewed_repair_admission(
     path = tmp_path / "repair-manifest.json"
     path.write_text(json.dumps(manifest) + "\n")
 
-    assert direct.validate_post_eval_generation(
-        path,
-        root,
-        router_alive=True,
-        active_workers=24,
-        expected_admission=(96, 48, 48),
-    ) == hashlib.sha256(path.read_bytes()).hexdigest()
+    assert (
+        direct.validate_post_eval_generation(
+            path,
+            root,
+            router_alive=True,
+            active_workers=24,
+            expected_admission=(96, 48, 48),
+        )
+        == hashlib.sha256(path.read_bytes()).hexdigest()
+    )
 
 
 def test_validate_saved_manifest_accepts_explicit_historical_generation(
@@ -931,8 +935,7 @@ def test_prepare_requires_explicit_repair_admission_for_c96(
         .replace("max_keepalive_connections = 2", "max_keepalive_connections = 48")
         .replace(
             '"model.model_kwargs.parallel_tool_calls=true",',
-            '"model.model_kwargs.parallel_tool_calls=true",\n'
-            '    "model.model_kwargs.timeout=15000",',
+            '"model.model_kwargs.parallel_tool_calls=true",\n    "model.model_kwargs.timeout=15000",',
         )
     )
     approved_task_file = tmp_path / "approved_tasks.txt"

@@ -239,13 +239,19 @@ def test_c64_profile_is_explicit_bounded_and_tracks_sticky_routes() -> None:
         state.acquire(chat=True, index=(indexes[0] + 1) % 24, session_id=sessions[0])
 
     snapshot = state.snapshot()
-    assert snapshot["schema_version"] == 2
+    assert snapshot["schema_version"] == 3
     assert snapshot["configured_capacity"] == 64
+    assert snapshot["configured_per_worker_capacity"] == 1
+    assert snapshot["active_forwarded_requests"] == 0
     assert snapshot["max_active_chat_requests"] == 64
     assert snapshot["capacity_rejections"] == 1
     assert snapshot["queue_overflow_rejections"] == 1
     assert snapshot["cross_route_anomalies"] == 1
     assert snapshot["route_tracking_overflows"] == 0
+    assert snapshot["worker_active_request_counts"] == [0] * 24
+    assert sum(snapshot["worker_session_counts"]) == snapshot["tracked_sessions"] == 64
+    assert snapshot["active_worker_waiters"] == 0
+    assert snapshot["worker_waiting_request_counts"] == [0] * 24
 
 
 def test_legacy_router_profile_retains_c24_snapshot_shape() -> None:
@@ -278,13 +284,19 @@ def test_c23_profile_requires_exactly_23_workers_and_reports_profiled_capacity()
         state.release(chat=False)
 
     snapshot = state.snapshot()
-    assert snapshot["schema_version"] == 2
+    assert snapshot["schema_version"] == 3
     assert snapshot["capacity_profile"] == C23_CAPACITY_PROFILE
     assert snapshot["endpoint_identifier"] == "cpu-132-021_8103"
     assert snapshot["configured_capacity"] == 23
+    assert snapshot["configured_per_worker_capacity"] == 1
+    assert snapshot["active_forwarded_requests"] == 0
     assert snapshot["worker_count"] == 23
     assert snapshot["active_workers"] == 23
     assert len(snapshot["worker_request_counts"]) == 23
+    assert snapshot["worker_active_request_counts"] == [0] * 23
+    assert snapshot["worker_session_counts"] == [0] * 23
+    assert snapshot["active_worker_waiters"] == 0
+    assert snapshot["worker_waiting_request_counts"] == [0] * 23
 
     with pytest.raises(RouterError, match="worker_count_invalid"):
         RouterState(
@@ -328,7 +340,12 @@ def test_legacy_router_metrics_report_real_operational_counters() -> None:
 
 def test_same_worker_requests_queue_while_other_workers_remain_available() -> None:
     workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
-    state = RouterState(workers, worker_queue_timeout_seconds=1)
+    state = RouterState(
+        workers,
+        capacity_profile=C64_CAPACITY_PROFILE,
+        endpoint_identifier="cpu-132-021_8103",
+        worker_queue_timeout_seconds=1,
+    )
     second_acquired = threading.Event()
 
     assert state.acquire_worker(0)
@@ -340,7 +357,15 @@ def test_same_worker_requests_queue_while_other_workers_remain_available() -> No
 
     thread = threading.Thread(target=acquire_second)
     thread.start()
-    assert not second_acquired.wait(timeout=0.05)
+    deadline = time.monotonic() + 1
+    while state.snapshot()["active_worker_waiters"] != 1 and time.monotonic() < deadline:
+        time.sleep(0.01)
+    snapshot = state.snapshot()
+    assert not second_acquired.is_set()
+    assert snapshot["active_forwarded_requests"] == 1
+    assert snapshot["worker_active_request_counts"] == [1, *([0] * 23)]
+    assert snapshot["active_worker_waiters"] == 1
+    assert snapshot["worker_waiting_request_counts"] == [1, *([0] * 23)]
 
     # Affinity on one busy worker must not stop an unrelated worker.
     assert state.acquire_worker(1)
@@ -350,6 +375,35 @@ def test_same_worker_requests_queue_while_other_workers_remain_available() -> No
     assert second_acquired.wait(timeout=1)
     thread.join(timeout=1)
     assert not thread.is_alive()
+    snapshot = state.snapshot()
+    assert snapshot["active_forwarded_requests"] == 0
+    assert snapshot["worker_active_request_counts"] == [0] * 24
+    assert snapshot["active_worker_waiters"] == 0
+    assert snapshot["worker_waiting_request_counts"] == [0] * 24
+
+
+def test_worker_waiter_counts_are_cleared_when_acquire_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
+    state = RouterState(
+        workers,
+        capacity_profile=C64_CAPACITY_PROFILE,
+        endpoint_identifier="cpu-132-021_8103",
+    )
+
+    class FailingCapacity:
+        def acquire(self, *, timeout: float) -> bool:
+            raise RuntimeError(f"acquire failed after {timeout}")
+
+    monkeypatch.setattr(state, "worker_capacity", (FailingCapacity(), *state.worker_capacity[1:]))
+
+    with pytest.raises(RuntimeError, match="acquire failed"):
+        state.acquire_worker(0)
+
+    snapshot = state.snapshot()
+    assert snapshot["active_worker_waiters"] == 0
+    assert snapshot["worker_waiting_request_counts"] == [0] * 24
+    assert snapshot["active_forwarded_requests"] == 0
+    assert snapshot["worker_active_request_counts"] == [0] * 24
 
 
 def test_c64_w2_profile_admits_two_requests_per_worker_and_reports_high_water() -> None:
@@ -366,12 +420,15 @@ def test_c64_w2_profile_admits_two_requests_per_worker_and_reports_high_water() 
         assert state.acquire_worker(worker)
     assert not state.acquire_worker(0)
     snapshot = state.snapshot()
-    assert snapshot["schema_version"] == 3
+    assert snapshot["schema_version"] == 4
     assert snapshot["capacity_profile"] == C64_W2_CAPACITY_PROFILE
     assert snapshot["configured_per_worker_capacity"] == 2
     assert snapshot["active_forwarded_requests"] == 48
     assert snapshot["max_active_forwarded_requests"] == 48
     assert snapshot["worker_active_request_counts"] == [2] * 24
+    assert snapshot["worker_session_counts"] == [0] * 24
+    assert snapshot["active_worker_waiters"] == 0
+    assert snapshot["worker_waiting_request_counts"] == [0] * 24
     assert snapshot["worker_max_active_request_counts"] == [2] * 24
     assert snapshot["worker_queue_timeouts"] == 0
     assert snapshot["upstream_http_429"] == 0
@@ -393,9 +450,11 @@ def test_c64_w2_profile_admits_two_requests_per_worker_and_reports_high_water() 
     assert snapshot["max_active_forwarded_requests"] == 48
     assert snapshot["worker_active_request_counts"] == [0] * 24
     assert snapshot["worker_max_active_request_counts"] == [2] * 24
+    assert snapshot["active_worker_waiters"] == 0
+    assert snapshot["worker_waiting_request_counts"] == [0] * 24
 
 
-def test_existing_c64_profile_retains_one_request_per_worker_and_v2_schema() -> None:
+def test_existing_c64_profile_reports_one_request_per_worker_observability() -> None:
     workers = tuple(("127.0.0.1", 31_000 + index) for index in range(24))
     state = RouterState(
         workers,
@@ -408,9 +467,13 @@ def test_existing_c64_profile_retains_one_request_per_worker_and_v2_schema() -> 
     assert not state.acquire_worker(0)
     state.release_worker(0)
     snapshot = state.snapshot()
-    assert snapshot["schema_version"] == 2
-    assert "configured_per_worker_capacity" not in snapshot
-    assert "worker_active_request_counts" not in snapshot
+    assert snapshot["schema_version"] == 3
+    assert snapshot["configured_per_worker_capacity"] == 1
+    assert snapshot["active_forwarded_requests"] == 0
+    assert snapshot["worker_active_request_counts"] == [0] * 24
+    assert snapshot["worker_session_counts"] == [0] * 24
+    assert snapshot["active_worker_waiters"] == 0
+    assert snapshot["worker_waiting_request_counts"] == [0] * 24
     assert "worker_max_active_request_counts" not in snapshot
 
 

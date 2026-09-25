@@ -45,12 +45,13 @@ from verifiers.v1.tasksets.harbor_v1.taskset import parse_resources
 SCHEMA_VERSION = 1
 PROMOTION_SCHEMA_VERSION = 2
 LAUNCH_SCHEMA_VERSION = 2
-TRACE_SCHEMA_VERSION = 2
+TRACE_SCHEMA_VERSION = 3
 MODEL = "Kimi-K3"
 DEPLOYMENT_NAMESPACE = "cpu-132-021_8103"
 CAPACITY_PROFILE = "sandoq-c64-w2-v1"
 PER_WORKER_CAPACITY = 2
 MAX_FORWARDED_CAPACITY = 48
+ZERO_WORKER_COUNTS_SHA256 = hashlib.sha256((json.dumps([0] * 24, separators=(",", ":")) + "\n").encode()).hexdigest()
 ROUTER_IMPLEMENTATION = "direct-kimi-transparent-v2"
 SELECTOR_KIND = "kimi-k3-max-sandoq-selector"
 CAPACITY_SELECTOR_KIND = "kimi-k3-max-sandoq-capacity-selector"
@@ -72,7 +73,7 @@ MINISWE_VERSION = "2.4.6"
 MINISWE_COMPATIBILITY_KIND = "qwen-miniswe246-sandoq-three-step-smoke"
 MINISWE_COMPATIBILITY_ENVIRONMENT = "oci-runner-firecracker-small"
 MINISWE_COMPATIBILITY_SHA256 = "cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220"
-VERIFIERS_COMMIT = "f9dcefb73ac341de5f707600d54dba838ad1ce97"
+VERIFIERS_COMMIT = "38c9f0be514f3e18548a08ff676a3a9837657483"
 EXPECTED_TASK_COUNT = SANDOQ_COUNT
 EXPECTED_SOURCE_COUNT = CANONICAL_SOURCE_COUNT
 EXPECTED_EXCLUDED_COUNT = VMVM_COUNT
@@ -1223,7 +1224,7 @@ def _validate_capacity_certificate(
 ) -> tuple[dict[str, Any], Artifact]:
     value, artifact = _json_artifact(path, expected_sha256, "capacity_certificate_invalid")
     if (
-        value.get("schema_version") != 3
+        value.get("schema_version") != 4
         or value.get("kind") != CAPACITY_KIND
         or value.get("state") != "passed"
         or value.get("capacity_profile") != CAPACITY_PROFILE
@@ -2151,6 +2152,10 @@ def _validate_router_receipt(
         "configured_capacity",
         "configured_per_worker_capacity",
         "active_forwarded_requests",
+        "worker_active_request_counts_sha256",
+        "worker_session_counts_sha256",
+        "active_worker_waiters",
+        "worker_waiting_request_counts_sha256",
         "max_active_forwarded_requests",
         "worker_max_active_request_counts_sha256",
         "max_active_chat_requests",
@@ -2165,7 +2170,7 @@ def _validate_router_receipt(
     }
     if (
         set(value) != expected_keys
-        or value.get("schema_version") != 4
+        or value.get("schema_version") != 5
         or value.get("kind") != "direct-kimi-router-final"
         or value.get("state") != "passed"
         or value.get("eval_run_identity_sha256") != identity_sha256
@@ -2184,7 +2189,11 @@ def _validate_router_receipt(
         or value.get("endpoint_identifier") != DEPLOYMENT_NAMESPACE
         or value.get("configured_capacity") != MAX_CAPACITY
         or value.get("configured_per_worker_capacity") != PER_WORKER_CAPACITY
-        or value.get("active_forwarded_requests") != 0
+        or not _plain_int(value.get("active_forwarded_requests"), minimum=0, maximum=0)
+        or value.get("worker_active_request_counts_sha256") != ZERO_WORKER_COUNTS_SHA256
+        or SHA256_RE.fullmatch(str(value.get("worker_session_counts_sha256", ""))) is None
+        or not _plain_int(value.get("active_worker_waiters"), minimum=0, maximum=0)
+        or value.get("worker_waiting_request_counts_sha256") != ZERO_WORKER_COUNTS_SHA256
         or value.get("capacity_rejections") != 0
         or value.get("queue_overflow_rejections") != 0
         or value.get("route_tracking_overflows") != 0
@@ -2453,6 +2462,10 @@ def certify_traces(
                 "per_worker_capacity": PER_WORKER_CAPACITY,
                 "max_forwarded_capacity": MAX_FORWARDED_CAPACITY,
                 "active_forwarded_requests": router_value["active_forwarded_requests"],
+                "worker_active_request_counts_sha256": router_value["worker_active_request_counts_sha256"],
+                "worker_session_counts_sha256": router_value["worker_session_counts_sha256"],
+                "active_worker_waiters": router_value["active_worker_waiters"],
+                "worker_waiting_request_counts_sha256": router_value["worker_waiting_request_counts_sha256"],
                 "max_active_forwarded_requests": router_value["max_active_forwarded_requests"],
                 "worker_max_active_request_counts_sha256": router_value["worker_max_active_request_counts_sha256"],
                 "worker_queue_timeouts": router_value["worker_queue_timeouts"],
@@ -2540,7 +2553,11 @@ def validate_trace_certificate(path: Path, expected_sha256: str) -> dict[str, An
         or execution.get("capacity_profile") != CAPACITY_PROFILE
         or execution.get("per_worker_capacity") != PER_WORKER_CAPACITY
         or execution.get("max_forwarded_capacity") != MAX_FORWARDED_CAPACITY
-        or execution.get("active_forwarded_requests") != 0
+        or not _plain_int(execution.get("active_forwarded_requests"), minimum=0, maximum=0)
+        or execution.get("worker_active_request_counts_sha256") != ZERO_WORKER_COUNTS_SHA256
+        or SHA256_RE.fullmatch(str(execution.get("worker_session_counts_sha256", ""))) is None
+        or not _plain_int(execution.get("active_worker_waiters"), minimum=0, maximum=0)
+        or execution.get("worker_waiting_request_counts_sha256") != ZERO_WORKER_COUNTS_SHA256
         or not _plain_int(
             execution.get("max_active_forwarded_requests"),
             minimum=1,
@@ -2629,6 +2646,10 @@ def validate_trace_certificate(path: Path, expected_sha256: str) -> dict[str, An
         execution.get(key) != router_value.get(key)
         for key in (
             "active_forwarded_requests",
+            "worker_active_request_counts_sha256",
+            "worker_session_counts_sha256",
+            "active_worker_waiters",
+            "worker_waiting_request_counts_sha256",
             "max_active_forwarded_requests",
             "worker_max_active_request_counts_sha256",
             "worker_queue_timeouts",

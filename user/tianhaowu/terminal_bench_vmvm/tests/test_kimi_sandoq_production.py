@@ -56,7 +56,7 @@ def test_w2_attestation_versions_and_contract_are_explicit() -> None:
     assert production.SCHEMA_VERSION == 1
     assert production.PROMOTION_SCHEMA_VERSION == 2
     assert production.LAUNCH_SCHEMA_VERSION == 2
-    assert production.TRACE_SCHEMA_VERSION == 2
+    assert production.TRACE_SCHEMA_VERSION == 3
     assert production._production_contracts()["capacity_profile"] == "sandoq-c64-w2-v1"
     assert production._production_contracts()["per_worker_capacity"] == 2
     assert production._production_contracts()["max_forwarded_capacity"] == 48
@@ -90,12 +90,12 @@ def test_launch_value_binds_w2_forwarding_capacity(tmp_path: Path) -> None:
     assert launch["deployment"]["max_forwarded_capacity"] == 48
 
 
-def test_production_capacity_gate_requires_schema3_w2(
+def test_production_capacity_gate_requires_schema4_w2(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     value = {
-        "schema_version": 3,
+        "schema_version": 4,
         "kind": production.CAPACITY_KIND,
         "state": "passed",
         "capacity_profile": production.CAPACITY_PROFILE,
@@ -121,7 +121,7 @@ def test_production_capacity_gate_requires_schema3_w2(
     assert observed == value
     assert artifact.sha256 == digest
 
-    stale = {**value, "schema_version": 2, "capacity_profile": "sandoq-c64-v1"}
+    stale = {**value, "schema_version": 3}
     stale_path = _private_file(tmp_path / "stale-capacity.json", canonical_json(stale))
     with pytest.raises(production.KimiProductionError, match="capacity_certificate_invalid"):
         production._validate_capacity_certificate(
@@ -249,14 +249,19 @@ def test_production_launcher_consumes_selector_bound_resource_coverage() -> None
 def _router_receipt(
     root: Path,
     *,
+    schema_version: int = 5,
     active_forwarded_requests: int = 0,
+    worker_active_request_counts_sha256: str = production.ZERO_WORKER_COUNTS_SHA256,
+    worker_session_counts_sha256: str = "8" * 64,
+    active_worker_waiters: int = 0,
+    worker_waiting_request_counts_sha256: str = production.ZERO_WORKER_COUNTS_SHA256,
     max_active_forwarded_requests: int = 1,
     worker_queue_timeouts: int = 0,
     upstream_http_429: int = 0,
     upstream_http_5xx: int = 0,
 ) -> tuple[Path, dict[str, object]]:
     value: dict[str, object] = {
-        "schema_version": 4,
+        "schema_version": schema_version,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": "1" * 64,
@@ -280,6 +285,10 @@ def _router_receipt(
         "configured_capacity": production.MAX_CAPACITY,
         "configured_per_worker_capacity": production.PER_WORKER_CAPACITY,
         "active_forwarded_requests": active_forwarded_requests,
+        "worker_active_request_counts_sha256": worker_active_request_counts_sha256,
+        "worker_session_counts_sha256": worker_session_counts_sha256,
+        "active_worker_waiters": active_worker_waiters,
+        "worker_waiting_request_counts_sha256": worker_waiting_request_counts_sha256,
         "max_active_forwarded_requests": max_active_forwarded_requests,
         "worker_max_active_request_counts_sha256": "7" * 64,
         "max_active_chat_requests": 64,
@@ -316,15 +325,22 @@ def test_production_router_receipt_accepts_unsaturated_w2_peak(tmp_path: Path) -
     "overrides",
     (
         {"active_forwarded_requests": 1},
+        {"active_forwarded_requests": False},
+        {"worker_active_request_counts_sha256": "f" * 64},
+        {"worker_session_counts_sha256": "not-a-digest"},
+        {"active_worker_waiters": 1},
+        {"active_worker_waiters": False},
+        {"worker_waiting_request_counts_sha256": "f" * 64},
         {"max_active_forwarded_requests": 49},
         {"worker_queue_timeouts": 1},
         {"upstream_http_429": 1},
         {"upstream_http_5xx": 1},
+        {"schema_version": 4},
     ),
 )
 def test_production_router_receipt_rejects_invalid_w2_evidence(
     tmp_path: Path,
-    overrides: dict[str, int],
+    overrides: dict[str, int | str | bool],
 ) -> None:
     path, _value = _router_receipt(tmp_path, **overrides)
 

@@ -26,7 +26,7 @@ SANDOQ_HOST_MAX_COMMAND_OUTPUT_CHARS = 100_000
 SANDOQ_HOST_REQUEST_TIMEOUT_SECONDS = 15_000
 EXPECTED_ENDPOINTS = 24
 EXPECTED_SPEC_SHA256 = "e5ddc652b1e3dbb99ed65b44b276cf9d9b8ae866b5a4471db42cf0c732a64007"
-EXPECTED_ENDPOINT_BUNDLE_SHA256 = "db0095649feda5d1c8ea66a434c6486a6c91d6b4519664701a26dab44c7a83a0"
+EXPECTED_ENDPOINT_BUNDLE_SHA256 = "774152610268ec6e652374ac1856d1bbb36f114dabfa0f4db27a529da0a9f4a8"
 EXPECTED_ENDPOINT_KEYS = frozenset({"host", "port", "started_at"})
 EXPECTED_MANIFEST_KEYS = frozenset(
     {
@@ -404,8 +404,7 @@ def validate_eval_config(
                 or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
                 or runtime.get("tunnel_pool_size") != 4
                 or runtime.get("tunnel_ready_timeout") != 30
-                or runtime.get("expected_environment")
-                not in {"oci-runner-firecracker", "oci-runner-firecracker-small"}
+                or runtime.get("expected_environment") not in {"oci-runner-firecracker", "oci-runner-firecracker-small"}
             )
         if common_runtime_invalid or runtime_invalid:
             raise DirectWorkerError("eval_sandoq_runtime_invalid")
@@ -425,9 +424,7 @@ def validate_eval_config(
         if not isinstance(config_overrides, list) or not all(isinstance(value, str) for value in config_overrides):
             raise DirectWorkerError("eval_harness_config_overrides_invalid")
         if expected_capacity is not None or max_concurrent == MAX_DIRECT_CONCURRENCY:
-            timeout_overrides = [
-                value for value in config_overrides if value.startswith("model.model_kwargs.timeout=")
-            ]
+            timeout_overrides = [value for value in config_overrides if value.startswith("model.model_kwargs.timeout=")]
             if timeout_overrides != [f"model.model_kwargs.timeout={PRODUCTION_MODEL_TIMEOUT_SECONDS}"]:
                 raise DirectWorkerError("eval_model_timeout_mismatch")
         harness_env = harness.get("env")
@@ -470,8 +467,7 @@ def validate_eval_config(
         or harness.get("config_file") != "mini"
         or taskset.get("verifier_runtime_retries") != 0
         or runtime.get("session_timeout") != 43_200
-        or config.get("timeout")
-        != {"setup": 3_600, "rollout": 36_000, "finalize": 3_600, "scoring": 21_600}
+        or config.get("timeout") != {"setup": 3_600, "rollout": 36_000, "finalize": 3_600, "scoring": 21_600}
     ):
         raise DirectWorkerError("eval_sandoq_firecracker_retry_contract_invalid")
     return task_file_sha256
@@ -781,11 +777,15 @@ def validate_saved_manifest(
             or queue_size != MAX_DIRECT_CONCURRENCY - PRODUCTION_PROVIDER_CONCURRENCY
         ):
             raise DirectWorkerError("direct_worker_manifest_production_admission_invalid")
-        if admission["rollout_concurrency"] > MAX_DIRECT_CONCURRENCY and (
-            admission["rollout_concurrency"],
-            max_concurrent_requests,
-            queue_size,
-        ) != expected_admission:
+        if (
+            admission["rollout_concurrency"] > MAX_DIRECT_CONCURRENCY
+            and (
+                admission["rollout_concurrency"],
+                max_concurrent_requests,
+                queue_size,
+            )
+            != expected_admission
+        ):
             raise DirectWorkerError("direct_worker_manifest_repair_admission_invalid")
     return manifest
 
@@ -1704,11 +1704,7 @@ def prepare(
     allow_sandoq_firecracker_retry: bool = False,
 ) -> dict[str, Any]:
     reject_incomplete_migration(manifest_path.parent)
-    expected_capacity = (
-        (REPAIR_ROLLOUT_CONCURRENCY, REPAIR_PROVIDER_CONCURRENCY)
-        if repair_admission
-        else None
-    )
+    expected_capacity = (REPAIR_ROLLOUT_CONCURRENCY, REPAIR_PROVIDER_CONCURRENCY) if repair_admission else None
     task_allowlist_sha256 = validate_eval_config(
         eval_config,
         approved_task_file=approved_task_file,

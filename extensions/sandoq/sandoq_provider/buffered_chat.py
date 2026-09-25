@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import hashlib
 import json
+import re
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -29,11 +31,19 @@ _FORWARDED_HEADERS = frozenset(
     }
 )
 _KEEPALIVE = b": keepalive\n\n"
+_LOGICAL_REQUEST_HEADER = "x-vf-logical-request-id"
+_LOGICAL_REQUEST_ID = re.compile(r"[0-9a-f]{32}\Z")
 
 
 @dataclass
 class BufferedChatStats:
     requests: int = 0
+    upstream_attempts: int = 0
+    coalesced_requests: int = 0
+    replayed_requests: int = 0
+    downstream_disconnects: int = 0
+    conflicting_requests: int = 0
+    inflight: int = 0
     streamed_requests: int = 0
     response_bytes: int = 0
     statuses: dict[str, int] = field(default_factory=dict)
@@ -44,6 +54,12 @@ class BufferedChatStats:
     def snapshot(self) -> dict[str, Any]:
         return {
             "requests": self.requests,
+            "upstream_attempts": self.upstream_attempts,
+            "coalesced_requests": self.coalesced_requests,
+            "replayed_requests": self.replayed_requests,
+            "downstream_disconnects": self.downstream_disconnects,
+            "conflicting_requests": self.conflicting_requests,
+            "inflight": self.inflight,
             "streamed_requests": self.streamed_requests,
             "response_bytes": self.response_bytes,
             "statuses": dict(self.statuses),
@@ -51,6 +67,16 @@ class BufferedChatStats:
             "paths": dict(self.paths),
             "errors": list(self.errors),
         }
+
+
+@dataclass
+class _BufferedCompletion:
+    identity: bytes
+    body_digest: bytes
+    task: asyncio.Task[tuple[int, str, bytes]]
+    retain_after_delivery: bool
+    consumers: int = 0
+    delivered: bool = False
 
 
 class BufferedChatCompletionsProxy:
@@ -86,12 +112,16 @@ class BufferedChatCompletionsProxy:
         self._keepalive_interval_seconds = keepalive_interval_seconds
         self._runner: web.AppRunner | None = None
         self._session: ClientSession | None = None
+        self._completion_lock = asyncio.Lock()
+        self._completion: _BufferedCompletion | None = None
+        self._closing = False
         self.port = 0
         self.stats = BufferedChatStats()
 
     async def start(self) -> None:
         if self._runner is not None:
             raise RuntimeError("buffered chat proxy is already started")
+        self._closing = False
         self._session = ClientSession(timeout=ClientTimeout(total=None))
         app = web.Application(client_max_size=1024**3)
         app.router.add_route("*", "/{path:.*}", self._handle)
@@ -110,11 +140,115 @@ class BufferedChatCompletionsProxy:
     async def close(self) -> None:
         runner, self._runner = self._runner, None
         session, self._session = self._session, None
+        async with self._completion_lock:
+            self._closing = True
+            completion, self._completion = self._completion, None
+            self.stats.inflight = 0
+        if completion is not None and not completion.task.done():
+            completion.task.cancel()
+        if completion is not None:
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await completion.task
         if runner is not None:
             await runner.cleanup()
         if session is not None:
             await session.close()
         self.port = 0
+
+    @staticmethod
+    def _completion_key(
+        protocol: str,
+        upstream_body: dict[str, Any],
+        logical_request_id: str | None,
+    ) -> tuple[bytes, bytes]:
+        canonical = json.dumps(
+            [protocol, upstream_body],
+            ensure_ascii=False,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode()
+        body_digest = hashlib.sha256(canonical).digest()
+        identity = logical_request_id.encode() if logical_request_id is not None else body_digest
+        return identity, body_digest
+
+    @staticmethod
+    def _successful_task(task: asyncio.Task[tuple[int, str, bytes]]) -> bool:
+        if not task.done() or task.cancelled():
+            return False
+        try:
+            status, _content_type, _raw = task.result()
+        except BaseException:
+            return False
+        return 200 <= status < 300
+
+    def _completion_finished(self, completion: _BufferedCompletion) -> None:
+        if self._completion is completion:
+            self.stats.inflight = 0
+
+    async def _join_completion(
+        self,
+        protocol: str,
+        upstream_body: dict[str, Any],
+        headers: dict[str, str],
+        logical_request_id: str | None,
+    ) -> _BufferedCompletion | None:
+        identity, body_digest = self._completion_key(protocol, upstream_body, logical_request_id)
+        async with self._completion_lock:
+            if self._closing:
+                return None
+            completion = self._completion
+            if completion is not None and completion.identity == identity and completion.body_digest != body_digest:
+                self.stats.conflicting_requests += 1
+                return None
+            if completion is not None and completion.identity == identity and completion.body_digest == body_digest:
+                if completion.task.done() and not self._successful_task(completion.task):
+                    self._completion = completion = None
+                    self.stats.inflight = 0
+                elif completion.task.done():
+                    self.stats.replayed_requests += 1
+                else:
+                    self.stats.coalesced_requests += 1
+            elif completion is not None and not completion.task.done():
+                self.stats.conflicting_requests += 1
+                return None
+            else:
+                self._completion = completion = None
+                self.stats.inflight = 0
+
+            if completion is None:
+                assert self._session is not None
+                completion = _BufferedCompletion(
+                    identity=identity,
+                    body_digest=body_digest,
+                    task=asyncio.create_task(self._fetch_completion(upstream_body, headers)),
+                    retain_after_delivery=logical_request_id is not None,
+                )
+                completion.task.add_done_callback(
+                    lambda _task, retained=completion: self._completion_finished(retained)
+                )
+                self._completion = completion
+                self.stats.upstream_attempts += 1
+                self.stats.inflight = 1
+            completion.consumers += 1
+            return completion
+
+    async def _release_completion(
+        self,
+        completion: _BufferedCompletion,
+        *,
+        delivered: bool,
+        discard: bool = False,
+    ) -> None:
+        async with self._completion_lock:
+            completion.consumers -= 1
+            completion.delivered = completion.delivered or delivered
+            if self._completion is not completion:
+                return
+            failed = completion.task.done() and not self._successful_task(completion.task)
+            delivered_without_identity = completion.delivered and not completion.retain_after_delivery
+            if completion.consumers == 0 and (discard or failed or delivered_without_identity):
+                self._completion = None
+                self.stats.inflight = 0
 
     def _error(self, message: str, status: int) -> web.Response:
         return web.json_response(
@@ -165,6 +299,9 @@ class BufferedChatCompletionsProxy:
             return self._error("request body must be JSON", 400)
         if not isinstance(body, dict):
             return self._error("request body must be an object", 400)
+        logical_request_id = request.headers.get(_LOGICAL_REQUEST_HEADER)
+        if logical_request_id is not None and _LOGICAL_REQUEST_ID.fullmatch(logical_request_id) is None:
+            return self._error("logical request id invalid", 400)
 
         streaming = bool(body.get("stream"))
         try:
@@ -182,16 +319,36 @@ class BufferedChatCompletionsProxy:
         self.stats.streamed_requests += int(streaming)
         self.stats.protocols[protocol] = self.stats.protocols.get(protocol, 0) + 1
         if streaming:
-            return await self._stream_completion(request, protocol, body, upstream_body, headers)
+            return await self._stream_completion(
+                request,
+                protocol,
+                body,
+                upstream_body,
+                headers,
+                logical_request_id,
+            )
 
+        retained = await self._join_completion(protocol, upstream_body, headers, logical_request_id)
+        if retained is None:
+            return self._error("concurrent model request conflict", 409)
+        delivered = False
+        discard = False
         try:
-            status, content_type, raw = await self._fetch_completion(upstream_body, headers)
+            status, content_type, raw = await asyncio.shield(retained.task)
             if status < 200 or status >= 300 or protocol == "chat_completions":
+                delivered = True
                 return web.Response(body=raw, status=status, content_type=content_type)
             completion = json.loads(raw)
+            delivered = True
+        except asyncio.CancelledError:
+            self.stats.downstream_disconnects += 1
+            raise
         except Exception as error:
+            discard = True
             self._record_error(error)
             return self._error("buffered model proxy failure", 502)
+        finally:
+            await self._release_completion(retained, delivered=delivered, discard=discard)
 
         return web.json_response(self._chat_to_responses(completion, body))
 
@@ -202,25 +359,30 @@ class BufferedChatCompletionsProxy:
         original_body: dict[str, Any],
         upstream_body: dict[str, Any],
         headers: dict[str, str],
+        logical_request_id: str | None,
     ) -> web.StreamResponse:
-        response = web.StreamResponse(
-            status=200,
-            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
-        )
-        response.content_type = "text/event-stream"
-        await response.prepare(request)
-        task = asyncio.create_task(self._fetch_completion(upstream_body, headers))
+        retained = await self._join_completion(protocol, upstream_body, headers, logical_request_id)
+        if retained is None:
+            return self._error("concurrent model request conflict", 409)
+        delivered = False
+        discard = False
         try:
-            while not task.done():
+            response = web.StreamResponse(
+                status=200,
+                headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+            )
+            response.content_type = "text/event-stream"
+            await response.prepare(request)
+            while not retained.task.done():
                 await response.write(_KEEPALIVE)
                 try:
                     await asyncio.wait_for(
-                        asyncio.shield(task),
+                        asyncio.shield(retained.task),
                         timeout=self._keepalive_interval_seconds,
                     )
                 except TimeoutError:
                     continue
-            status, _content_type, raw = task.result()
+            status, _content_type, raw = retained.task.result()
             if status < 200 or status >= 300:
                 try:
                     payload = json.dumps(json.loads(raw), separators=(",", ":")).encode()
@@ -228,6 +390,7 @@ class BufferedChatCompletionsProxy:
                     payload = b'{"error":{"message":"buffered model proxy failure"}}'
                 await response.write(b"data: " + payload + b"\n\n")
                 await response.write_eof()
+                delivered = True
                 return response
 
             completion = json.loads(raw)
@@ -239,23 +402,15 @@ class BufferedChatCompletionsProxy:
             for event in events:
                 await response.write(event)
             await response.write_eof()
+            delivered = True
         except asyncio.CancelledError:
-            if not task.done():
-                task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await task
+            self.stats.downstream_disconnects += 1
             raise
         except ConnectionResetError:
-            if not task.done():
-                task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await task
+            self.stats.downstream_disconnects += 1
         except Exception as error:
+            discard = True
             self._record_error(error)
-            if not task.done():
-                task.cancel()
-                with contextlib.suppress(asyncio.CancelledError):
-                    await task
             with contextlib.suppress(ConnectionResetError):
                 payload = json.dumps(
                     {
@@ -268,6 +423,8 @@ class BufferedChatCompletionsProxy:
                 ).encode()
                 await response.write(b"data: " + payload + b"\n\n")
                 await response.write_eof()
+        finally:
+            await self._release_completion(retained, delivered=delivered, discard=discard)
         return response
 
     @staticmethod
@@ -285,8 +442,7 @@ class BufferedChatCompletionsProxy:
         tool_calls = delta.get("tool_calls")
         if isinstance(tool_calls, list):
             delta["tool_calls"] = [
-                {"index": index, **call} if isinstance(call, dict) else call
-                for index, call in enumerate(tool_calls)
+                {"index": index, **call} if isinstance(call, dict) else call for index, call in enumerate(tool_calls)
             ]
         common = {
             "id": completion.get("id") or "chatcmpl_intercepted",
@@ -475,7 +631,7 @@ class BufferedChatCompletionsProxy:
         )
         response_usage: dict[str, Any] = {
             "input_tokens": prompt_tokens,
-            "input_tokens_details": {"cached_tokens": 0},
+            "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 0},
             "output_tokens": completion_tokens,
             "output_tokens_details": {"reasoning_tokens": reasoning_tokens or 0},
             "total_tokens": int(usage.get("total_tokens") or prompt_tokens + completion_tokens),

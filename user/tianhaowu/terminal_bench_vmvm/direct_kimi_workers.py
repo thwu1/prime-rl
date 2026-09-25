@@ -1189,10 +1189,7 @@ def validate_manifest_value(
             or spec_sha256 != manifest["source_spec_sha256"]
             or proxy_config_sha256 != manifest["source_proxy_config_sha256"]
             or observed_endpoint_bundle_sha256 != manifest["endpoint_bundle_sha256"]
-            or (
-                c23_profile
-                and endpoint_bundle_sha256 != manifest["source_endpoint_bundle_sha256"]
-            )
+            or (c23_profile and endpoint_bundle_sha256 != manifest["source_endpoint_bundle_sha256"])
         ):
             raise DirectKimiWorkerError("source_generation_changed")
     return manifest
@@ -1748,6 +1745,8 @@ def certify_router(
                     "capacity_profile",
                     "endpoint_identifier",
                     "configured_capacity",
+                    "configured_per_worker_capacity",
+                    "active_forwarded_requests",
                     "active_chat_requests",
                     "max_active_chat_requests",
                     "capacity_rejections",
@@ -1755,15 +1754,16 @@ def certify_router(
                     "route_tracking_overflows",
                     "cross_route_anomalies",
                     "tracked_sessions",
+                    "worker_active_request_counts",
+                    "worker_session_counts",
+                    "active_worker_waiters",
+                    "worker_waiting_request_counts",
                 }
             )
         if w2_profile:
             expected_stats_keys.update(
                 {
-                    "configured_per_worker_capacity",
-                    "active_forwarded_requests",
                     "max_active_forwarded_requests",
-                    "worker_active_request_counts",
                     "worker_max_active_request_counts",
                     "worker_queue_timeouts",
                     "upstream_http_429",
@@ -1774,10 +1774,14 @@ def certify_router(
         worker_active_counts = (
             router_stats.get("worker_active_request_counts") if isinstance(router_stats, dict) else None
         )
+        worker_session_counts = router_stats.get("worker_session_counts") if isinstance(router_stats, dict) else None
+        worker_waiting_counts = (
+            router_stats.get("worker_waiting_request_counts") if isinstance(router_stats, dict) else None
+        )
         worker_max_active_counts = (
             router_stats.get("worker_max_active_request_counts") if isinstance(router_stats, dict) else None
         )
-        expected_stats_schema = 3 if w2_profile else 2 if (c23_profile or c64_profile) else 1
+        expected_stats_schema = 4 if w2_profile else 3 if (c23_profile or c64_profile) else 1
         if (
             not isinstance(router_stats, dict)
             or set(router_stats) != expected_stats_keys
@@ -1790,6 +1794,7 @@ def certify_router(
             or router_stats.get("retries") != ROUTER_RETRIES
             or router_stats.get("worker_count") != expected_worker_count
             or router_stats.get("active_workers") != expected_worker_count
+            or type(router_stats.get("active_requests")) is not int
             or router_stats.get("active_requests") != 0
             or not isinstance(counts, list)
             or len(counts) != expected_worker_count
@@ -1815,7 +1820,24 @@ def certify_router(
             router_stats.get("capacity_profile") != capacity_profile
             or router_stats.get("endpoint_identifier") != manifest["router"]["endpoint_identifier"]
             or router_stats.get("configured_capacity") != capacity
+            or type(router_stats.get("configured_per_worker_capacity")) is not int
+            or router_stats.get("configured_per_worker_capacity") != per_worker_capacity_for_profile(capacity_profile)
+            or type(router_stats.get("active_forwarded_requests")) is not int
+            or router_stats.get("active_forwarded_requests") != 0
+            or type(router_stats.get("active_chat_requests")) is not int
             or router_stats.get("active_chat_requests") != 0
+            or not isinstance(worker_active_counts, list)
+            or len(worker_active_counts) != expected_worker_count
+            or any(type(value) is not int or value != 0 for value in worker_active_counts)
+            or not isinstance(worker_session_counts, list)
+            or len(worker_session_counts) != expected_worker_count
+            or any(type(value) is not int or value < 0 for value in worker_session_counts)
+            or sum(worker_session_counts) != router_stats.get("tracked_sessions")
+            or type(router_stats.get("active_worker_waiters")) is not int
+            or router_stats.get("active_worker_waiters") != 0
+            or not isinstance(worker_waiting_counts, list)
+            or len(worker_waiting_counts) != expected_worker_count
+            or any(type(value) is not int or value != 0 for value in worker_waiting_counts)
             or any(
                 type(router_stats.get(key)) is not int or router_stats[key] < 0
                 for key in (
@@ -1837,13 +1859,8 @@ def certify_router(
         ):
             raise DirectKimiWorkerError("router_stats_invalid")
         if w2_profile and (
-            router_stats.get("configured_per_worker_capacity") != W2_PER_WORKER_CAPACITY
-            or router_stats.get("active_forwarded_requests") != 0
-            or type(router_stats.get("max_active_forwarded_requests")) is not int
+            type(router_stats.get("max_active_forwarded_requests")) is not int
             or not 1 <= router_stats["max_active_forwarded_requests"] <= W2_FORWARDED_CAPACITY
-            or not isinstance(worker_active_counts, list)
-            or len(worker_active_counts) != expected_worker_count
-            or any(type(value) is not int or value != 0 for value in worker_active_counts)
             or not isinstance(worker_max_active_counts, list)
             or len(worker_max_active_counts) != expected_worker_count
             or any(
@@ -1859,7 +1876,7 @@ def certify_router(
         ):
             raise DirectKimiWorkerError("router_stats_invalid")
         receipt = {
-            "schema_version": 4 if w2_profile else 3 if (c23_profile or c64_profile) else 2,
+            "schema_version": 5 if w2_profile else 4 if (c23_profile or c64_profile) else 2,
             "kind": "direct-kimi-router-final",
             "state": "passed",
             "eval_run_identity_sha256": eval_run_identity_sha256,
@@ -1880,11 +1897,26 @@ def certify_router(
             "source_generation_revalidated": True,
         }
         if profiled_capacity:
+            assert isinstance(worker_active_counts, list)
+            assert isinstance(worker_session_counts, list)
+            assert isinstance(worker_waiting_counts, list)
             receipt.update(
                 {
                     "capacity_profile": capacity_profile,
                     "endpoint_identifier": manifest["router"]["endpoint_identifier"],
                     "configured_capacity": capacity,
+                    "configured_per_worker_capacity": per_worker_capacity_for_profile(capacity_profile),
+                    "active_forwarded_requests": router_stats["active_forwarded_requests"],
+                    "worker_active_request_counts_sha256": _sha256_bytes(
+                        (json.dumps(worker_active_counts, separators=(",", ":")) + "\n").encode()
+                    ),
+                    "worker_session_counts_sha256": _sha256_bytes(
+                        (json.dumps(worker_session_counts, separators=(",", ":")) + "\n").encode()
+                    ),
+                    "active_worker_waiters": router_stats["active_worker_waiters"],
+                    "worker_waiting_request_counts_sha256": _sha256_bytes(
+                        (json.dumps(worker_waiting_counts, separators=(",", ":")) + "\n").encode()
+                    ),
                     "max_active_chat_requests": router_stats["max_active_chat_requests"],
                     "capacity_rejections": router_stats["capacity_rejections"],
                     "queue_overflow_rejections": router_stats["queue_overflow_rejections"],
@@ -1897,8 +1929,6 @@ def certify_router(
             assert isinstance(worker_max_active_counts, list)
             receipt.update(
                 {
-                    "configured_per_worker_capacity": W2_PER_WORKER_CAPACITY,
-                    "active_forwarded_requests": router_stats["active_forwarded_requests"],
                     "max_active_forwarded_requests": router_stats["max_active_forwarded_requests"],
                     "worker_max_active_request_counts_sha256": _sha256_bytes(
                         (json.dumps(worker_max_active_counts, separators=(",", ":")) + "\n").encode()

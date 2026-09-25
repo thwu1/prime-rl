@@ -25,7 +25,7 @@ finally:
     os.close(descriptor)
 payload = b"".join(chunks)
 identity = lambda item: (item.st_dev, item.st_ino, item.st_mode, item.st_nlink, item.st_uid, item.st_size, item.st_mtime_ns, item.st_ctime_ns)
-if identity(before) != identity(after) or hashlib.sha256(payload).hexdigest() != "c7299ed508ed8175d67109b233771ecb741053507b35e6070ca2e0e20406a6b7":
+if identity(before) != identity(after) or hashlib.sha256(payload).hexdigest() != "64b0f7e6a7dc0de85a81d07d7c9957342194c11e972832bf0ef2db7619792651":
     raise SystemExit(126)
 sys.argv = [path, *sys.argv[2:]]
 namespace = {"__name__": "__main__", "__file__": path}

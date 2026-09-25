@@ -282,10 +282,7 @@ def _validate_identity(
     ):
         raise DirectKimiCertificateError("eval_identity_invalid")
     identity_router = deployment.get("router") if isinstance(deployment, dict) else None
-    c23_profile = (
-        isinstance(identity_router, dict)
-        and identity_router.get("capacity_profile") == C23_CAPACITY_PROFILE
-    )
+    c23_profile = isinstance(identity_router, dict) and identity_router.get("capacity_profile") == C23_CAPACITY_PROFILE
     expected_concurrency = 1 if role == "kimi-direct-smoke" else 23 if c23_profile else 24
     expected_pool_size = _expected_sandoq_pool_size(expected_concurrency)
     environment = execution.get("sandoq_environment")
@@ -402,8 +399,11 @@ def _validate_router_receipt(
     worker_count = 23 if c23_profile else EXPECTED_ENDPOINTS
     router_capacity = manifest["router"].get("max_concurrent_requests", ROUTER_PROVIDER_CONCURRENCY)
     request_timeout = manifest["router"].get("request_timeout_seconds", ROUTER_REQUEST_TIMEOUT_SECONDS)
+    zero_worker_counts_sha256 = hashlib.sha256(
+        (json.dumps([0] * worker_count, separators=(",", ":")) + "\n").encode()
+    ).hexdigest()
     expected = {
-        "schema_version": 3 if c23_profile else 2,
+        "schema_version": 4 if c23_profile else 2,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": binding["eval_run_identity_sha256"],
@@ -425,16 +425,23 @@ def _validate_router_receipt(
         "chat_requests",
         "worker_request_counts_sha256",
     }
+    digest_keys = {"worker_request_counts_sha256"}
     if c23_profile:
         expected.update(
             {
                 "capacity_profile": C23_CAPACITY_PROFILE,
                 "endpoint_identifier": manifest["router"].get("endpoint_identifier"),
                 "configured_capacity": router_capacity,
+                "configured_per_worker_capacity": 1,
+                "active_forwarded_requests": 0,
+                "worker_active_request_counts_sha256": zero_worker_counts_sha256,
+                "active_worker_waiters": 0,
+                "worker_waiting_request_counts_sha256": zero_worker_counts_sha256,
             }
         )
         dynamic_keys.update(
             {
+                "worker_session_counts_sha256",
                 "max_active_chat_requests",
                 "capacity_rejections",
                 "queue_overflow_rejections",
@@ -443,18 +450,27 @@ def _validate_router_receipt(
                 "tracked_sessions",
             }
         )
+        digest_keys.add("worker_session_counts_sha256")
     if (
         not isinstance(receipt, dict)
         or set(receipt) != {*expected, *dynamic_keys}
         or any(receipt.get(key) != value for key, value in expected.items())
-        or any(
-            type(receipt.get(key)) is not int or receipt[key] < 0
-            for key in dynamic_keys - {"worker_request_counts_sha256"}
+        or (
+            c23_profile
+            and any(
+                type(receipt.get(key)) is not int
+                for key in (
+                    "configured_per_worker_capacity",
+                    "active_forwarded_requests",
+                    "active_worker_waiters",
+                )
+            )
         )
+        or any(type(receipt.get(key)) is not int or receipt[key] < 0 for key in dynamic_keys - digest_keys)
         or not 1 <= receipt["max_active_requests"] <= router_capacity
         or receipt["total_requests"] < receipt["chat_requests"]
         or receipt["chat_requests"] < minimum_chat_requests
-        or SHA256_RE.fullmatch(str(receipt.get("worker_request_counts_sha256", ""))) is None
+        or any(SHA256_RE.fullmatch(str(receipt.get(key, ""))) is None for key in digest_keys)
         or (
             c23_profile
             and (

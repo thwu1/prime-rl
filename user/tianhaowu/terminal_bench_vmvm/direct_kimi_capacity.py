@@ -34,7 +34,7 @@ CAPACITY = 64
 PER_WORKER_CAPACITY = 2
 FORWARDED_CAPACITY = 48
 CAPACITY_KIND = "direct-kimi-sandoq-capacity"
-CAPACITY_SCHEMA_VERSION = 3
+CAPACITY_SCHEMA_VERSION = 4
 CAPACITY_FILENAME = "direct_kimi_capacity_certificate.json"
 PROBE_KIND = "direct-kimi-router-capacity-probe"
 PROBE_SCHEMA_VERSION = 2
@@ -56,7 +56,7 @@ RUNTIME_TUNNEL_RECEIPT = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/sandoq-full-tunnel-20260922/run-1537377/receipt.json"
 )
 RUNTIME_TUNNEL_RECEIPT_SHA256 = "39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276"
-VERIFIERS_COMMIT = "f9dcefb73ac341de5f707600d54dba838ad1ce97"
+VERIFIERS_COMMIT = "38c9f0be514f3e18548a08ff676a3a9837657483"
 MINISWE_LIVE_SMOKE_KIND = "qwen-miniswe246-sandoq-three-step-smoke"
 MINISWE_LIVE_SMOKE_ENVIRONMENT = "oci-runner-firecracker-small"
 MINISWE_LIVE_SMOKE_RECEIPT = Path(
@@ -75,6 +75,9 @@ SHA256_RE = re.compile(r"[0-9a-f]{64}")
 CAPACITY_PROFILE = C64_W2_CAPACITY_PROFILE
 WORKER_MAX_ACTIVE_REQUEST_COUNTS_SHA256 = hashlib.sha256(
     (json.dumps([PER_WORKER_CAPACITY] * EXPECTED_ENDPOINTS, separators=(",", ":")) + "\n").encode()
+).hexdigest()
+ZERO_WORKER_COUNTS_SHA256 = hashlib.sha256(
+    (json.dumps([0] * EXPECTED_ENDPOINTS, separators=(",", ":")) + "\n").encode()
 ).hexdigest()
 TASK_FILE_PLACEHOLDER = "/REPLACE/WITH/PRIVATE/CAPACITY_SELECTOR.txt"
 TASK_SHA256_PLACEHOLDER = "REPLACE_WITH_SHA256"
@@ -876,7 +879,7 @@ def _validate_router_receipt(
 ) -> tuple[dict[str, Any], bytes]:
     value, body = _published_json(path, "capacity_router_receipt_invalid")
     expected = {
-        "schema_version": 4,
+        "schema_version": 5,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": identity_sha256,
@@ -894,6 +897,9 @@ def _validate_router_receipt(
         "configured_capacity": CAPACITY,
         "configured_per_worker_capacity": PER_WORKER_CAPACITY,
         "active_forwarded_requests": 0,
+        "worker_active_request_counts_sha256": ZERO_WORKER_COUNTS_SHA256,
+        "active_worker_waiters": 0,
+        "worker_waiting_request_counts_sha256": ZERO_WORKER_COUNTS_SHA256,
         "max_active_forwarded_requests": FORWARDED_CAPACITY,
         "worker_max_active_request_counts_sha256": WORKER_MAX_ACTIVE_REQUEST_COUNTS_SHA256,
         "capacity_rejections": 0,
@@ -913,10 +919,19 @@ def _validate_router_receipt(
         "chat_requests",
         "tracked_sessions",
         "worker_request_counts_sha256",
+        "worker_session_counts_sha256",
     }
     if (
         set(value) != {*expected, *dynamic}
         or any(value.get(key) != expected_value for key, expected_value in expected.items())
+        or any(
+            type(value.get(key)) is not int
+            for key in (
+                "configured_per_worker_capacity",
+                "active_forwarded_requests",
+                "active_worker_waiters",
+            )
+        )
         or any(
             type(value.get(key)) is not int or value[key] < CAPACITY
             for key in ("max_active_requests", "max_active_chat_requests", "tracked_sessions")
@@ -928,7 +943,11 @@ def _validate_router_receipt(
         or value["total_requests"] < value["chat_requests"]
         or any(
             SHA256_RE.fullmatch(str(value.get(key, ""))) is None
-            for key in ("invocation_identity_sha256", "worker_request_counts_sha256")
+            for key in (
+                "invocation_identity_sha256",
+                "worker_request_counts_sha256",
+                "worker_session_counts_sha256",
+            )
         )
     ):
         raise DirectKimiCapacityError("capacity_router_receipt_invalid")
@@ -1142,6 +1161,10 @@ def certify_capacity(
                 "configured_per_worker_capacity": PER_WORKER_CAPACITY,
                 "max_forwarded_capacity": FORWARDED_CAPACITY,
                 "active_forwarded_requests": router["active_forwarded_requests"],
+                "worker_active_request_counts_sha256": router["worker_active_request_counts_sha256"],
+                "worker_session_counts_sha256": router["worker_session_counts_sha256"],
+                "active_worker_waiters": router["active_worker_waiters"],
+                "worker_waiting_request_counts_sha256": router["worker_waiting_request_counts_sha256"],
                 "max_active_forwarded_requests": router["max_active_forwarded_requests"],
                 "worker_max_active_request_counts_sha256": router["worker_max_active_request_counts_sha256"],
                 "max_active_requests": router["max_active_requests"],
@@ -1290,6 +1313,7 @@ def validate_capacity_certificate(
                 "configured_per_worker_capacity",
                 "max_forwarded_capacity",
                 "active_forwarded_requests",
+                "active_worker_waiters",
                 "max_active_forwarded_requests",
                 "max_active_requests",
                 "max_active_chat_requests",
@@ -1401,6 +1425,10 @@ def validate_capacity_certificate(
             "configured_per_worker_capacity",
             "max_forwarded_capacity",
             "active_forwarded_requests",
+            "worker_active_request_counts_sha256",
+            "worker_session_counts_sha256",
+            "active_worker_waiters",
+            "worker_waiting_request_counts_sha256",
             "max_active_forwarded_requests",
             "worker_max_active_request_counts_sha256",
             "max_active_requests",
@@ -1479,6 +1507,10 @@ def validate_capacity_certificate(
         or router.get("configured_per_worker_capacity") != PER_WORKER_CAPACITY
         or router.get("max_forwarded_capacity") != FORWARDED_CAPACITY
         or router.get("active_forwarded_requests") != 0
+        or router.get("worker_active_request_counts_sha256") != ZERO_WORKER_COUNTS_SHA256
+        or SHA256_RE.fullmatch(str(router.get("worker_session_counts_sha256", ""))) is None
+        or router.get("active_worker_waiters") != 0
+        or router.get("worker_waiting_request_counts_sha256") != ZERO_WORKER_COUNTS_SHA256
         or router.get("max_active_forwarded_requests") != FORWARDED_CAPACITY
         or router.get("worker_max_active_request_counts_sha256") != WORKER_MAX_ACTIVE_REQUEST_COUNTS_SHA256
         or router["max_active_requests"] != CAPACITY

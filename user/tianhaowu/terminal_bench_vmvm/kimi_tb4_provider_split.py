@@ -1451,9 +1451,7 @@ def _validate_run_identity(
     deployment_router = identity.get("deployment", {}).get("router")
     if provider == "sandoq":
         expected_concurrency = (
-            deployment_router.get("provider_concurrency")
-            if isinstance(deployment_router, dict)
-            else None
+            deployment_router.get("provider_concurrency") if isinstance(deployment_router, dict) else None
         )
         if expected_concurrency not in {23, 24}:
             raise KimiProviderSplitError("execution_contract_invalid")
@@ -1581,8 +1579,9 @@ def _validate_direct_router_receipt(
     if not isinstance(router, dict) or not isinstance(worker, dict):
         raise KimiProviderSplitError("router_receipt_invalid")
     c23_profile = router.get("capacity_profile") == C23_CAPACITY_PROFILE
+    zero_worker_counts_sha256 = sha256_bytes((json.dumps([0] * 23, separators=(",", ":")) + "\n").encode())
     expected = {
-        "schema_version": 3 if c23_profile else 2,
+        "schema_version": 4 if c23_profile else 2,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": identity_sha256,
@@ -1599,16 +1598,23 @@ def _validate_direct_router_receipt(
         "source_generation_revalidated": True,
     }
     dynamic = {"max_active_requests", "total_requests", "chat_requests", "worker_request_counts_sha256"}
+    digests = {"worker_request_counts_sha256"}
     if c23_profile:
         expected.update(
             {
                 "capacity_profile": C23_CAPACITY_PROFILE,
                 "endpoint_identifier": router.get("endpoint_identifier"),
                 "configured_capacity": router.get("provider_concurrency"),
+                "configured_per_worker_capacity": 1,
+                "active_forwarded_requests": 0,
+                "worker_active_request_counts_sha256": zero_worker_counts_sha256,
+                "active_worker_waiters": 0,
+                "worker_waiting_request_counts_sha256": zero_worker_counts_sha256,
             }
         )
         dynamic.update(
             {
+                "worker_session_counts_sha256",
                 "max_active_chat_requests",
                 "capacity_rejections",
                 "queue_overflow_rejections",
@@ -1617,16 +1623,28 @@ def _validate_direct_router_receipt(
                 "tracked_sessions",
             }
         )
+        digests.add("worker_session_counts_sha256")
     if (
         set(value) != {*expected, *dynamic}
         or any(value.get(key) != item for key, item in expected.items())
+        or (
+            c23_profile
+            and any(
+                not _nonnegative_integer(value.get(key))
+                for key in (
+                    "configured_per_worker_capacity",
+                    "active_forwarded_requests",
+                    "active_worker_waiters",
+                )
+            )
+        )
         or not all(
             _nonnegative_integer(value.get(key)) for key in ("max_active_requests", "total_requests", "chat_requests")
         )
         or not 1 <= value["max_active_requests"] <= int(identity["execution"]["rollout_concurrency"])
         or value["total_requests"] < value["chat_requests"]
         or value["chat_requests"] < minimum_chat_requests
-        or SHA256_RE.fullmatch(str(value.get("worker_request_counts_sha256", ""))) is None
+        or any(SHA256_RE.fullmatch(str(value.get(key, ""))) is None for key in digests)
         or (
             c23_profile
             and (

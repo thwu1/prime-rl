@@ -877,7 +877,7 @@ def test_router_receipt_requires_exact_direct_publication_marker(
             }
         )
     value = {
-        "schema_version": 3 if concurrency == 23 else 2,
+        "schema_version": 4 if concurrency == 23 else 2,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": identity_sha256,
@@ -903,6 +903,16 @@ def test_router_receipt_requires_exact_direct_publication_marker(
                 "capacity_profile": "sandoq-c23-v1",
                 "endpoint_identifier": "cpu-132-021_8103",
                 "configured_capacity": 23,
+                "configured_per_worker_capacity": 1,
+                "active_forwarded_requests": 0,
+                "worker_active_request_counts_sha256": hashlib.sha256(
+                    (json.dumps([0] * 23, separators=(",", ":")) + "\n").encode()
+                ).hexdigest(),
+                "worker_session_counts_sha256": "d" * 64,
+                "active_worker_waiters": 0,
+                "worker_waiting_request_counts_sha256": hashlib.sha256(
+                    (json.dumps([0] * 23, separators=(",", ":")) + "\n").encode()
+                ).hexdigest(),
                 "max_active_chat_requests": 1,
                 "capacity_rejections": 0,
                 "queue_overflow_rejections": 0,

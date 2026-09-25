@@ -123,6 +123,10 @@ def _capacity_certificate(
     queue_overflow_rejections: int = 0,
     nonzero_tool_exits: int = 0,
     active_forwarded_requests: int = 0,
+    worker_active_request_counts_sha256: str = capacity.ZERO_WORKER_COUNTS_SHA256,
+    worker_session_counts_sha256: str = "b" * 64,
+    active_worker_waiters: int = 0,
+    worker_waiting_request_counts_sha256: str = capacity.ZERO_WORKER_COUNTS_SHA256,
     max_active_forwarded_requests: int = capacity.FORWARDED_CAPACITY,
     worker_max_active_request_counts_sha256: str = capacity.WORKER_MAX_ACTIVE_REQUEST_COUNTS_SHA256,
     configured_per_worker_capacity: int = capacity.PER_WORKER_CAPACITY,
@@ -221,6 +225,10 @@ def _capacity_certificate(
             "configured_per_worker_capacity": configured_per_worker_capacity,
             "max_forwarded_capacity": max_forwarded_capacity,
             "active_forwarded_requests": active_forwarded_requests,
+            "worker_active_request_counts_sha256": worker_active_request_counts_sha256,
+            "worker_session_counts_sha256": worker_session_counts_sha256,
+            "active_worker_waiters": active_worker_waiters,
+            "worker_waiting_request_counts_sha256": worker_waiting_request_counts_sha256,
             "max_active_forwarded_requests": max_active_forwarded_requests,
             "worker_max_active_request_counts_sha256": worker_max_active_request_counts_sha256,
             "max_active_requests": 64,
@@ -293,10 +301,11 @@ def test_capacity_certificate_validator_accepts_exact_c64_w2_evidence(
     )
 
     assert certificate["qualified_concurrency"] == 64
-    assert certificate["schema_version"] == 3
+    assert certificate["schema_version"] == 4
     assert certificate["capacity_profile"] == "sandoq-c64-w2-v1"
     assert certificate["router"]["configured_per_worker_capacity"] == 2
     assert certificate["router"]["max_active_forwarded_requests"] == 48
+    assert certificate["router"]["active_worker_waiters"] == 0
     assert (
         certificate["router"]["worker_max_active_request_counts_sha256"]
         == capacity.WORKER_MAX_ACTIVE_REQUEST_COUNTS_SHA256
@@ -384,7 +393,7 @@ def test_capacity_router_receipt_requires_saturated_w2_forwarding(tmp_path: Path
         "router": {"implementation_sha256": "2" * 64},
     }
     value = {
-        "schema_version": 4,
+        "schema_version": 5,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": "3" * 64,
@@ -408,6 +417,10 @@ def test_capacity_router_receipt_requires_saturated_w2_forwarding(tmp_path: Path
         "configured_capacity": 64,
         "configured_per_worker_capacity": 2,
         "active_forwarded_requests": 0,
+        "worker_active_request_counts_sha256": capacity.ZERO_WORKER_COUNTS_SHA256,
+        "worker_session_counts_sha256": "7" * 64,
+        "active_worker_waiters": 0,
+        "worker_waiting_request_counts_sha256": capacity.ZERO_WORKER_COUNTS_SHA256,
         "max_active_forwarded_requests": 48,
         "worker_max_active_request_counts_sha256": capacity.WORKER_MAX_ACTIVE_REQUEST_COUNTS_SHA256,
         "max_active_chat_requests": 64,
@@ -432,6 +445,7 @@ def test_capacity_router_receipt_requires_saturated_w2_forwarding(tmp_path: Path
 
     assert observed["max_active_forwarded_requests"] == 48
     assert observed["active_forwarded_requests"] == 0
+    assert observed["active_worker_waiters"] == 0
     assert body == path.read_bytes()
 
 
@@ -439,6 +453,9 @@ def test_capacity_router_receipt_requires_saturated_w2_forwarding(tmp_path: Path
     ("overrides", "error"),
     (
         ({"active_forwarded_requests": 1}, "capacity_certificate_not_qualified"),
+        ({"worker_active_request_counts_sha256": "f" * 64}, "capacity_certificate_not_qualified"),
+        ({"active_worker_waiters": 1}, "capacity_certificate_not_qualified"),
+        ({"worker_waiting_request_counts_sha256": "f" * 64}, "capacity_certificate_not_qualified"),
         ({"max_active_forwarded_requests": 47}, "capacity_certificate_not_qualified"),
         ({"worker_max_active_request_counts_sha256": "f" * 64}, "capacity_certificate_not_qualified"),
         ({"configured_per_worker_capacity": 1}, "capacity_certificate_not_qualified"),

@@ -57,7 +57,7 @@ _EXACT_REQUIREMENT_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[A-Za-z0-9_,
 
 _PROVIDER_FILES = {
     "__init__.py": ("178c823a8b3ad39042b9d72964ec7c0fbdd26bbd4ff7c9bdc0469abef1c30672", 6864),
-    "buffered_chat.py": ("f9112a6a9dc33b09927ea2df0e36a8f23810a3d01a8230440417d2d9064f7e49", 19371),
+    "buffered_chat.py": ("2e1b23dae6f5a0cefee447688bc73c8127143db78547307f8fbd6242f02e903d", 30756),
     "client.py": ("e104058f118eb5ae7cf6c30706d10783508019f519806e7ef7df04bdc68dccf3", 21291),
     "config.py": ("082458cd3124928c58931514e3717b41ad9aeb041b4fed96bdecdcf1a25ccc3f", 3379),
     "ecr.py": ("101cafaf6d38bd26016532b1e6084087930b937b0e20ee4fdf2ed2c33a05d869", 10841),

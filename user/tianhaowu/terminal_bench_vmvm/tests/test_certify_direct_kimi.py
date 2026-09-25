@@ -274,7 +274,7 @@ def test_certifier_accepts_c23_profiled_router_receipt(tmp_path: Path) -> None:
         },
     }
     receipt = {
-        "schema_version": 3,
+        "schema_version": 4,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         **binding,
@@ -295,6 +295,16 @@ def test_certifier_accepts_c23_profiled_router_receipt(tmp_path: Path) -> None:
         "capacity_profile": "sandoq-c23-v1",
         "endpoint_identifier": "cpu-132-021_8103",
         "configured_capacity": 23,
+        "configured_per_worker_capacity": 1,
+        "active_forwarded_requests": 0,
+        "worker_active_request_counts_sha256": hashlib.sha256(
+            (json.dumps([0] * 23, separators=(",", ":")) + "\n").encode()
+        ).hexdigest(),
+        "worker_session_counts_sha256": "7" * 64,
+        "active_worker_waiters": 0,
+        "worker_waiting_request_counts_sha256": hashlib.sha256(
+            (json.dumps([0] * 23, separators=(",", ":")) + "\n").encode()
+        ).hexdigest(),
         "max_active_chat_requests": 2,
         "capacity_rejections": 0,
         "queue_overflow_rejections": 0,
@@ -308,10 +318,13 @@ def test_certifier_accepts_c23_profiled_router_receipt(tmp_path: Path) -> None:
         exclusive=True,
     )
 
-    assert _validate_router_receipt(
-        output,
-        manifest,
-        "5" * 64,
-        minimum_chat_requests=1,
-        binding=binding,
-    ) == receipt
+    assert (
+        _validate_router_receipt(
+            output,
+            manifest,
+            "5" * 64,
+            minimum_chat_requests=1,
+            binding=binding,
+        )
+        == receipt
+    )

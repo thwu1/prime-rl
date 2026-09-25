@@ -416,8 +416,7 @@ def test_historical_legacy_manifest_accepts_only_pinned_v1_hash(tmp_path: Path, 
     pre_c23_extended["router"]["request_timeout_seconds"] = 144_000
     pre_c23_extended["router"]["queue_timeout_seconds"] = 144_000
     assert (
-        direct_kimi_workers.validate_manifest_value(pre_c23_extended, revalidate_live_source=False)
-        == pre_c23_extended
+        direct_kimi_workers.validate_manifest_value(pre_c23_extended, revalidate_live_source=False) == pre_c23_extended
     )
 
 
@@ -669,7 +668,7 @@ def test_direct_kimi_c23_router_receipt_accepts_smoke_and_tb4_roles(tmp_path: Pa
     stats.write_text(
         json.dumps(
             {
-                "schema_version": 2,
+                "schema_version": 3,
                 "kind": "direct-kimi-transparent-router",
                 "implementation": "direct-kimi-transparent-v2",
                 "policy": "consistent_hash",
@@ -681,8 +680,10 @@ def test_direct_kimi_c23_router_receipt_accepts_smoke_and_tb4_roles(tmp_path: Pa
                 "capacity_profile": direct_kimi_workers.C23_CAPACITY_PROFILE,
                 "endpoint_identifier": "cpu-132-021_8103",
                 "configured_capacity": 23,
+                "configured_per_worker_capacity": 1,
                 "active_requests": 0,
                 "active_chat_requests": 0,
+                "active_forwarded_requests": 0,
                 "max_active_requests": 1,
                 "max_active_chat_requests": 1,
                 "total_requests": 1,
@@ -695,6 +696,10 @@ def test_direct_kimi_c23_router_receipt_accepts_smoke_and_tb4_roles(tmp_path: Pa
                 "upstream_failures": 0,
                 "tracked_sessions": 1,
                 "worker_request_counts": [1, *([0] * 22)],
+                "worker_active_request_counts": [0] * 23,
+                "worker_session_counts": [1, *([0] * 22)],
+                "active_worker_waiters": 0,
+                "worker_waiting_request_counts": [0] * 23,
             }
         )
     )
@@ -717,10 +722,13 @@ def test_direct_kimi_c23_router_receipt_accepts_smoke_and_tb4_roles(tmp_path: Pa
             eval_invocations=invocations,
             provenance=provenance,
         )
-        assert receipt["schema_version"] == 3
+        assert receipt["schema_version"] == 4
         assert receipt["active_workers"] == 23
         assert receipt["capacity_profile"] == direct_kimi_workers.C23_CAPACITY_PROFILE
         assert receipt["configured_capacity"] == 23
+        assert receipt["configured_per_worker_capacity"] == 1
+        assert receipt["active_forwarded_requests"] == 0
+        assert receipt["active_worker_waiters"] == 0
 
     diagnostic_dir = tmp_path / "diagnostic-c23"
     identity, invocations, provenance, _identity_sha256 = _binding_files(
@@ -762,7 +770,7 @@ def test_direct_kimi_w2_router_receipt_requires_measured_clean_forwarding(
     stats.write_text(
         json.dumps(
             {
-                "schema_version": 3,
+                "schema_version": 4,
                 "kind": "direct-kimi-transparent-router",
                 "implementation": "direct-kimi-transparent-v2",
                 "policy": "consistent_hash",
@@ -795,6 +803,9 @@ def test_direct_kimi_w2_router_receipt_requires_measured_clean_forwarding(
                 "tracked_sessions": 64,
                 "worker_request_counts": [6] * 8 + [5] * 16,
                 "worker_active_request_counts": [0] * 24,
+                "worker_session_counts": [3] * 16 + [2] * 8,
+                "active_worker_waiters": 0,
+                "worker_waiting_request_counts": [0] * 24,
                 "worker_max_active_request_counts": [2] * 24,
             }
         )
@@ -817,12 +828,22 @@ def test_direct_kimi_w2_router_receipt_requires_measured_clean_forwarding(
         provenance=provenance,
     )
 
-    assert receipt["schema_version"] == 4
+    assert receipt["schema_version"] == 5
     assert receipt["eval_run_identity_sha256"] == identity_sha256
     assert receipt["capacity_profile"] == "sandoq-c64-w2-v1"
     assert receipt["configured_capacity"] == 64
     assert receipt["configured_per_worker_capacity"] == 2
     assert receipt["active_forwarded_requests"] == 0
+    assert receipt["active_worker_waiters"] == 0
+    assert (
+        receipt["worker_active_request_counts_sha256"]
+        == hashlib.sha256((json.dumps([0] * 24, separators=(",", ":")) + "\n").encode()).hexdigest()
+    )
+    assert (
+        receipt["worker_session_counts_sha256"]
+        == hashlib.sha256((json.dumps([3] * 16 + [2] * 8, separators=(",", ":")) + "\n").encode()).hexdigest()
+    )
+    assert receipt["worker_waiting_request_counts_sha256"] == receipt["worker_active_request_counts_sha256"]
     assert receipt["max_active_forwarded_requests"] == 48
     assert (
         receipt["worker_max_active_request_counts_sha256"]
@@ -834,6 +855,10 @@ def test_direct_kimi_w2_router_receipt_requires_measured_clean_forwarding(
     valid_stats = json.loads(stats.read_text())
     for field, invalid_value in (
         ("active_forwarded_requests", 1),
+        ("worker_active_request_counts", [1, *([0] * 23)]),
+        ("worker_session_counts", [3] * 16 + [2] * 7 + [1]),
+        ("active_worker_waiters", 1),
+        ("worker_waiting_request_counts", [1, *([0] * 23)]),
         ("max_active_forwarded_requests", 47),
         ("worker_max_active_request_counts", [1, *([2] * 23)]),
         ("worker_queue_timeouts", 1),
@@ -884,7 +909,7 @@ def test_direct_kimi_w2_production_receipt_binds_observed_forwarding_peak(
     stats.write_text(
         json.dumps(
             {
-                "schema_version": 3,
+                "schema_version": 4,
                 "kind": "direct-kimi-transparent-router",
                 "implementation": "direct-kimi-transparent-v2",
                 "policy": "consistent_hash",
@@ -917,6 +942,9 @@ def test_direct_kimi_w2_production_receipt_binds_observed_forwarding_peak(
                 "tracked_sessions": 1,
                 "worker_request_counts": [1, *([0] * 23)],
                 "worker_active_request_counts": [0] * 24,
+                "worker_session_counts": [1, *([0] * 23)],
+                "active_worker_waiters": 0,
+                "worker_waiting_request_counts": [0] * 24,
                 "worker_max_active_request_counts": [1, *([0] * 23)],
             }
         )
@@ -934,7 +962,7 @@ def test_direct_kimi_w2_production_receipt_binds_observed_forwarding_peak(
         provenance=provenance,
     )
 
-    assert receipt["schema_version"] == 4
+    assert receipt["schema_version"] == 5
     assert receipt["max_active_forwarded_requests"] == 1
     assert (
         receipt["worker_max_active_request_counts_sha256"]
