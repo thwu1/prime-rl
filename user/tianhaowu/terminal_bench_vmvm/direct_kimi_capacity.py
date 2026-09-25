@@ -56,7 +56,7 @@ RUNTIME_TUNNEL_RECEIPT = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/sandoq-full-tunnel-20260922/run-1537377/receipt.json"
 )
 RUNTIME_TUNNEL_RECEIPT_SHA256 = "39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276"
-VERIFIERS_COMMIT = "38c9f0be514f3e18548a08ff676a3a9837657483"
+VERIFIERS_COMMIT = "dcc2132667c52b2dd02b4c76c96643dd6537e5e0"
 MINISWE_LIVE_SMOKE_KIND = "qwen-miniswe246-sandoq-three-step-smoke"
 MINISWE_LIVE_SMOKE_ENVIRONMENT = "oci-runner-firecracker-small"
 MINISWE_LIVE_SMOKE_RECEIPT = Path(

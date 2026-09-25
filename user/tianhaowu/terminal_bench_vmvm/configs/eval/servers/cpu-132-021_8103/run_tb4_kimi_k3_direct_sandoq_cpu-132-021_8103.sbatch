@@ -14,6 +14,7 @@
 
 set -euo pipefail
 umask 077
+export PYTHONDONTWRITEBYTECODE=1
 
 if (( $# != 0 )); then
     printf 'Configure the direct Kimi run through its sealed environment\n' >&2
@@ -494,7 +495,6 @@ if ! flock -n 8; then
     printf 'Another process owns the direct Kimi router generation\n' >&2
     exit 2
 fi
-export PYTHONDONTWRITEBYTECODE=1
 export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site"
 router_profile_args=(
     --capacity-profile "${router_capacity_profile:-legacy-c24}"

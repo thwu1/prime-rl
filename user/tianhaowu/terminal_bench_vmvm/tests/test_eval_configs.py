@@ -628,6 +628,7 @@ def test_direct_kimi_sandoq_scored_smoke_launcher_is_pinned() -> None:
     assert "expected_smoke_wall_limit=20:00" not in launcher
     assert "KIMI_SANDOQ_STAGE:-smoke" in launcher
     assert "stage_capacity=1" in launcher
+    assert launcher.index("export PYTHONDONTWRITEBYTECODE=1") < launcher.index('"$x86_uv" run')
     assert "tb4_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_${stage}" in launcher
     assert "--direct-router-policy consistent_hash" in stage
     assert "--direct-request-id-headers x-session-id" in stage
@@ -857,7 +858,7 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "expected_worker_count=16" not in wrapper
     assert "Sandoq ramps require a fresh task-bound live24 manifest" in wrapper
     assert "--preflight" in wrapper
-    assert "--role qwen-direct --sandbox-provider sandoq" in driver
+    assert '--role "$identity_role" --sandbox-provider sandoq' in driver
     assert 'args=(--resume "$output_dir")' in driver
     assert "eval_run_identity.py" in driver
     assert "certify_direct_qwen_sandoq.py" in wrapper
@@ -888,10 +889,10 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert "QWEN_SANDOQ_NONCERTIFYING_DIAGNOSTIC_CONFIG_SHA256" in driver
     assert "summarize_qwen_sandoq_diagnostic.py" in wrapper
     assert 'post_eval_pythonpath="$workflow_dir:$project_dir/environments/vmvm_tb_v2:' in wrapper
-    assert wrapper.count('env PYTHONPATH="$post_eval_pythonpath"') == 2
-    assert 'if [[ "$diagnostic_mode" -eq 0 ]]' in driver
+    assert wrapper.count('env PYTHONPATH="$post_eval_pythonpath"') == 4
+    assert 'if [[ "$diagnostic_mode" -eq 0 && "$error_retry_mode" -eq 0 ]]' in driver
     assert 'if [[ "$diagnostic_mode" -eq 1 ]]' in wrapper
-    assert "80e58e7e2b194e9c1b8dc0990c00b7a839127eea" in driver
+    assert "dcc2132667c52b2dd02b4c76c96643dd6537e5e0" in driver
     assert "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml" in wrapper
     assert wrapper.index("approved clean source closure") < wrapper.index('"$workflow_dir/direct_qwen_workers.py"')
 

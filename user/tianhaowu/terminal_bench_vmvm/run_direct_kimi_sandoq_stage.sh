@@ -227,7 +227,7 @@ if [[ "$(git -C "$project_dir" rev-parse HEAD)" != "$expected_revision" \
     exit 2
 fi
 if [[ "$(git -C "$project_dir/deps/verifiers" rev-parse HEAD)" \
-    != 38c9f0be514f3e18548a08ff676a3a9837657483 ]]; then
+    != dcc2132667c52b2dd02b4c76c96643dd6537e5e0 ]]; then
     printf 'Direct Kimi stage requires the approved Verifiers revision\n' >&2
     exit 2
 fi
