@@ -567,7 +567,7 @@ for attempt in $(seq 1 120); do
 done
 
 ecr_token_file=/storage/home/tianhaowu/.config/oci-runner/ecr-token
-ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-${ecr_token_file}.metadata.json}
+ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-/storage/home/tianhaowu/.config/oci-runner/ecr-rotation.state.json}
 stage_env=(
     PROJECT_DIR="$project_dir"
     EVAL_CONFIG="$eval_config"

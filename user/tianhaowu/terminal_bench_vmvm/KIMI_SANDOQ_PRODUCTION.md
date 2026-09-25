@@ -3,7 +3,7 @@
 This is the server-scoped, pass@1 trace-generation lane for
 `cpu-132-021_8103`. It selects the 2,499 non-Compose members of the approved
 2,500-task Mobius oracle set and runs them through the direct Kimi router and
-the Sandoq OCI runtime. Task membership remains private throughout selection,
+the Sandoq Firecracker runtime. Task membership remains private throughout selection,
 launch, monitoring, certification, and export.
 
 The source task metadata declares `no-network` for both agent and verifier,
@@ -20,7 +20,9 @@ effective runtime boundary.
 - Context: 262,144 tokens; at most 32,768 sampled tokens per call.
 - Timeouts: 12-hour client/session, 10-hour rollout, one-hour setup and
   finalize, six-hour scoring.
-- Retries: zero at the client, router, rollout, and verifier layers.
+- Retries: zero at the client, router, rollout, and verifier layers. Sandbox
+  provisioning permits three retries (four total attempts) before any model
+  call; a failed attempt must complete verified cleanup before the next attempt.
 - Infrastructure recovery: after an otherwise successful evaluator invocation,
   one in-process resume may replace only missing rows or error rows that contain
   no nodes, rewards, metrics, or model metadata. Any model-bearing or ambiguous
@@ -71,6 +73,13 @@ Promotion requires all of the following immutable inputs:
 Diagnostic or partial TB4 artifacts are not promotable. Never inspect or print
 selector contents, task identifiers, prompts, responses, or raw task errors
 while checking these gates.
+
+The current TB4 certificate may evaluate the quarantined 23-worker route set.
+Promotion reopens its certified native-lane identity and marker-authorized
+worker manifest, validates the schema and exact artifact hashes again, and
+derives the full 24-worker source bundle from that manifest. The independent
+`sandoq-c64-w2-v1` capacity certificate must bind that full source bundle.
+Historical all-24-worker TB4 certificates retain exact endpoint equality.
 
 The promotable MiniSWE TB4 artifact is produced by the opaque union planner,
 the two `tb4-miniswe246-*-union` launcher stages, and
@@ -130,11 +139,12 @@ native-tunnel round trip. The production selector now reopens every selected
 task's canonical metadata and binds an aggregate-only resource-vector digest:
 all 2,499 selected tasks use shared verification, request no GPU, and have
 agent and verifier maxima exactly equal to that qualified envelope. The lone
-Compose task remains excluded. Twenty-eight of 66 TB4 tasks fit this resource envelope, but
-three require Compose and cannot run on the Sandoq lane. TB4 therefore requires
-the sealed 25-Sandoq / 38-VMVM CPU union, with three GPU tasks recorded as
-unsupported. Production promotion still requires the TB4 score and capacity
-certificate, but aggregate resource coverage is no longer an unresolved gate.
+Compose task remains excluded. Twenty-eight of 66 TB4 tasks fit this resource
+envelope, but three require Compose and cannot run on the native Sandoq lane.
+The current certificate uses a sealed 25-native / 27-resource-clamped Sandoq
+union, with 11 Compose and three GPU tasks recorded as unsupported. Production
+promotion still requires the TB4 score and capacity certificate, but aggregate
+resource coverage is no longer an unresolved gate.
 
 ## ECR rotation and launch
 
@@ -183,8 +193,9 @@ configs/eval/servers/cpu-132-021_8103/finalize_mobius_kimi_k3_sandoq_cpu-132-021
 
 The finalizer accepts the source job only when scheduler accounting is terminal
 and quiescent. It then binds the rotation audit, full 2,499-task coverage,
-router/capacity evidence, verified cleanup, exact source and input hashes, and
-positive-trace trainability into a trace certificate. Finally it performs a
-pass-only export with exact provider JSON required and publishes the standard
+router/capacity evidence, verified cleanup, exact source and input hashes,
+reasoning/model-I/O fidelity for every clean trace, positive-trace trainability,
+and exact provider JSON into a trace certificate. Finally it performs a
+pass-only export and publishes the standard
 tokenizer/rendering preflight attestation. A partial or failed finalization is
 never resumed into an existing output namespace.

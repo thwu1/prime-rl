@@ -663,6 +663,7 @@ def test_direct_kimi_production_identity_binds_w2_router_and_launch(tmp_path: Pa
             "guest_tunnel_url": "http://127.0.0.1:8485",
             "tunnel_pool_size": 4,
             "tunnel_ready_timeout": 30,
+            "provisioning_retries": 3,
             "expected_environment": "oci-runner-firecracker",
         }
     )
@@ -828,6 +829,7 @@ def test_direct_kimi_capacity_profile_is_exact_and_sandoq_only() -> None:
                 "guest_tunnel_url": "http://127.0.0.1:8485",
                 "tunnel_pool_size": 4,
                 "tunnel_ready_timeout": 30,
+                "provisioning_retries": 3,
                 "expected_environment": "oci-runner-firecracker",
                 "session_timeout": 2400,
             },
@@ -840,6 +842,7 @@ def test_direct_kimi_capacity_profile_is_exact_and_sandoq_only() -> None:
         ("taskset", "enable_compose", True),
         ("runtime", "network_access", False),
         ("runtime", "buffered_chat_completions", False),
+        ("runtime", "provisioning_retries", 1),
     ):
         invalid = json.loads(json.dumps(config))
         target = (
@@ -900,16 +903,22 @@ def test_direct_kimi_production_concurrency_and_config_are_exact() -> None:
                 "guest_tunnel_url": "http://127.0.0.1:8485",
                 "tunnel_pool_size": 4,
                 "tunnel_ready_timeout": 30,
+                "provisioning_retries": 3,
                 "expected_environment": "oci-runner-firecracker",
                 "session_timeout": 43200,
             },
         },
     }
     eval_run_identity._validate_direct_kimi_production_config(config, role)
-    invalid = json.loads(json.dumps(config))
-    invalid["taskset"]["resource_multiplier"] = 2.0
-    with pytest.raises(EvalIdentityError, match="direct_kimi_production_config_invalid"):
-        eval_run_identity._validate_direct_kimi_production_config(invalid, role)
+    for section, field, value in (
+        ("taskset", "resource_multiplier", 2.0),
+        ("runtime", "provisioning_retries", 1),
+    ):
+        invalid = json.loads(json.dumps(config))
+        target = invalid["harness"]["runtime"] if section == "runtime" else invalid[section]
+        target[field] = value
+        with pytest.raises(EvalIdentityError, match="direct_kimi_production_config_invalid"):
+            eval_run_identity._validate_direct_kimi_production_config(invalid, role)
 
 
 def test_direct_kimi_production_launch_binds_config_selector_and_capacity(tmp_path: Path) -> None:
@@ -920,7 +929,7 @@ def test_direct_kimi_production_launch_binds_config_selector_and_capacity(tmp_pa
     endpoints_sha256 = "5" * 64
     router_sha256 = "6" * 64
     unsigned = {
-        "schema_version": 2,
+        "schema_version": 3,
         "kind": "kimi-k3-max-sandoq-launch",
         "state": "authorized",
         "model": "Kimi-K3",
@@ -948,6 +957,7 @@ def test_direct_kimi_production_launch_binds_config_selector_and_capacity(tmp_pa
             "lease_duration": "12h",
             "cleanup_must_succeed": True,
             "ecr_rotation_guard_required": True,
+            "provisioning_retries": 3,
             "sandbox_environment": "oci-runner-firecracker",
             "task_network": "host",
             "network_access": True,

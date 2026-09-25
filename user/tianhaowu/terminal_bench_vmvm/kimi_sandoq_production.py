@@ -43,9 +43,9 @@ from materialize_qwen_provider_union import (
 from verifiers.v1.tasksets.harbor_v1.taskset import parse_resources
 
 SCHEMA_VERSION = 1
-PROMOTION_SCHEMA_VERSION = 2
-LAUNCH_SCHEMA_VERSION = 2
-TRACE_SCHEMA_VERSION = 3
+PROMOTION_SCHEMA_VERSION = 3
+LAUNCH_SCHEMA_VERSION = 3
+TRACE_SCHEMA_VERSION = 4
 MODEL = "Kimi-K3"
 DEPLOYMENT_NAMESPACE = "cpu-132-021_8103"
 CAPACITY_PROFILE = "sandoq-c64-w2-v1"
@@ -64,6 +64,7 @@ ROTATION_KIND = "sandoq-auth-rotation"
 MAX_CAPACITY = 64
 MAX_SEQUENCE_TOKENS = 262_144
 MAX_GENERATION_TOKENS = 32_768
+SANDOQ_PROVISIONING_RETRIES = 3
 PROVIDER_ENVIRONMENT = "oci-runner-firecracker"
 PROVIDER_TASK_NETWORK = "host"
 PROVIDER_PROFILE_SHA256 = "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df"
@@ -78,7 +79,7 @@ EXPECTED_TASK_COUNT = SANDOQ_COUNT
 EXPECTED_SOURCE_COUNT = CANONICAL_SOURCE_COUNT
 EXPECTED_EXCLUDED_COUNT = VMVM_COUNT
 CAPACITY_SELECTOR_COUNT = 64
-TEMPLATE_SHA256 = "97140036bb7f1b8b8a21fd488c2c45e16258376bbe46128dff3873e27a37d514"
+TEMPLATE_SHA256 = "67051e4ac59730c75b70a7c02af88f35ad06e6e78dd31324027542b37f28e6f0"
 IMAGE_MANIFEST_SHA256 = "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
 SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
@@ -128,6 +129,8 @@ class TraceAudit:
     error_traces: int
     zero_reward_traces: int
     positive_traces: int
+    clean_model_io_turns: int
+    clean_sampled_tokens: int
     positive_model_io_turns: int
     positive_sampled_tokens: int
 
@@ -147,6 +150,7 @@ def _production_contracts() -> dict[str, Any]:
         "harness": {"id": "mini-swe-agent", "version": MINISWE_VERSION},
         "lease_duration": "12h",
         "managed_shell_recovery": "definitive-404-410-single-replay-v1",
+        "provisioning_retries": SANDOQ_PROVISIONING_RETRIES,
         "network_selection": "declared-no-network-tasks-explicit-public-host-tunnel-v1",
         "ecr_rotation_guard_required": True,
         "cleanup_required": True,
@@ -650,6 +654,7 @@ def _validate_config(body: bytes, *, selector: Path, selector_sha256: str, concu
         or runtime.get("tunnel_pool_size") != 4
         or runtime.get("tunnel_ready_timeout") != 30
         or runtime.get("expected_environment") != PROVIDER_ENVIRONMENT
+        or runtime.get("provisioning_retries") != SANDOQ_PROVISIONING_RETRIES
         or timeouts != {"setup": 3_600, "rollout": 36_000, "finalize": 3_600, "scoring": 21_600}
         or not isinstance(rollout_retries, dict)
         or rollout_retries.get("max_retries") != 0
@@ -1250,6 +1255,128 @@ def _validate_capacity_certificate(
     return value, artifact
 
 
+def _tb4_endpoint_binding(tb4: Mapping[str, Any]) -> dict[str, str]:
+    """Bind a TB4-tested route set to the full source deployment.
+
+    Historical all-worker certificates use one endpoint bundle for both
+    meanings.  Schema-3 clamped certificates may instead be produced through
+    the c23 quarantine profile.  In that case, re-open the already-certified
+    native lane identity and its marked worker manifest, prove that the
+    filtered bundle is the one TB4 evaluated, and return the manifest's full
+    source bundle for the independent c64 capacity gate.
+    """
+
+    schema_version = tb4.get("schema_version")
+    if schema_version not in {1, 2, 3}:
+        raise KimiProductionError("tb4_endpoint_bridge_invalid")
+    deployment = tb4.get("deployment") if schema_version in {2, 3} else tb4
+    if not isinstance(deployment, Mapping):
+        raise KimiProductionError("tb4_endpoint_bridge_invalid")
+    evaluated = deployment.get("endpoint_bundle_sha256")
+    source_spec = deployment.get("source_spec_sha256")
+    if SHA256_RE.fullmatch(str(evaluated or "")) is None or SHA256_RE.fullmatch(str(source_spec or "")) is None:
+        raise KimiProductionError("tb4_endpoint_bridge_invalid")
+
+    binding = {
+        "method": "exact-endpoint-equality-v1",
+        "evaluated_endpoint_bundle_sha256": str(evaluated),
+        "capacity_endpoint_bundle_sha256": str(evaluated),
+        "source_spec_sha256": str(source_spec),
+    }
+    if schema_version != 3:
+        return binding
+
+    try:
+        native = tb4["providers"]["native_sandoq"]
+        shared_deployment = native["shared_contract"]["deployment_contract"]
+        router = shared_deployment["router"]
+    except (KeyError, TypeError) as error:
+        raise KimiProductionError("tb4_endpoint_bridge_invalid") from error
+    if not isinstance(router, Mapping):
+        raise KimiProductionError("tb4_endpoint_bridge_invalid")
+    capacity_profile = router.get("capacity_profile")
+    if capacity_profile is None:
+        if (
+            router.get("worker_count") != 24
+            or shared_deployment.get("endpoint_bundle_sha256") != evaluated
+            or shared_deployment.get("spec_sha256") != source_spec
+        ):
+            raise KimiProductionError("tb4_endpoint_bridge_invalid")
+        return binding
+    if capacity_profile != "sandoq-c23-v1" or router.get("worker_count") != 23:
+        raise KimiProductionError("tb4_endpoint_bridge_invalid")
+
+    try:
+        identity_path, identity_artifact = _record_artifact(
+            native["artifacts"]["eval_run_identity"],
+            "tb4_endpoint_bridge_invalid",
+            private=True,
+        )
+        envelope = load_eval_run_identity(identity_path, verify_references=True)
+        identity = envelope["identity"]
+        identity_deployment = identity["deployment"]
+        worker_record = identity_deployment["worker_manifest"]
+        manifest_path = Path(str(worker_record["path"]))
+        manifest_artifact, manifest_body = _stable_artifact(
+            manifest_path,
+            "tb4_endpoint_bridge_invalid",
+            private=True,
+        )
+        from direct_kimi_workers import validate_saved_manifest
+
+        manifest = validate_saved_manifest(
+            manifest_path,
+            revalidate_live_source=False,
+            body=manifest_body,
+        )
+        identity_recheck, _identity_body = _stable_artifact(
+            identity_path,
+            "tb4_endpoint_bridge_invalid",
+            private=True,
+        )
+        manifest_recheck, manifest_recheck_body = _stable_artifact(
+            manifest_path,
+            "tb4_endpoint_bridge_invalid",
+            private=True,
+        )
+    except (KeyError, OSError, TypeError, ValueError, KimiProductionError) as error:
+        raise KimiProductionError("tb4_endpoint_bridge_invalid") from error
+
+    source_endpoint = manifest.get("source_endpoint_bundle_sha256")
+    if (
+        envelope.get("eval_run_identity_sha256") != native.get("eval_run_identity_sha256")
+        or identity_artifact.sha256 != native["artifacts"]["eval_run_identity"].get("sha256")
+        or identity_recheck != identity_artifact
+        or not isinstance(worker_record, dict)
+        or set(worker_record) != {"path", "sha256"}
+        or worker_record.get("path") != manifest_artifact.path
+        or worker_record.get("sha256") != manifest_artifact.sha256
+        or manifest_recheck != manifest_artifact
+        or manifest_recheck_body != manifest_body
+        or identity.get("role") != "kimi-direct-tb4"
+        or identity_deployment.get("endpoint_bundle_sha256") != evaluated
+        or identity_deployment.get("spec_sha256") != source_spec
+        or identity_deployment.get("router", {}).get("capacity_profile") != "sandoq-c23-v1"
+        or identity_deployment.get("router", {}).get("worker_count") != 23
+        or shared_deployment.get("endpoint_bundle_sha256") != evaluated
+        or shared_deployment.get("spec_sha256") != source_spec
+        or manifest.get("schema_version") != 4
+        or manifest.get("endpoint_bundle_sha256") != evaluated
+        or manifest.get("source_spec_sha256") != source_spec
+        or manifest.get("router", {}).get("capacity_profile") != "sandoq-c23-v1"
+        or len(manifest.get("workers", ())) != 23
+        or SHA256_RE.fullmatch(str(source_endpoint or "")) is None
+        or source_endpoint == evaluated
+    ):
+        raise KimiProductionError("tb4_endpoint_bridge_invalid")
+    return {
+        "method": "identity-bound-c23-source-endpoint-v1",
+        "evaluated_endpoint_bundle_sha256": str(evaluated),
+        "capacity_endpoint_bundle_sha256": str(source_endpoint),
+        "source_spec_sha256": str(source_spec),
+    }
+
+
 def create_promotion(
     *,
     tb4_certificate: Path,
@@ -1288,8 +1415,8 @@ def create_promotion(
         miniswe_compatibility_receipt,
         miniswe_compatibility_receipt_sha256,
     )
-    tb4_deployment = tb4.get("deployment") if tb4.get("schema_version") in {2, 3} else tb4
-    if capacity.get("endpoint_bundle_sha256") != tb4_deployment.get("endpoint_bundle_sha256"):
+    tb4_endpoint = _tb4_endpoint_binding(tb4)
+    if capacity.get("endpoint_bundle_sha256") != tb4_endpoint["capacity_endpoint_bundle_sha256"]:
         raise KimiProductionError("promotion_endpoint_mismatch")
     value = {
         "schema_version": PROMOTION_SCHEMA_VERSION,
@@ -1309,7 +1436,9 @@ def create_promotion(
         "endpoint": {
             "identifier": DEPLOYMENT_NAMESPACE,
             "endpoint_bundle_sha256": capacity.get("endpoint_bundle_sha256"),
-            "source_spec_sha256": tb4_deployment.get("source_spec_sha256"),
+            "tb4_evaluated_endpoint_bundle_sha256": tb4_endpoint["evaluated_endpoint_bundle_sha256"],
+            "tb4_endpoint_bridge": tb4_endpoint["method"],
+            "source_spec_sha256": tb4_endpoint["source_spec_sha256"],
             "router_implementation_sha256": capacity.get("source", {}).get("router_implementation_sha256"),
         },
         "capacity_source": {
@@ -1362,8 +1491,15 @@ def validate_promotion(
         or endpoint.get("identifier") != DEPLOYMENT_NAMESPACE
         or any(
             SHA256_RE.fullmatch(str(endpoint.get(key, ""))) is None
-            for key in ("endpoint_bundle_sha256", "source_spec_sha256", "router_implementation_sha256")
+            for key in (
+                "endpoint_bundle_sha256",
+                "tb4_evaluated_endpoint_bundle_sha256",
+                "source_spec_sha256",
+                "router_implementation_sha256",
+            )
         )
+        or endpoint.get("tb4_endpoint_bridge")
+        not in {"exact-endpoint-equality-v1", "identity-bound-c23-source-endpoint-v1"}
         or contracts != _production_contracts()
         or not isinstance(capacity_source, dict)
         or set(capacity_source) != {"prime_rl_commit", "prime_rl_tree_sha256", "verifiers_commit"}
@@ -1401,11 +1537,13 @@ def validate_promotion(
         Path(str(prerequisites["miniswe_compatibility"]["path"])),
         str(prerequisites["miniswe_compatibility"]["sha256"]),
     )
-    tb4_deployment = tb4.get("deployment") if tb4.get("schema_version") in {2, 3} else tb4
+    tb4_endpoint = _tb4_endpoint_binding(tb4)
     expected_endpoint = {
         "identifier": DEPLOYMENT_NAMESPACE,
         "endpoint_bundle_sha256": capacity.get("endpoint_bundle_sha256"),
-        "source_spec_sha256": tb4_deployment.get("source_spec_sha256"),
+        "tb4_evaluated_endpoint_bundle_sha256": tb4_endpoint["evaluated_endpoint_bundle_sha256"],
+        "tb4_endpoint_bridge": tb4_endpoint["method"],
+        "source_spec_sha256": tb4_endpoint["source_spec_sha256"],
         "router_implementation_sha256": capacity.get("source", {}).get("router_implementation_sha256"),
     }
     expected_capacity_source = {
@@ -1414,7 +1552,7 @@ def validate_promotion(
         "verifiers_commit": capacity.get("source", {}).get("verifiers_commit"),
     }
     if (
-        capacity.get("endpoint_bundle_sha256") != tb4_deployment.get("endpoint_bundle_sha256")
+        capacity.get("endpoint_bundle_sha256") != tb4_endpoint["capacity_endpoint_bundle_sha256"]
         or value.get("qualified_concurrency") != capacity.get("qualified_concurrency")
         or endpoint != expected_endpoint
         or capacity_source != expected_capacity_source
@@ -1520,6 +1658,7 @@ def _launch_value(
             "lease_duration": "12h",
             "lease_profile": "kimi-tb4-long",
             "managed_shell_recovery": "definitive-404-410-single-replay-v1",
+            "provisioning_retries": SANDOQ_PROVISIONING_RETRIES,
             "pool_size": concurrency,
             "requested_concurrency": concurrency,
             "retries": 0,
@@ -1722,6 +1861,7 @@ def validate_launch(
         or execution.get("lease_duration") != "12h"
         or execution.get("lease_profile") != "kimi-tb4-long"
         or execution.get("managed_shell_recovery") != "definitive-404-410-single-replay-v1"
+        or execution.get("provisioning_retries") != SANDOQ_PROVISIONING_RETRIES
         or execution.get("cleanup_must_succeed") is not True
         or execution.get("ecr_rotation_guard_required") is not True
         or not isinstance(execution.get("run_output_dir"), str)
@@ -1899,9 +2039,6 @@ def audit_pass_only_results(
                     counts["error_traces"] += 1
                     continue
                 reward = _strict_reward(trace)
-                if reward == 0.0:
-                    counts["zero_reward_traces"] += 1
-                    continue
                 if trace_validator is not None:
                     trace_validator(trace)
                 else:
@@ -1915,25 +2052,31 @@ def audit_pass_only_results(
                         model_io_contract=audit_traces.KIMI_K3_MAX_MODEL_IO_CONTRACT,
                         require_request_graph_match=True,
                         require_exact_provider_json=True,
-                        require_clean_stop=True,
+                        require_clean_stop=reward == 1.0,
                     )
                     if problems:
-                        raise KimiProductionError("positive_trace_invalid")
-                    try:
-                        sft._validate_trainable_trace(
-                            trace,
-                            reward=reward,
-                            max_sequence_tokens=MAX_SEQUENCE_TOKENS,
-                            require_exact_provider_json=True,
-                        )
-                    except sft.ExportError as error:
-                        raise KimiProductionError("positive_trace_invalid") from error
+                        raise KimiProductionError("clean_trace_invalid")
+                    if reward == 1.0:
+                        try:
+                            sft._validate_trainable_trace(
+                                trace,
+                                reward=reward,
+                                max_sequence_tokens=MAX_SEQUENCE_TOKENS,
+                                require_exact_provider_json=True,
+                            )
+                        except sft.ExportError as error:
+                            raise KimiProductionError("positive_trace_invalid") from error
                 turns, sampled_tokens = _positive_observations(trace)
                 if default_validator and (turns < 1 or sampled_tokens < 1):
-                    raise KimiProductionError("positive_trace_invalid")
-                counts["positive_traces"] += 1
-                counts["positive_model_io_turns"] += turns
-                counts["positive_sampled_tokens"] += sampled_tokens
+                    raise KimiProductionError("clean_trace_invalid")
+                counts["clean_model_io_turns"] += turns
+                counts["clean_sampled_tokens"] += sampled_tokens
+                if reward == 0.0:
+                    counts["zero_reward_traces"] += 1
+                else:
+                    counts["positive_traces"] += 1
+                    counts["positive_model_io_turns"] += turns
+                    counts["positive_sampled_tokens"] += sampled_tokens
         after = os.fstat(descriptor)
     finally:
         os.close(descriptor)
@@ -1953,6 +2096,8 @@ def audit_pass_only_results(
         error_traces=counts["error_traces"],
         zero_reward_traces=counts["zero_reward_traces"],
         positive_traces=counts["positive_traces"],
+        clean_model_io_turns=counts["clean_model_io_turns"],
+        clean_sampled_tokens=counts["clean_sampled_tokens"],
         positive_model_io_turns=counts["positive_model_io_turns"],
         positive_sampled_tokens=counts["positive_sampled_tokens"],
     )
@@ -2094,6 +2239,7 @@ def _validate_run_identity(
         or execution.get("runtime", {}).get("host_tunnel") != "sandoq"
         or execution.get("runtime", {}).get("buffered_chat_completions") is not True
         or execution.get("runtime", {}).get("expected_environment") != PROVIDER_ENVIRONMENT
+        or execution.get("runtime", {}).get("provisioning_retries") != SANDOQ_PROVISIONING_RETRIES
         or execution.get("sandoq_environment", {}).get("environment") != PROVIDER_ENVIRONMENT
         or execution.get("sandoq_environment", {}).get("task_network") != "public"
         or execution.get("sandoq_environment", {}).get("provider_task_network") != PROVIDER_TASK_NETWORK
@@ -2449,11 +2595,15 @@ def certify_traces(
             },
             "capture": {
                 "exact_provider_json": True,
+                "clean_model_io_turns": results.clean_model_io_turns,
+                "clean_sampled_tokens": results.clean_sampled_tokens,
+                "clean_traces": results.positive_traces + results.zero_reward_traces,
                 "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
                 "model_io_contract": "kimi-k3-max",
                 "positive_model_io_turns": results.positive_model_io_turns,
                 "positive_sampled_tokens": results.positive_sampled_tokens,
                 "reasoning": True,
+                "reasoning_required_for_all_clean_traces": True,
                 "request_graph": True,
             },
             "execution": {
@@ -2483,6 +2633,7 @@ def certify_traces(
                 "assignment_measured_high_water": cleanup["assignment_measured_high_water"],
                 "outer_session_high_water": cleanup["outer_session_high_water"],
                 "ecr_rotation_passed": True,
+                "provisioning_retries": SANDOQ_PROVISIONING_RETRIES,
             },
             "sft": {
                 "selection": "pass-only",
@@ -2540,13 +2691,22 @@ def validate_trace_certificate(path: Path, expected_sha256: str) -> dict[str, An
         or capture
         != {
             "exact_provider_json": True,
+            "clean_model_io_turns": capture.get("clean_model_io_turns") if isinstance(capture, dict) else None,
+            "clean_sampled_tokens": capture.get("clean_sampled_tokens") if isinstance(capture, dict) else None,
+            "clean_traces": coverage["positive_traces"] + coverage["zero_reward_traces"],
             "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
             "model_io_contract": "kimi-k3-max",
             "positive_model_io_turns": capture.get("positive_model_io_turns") if isinstance(capture, dict) else None,
             "positive_sampled_tokens": capture.get("positive_sampled_tokens") if isinstance(capture, dict) else None,
             "reasoning": True,
+            "reasoning_required_for_all_clean_traces": True,
             "request_graph": True,
         }
+        or not _plain_int(
+            capture.get("clean_model_io_turns"),
+            minimum=coverage["positive_traces"] + coverage["zero_reward_traces"],
+        )
+        or not _plain_int(capture.get("clean_sampled_tokens"), minimum=1)
         or not _plain_int(capture.get("positive_model_io_turns"), minimum=coverage["positive_traces"])
         or not _plain_int(capture.get("positive_sampled_tokens"), minimum=1)
         or not isinstance(execution, dict)
@@ -2580,6 +2740,7 @@ def validate_trace_certificate(path: Path, expected_sha256: str) -> dict[str, An
         or execution.get("assignment_measured_high_water") != execution.get("concurrency")
         or execution.get("outer_session_high_water") != execution.get("concurrency")
         or execution.get("ecr_rotation_passed") is not True
+        or execution.get("provisioning_retries") != SANDOQ_PROVISIONING_RETRIES
         or sft_value
         != {
             "selection": "pass-only",
@@ -2629,6 +2790,8 @@ def validate_trace_certificate(path: Path, expected_sha256: str) -> dict[str, An
         or audited.error_traces != coverage["error_traces"]
         or audited.zero_reward_traces != coverage["zero_reward_traces"]
         or audited.positive_traces != coverage["positive_traces"]
+        or audited.clean_model_io_turns != capture["clean_model_io_turns"]
+        or audited.clean_sampled_tokens != capture["clean_sampled_tokens"]
         or audited.positive_model_io_turns != capture["positive_model_io_turns"]
         or audited.positive_sampled_tokens != capture["positive_sampled_tokens"]
     ):

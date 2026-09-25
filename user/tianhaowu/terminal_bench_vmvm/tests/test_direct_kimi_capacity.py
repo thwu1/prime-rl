@@ -526,6 +526,7 @@ def test_materialize_capacity_config_binds_opaque_selector_receipt(tmp_path: Pat
     assert rendered["harness"]["runtime"]["expected_environment"] == capacity.PROVIDER_ENVIRONMENT
     assert rendered["harness"]["runtime"]["network_access"] is True
     assert rendered["harness"]["runtime"]["host_tunnel"] == "sandoq"
+    assert rendered["harness"]["runtime"]["provisioning_retries"] == capacity.SANDOQ_PROVISIONING_RETRIES
     assert "agent.step_limit=3" in rendered["harness"]["config_overrides"]
 
 

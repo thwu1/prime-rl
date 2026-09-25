@@ -80,6 +80,7 @@ buffered_chat_completions = true
 guest_tunnel_url = "http://127.0.0.1:8485"
 tunnel_pool_size = 4
 tunnel_ready_timeout = 30
+provisioning_retries = 3
 expected_environment = "oci-runner-firecracker"
 ecr_token_file = "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
 

@@ -118,6 +118,7 @@ KIMI_C23_WORKER_COUNT = 23
 KIMI_W2_CAPACITY_PROFILE = "sandoq-c64-w2-v1"
 KIMI_W2_PER_WORKER_CAPACITY = 2
 KIMI_MINISWE_VERSION = "2.4.6"
+KIMI_SANDOQ_PROVISIONING_RETRIES = 3
 KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT = "oci-runner-firecracker"
 KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256 = "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df"
 KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256 = "ce3fc3ed2ead1aaf8c71fc35e5dae324f1be9d51b4e7fffff7bc99d1a47adbf6"
@@ -265,6 +266,7 @@ def _validate_direct_kimi_capacity_config(config: dict[str, Any], role: str) -> 
         or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
         or runtime.get("tunnel_pool_size") != 4
         or runtime.get("tunnel_ready_timeout") != 30
+        or runtime.get("provisioning_retries") != KIMI_SANDOQ_PROVISIONING_RETRIES
         or runtime.get("expected_environment") != KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
         or runtime.get("session_timeout") != 2_400
     ):
@@ -319,6 +321,7 @@ def _validate_direct_kimi_production_config(config: dict[str, Any], role: str) -
         or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
         or runtime.get("tunnel_pool_size") != 4
         or runtime.get("tunnel_ready_timeout") != 30
+        or runtime.get("provisioning_retries") != KIMI_SANDOQ_PROVISIONING_RETRIES
         or runtime.get("expected_environment") != KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
         or runtime.get("session_timeout") != 43_200
     ):
@@ -758,7 +761,7 @@ def _validate_direct_kimi_production_launch(
     execution = value.get("execution")
     capture = value.get("capture")
     if (
-        value.get("schema_version") != 2
+        value.get("schema_version") != 3
         or value.get("kind") != "kimi-k3-max-sandoq-launch"
         or value.get("state") != "authorized"
         or value.get("model") != "Kimi-K3"
@@ -788,6 +791,7 @@ def _validate_direct_kimi_production_launch(
         or execution.get("lease_duration") != "12h"
         or execution.get("cleanup_must_succeed") is not True
         or execution.get("ecr_rotation_guard_required") is not True
+        or execution.get("provisioning_retries") != KIMI_SANDOQ_PROVISIONING_RETRIES
         or execution.get("sandbox_environment") != KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
         or execution.get("task_network") != "host"
         or execution.get("network_access") is not True

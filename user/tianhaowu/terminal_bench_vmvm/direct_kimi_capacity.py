@@ -45,6 +45,7 @@ MAX_SEQUENCE_TOKENS = 262_144
 MAX_GENERATION_TOKENS = 32_768
 MINISWE_VERSION = "2.4.6"
 MINISWE_MAX_STEPS = 3
+SANDOQ_PROVISIONING_RETRIES = 3
 PROVIDER_ENVIRONMENT = "oci-runner-firecracker"
 PROVIDER_TASK_NETWORK = "host"
 PROVIDER_PROFILE_SHA256 = "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df"
@@ -517,6 +518,7 @@ def _validate_capacity_config_value(config: object) -> dict[str, Any]:
         or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
         or runtime.get("tunnel_pool_size") != 4
         or runtime.get("tunnel_ready_timeout") != 30
+        or runtime.get("provisioning_retries") != SANDOQ_PROVISIONING_RETRIES
         or runtime.get("expected_environment") != PROVIDER_ENVIRONMENT
         or not isinstance(rollout_retries, dict)
         or rollout_retries.get("max_retries") != 0
@@ -574,6 +576,7 @@ def _capacity_identity(run_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         or runtime.get("guest_tunnel_url") != "http://127.0.0.1:8485"
         or runtime.get("tunnel_pool_size") != 4
         or runtime.get("tunnel_ready_timeout") != 30
+        or runtime.get("provisioning_retries") != SANDOQ_PROVISIONING_RETRIES
         or runtime.get("expected_environment") != PROVIDER_ENVIRONMENT
         or not isinstance(environment, dict)
         or environment.get("environment") != PROVIDER_ENVIRONMENT

@@ -39,6 +39,7 @@ def test_materialize_config_binds_dynamic_certified_concurrency(tmp_path: Path) 
     assert value["taskset"]["task_file"] == str(selector)
     assert value["taskset"]["task_file_sha256"] == selector_sha256
     assert value["taskset"]["resource_multiplier"] == 1.0
+    assert value["harness"]["runtime"]["provisioning_retries"] == 3
     assert value["retries"]["rollout"]["max_retries"] == 0
 
 
@@ -54,12 +55,13 @@ def test_materialize_config_rejects_uncertified_capacity() -> None:
 
 def test_w2_attestation_versions_and_contract_are_explicit() -> None:
     assert production.SCHEMA_VERSION == 1
-    assert production.PROMOTION_SCHEMA_VERSION == 2
-    assert production.LAUNCH_SCHEMA_VERSION == 2
-    assert production.TRACE_SCHEMA_VERSION == 3
+    assert production.PROMOTION_SCHEMA_VERSION == 3
+    assert production.LAUNCH_SCHEMA_VERSION == 3
+    assert production.TRACE_SCHEMA_VERSION == 4
     assert production._production_contracts()["capacity_profile"] == "sandoq-c64-w2-v1"
     assert production._production_contracts()["per_worker_capacity"] == 2
     assert production._production_contracts()["max_forwarded_capacity"] == 48
+    assert production._production_contracts()["provisioning_retries"] == 3
 
 
 def test_launch_value_binds_w2_forwarding_capacity(tmp_path: Path) -> None:
@@ -84,7 +86,7 @@ def test_launch_value_binds_w2_forwarding_capacity(tmp_path: Path) -> None:
         output_dir=tmp_path / "run",
     )
 
-    assert launch["schema_version"] == 2
+    assert launch["schema_version"] == 3
     assert launch["deployment"]["capacity_profile"] == "sandoq-c64-w2-v1"
     assert launch["deployment"]["per_worker_capacity"] == 2
     assert launch["deployment"]["max_forwarded_capacity"] == 48
@@ -148,7 +150,7 @@ def test_w2_promotion_reuses_tb4_endpoint_with_new_capacity_source(
     new_commit = "3" * 40
     new_tree = "4" * 64
     tb4 = {
-        "schema_version": 3,
+        "schema_version": 2,
         "deployment": {
             "endpoint_bundle_sha256": endpoint_bundle_sha256,
             "source_spec_sha256": source_spec_sha256,
@@ -195,8 +197,10 @@ def test_w2_promotion_reuses_tb4_endpoint_with_new_capacity_source(
     )
 
     value = json.loads(output.read_bytes())
-    assert value["schema_version"] == 2
+    assert value["schema_version"] == 3
     assert value["endpoint"]["endpoint_bundle_sha256"] == endpoint_bundle_sha256
+    assert value["endpoint"]["tb4_evaluated_endpoint_bundle_sha256"] == endpoint_bundle_sha256
+    assert value["endpoint"]["tb4_endpoint_bridge"] == "exact-endpoint-equality-v1"
     assert value["endpoint"]["source_spec_sha256"] == source_spec_sha256
     assert value["capacity_source"]["prime_rl_commit"] == new_commit
     assert value["capacity_source"]["prime_rl_tree_sha256"] == new_tree
@@ -210,6 +214,7 @@ def test_w2_promotion_reuses_tb4_endpoint_with_new_capacity_source(
 
     for section, field, replacement in (
         ("endpoint", "endpoint_bundle_sha256", "9" * 64),
+        ("endpoint", "tb4_evaluated_endpoint_bundle_sha256", "9" * 64),
         ("endpoint", "source_spec_sha256", "9" * 64),
         ("endpoint", "router_implementation_sha256", "9" * 64),
         ("capacity_source", "prime_rl_commit", "9" * 40),
@@ -236,6 +241,143 @@ def test_w2_promotion_reuses_tb4_endpoint_with_new_capacity_source(
         production.validate_promotion(output, output_sha256, required_concurrency=64)
 
 
+def test_c23_tb4_endpoint_bridge_uses_revalidated_full_source_bundle(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    identity_path = _private_file(tmp_path / "eval_run_identity.json", b"identity\n")
+    manifest_path = _private_file(tmp_path / "direct_kimi_workers.json", b"manifest\n")
+    identity_sha256 = "1" * 64
+    evaluated_sha256 = "2" * 64
+    source_sha256 = "3" * 64
+    spec_sha256 = "4" * 64
+    manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    identity_artifact = {
+        "path": str(identity_path),
+        "bytes": identity_path.stat().st_size,
+        "sha256": hashlib.sha256(identity_path.read_bytes()).hexdigest(),
+    }
+    deployment = {
+        "endpoint_bundle_sha256": evaluated_sha256,
+        "source_spec_sha256": spec_sha256,
+    }
+    shared_deployment = {
+        "endpoint_bundle_sha256": evaluated_sha256,
+        "spec_sha256": spec_sha256,
+        "router": {"capacity_profile": "sandoq-c23-v1", "worker_count": 23},
+    }
+    identity = {
+        "role": "kimi-direct-tb4",
+        "deployment": {
+            "endpoint_bundle_sha256": evaluated_sha256,
+            "spec_sha256": spec_sha256,
+            "router": {"capacity_profile": "sandoq-c23-v1", "worker_count": 23},
+            "worker_manifest": {"path": str(manifest_path), "sha256": manifest_sha256},
+        },
+    }
+    tb4 = {
+        "schema_version": 3,
+        "deployment": deployment,
+        "providers": {
+            "native_sandoq": {
+                "eval_run_identity_sha256": identity_sha256,
+                "shared_contract": {"deployment_contract": shared_deployment},
+                "artifacts": {"eval_run_identity": identity_artifact},
+            }
+        },
+    }
+    manifest = {
+        "schema_version": 4,
+        "endpoint_bundle_sha256": evaluated_sha256,
+        "source_endpoint_bundle_sha256": source_sha256,
+        "source_spec_sha256": spec_sha256,
+        "workers": [{} for _index in range(23)],
+        "router": {"capacity_profile": "sandoq-c23-v1"},
+    }
+    monkeypatch.setattr(
+        production,
+        "load_eval_run_identity",
+        lambda *_args, **_kwargs: {"eval_run_identity_sha256": identity_sha256, "identity": identity},
+    )
+    monkeypatch.setattr(
+        "direct_kimi_workers.validate_saved_manifest",
+        lambda *_args, **_kwargs: manifest,
+    )
+
+    assert production._tb4_endpoint_binding(tb4) == {
+        "method": "identity-bound-c23-source-endpoint-v1",
+        "evaluated_endpoint_bundle_sha256": evaluated_sha256,
+        "capacity_endpoint_bundle_sha256": source_sha256,
+        "source_spec_sha256": spec_sha256,
+    }
+
+    def mutate_after_validation(*_args: object, **_kwargs: object) -> dict[str, object]:
+        manifest_path.write_bytes(b"changed\n")
+        return manifest
+
+    monkeypatch.setattr(
+        "direct_kimi_workers.validate_saved_manifest",
+        mutate_after_validation,
+    )
+    with pytest.raises(production.KimiProductionError, match="tb4_endpoint_bridge_invalid"):
+        production._tb4_endpoint_binding(tb4)
+
+
+def test_legacy_tb4_endpoint_bridge_preserves_exact_equality() -> None:
+    endpoint_sha256 = "1" * 64
+    spec_sha256 = "2" * 64
+
+    assert production._tb4_endpoint_binding(
+        {
+            "schema_version": 2,
+            "deployment": {
+                "endpoint_bundle_sha256": endpoint_sha256,
+                "source_spec_sha256": spec_sha256,
+            },
+        }
+    ) == {
+        "method": "exact-endpoint-equality-v1",
+        "evaluated_endpoint_bundle_sha256": endpoint_sha256,
+        "capacity_endpoint_bundle_sha256": endpoint_sha256,
+        "source_spec_sha256": spec_sha256,
+    }
+
+    with pytest.raises(production.KimiProductionError, match="tb4_endpoint_bridge_invalid"):
+        production._tb4_endpoint_binding(
+            {
+                "schema_version": 4,
+                "endpoint_bundle_sha256": endpoint_sha256,
+                "source_spec_sha256": spec_sha256,
+            }
+        )
+
+    assert production._tb4_endpoint_binding(
+        {
+            "schema_version": 3,
+            "deployment": {
+                "endpoint_bundle_sha256": endpoint_sha256,
+                "source_spec_sha256": spec_sha256,
+            },
+            "providers": {
+                "native_sandoq": {
+                    "shared_contract": {
+                        "deployment_contract": {
+                            "endpoint_bundle_sha256": endpoint_sha256,
+                            "spec_sha256": spec_sha256,
+                            "router": {"worker_count": 24},
+                        }
+                    }
+                }
+            },
+        }
+    ) == {
+        "method": "exact-endpoint-equality-v1",
+        "evaluated_endpoint_bundle_sha256": endpoint_sha256,
+        "capacity_endpoint_bundle_sha256": endpoint_sha256,
+        "source_spec_sha256": spec_sha256,
+    }
+
+
 def test_production_launcher_consumes_selector_bound_resource_coverage() -> None:
     launcher = (
         Path(__file__).parents[1]
@@ -244,6 +386,20 @@ def test_production_launcher_consumes_selector_bound_resource_coverage() -> None
 
     assert "blocked aggregate_resource_coverage_not_certified" not in launcher
     assert "selector receipt is rederived" in launcher
+    assert (
+        "OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-/storage/home/tianhaowu/.config/oci-runner/ecr-rotation.state.json"
+    ) in launcher
+
+
+def test_tb4_and_recovery_launchers_use_live_ecr_rotation_state() -> None:
+    server_dir = Path(__file__).parents[1] / "configs/eval/servers/cpu-132-021_8103"
+    expected = "OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-/storage/home/tianhaowu/.config/oci-runner/ecr-rotation.state.json"
+
+    for name in (
+        "run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch",
+        "run_sandoq_managed_shell_recovery_probe_cpu-132-021_8103.sbatch",
+    ):
+        assert expected in (server_dir / name).read_text()
 
 
 def _router_receipt(
@@ -642,12 +798,35 @@ def test_pass_only_audit_accepts_exact_coverage_with_aggregate_errors(tmp_path: 
         rows.append(canonical_json(_trace(index, outcome)))
     results = _private_file(tmp_path / "results.jsonl", b"".join(rows))
 
-    audit = production.audit_pass_only_results(results, selector, trace_validator=lambda _trace: None)
+    validated: list[str] = []
+    audit = production.audit_pass_only_results(
+        results,
+        selector,
+        trace_validator=lambda trace: validated.append(str(trace["id"])),
+    )
 
     assert audit.traces == 2499
     assert audit.positive_traces == 1
     assert audit.error_traces == 1
     assert audit.zero_reward_traces == 2497
+    assert audit.clean_model_io_turns == 0
+    assert audit.clean_sampled_tokens == 0
+    assert len(validated) == 2498
+
+
+def test_pass_only_audit_rejects_untrainable_zero_reward_trace(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(production, "EXPECTED_TASK_COUNT", 1)
+    selector = _private_file(tmp_path / "selector.txt", b"opaque-0000\n")
+    results = _private_file(
+        tmp_path / "results.jsonl",
+        canonical_json(_trace(0, "zero")),
+    )
+
+    with pytest.raises(production.KimiProductionError, match="clean_trace_invalid"):
+        production.audit_pass_only_results(results, selector)
 
 
 def test_pass_only_audit_rejects_duplicate_task_coverage(tmp_path: Path) -> None:
