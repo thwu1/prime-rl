@@ -384,7 +384,7 @@ def _validate_qwen_error_retry_config(config: dict[str, Any], role: str) -> None
         or len(denylist) != len(EXPECTED_DENYLIST)
         or set(denylist) != EXPECTED_DENYLIST
         or not isinstance(sampling, dict)
-        or sampling.get("reasoning_effort") != "max"
+        or sampling.get("reasoning_effort") != "medium"
         or sampling.get("temperature") != 0.7
         or sampling.get("top_p") != 0.95
         or sampling.get("top_k") != 20
@@ -1368,9 +1368,7 @@ def _contract(
         raise EvalIdentityError("pass_at_1_required")
     thinking = sampling.get("chat_template_kwargs")
     expected_thinking = {"enable_thinking": True, "preserve_thinking": True}
-    expected_reasoning_effort = (
-        "medium" if model == "Qwen3.8-2.4T-A95B" and not qwen_error_retry else "max"
-    )
+    expected_reasoning_effort = "medium" if model == "Qwen3.8-2.4T-A95B" else "max"
     if sampling.get("reasoning_effort") != expected_reasoning_effort or canonical_json(thinking) != canonical_json(
         expected_thinking
     ):
@@ -2581,11 +2579,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         or contract.get("pass_at_1") is not True
         or contract.get("num_rollouts") != 1
         or contract.get("reasoning_effort")
-        != (
-            "medium"
-            if model == "Qwen3.8-2.4T-A95B" and role != QWEN_ERROR_RETRY_ROLE
-            else "max"
-        )
+        != ("medium" if model == "Qwen3.8-2.4T-A95B" else "max")
         or canonical_json(contract.get("thinking"))
         != canonical_json({"enable_thinking": True, "preserve_thinking": True})
         or not isinstance(context, dict)

@@ -81,7 +81,7 @@ MAX_SEQUENCE_TOKENS = 262_144
 RETRY_MODEL_IO_CONTRACT = audit_traces.QWEN3_A95B_MODEL_IO_CONTRACT
 RETRY_MODEL_IO_CONTRACT_ID = audit_traces.QWEN3_A95B_MODEL_IO_CONTRACT_ID
 RETRY_RUN_IDENTITY_ROLE = "qwen-direct-error-retry-2499"
-RETRY_CONFIG_TEMPLATE_SHA256 = "9acf48b3c69595f0ab1d255f6f60b3abe8265f9d46da0e0030444de6c0458bf8"
+RETRY_CONFIG_TEMPLATE_SHA256 = "6d52dae24f3bafbff97c024a7241cf6abd0912cda02eb6e6c5d36a062453b63b"
 RETRY_PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
 FORBIDDEN_PUBLIC_KEYS = frozenset({"task", "tasks", "task_id", "task_ids", "slug", "slugs"})
 
@@ -848,7 +848,7 @@ def _validate_retry_config(
             "top_k",
             "top_p",
         }
-        or sampling.get("reasoning_effort") != "max"
+        or sampling.get("reasoning_effort") != "medium"
         or sampling.get("max_tokens") != 32_768
         or thinking != {"enable_thinking": True, "preserve_thinking": True}
         or not isinstance(taskset, Mapping)
@@ -1454,7 +1454,7 @@ def _validate_run_identity(run_dir: Path, *, task_sha256: str, config_sha256: st
         or contract.get("model") != direct.EXPECTED_MODEL
         or contract.get("pass_at_1") is not True
         or contract.get("num_rollouts") != 1
-        or contract.get("reasoning_effort") != "max"
+        or contract.get("reasoning_effort") != "medium"
         or contract.get("thinking") != {"enable_thinking": True, "preserve_thinking": True}
         or contract.get("context_tokens")
         != {

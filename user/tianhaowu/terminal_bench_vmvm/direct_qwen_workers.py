@@ -408,7 +408,7 @@ def validate_eval_config(
             )
         if common_runtime_invalid or runtime_invalid:
             raise DirectWorkerError("eval_sandoq_runtime_invalid")
-        expected_reasoning_effort = "medium" if host_harness else "max"
+        expected_reasoning_effort = "medium" if host_harness or firecracker_retry else "max"
         if sampling.get("reasoning_effort") != expected_reasoning_effort:
             raise DirectWorkerError("eval_sandoq_reasoning_effort_mismatch")
         dataset_dir = Path(taskset.get("dataset_dir", ""))

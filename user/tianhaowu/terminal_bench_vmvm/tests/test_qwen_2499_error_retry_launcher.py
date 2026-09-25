@@ -180,7 +180,7 @@ def test_firecracker_retry_config_requires_explicit_validation_mode(
 @pytest.mark.parametrize(
     ("before", "after", "error"),
     [
-        ('reasoning_effort = "max"', 'reasoning_effort = "medium"', "reasoning_effort"),
+        ('reasoning_effort = "medium"', 'reasoning_effort = "max"', "reasoning_effort"),
         (
             'expected_environment = "oci-runner-firecracker-small"',
             'expected_environment = "oci-runner"',
@@ -219,7 +219,7 @@ def test_error_retry_identity_contract_is_exact(tmp_path: Path) -> None:
     value = _retry_identity(tmp_path)
 
     assert identity._validate_identity_shape(value) == value
-    assert value["contract"]["reasoning_effort"] == "max"
+    assert value["contract"]["reasoning_effort"] == "medium"
     assert value["contract"]["harness"] == {
         "id": "mini-swe-agent",
         "version": "2.4.6",
@@ -235,7 +235,7 @@ def test_error_retry_identity_contract_is_exact(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("path", "value"),
     [
-        (("contract", "reasoning_effort"), "medium"),
+        (("contract", "reasoning_effort"), "max"),
         (("contract", "sampling_max_tokens"), 32_767),
         (("contract", "harness", "version"), "2.4.5"),
         (("contract", "harness", "request_timeout_seconds"), 14_999),

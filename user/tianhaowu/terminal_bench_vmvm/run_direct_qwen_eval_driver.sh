@@ -136,7 +136,7 @@ if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" \
 fi
 if [[ "$sandbox_provider" == sandoq ]]; then
     if [[ "$(git -C deps/verifiers rev-parse HEAD)" \
-        != dcc2132667c52b2dd02b4c76c96643dd6537e5e0 ]]; then
+        != 3df6efa9e9f6bdc8a013df7759a03074aec79111 ]]; then
         printf 'Verifiers revision is not the approved public Sandoq host-harness source\n' >&2
         exit 2
     fi

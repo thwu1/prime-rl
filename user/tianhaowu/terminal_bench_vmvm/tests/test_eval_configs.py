@@ -893,7 +893,7 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert wrapper.count('env PYTHONPATH="$post_eval_pythonpath"') == 4
     assert 'if [[ "$diagnostic_mode" -eq 0 && "$error_retry_mode" -eq 0 ]]' in driver
     assert 'if [[ "$diagnostic_mode" -eq 1 ]]' in wrapper
-    assert "dcc2132667c52b2dd02b4c76c96643dd6537e5e0" in driver
+    assert "3df6efa9e9f6bdc8a013df7759a03074aec79111" in driver
     assert "configs/eval/shared_qwen38_2p4t/mobius_qwen_a95b_2500_sandoq.toml" in wrapper
     assert wrapper.index("approved clean source closure") < wrapper.index('"$workflow_dir/direct_qwen_workers.py"')
 

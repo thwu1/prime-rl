@@ -59,7 +59,7 @@ rotation_state=${KIMI_ECR_ROTATION_STATE_FILE:?}
     && -z "$(git -C "$project_dir/deps/renderers" status --porcelain=v1 --untracked-files=all)" ]] \
     || blocked source_identity_invalid
 [[ "$(git -C "$project_dir/deps/verifiers" rev-parse HEAD)" \
-    == dcc2132667c52b2dd02b4c76c96643dd6537e5e0 ]] \
+    == 3df6efa9e9f6bdc8a013df7759a03074aec79111 ]] \
     || blocked source_identity_invalid
 [[ -x "$x86_uv" && -d "$x86_site/pydantic" && -d "$sandoq_site/sandoq_client" ]] \
     || blocked runtime_unavailable
