@@ -739,6 +739,47 @@ def test_exports_redundant_kimi_provider_fields_without_losing_reasoning(tmp_pat
     assert "provider_specific_fields" not in json.dumps(rows, sort_keys=True)
 
 
+def test_exports_nullable_openai_wire_fields_without_losing_reasoning(tmp_path: Path) -> None:
+    trace = _linear_trace()
+    for node in trace["nodes"]:
+        if node.get("sampled") is not True:
+            continue
+        response = node["model_io"]["response"]
+        response["body"]["choices"][0]["message"].update(
+            {
+                "annotations": None,
+                "audio": None,
+                "function_call": None,
+                "refusal": None,
+            }
+        )
+        response["sha256"] = _json_sha256(response["body"])
+    results = _write_run(tmp_path / "run", [trace])
+    output = tmp_path / "dataset"
+
+    summary = export_sft(_options(results, output, expected_count=1))
+
+    rows = _read_jsonl(output / "train" / "train.jsonl")
+    assert summary["selected_traces"] == 1
+    assert all(row["target_has_reasoning"] is True for row in rows)
+    assert all(
+        set(row["messages"][-1]).isdisjoint({"annotations", "audio", "function_call", "refusal"})
+        for row in rows
+    )
+
+
+@pytest.mark.parametrize("field", ["annotations", "audio", "function_call", "refusal"])
+def test_rejects_nonnull_openai_wire_fields(field: str) -> None:
+    trace = _linear_trace()
+    node = trace["nodes"][2]
+    response = node["model_io"]["response"]
+    response["body"]["choices"][0]["message"][field] = "unexpected"
+    response["sha256"] = _json_sha256(response["body"])
+
+    with pytest.raises(ExportError, match="^captured_response_invalid$"):
+        exporter._validate_captured_response(node)
+
+
 @pytest.mark.parametrize(
     "provider_fields",
     [

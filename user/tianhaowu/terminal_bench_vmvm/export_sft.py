@@ -1502,7 +1502,10 @@ def _validate_captured_response(node: dict[str, Any]) -> None:
         "tool_calls",
     }
     if kind == "exact_provider_json":
-        allowed_raw_message_keys.add("provider_specific_fields")
+        nullable_wire_fields = {"annotations", "audio", "function_call", "refusal"}
+        allowed_raw_message_keys.update({"provider_specific_fields", *nullable_wire_fields})
+        if any(raw_message.get(field) is not None for field in nullable_wire_fields):
+            raise ExportError("captured_response_invalid")
     if "role" not in raw_message or not set(raw_message).issubset(allowed_raw_message_keys):
         raise ExportError("captured_response_invalid")
     if not _valid_redundant_provider_specific_fields(raw_message):
