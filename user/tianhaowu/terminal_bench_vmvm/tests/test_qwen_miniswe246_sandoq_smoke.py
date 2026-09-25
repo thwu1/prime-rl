@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import hashlib
 import json
 import stat
@@ -10,6 +11,7 @@ from pathlib import Path
 
 import pytest
 import qwen_miniswe246_sandoq_smoke as smoke
+from aiohttp import ClientSession, web
 from terminal_bench_vmvm import sandoq_provider_context as context
 from verifiers.v1.runtimes import SandoqConfig, SandoqRuntime
 
@@ -131,6 +133,214 @@ def test_trajectory_audit_requires_exact_native_marker() -> None:
     }
     trajectory["messages"][2]["extra"]["actions"][0]["command"] += " "
     assert smoke.trajectory_audit(smoke.canonical_json(trajectory), 2)["exact_native_submission_marker"] is False
+
+
+def test_model_relay_returns_litellm_compatible_reasoning_tool_call_sse() -> None:
+    litellm = pytest.importorskip("litellm")
+
+    async def scenario() -> None:
+        async def completion(request: web.Request) -> web.Response:
+            body = await request.json()
+            assert body["stream"] is False
+            assert "stream_options" not in body
+            return web.json_response(
+                {
+                    "id": "completion-1",
+                    "object": "chat.completion",
+                    "created": 1,
+                    "model": smoke.MODEL,
+                    "choices": [
+                        {
+                            "index": 0,
+                            "message": {
+                                "role": "assistant",
+                                "content": "done",
+                                "reasoning_content": "reasoning retained",
+                                "tool_calls": [
+                                    {
+                                        "id": "call-1",
+                                        "type": "function",
+                                        "function": {
+                                            "name": "bash",
+                                            "arguments": '{"command":"pwd"}',
+                                        },
+                                    }
+                                ],
+                            },
+                            "finish_reason": "tool_calls",
+                        }
+                    ],
+                    "usage": {
+                        "prompt_tokens": 5,
+                        "completion_tokens": 7,
+                        "total_tokens": 12,
+                    },
+                }
+            )
+
+        app = web.Application()
+        app.router.add_post("/v1/chat/completions", completion)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "127.0.0.1", 0)
+        await site.start()
+        assert site._server is not None and site._server.sockets
+        upstream_port = int(site._server.sockets[0].getsockname()[1])
+        relay = smoke.ModelRelay(
+            f"http://127.0.0.1:{upstream_port}/v1",
+            "test-secret",
+            "test-session",
+        )
+        await relay.start()
+        messages = [{"role": "user", "content": "test"}]
+        try:
+            async with ClientSession() as client:
+                async with client.post(
+                    f"http://127.0.0.1:{relay.port}/v1/chat/completions",
+                    json={
+                        "model": smoke.MODEL,
+                        "messages": messages,
+                        "stream": True,
+                        "stream_options": {"include_usage": True},
+                    },
+                ) as response:
+                    payload = await response.text()
+                    assert response.status == 200
+                    assert response.content_type == "text/event-stream"
+        finally:
+            await relay.close()
+            await runner.cleanup()
+
+        events = [
+            json.loads(line.removeprefix("data: "))
+            for line in payload.splitlines()
+            if line.startswith("data: ") and line != "data: [DONE]"
+        ]
+        chunks = [litellm.ModelResponse(stream=True, **event) for event in events]
+        rebuilt = litellm.stream_chunk_builder(chunks, messages=messages)
+        assert rebuilt is not None
+        assert rebuilt.choices[0].finish_reason == "tool_calls"
+        assert rebuilt.choices[0].message.reasoning_content == "reasoning retained"
+        assert rebuilt.choices[0].message.tool_calls[0].function.name == "bash"
+        assert rebuilt.choices[0].message.tool_calls[0].function.arguments == '{"command":"pwd"}'
+        assert rebuilt.usage.total_tokens == 12
+        assert relay.reasoning == [True]
+
+    asyncio.run(scenario())
+
+
+def test_model_relay_sse_shape_and_nonstream_json_are_preserved() -> None:
+    async def scenario() -> None:
+        seen: list[dict] = []
+        completion_body = {
+            "id": "completion-1",
+            "object": "chat.completion",
+            "created": 1,
+            "model": smoke.MODEL,
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "done",
+                        "reasoning_content": "reasoning retained",
+                        "tool_calls": [
+                            {
+                                "id": "call-1",
+                                "type": "function",
+                                "function": {
+                                    "name": "bash",
+                                    "arguments": '{"command":"pwd"}',
+                                },
+                            }
+                        ],
+                    },
+                    "finish_reason": "tool_calls",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 5,
+                "completion_tokens": 7,
+                "total_tokens": 12,
+            },
+        }
+
+        async def completion(request: web.Request) -> web.Response:
+            body = await request.json()
+            seen.append(body)
+            if body["messages"] == [{"role": "user", "content": "malformed"}]:
+                return web.json_response([])
+            return web.json_response(completion_body)
+
+        app = web.Application()
+        app.router.add_post("/v1/chat/completions", completion)
+        runner = web.AppRunner(app)
+        await runner.setup()
+        site = web.TCPSite(runner, "127.0.0.1", 0)
+        await site.start()
+        assert site._server is not None and site._server.sockets
+        upstream_port = int(site._server.sockets[0].getsockname()[1])
+        relay = smoke.ModelRelay(
+            f"http://127.0.0.1:{upstream_port}/v1",
+            "test-secret",
+            "test-session",
+        )
+        await relay.start()
+        try:
+            async with ClientSession() as client:
+                async with client.post(
+                    f"http://127.0.0.1:{relay.port}/v1/chat/completions",
+                    json={"model": smoke.MODEL, "messages": [], "stream": False},
+                ) as response:
+                    assert response.status == 200
+                    assert response.content_type == "application/json"
+                    assert await response.json() == completion_body
+                async with client.post(
+                    f"http://127.0.0.1:{relay.port}/v1/chat/completions",
+                    json={
+                        "model": smoke.MODEL,
+                        "messages": [],
+                        "stream": True,
+                        "stream_options": {"include_usage": True},
+                    },
+                ) as response:
+                    payload = await response.text()
+                    assert response.status == 200
+                    assert response.content_type == "text/event-stream"
+                async with client.post(
+                    f"http://127.0.0.1:{relay.port}/v1/chat/completions",
+                    json={
+                        "model": smoke.MODEL,
+                        "messages": [{"role": "user", "content": "malformed"}],
+                        "stream": True,
+                    },
+                ) as response:
+                    assert response.status == 502
+                    assert await response.json() == {
+                        "error": {"type": "invalid_upstream_completion"}
+                    }
+        finally:
+            await relay.close()
+            await runner.cleanup()
+
+        assert len(seen) == 3
+        for upstream_request in seen[:2]:
+            assert upstream_request["model"] == smoke.MODEL
+            assert upstream_request["messages"] == []
+            assert upstream_request["stream"] is False
+            assert "stream_options" not in upstream_request
+        lines = [line for line in payload.splitlines() if line.startswith("data: ")]
+        assert lines[-1] == "data: [DONE]"
+        events = [json.loads(line.removeprefix("data: ")) for line in lines[:-1]]
+        assert len(events) == 2
+        delta = events[0]["choices"][0]["delta"]
+        assert delta["reasoning_content"] == "reasoning retained"
+        assert delta["tool_calls"][0]["index"] == 0
+        assert delta["tool_calls"][0]["function"]["name"] == "bash"
+        assert events[1]["choices"][0]["finish_reason"] == "tool_calls"
+        assert events[1]["usage"] == completion_body["usage"]
+
+    asyncio.run(scenario())
 
 
 def test_public_receipt_separates_infrastructure_from_submission_gate() -> None:

@@ -22,6 +22,7 @@ from typing import Any
 import verifiers.v1 as vf
 from aiohttp import ClientSession, ClientTimeout, TCPConnector, web
 from deployment_endpoint import load_deployment_endpoint
+from sandoq_provider.buffered_chat import BufferedChatCompletionsProxy
 from terminal_bench_vmvm.taskset import (
     TerminalBenchTask,
     TerminalBenchVMVMConfig,
@@ -228,9 +229,11 @@ class ModelRelay:
             return web.json_response({"error": {"type": "invalid_json"}}, status=400)
         if not isinstance(body, dict) or body.get("model") != MODEL:
             return web.json_response({"error": {"type": "invalid_request"}}, status=400)
+        requested_stream = bool(body.get("stream"))
         for name in ("logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"):
             body.pop(name, None)
         body["stream"] = False
+        body.pop("stream_options", None)
         body["max_tokens"] = min(int(body.get("max_tokens") or 8192), 8192)
         body.setdefault("temperature", 0.7)
         body.setdefault("top_p", 0.95)
@@ -273,7 +276,20 @@ class ModelRelay:
         first = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else {}
         message = first.get("message") if isinstance(first.get("message"), dict) else {}
         self.reasoning.append(status == 200 and nonempty_reasoning_content(message))
-        return web.Response(body=raw_response, status=status, content_type=content_type)
+        if status < 200 or status >= 300:
+            return web.Response(body=raw_response, status=status, content_type=content_type)
+        if not requested_stream:
+            return web.Response(body=raw_response, status=200, content_type=content_type)
+        try:
+            events = BufferedChatCompletionsProxy._chat_events(response_body)
+        except (AttributeError, TypeError, ValueError):
+            return web.json_response({"error": {"type": "invalid_upstream_completion"}}, status=502)
+        return web.Response(
+            body=b"".join(events),
+            status=200,
+            content_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+        )
 
 
 def trajectory_audit(payload: bytes, model_calls: int) -> dict[str, Any]:
