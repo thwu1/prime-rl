@@ -14,6 +14,7 @@
 
 set -euo pipefail
 umask 077
+export PYTHONDONTWRITEBYTECODE=1
 
 preflight_only=0
 if (( $# == 1 )) && [[ $1 == --preflight ]]; then

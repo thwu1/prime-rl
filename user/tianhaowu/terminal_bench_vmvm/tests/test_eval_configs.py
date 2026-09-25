@@ -805,6 +805,7 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     driver = (workflow_dir / "run_direct_qwen_eval_driver.sh").read_text()
 
     assert "#SBATCH --time=7-00:00:00" in wrapper
+    assert wrapper.index("export PYTHONDONTWRITEBYTECODE=1") < wrapper.index("sandbox_provider=$(python3")
 
     assert '--policy "$router_policy"' in wrapper
     assert '--request-id-headers "$router_request_id_header"' in wrapper
