@@ -15,6 +15,12 @@ from torchdata.stateful_dataloader import StatefulDataLoader
 from transformers.tokenization_utils import PreTrainedTokenizer
 
 from prime_rl.configs.sft import DataConfig, LossMaskConfig, SFTDataConfig
+from prime_rl.trainer.sft.format_v3 import (
+    _canonicalize_attested_messages,
+    _canonicalize_attested_tools,
+    _message_is_trainable,
+)
+from prime_rl.trainer.sft.format_v3 import _drop_dataset_schema_nulls as _drop_dataset_schema_nulls
 from prime_rl.trainer.world import get_world
 from prime_rl.utils.chat_template import (
     IncrementalTokenizationError,
@@ -26,6 +32,15 @@ from prime_rl.utils.chat_template import (
 from prime_rl.utils.logger import get_logger
 
 STACKING_DATASET_BUCKET_TIMEOUT = 10
+FORMAT_V3_MARKER_COLUMNS = frozenset(
+    {
+        "assistant_target_count",
+        "history_reasoning_policy",
+        "target_assistant_message_index",
+        "target_finish_reason",
+        "transcript_fidelity",
+    }
+)
 
 
 class Sample(TypedDict):
@@ -133,6 +148,7 @@ class SFTDataset(StatefulIterableDataset):
         max_examples: int | None = None,
         max_epochs: int | None = None,
         renderer: Renderer | None = None,
+        attested_export: bool = False,
     ):
         super().__init__()
         self.logger = get_logger()
@@ -147,7 +163,11 @@ class SFTDataset(StatefulIterableDataset):
         self.max_examples = max_examples
         self.max_epochs = max_epochs
         self.renderer = renderer
+        self.attested_export = attested_export
         self._warned_chat_template_kwargs = False
+
+        if FORMAT_V3_MARKER_COLUMNS & set(self.dataset.column_names) and not attested_export:
+            raise ValueError("Format-v3 SFT exports require a validated preflight attestation")
 
         if self.tokenizer is None:
             self.logger.warning("No tokenizer provided, will not process examples")
@@ -176,7 +196,12 @@ class SFTDataset(StatefulIterableDataset):
             # `messages` takes precedence over explicit split fields and is interpreted
             # as a whole-chat training sample with an empty prompt.
             if "messages" in example:
-                messages = normalize_messages(example["messages"], default_role="assistant")
+                source_messages = (
+                    _canonicalize_attested_messages(example["messages"])
+                    if self.attested_export
+                    else example["messages"]
+                )
+                messages = normalize_messages(source_messages, default_role="assistant")
             elif "prompt" in example and "completion" in example:
                 messages = normalize_messages(example["prompt"], default_role="user") + normalize_messages(
                     example["completion"], default_role="assistant"
@@ -200,43 +225,46 @@ class SFTDataset(StatefulIterableDataset):
         # Parse available tools, if present - assumes OAI format
         # Reference: https://platform.openai.com/docs/guides/function-calling#function-tool-example
         # Accepts either `tools` or `tool_defs` (the verifiers rollout format),
-        # as either a JSON-encoded string of a list or a list of dicts. Tools
-        # arriving in the verifiers shape are converted to OAI form so any
-        # downstream chat template can consume them.
+        # as either a JSON-encoded string of a list or a list of dicts.
         raw_tools = example.get("tools", example.get("tool_defs"))
         if not raw_tools:
             tools = []
         else:
             if isinstance(raw_tools, str):
                 raw_tools = json.loads(raw_tools)
-            tools = [
-                t
-                if isinstance(t, dict) and t.get("type") == "function" and "function" in t
-                else {
-                    "type": "function",
-                    "function": {
-                        "name": t.get("name"),
-                        "description": t.get("description"),
-                        "parameters": t.get("parameters"),
-                        **({} if t.get("strict") is None else {"strict": t["strict"]}),
-                    },
-                }
-                for t in raw_tools
-            ]
-
-        def should_mask(message: dict) -> bool:
-            assert "role" in message, "Message must have a role"
-            match message["role"]:
-                case "user":
-                    return True if self.loss_mask_config.user else False
-                case "assistant":
-                    return True if self.loss_mask_config.assistant else False
-                case "system":
-                    return True if self.loss_mask_config.system else False
-                case "tool":
-                    return True if self.loss_mask_config.tool else False
-                case _:
-                    raise ValueError(f"Invalid message role: {message['role']}")
+            if self.attested_export:
+                raw_tools = _canonicalize_attested_tools(raw_tools)
+                if not isinstance(raw_tools, list) or any(
+                    not isinstance(tool, dict)
+                    or set(tool) != {"type", "function"}
+                    or tool.get("type") != "function"
+                    or not isinstance(tool.get("function"), dict)
+                    or not {"name", "description", "parameters"}.issubset(tool["function"])
+                    or not set(tool["function"]).issubset({"name", "description", "parameters", "strict"})
+                    or not isinstance(tool["function"].get("name"), str)
+                    or not tool["function"]["name"]
+                    or not isinstance(tool["function"].get("description"), str)
+                    or not isinstance(tool["function"].get("parameters"), dict)
+                    or (tool["function"].get("strict") is not None and not isinstance(tool["function"]["strict"], bool))
+                    for tool in raw_tools
+                ):
+                    raise ValueError("Format-v3 tools must use the canonical OpenAI function envelope")
+                tools = raw_tools
+            else:
+                tools = [
+                    t
+                    if isinstance(t, dict) and t.get("type") == "function" and "function" in t
+                    else {
+                        "type": "function",
+                        "function": {
+                            "name": t.get("name"),
+                            "description": t.get("description"),
+                            "parameters": t.get("parameters"),
+                            **({} if t.get("strict") is None else {"strict": t["strict"]}),
+                        },
+                    }
+                    for t in raw_tools
+                ]
 
         if self.renderer is not None:
             if example.get("chat_template_kwargs") and not self._warned_chat_template_kwargs:
@@ -251,7 +279,7 @@ class SFTDataset(StatefulIterableDataset):
             input_ids, loss_mask = build_training_sample(
                 self.renderer,
                 messages,
-                role_to_mask=should_mask,
+                role_to_mask=lambda message: _message_is_trainable(message, self.loss_mask_config),
                 tools=tools,
             )
         else:
@@ -259,7 +287,7 @@ class SFTDataset(StatefulIterableDataset):
                 input_ids, loss_mask = build_incremental_token_mask(
                     self.tokenizer,
                     messages,
-                    role_to_mask=should_mask,
+                    role_to_mask=lambda message: _message_is_trainable(message, self.loss_mask_config),
                     tools=tools,
                     chat_template_kwargs=example.get("chat_template_kwargs", {}),
                     collapse_consecutive_tool_messages=True,
@@ -526,8 +554,15 @@ class FixedStackDataset(StatefulIterableDataset):
             for key, value in sample.items():
                 assert isinstance(value, list), f"Value for key {key} must be a list"
                 assert len(value) == sample_len, f"Value for key {key} must align with input_ids"
-                pad_value = False if key == "loss_mask" else 0.0 if key == "loss_weight" else 0
-                padded_sample[key] = value[: self.seq_len] + [pad_value] * max(self.seq_len - len(value), 0)
+                truncated_value = value[: self.seq_len]
+                pad_len = self.seq_len - len(truncated_value)
+                if key == "position_ids":
+                    pad_start = truncated_value[-1] + 1 if truncated_value else 0
+                    padding = list(range(pad_start, pad_start + pad_len))
+                else:
+                    pad_value = False if key == "loss_mask" else 0.0 if key == "loss_weight" else 0
+                    padding = [pad_value] * pad_len
+                padded_sample[key] = truncated_value + padding
             batch.append(padded_sample)
 
             if len(batch) == self.batch_size:
@@ -639,6 +674,7 @@ def setup_dataset(
     max_epochs: int | None = None,
     raw_dataset: Dataset | None = None,
     renderer: Renderer | None = None,
+    attested_export: bool = False,
 ) -> StatefulIterableDataset:
     if config.type == "fake":
         return FakeDataset(
@@ -658,6 +694,7 @@ def setup_dataset(
             non_dp_size=non_dp_size,
             max_epochs=max_epochs,
             renderer=renderer,
+            attested_export=attested_export,
         )
     else:
         raise ValueError(f"Invalid dataset type: {config.type}")

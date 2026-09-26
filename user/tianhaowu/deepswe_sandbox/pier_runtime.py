@@ -19,6 +19,7 @@ from prime_sandboxes import SandboxFileNotFoundError
 from verifiers.v1.errors import SandboxError
 from verifiers.v1.runtimes import (
     ModalConfig,
+    ProgramResult,
     SandoqConfig,
     VMVMConfig,
     make_runtime,
@@ -42,6 +43,17 @@ _UV_INSTALLER = re.compile(
 )
 _STAGED_UV_ARCHIVE = "/tmp/pier-host-uv.tgz"
 _STAGED_UV_PATH = "/opt/pier-tools/uv"
+_VMVM_COMMAND_RECOVERY_ATTEMPTS = 5
+_VMVM_CONNECTION_LOSS_MARKERS = (
+    "connectionreseterror",
+    "connection reset",
+    "connection lost",
+    "broken pipe",
+    "broken_pipe",
+    "control socket",
+    "connection closed",
+    "session not initialized",
+)
 _APT_SOURCE_GUARD = r"""
 pier_disabled_apt_sources=
 pier_restore_apt_sources() {
@@ -128,11 +140,10 @@ class PierRuntimeEnvironment(BaseEnvironment):
         dockerfile = self.environment_dir / "Dockerfile"
         if not dockerfile.is_file():
             raise FileNotFoundError(
-                "Runtime-backed Pier environments require environment.docker_image "
-                f"or a Dockerfile: {dockerfile}"
+                f"Runtime-backed Pier environments require environment.docker_image or a Dockerfile: {dockerfile}"
             )
-        self._runtime_image, self._bootstrap_copies, self._bootstrap_commands = (
-            self._parse_simple_dockerfile(dockerfile)
+        self._runtime_image, self._bootstrap_copies, self._bootstrap_commands = self._parse_simple_dockerfile(
+            dockerfile
         )
 
     @staticmethod
@@ -154,36 +165,25 @@ class PierRuntimeEnvironment(BaseEnvironment):
                 raise ValueError(f"invalid Dockerfile instruction at {dockerfile}:{line_number}")
             if instruction == "FROM":
                 if image or len(shlex.split(value)) != 1:
-                    raise ValueError(
-                        f"only one plain FROM image is supported at {dockerfile}:{line_number}"
-                    )
+                    raise ValueError(f"only one plain FROM image is supported at {dockerfile}:{line_number}")
                 image = value
                 continue
             if instruction == "COPY":
                 parts = shlex.split(value)
                 if len(parts) != 2 or parts[0].startswith("--"):
-                    raise ValueError(
-                        f"only COPY SOURCE DEST is supported at {dockerfile}:{line_number}"
-                    )
+                    raise ValueError(f"only COPY SOURCE DEST is supported at {dockerfile}:{line_number}")
                 source = (context / parts[0]).resolve()
                 if not source.is_relative_to(context) or not source.is_file():
-                    raise ValueError(
-                        f"Dockerfile COPY source must be a file in {context}: {parts[0]!r}"
-                    )
+                    raise ValueError(f"Dockerfile COPY source must be a file in {context}: {parts[0]!r}")
                 destination = PurePosixPath(parts[1])
                 if not destination.is_absolute() or ".." in destination.parts:
-                    raise ValueError(
-                        f"Dockerfile COPY destination must be absolute: {parts[1]!r}"
-                    )
+                    raise ValueError(f"Dockerfile COPY destination must be absolute: {parts[1]!r}")
                 copies.append((source, str(destination)))
                 continue
             if instruction == "RUN":
                 commands.append(value)
                 continue
-            raise ValueError(
-                f"unsupported Dockerfile instruction {instruction!r} at "
-                f"{dockerfile}:{line_number}"
-            )
+            raise ValueError(f"unsupported Dockerfile instruction {instruction!r} at {dockerfile}:{line_number}")
         if not image:
             raise ValueError(f"Dockerfile has no FROM image: {dockerfile}")
         return image, copies, commands
@@ -230,15 +230,12 @@ class PierRuntimeEnvironment(BaseEnvironment):
                 )
                 + " && chmod 777 "
                 + " ".join(
-                    shlex.quote(str(path))
-                    for path in (paths.agent_dir, paths.verifier_dir, paths.artifacts_dir)
+                    shlex.quote(str(path)) for path in (paths.agent_dir, paths.verifier_dir, paths.artifacts_dir)
                 ),
                 user="root",
             )
             if result.return_code != 0:
-                raise RuntimeError(
-                    result.stderr or result.stdout or "failed to initialize Pier paths"
-                )
+                raise RuntimeError(result.stderr or result.stdout or "failed to initialize Pier paths")
         except BaseException:
             await asyncio.shield(self._runtime.stop())
             self._runtime = None
@@ -260,9 +257,7 @@ class PierRuntimeEnvironment(BaseEnvironment):
             result = await self.runtime.run(["sh", "-lc", command], {})
             if result.exit_code != 0:
                 detail = result.stderr or result.stdout or "no output"
-                raise RuntimeError(
-                    f"Dockerfile RUN failed with code {result.exit_code}: {detail[-2000:]}"
-                )
+                raise RuntimeError(f"Dockerfile RUN failed with code {result.exit_code}: {detail[-2000:]}")
 
     async def _install_agent(self) -> None:
         install = self.agent_install_spec
@@ -284,9 +279,7 @@ class PierRuntimeEnvironment(BaseEnvironment):
             )
             if result.return_code != 0:
                 detail = result.stderr or result.stdout or "no output"
-                raise SandboxError(
-                    f"agent install step failed with code {result.return_code}: {detail[-2000:]}"
-                )
+                raise SandboxError(f"agent install step failed with code {result.return_code}: {detail[-2000:]}")
         if install.verification_command:
             result = await self.exec(
                 install.verification_command,
@@ -296,8 +289,7 @@ class PierRuntimeEnvironment(BaseEnvironment):
             )
             if result.return_code != 0:
                 raise SandboxError(
-                    "agent installation verification failed: "
-                    + (result.stderr or result.stdout or "no output")[-2000:]
+                    "agent installation verification failed: " + (result.stderr or result.stdout or "no output")[-2000:]
                 )
 
     async def _stage_host_uv(self, steps: list[InstallStep]) -> bool:
@@ -334,8 +326,7 @@ class PierRuntimeEnvironment(BaseEnvironment):
             return
         if not delete:
             self.logger.info(
-                "Runtime provider %s is ephemeral and will release %s regardless of "
-                "delete=False",
+                "Runtime provider %s is ephemeral and will release %s regardless of delete=False",
                 self.provider,
                 runtime.descriptor,
             )
@@ -366,6 +357,79 @@ class PierRuntimeEnvironment(BaseEnvironment):
     def agent_process_env(self, env: dict[str, str] | None) -> dict[str, str]:
         return {**(env or {}), _AGENT_NETWORK_MARKER: "1"}
 
+    @staticmethod
+    def _is_vmvm_connection_loss(error_type: str, output: str) -> bool:
+        if error_type == "broken_pipe":
+            return True
+        if error_type != "other":
+            return False
+        lowered = output.lower()
+        return any(marker in lowered for marker in _VMVM_CONNECTION_LOSS_MARKERS)
+
+    async def _run_with_vmvm_recovery(
+        self,
+        argv: list[str],
+        env: dict[str, str],
+    ) -> ProgramResult:
+        try:
+            return await self.runtime.run(argv, env)
+        except SandboxError as error:
+            match = re.search(r"VMVM exec failed \(([^)]+)\):", str(error))
+            if (
+                self.provider != "vmvm"
+                or match is None
+                or not self._is_vmvm_connection_loss(match.group(1), str(error))
+            ):
+                raise
+
+            backend = self.runtime.backend
+            last_output = str(error)
+            for attempt in range(1, _VMVM_COMMAND_RECOVERY_ATTEMPTS + 1):
+                self.logger.warning(
+                    "VMVM command transport dropped; recovering on the same container (%d/%d)",
+                    attempt,
+                    _VMVM_COMMAND_RECOVERY_ATTEMPTS,
+                )
+                try:
+                    restarted = await asyncio.to_thread(backend.restart_session)
+                except Exception as recovery_error:
+                    raise SandboxError(
+                        f"VMVM restart_session failed during command recovery: {recovery_error}"
+                    ) from recovery_error
+                if not restarted:
+                    raise SandboxError("VMVM lease or container was unavailable during command recovery") from error
+
+                try:
+                    recovered = await asyncio.to_thread(backend.recover_last)
+                except Exception as recovery_error:
+                    raise SandboxError(
+                        f"VMVM recover_last failed during command recovery: {recovery_error}"
+                    ) from recovery_error
+                if recovered is None:
+                    raise SandboxError("VMVM persistent shell state was lost during command recovery") from error
+
+                error_type = str(recovered.get("error_type", "other"))
+                output = str(recovered.get("output", ""))
+                exit_code = int(recovered.get("exit_code", -1))
+                if self._is_vmvm_connection_loss(error_type, output):
+                    last_output = output
+                    continue
+                if exit_code < 0:
+                    raise SandboxError(f"VMVM exec failed ({error_type}): {output}") from error
+                self.logger.warning(
+                    "VMVM command recovered on the same container after %d reconnect(s)",
+                    attempt,
+                )
+                return ProgramResult(
+                    exit_code=exit_code,
+                    stdout=output,
+                    stderr="",
+                )
+
+            raise SandboxError(
+                f"VMVM command recovery exhausted after {_VMVM_COMMAND_RECOVERY_ATTEMPTS} reconnects: {last_output}"
+            ) from error
+
     async def exec(
         self,
         command: str,
@@ -389,9 +453,7 @@ class PierRuntimeEnvironment(BaseEnvironment):
             command = "unset " + " ".join(_PROXY_ENV_KEYS) + "; " + command
         if timeout_sec is not None:
             command = f"timeout --signal=TERM {int(timeout_sec)}s bash -c {shlex.quote(command)}"
-        result = await self._remember_sandbox_error(
-            self.runtime.run(["bash", "-c", command], merged_env)
-        )
+        result = await self._remember_sandbox_error(self._run_with_vmvm_recovery(["bash", "-c", command], merged_env))
         return ExecResult(
             stdout=result.stdout,
             stderr=result.stderr,
@@ -400,9 +462,7 @@ class PierRuntimeEnvironment(BaseEnvironment):
 
     async def upload_file(self, source_path: Path | str, target_path: str) -> None:
         source = Path(source_path)
-        await self._remember_sandbox_error(
-            self.runtime.write(target_path, await asyncio.to_thread(source.read_bytes))
-        )
+        await self._remember_sandbox_error(self.runtime.write(target_path, await asyncio.to_thread(source.read_bytes)))
 
     async def upload_dir(self, source_dir: Path | str, target_dir: str) -> None:
         source = Path(source_dir)
@@ -462,9 +522,7 @@ class PierRuntimeEnvironment(BaseEnvironment):
         if result.exit_code != 0:
             raise RuntimeError(result.stderr or result.stdout or "directory download failed")
         data = await self._remember_sandbox_error(self.runtime.read(archive_path))
-        await self._remember_sandbox_error(
-            self.runtime.run(["rm", "-f", archive_path], {})
-        )
+        await self._remember_sandbox_error(self.runtime.run(["rm", "-f", archive_path], {}))
         target = Path(target_dir)
 
         def extract() -> None:

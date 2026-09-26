@@ -73,11 +73,11 @@ def task_key(messages: list[dict[str, Any]]) -> str:
 
 def is_context_window_exhaustion(summary: dict[str, Any]) -> bool:
     error = summary.get("error")
-    return (
-        summary.get("http_status") == 400
-        and isinstance(error, dict)
-        and error.get("param") == "input_tokens"
-        and "exceeds the model's maximum context length" in str(error.get("message", ""))
+    if summary.get("http_status") != 400 or not isinstance(error, dict):
+        return False
+    message = str(error.get("message", "")).lower()
+    return "contextwindowexceeded" in message or (
+        "maximum context length" in message and ("exceed" in message or "requested" in message)
     )
 
 
@@ -93,10 +93,14 @@ class CaptureServer(ThreadingHTTPServer):
         upstream_model: str | None,
         latest_dir: Path,
         summary_path: Path,
+        upstream_api_key: str | None = None,
+        upstream_session_header: str | None = None,
     ) -> None:
         super().__init__(address, CaptureHandler)
         self.upstream = upstream.rstrip("/")
+        self.upstream_api_key = upstream_api_key
         self.upstream_model = upstream_model
+        self.upstream_session_header = upstream_session_header
         self.latest_dir = latest_dir
         self.summary_path = summary_path
         self.lock = threading.Lock()
@@ -306,8 +310,12 @@ class CaptureHandler(BaseHTTPRequestHandler):
             for key in ("Content-Type", "Accept", "Authorization")
             if (value := self.headers.get(key)) is not None
         }
+        if self.server.upstream_api_key is not None:
+            headers["Authorization"] = f"Bearer {self.server.upstream_api_key}"
         if summary is not None:
             headers["X-Correlation-ID"] = summary["router_correlation_id"]
+            if self.server.upstream_session_header is not None:
+                headers[self.server.upstream_session_header] = summary["router_correlation_id"]
         request = urllib.request.Request(
             f"{self.server.upstream}{self.path}",
             data=body,
@@ -346,11 +354,15 @@ def start_capture_proxy(
     latest_dir: Path,
     summary_path: Path,
     upstream_model: str | None = None,
+    upstream_api_key: str | None = None,
+    upstream_session_header: str | None = None,
 ) -> tuple[CaptureServer, threading.Thread, str]:
     server = CaptureServer(
         ("127.0.0.1", 0),
         upstream=upstream,
+        upstream_api_key=upstream_api_key,
         upstream_model=upstream_model,
+        upstream_session_header=upstream_session_header,
         latest_dir=latest_dir,
         summary_path=summary_path,
     )
@@ -391,8 +403,17 @@ def audit_captured_requests(
     latest_dir: Path,
     summary_path: Path,
     output_path: Path,
+    *,
+    expected_template_kwargs: dict[str, Any] | None = None,
+    truncate_history_thinking: bool = False,
+    preserve_reasoning_history: bool = True,
 ) -> None:
     summaries = [json.loads(line) for line in summary_path.read_text().splitlines() if line]
+    if expected_template_kwargs is None:
+        expected_template_kwargs = {
+            "enable_thinking": True,
+            "truncate_history_thinking": truncate_history_thinking,
+        }
     request_failures = [
         {
             "request_id": item.get("request_id"),
@@ -405,10 +426,23 @@ def audit_captured_requests(
             "chat_template_kwargs": item.get("chat_template_kwargs"),
         }
         for item in summaries
-        if item.get("assistant_messages_missing_reasoning")
-        or item.get("assistant_canonical_reasoning_count") != item.get("assistant_reasoning_count")
-        or item.get("previous_reasoning_prefix_preserved") is not True
-        or item.get("chat_template_kwargs") != {"enable_thinking": True, "truncate_history_thinking": False}
+        if (
+            preserve_reasoning_history
+            and (
+                item.get("assistant_messages_missing_reasoning")
+                or item.get("assistant_canonical_reasoning_count") != item.get("assistant_reasoning_count")
+                or item.get("previous_reasoning_prefix_preserved") is not True
+            )
+        )
+        or (
+            not preserve_reasoning_history
+            and (
+                item.get("assistant_reasoning_count") != 0
+                or item.get("assistant_canonical_reasoning_count") != 0
+                or item.get("reasoning_aliases_normalized") != 0
+            )
+        )
+        or item.get("chat_template_kwargs") != expected_template_kwargs
         or (item.get("http_status") != 200 and not is_context_window_exhaustion(item))
     ]
     context_limit_events = [
@@ -456,6 +490,7 @@ def audit_captured_requests(
             {"model": payload["model"], "tokens": tokens},
         )["prompt"]
         missing = [index + 1 for index, value in enumerate(reasoning) if value.strip() not in prompt]
+        present = [index + 1 for index, value in enumerate(reasoning) if value.strip() in prompt]
         latest_summary = latest_summaries.get(path.stem, {})
         usage = latest_summary.get("usage")
         reported_prompt_tokens = usage.get("prompt_tokens") if isinstance(usage, dict) else None
@@ -467,8 +502,9 @@ def audit_captured_requests(
                 "rendered_tokens": len(tokens),
                 "reported_prompt_tokens": reported_prompt_tokens,
                 "rendered_tokens_match_usage": reported_prompt_tokens == len(tokens),
-                "exact_reasoning_turns_present": len(reasoning) - len(missing),
+                "exact_reasoning_turns_present": len(present),
                 "missing_reasoning_turns": missing,
+                "unexpected_reasoning_turns": present if truncate_history_thinking else [],
             }
         )
 
@@ -476,6 +512,8 @@ def audit_captured_requests(
     report = {
         "request_count": len(summaries),
         "task_count": len(rendered),
+        "chat_template_kwargs": expected_template_kwargs,
+        "preserve_reasoning_history": preserve_reasoning_history,
         "task_attempts": {
             key: max(int(item.get("attempt", 1)) for item in summaries if item.get("task_key") == key)
             for key in task_keys
@@ -486,7 +524,11 @@ def audit_captured_requests(
     }
     output_path.write_text(json.dumps(report, indent=2) + "\n")
     render_failures = [
-        item for item in rendered if item["missing_reasoning_turns"] or not item["rendered_tokens_match_usage"]
+        item
+        for item in rendered
+        if not item["rendered_tokens_match_usage"]
+        or (truncate_history_thinking and item["unexpected_reasoning_turns"])
+        or (not truncate_history_thinking and item["missing_reasoning_turns"])
     ]
     if request_failures or render_failures:
         raise RuntimeError(f"thinking trajectory audit failed: {output_path}")

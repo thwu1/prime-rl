@@ -1,0 +1,56 @@
+name = "toolathlon-verified-kimi-k26-v2"
+output_dir = "/checkpoint/ram/tianhaowu/toolathlon_vmvm/kimi_k26_verified_v2"
+
+[source]
+repository = "https://github.com/hkust-nlp/Toolathlon"
+release = "Toolathlon-Verified"
+leaderboard_date = "2026-07-15"
+reference_commit = "314408ac6140bb04f2f215449c3a9bea7d93c534"
+
+[benchmark]
+suite = "toolathlon-verified"
+expected_tasks = 108
+num_trials = 3
+max_steps = 100
+task_timeout_seconds = 5400
+
+[model]
+model = "Kimi-K2.6"
+info_path = "/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi26/proxy_info.json"
+max_tokens = 65536
+context_window = 262144
+thinking = true
+parallel_tool_calls = true
+
+[official_service]
+output_dir = "/checkpoint/ram/tianhaowu/toolathlon_vmvm/kimi_k26_verified_v2"
+server_url = "http://47.253.6.47:8080"
+ws_proxy_port = 8081
+client_version = "1.3"
+ws_client_version = "1.3"
+job_id_prefix = "toolathlon-verified-kimi-k26-tianhaowu-20260821-v2"
+poll_interval_seconds = 60
+wait_timeout_seconds = 54000
+evaluation_timeout_seconds = 18000
+
+[runtime]
+workers = 10
+image = "docker.io/lockon0927/toolathlon-task-image:1016beta"
+tenant_id = "async_2347641"
+lease_ttl = "60s"
+cpu = 2
+memory_gb = 4
+command_timeout_seconds = 18600
+request_timeout_seconds = 600
+max_connection_drops = 5
+max_vm_restarts = 20
+vm_restart_delay_seconds = 10
+
+[reference]
+target_total_passes = 188
+target_any_passes = 78
+target_all_passes = 45
+pass_at_1_percent = 58.0
+pass_at_1_std_percent = 4.9
+pass_at_3_percent = 72.2
+pass_pow_3_percent = 41.7

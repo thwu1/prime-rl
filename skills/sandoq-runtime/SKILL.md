@@ -11,12 +11,12 @@ host inference reachability, and cleanup. Generic/model commands are
 single-attempt. An OCI gateway response whose execution status is unknown is
 raised as `SandboxError`; it is never replayed in the same sandbox.
 
-PR 17 intentionally leaves its agent-inside reverse tunnel as future work.
-`SandoqRuntime` completes the generic Verifiers contract with
-`host_tunnel = "modal"` by default: a temporary Modal SSH relay publishes an
-arbitrary host interception port to the sandbox. It does not use Prime Sandbox
-or require `PRIME_API_KEY`. `host_tunnel = "prime"` is available only as an
-explicit opt-in.
+`SandoqRuntime` retains `host_tunnel = "modal"` as its general default, while
+the f7313db4 integration also provides `host_tunnel = "sandoq"` for an
+agent-inside Firecracker run. The native path opens parked reverse-tunnel
+WebSockets and requires the staged Sandoq client, a named `tunnel` port, nested
+host networking, and an explicit loopback guest URL. `host_tunnel = "prime"`
+remains available only as an explicit opt-in.
 
 DeepSWE model evaluation does not exercise that generic tunnel. Following the
 RAM Harbor Sandoq backend, the CPU eval driver registers its authenticated
@@ -130,3 +130,203 @@ exit, model failure, verifier failure, or malformed reward is never resampled.
 
 Pier's adapter materializes the DeepSWE verifier Dockerfile inside a separate
 Sandoq runtime. Hidden tests are never copied into the agent runtime.
+
+For the pinned FrontierBench-300 Harbor bundle, use the two checked-in entry
+points under `user/tianhaowu/terminal_bench_vmvm/frontierbench_sandoq/`.
+`launch_oracle.sh` builds missing task images inside disposable Sandoq
+Firecracker sessions, publishes digest-pinned manifests, and starts the
+resumable oracle. `launch_model.sh` consumes only oracle-pass tasks and selects
+the server-scoped Qwen or Kimi MiniSWE-Agent 2.4.6 TOML. All non-secret defaults
+are in `frontierbench.env`; token values stay in its referenced mode-0600 files.
+
+## Provider-mode boundary
+
+Keep the two SDK-backed adapter modes distinct. `VF_SANDBOX_PROVIDER=sandoq`
+leases a predeployed Environment selected with `SANDOQ_DEFAULT_ENVIRONMENT` or
+`SANDOQ_ENV_MAP` and relies on the official client's mTLS discovery; it does
+not read `SANDOQ_AUTH_TOKEN` or `OCI_RUNNER_*`. It is not a drop-in executor for
+heterogeneous Harbor row images unless every image has an approved deployed
+Environment mapping.
+
+Per-task Harbor images use `VF_SANDBOX_PROVIDER=oci-runner`. The isolated
+Firecracker profile is
+`configs/provider_context/use2/kimi_sandoq_firecracker_no_network.json`: it
+sets environment `oci-runner-firecracker`, nested task network `none`, and
+disables Docker Hub fallback. Its bearer lives only in the owner-only,
+mode-0600 file named by `OCI_RUNNER_TOKEN_FILE`; never put the value in a repo,
+TOML, command line, log, or receipt. The supervisor removes ambient
+`SANDOQ_AUTH_TOKEN` and `FIRECRACKER_KEY` before launching the child.
+
+Keep legacy public-network TB4 artifacts separately hashed. Do not use a
+capacity or recovery receipt from one provider profile to promote another.
+
+The no-network Firecracker profile is valid only for a host-side harness or
+task-free diagnostics. Mini-SWE-Agent runs inside the task sandbox, and its
+model calls plus PEP 723 dependency preparation require connectivity. Use
+Mini-SWE-Agent 2.4.6 only with a separately sealed Firecracker host-network
+profile and the native Sandoq reverse tunnel; never treat the no-network smoke
+receipt as evidence for that distinct runtime contract.
+
+The bounded Qwen integration gate is
+`run_qwen_miniswe246_sandoq_smoke.sbatch`. It selects one approved Mobius row
+by a pinned line digest, rejects security-labelled metadata without printing
+the identifier or prompt, and uses
+`configs/provider_context/use2/qwen_sandoq_firecracker_host.json`. Keep its
+Slurm wall at exactly five minutes, `agent.step_limit=3`, environment
+`oci-runner-firecracker-small`, task network `host`, and native tunnel endpoint
+`127.0.0.1:8485`. The launcher must clear every upper- and lower-case ambient
+HTTP proxy before supervision. It loads the Qwen deployment credential only
+inside the evaluator process and writes raw traffic to owner-only artifacts.
+Only the final aggregate receipt may be reported. A strict pass requires one
+to three model calls, nonempty provider `reasoning_content` preserved in the
+trajectory, successful observed shell actions, the exact standalone native
+submission command, a positive live verifier reward, and verified cleanup.
+`infrastructure_only` is intentionally distinct from that submission gate.
+
+Use `probe_model_endpoint.py --profile qwen38-2p4t` for the reusable
+credential-safe Qwen endpoint check. It reads the deployment-local proxy
+metadata directly, disables ambient proxies, sends `X-Session-ID`, requests
+128 tokens with a five-minute ceiling, and emits only endpoint hashes,
+statuses, latencies, byte count, and reasoning/content presence flags. Never
+log the loaded URL, API key, session value, or response body.
+
+## Terminal Bench Kimi scored smoke
+
+The server-scoped Kimi TB4 smoke must use
+`configs/eval/servers/cpu-132-021_8103/tb4_kimi_k3_sandoq_smoke.toml` through
+`run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch`. The launcher derives
+and probes all 24 pinned workers, then exposes a loopback router using
+consistent hashing on `X-Session-ID`; do not point the evaluator at the shared
+front proxy.
+
+The router uses bounded-load consistent-hash placement for a session's first
+request: it starts at that session's hash position and selects the first
+least-loaded worker in ring order. The assignment is then immutable for every
+later request in the session. This fills all 24 workers before queueing a
+second new trajectory on one worker while retaining prefix-cache locality.
+
+This scored one-task smoke has a separate bounded timeout profile. Keep client
+retries, whole-rollout retries, verifier-runtime retries, and router retries at
+zero. Its exact timeout hierarchy is a 9,000-second rollout, 9,600-second host
+harness request, and 10,800-second Sandoq session/client timeout. Submit with
+an exact four-hour Slurm wall so setup, scoring, cleanup, and certificate
+publication remain outside the longest blocking model request:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-rl-<commit> && env PROJECT_DIR=\$PWD KIMI_SANDOQ_EXPECTED_PRIME_RL_REVISION=<commit> KIMI_SANDOQ_STAGE=smoke KIMI_SANDOQ_PREFLIGHT_ONLY=0 sbatch --parsable --time=04:00:00 \$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch" C-m
+```
+
+Use only the checked-in, digest-pinned non-security selector. Do not print its
+contents or task identifier while validating or monitoring the run.
+
+### Direct-Kimi c64 capacity certificate
+
+Direct Kimi defaults to `legacy-c24`. The only larger profile is the bounded
+`sandoq-c64-v1` profile: exactly 64 concurrent requests, endpoint identifier
+`cpu-132-021_8103`, consistent hashing on `X-Session-ID`, and zero router,
+client, verifier, or whole-rollout retries. It is valid only for the Sandoq
+`kimi-direct-capacity-smoke` role. Never substitute an unbounded value or use
+the c64 manifest as evidence by itself.
+
+Use `kimi_sandoq_production.py materialize-capacity-selector` to derive an
+opaque 64-task subset from the sealed 2,499-task universe, then use
+`direct_kimi_capacity.py materialize-config` with both that private mode-0600
+selector and its private receipt. The public output contains counts and hashes
+only; never inspect or print selector membership or task records. Run the
+server-scoped launcher with stage `capacity-smoke` and an exact two-hour Slurm
+wall. Do not reuse this capacity certificate for another source/config hash,
+selector receipt, worker manifest, provider profile, or endpoint namespace.
+
+Promotion requires `direct_kimi_capacity.py verify` to rehash every retained
+artifact and accept the certificate. Qualification requires measured router
+request and chat overlap of 64, Sandoq assignment and outer-session high-water
+of 64, verified cleanup of all 64 assignments and sessions, and zero queue
+overflow, retry, route-tracking, cross-route, cleanup, or trace anomalies. The
+certificate is aggregate-only and must not contain task identifiers, prompts,
+responses, or raw errors.
+
+Global c64 admission must occur before waiting on the sticky replica's
+single-request semaphore. This lets the router measure all 64 admitted client
+requests while at most 24 requests are forwarded to model replicas; reversing
+that order makes the 64-request certificate impossible and hides queued load.
+
+## Long-Kimi managed-shell recovery gate
+
+Only the sealed `kimi-tb4-long` lease profile enables managed-shell recovery.
+The server-scoped launcher derives that profile through the provider-context
+supervisor; do not set `OCI_RUNNER_MANAGED_SHELL_RECOVERY` independently. The
+provider rejects a mismatched declaration, and standard plus Qwen profiles keep
+recovery disabled.
+
+For this profile, non-idempotent shell POSTs remain broker-owned until their
+bounded IPC response is published. Request and response frames are capped at
+16 MiB, response publication has an absolute deadline, and ambiguous,
+oversized, or failed publication poisons the assignment without replay. A
+departed client cannot admit new work; its already-running command is allowed
+to quiesce before broker-owned cleanup reaps the assignment.
+
+Run the task-free forced-delete probe before restarting Kimi TB4, then run the
+3,900-second idle-endurance probe before a full rollout. Both use a disposable,
+digest-pinned utility image and access neither benchmark tasks nor a model
+endpoint. The checked-in probe launcher seeds the complete pinned Python path
+before provider-context supervision; do not invoke the probe module directly
+or replace that path with the shared dependency target alone. Submit Slurm work
+only through the launcher tmux pane:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-kimi-vmvm-<commit> && env PROJECT_DIR=\$PWD KIMI_RECOVERY_EXPECTED_PRIME_RL_REVISION=<full-commit> KIMI_RECOVERY_PROBE_SHA256=<probe-sha256> KIMI_RECOVERY_PROBE_MODE=forced-delete sbatch --parsable \$PWD/user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/run_sandoq_managed_shell_recovery_probe_cpu-132-021_8103.sbatch" C-m
+```
+
+Repeat with `KIMI_RECOVERY_PROBE_MODE=idle-endurance` for the endurance gate.
+A probe is valid only when its private receipt records exactly one recovery and
+successful assignment cleanup plus pool drain.
+
+## Kimi 2,499-task production and SFT gate
+
+Use the server-scoped workflow in
+`user/tianhaowu/terminal_bench_vmvm/KIMI_SANDOQ_PRODUCTION.md`. Do not launch
+the production stage directly. First materialize its opaque selector from the
+canonical approved 2,500-task source, then promote an official 66-task TB4
+certificate, both long-lease recovery receipts, and the exact
+`cpu-132-021_8103` capacity certificate.
+
+Keep the already-qualified TB4 artifact on its legacy public `oci-runner`
+profile. Native Mini-SWE recovery, c64 capacity, and proposed 2,499-task
+production use the schema-4 `kimi_sandoq_firecracker_host.json` profile: exact
+environment `oci-runner-firecracker`, effective network `public`,
+provider task network `host`, native loopback reverse tunnel, Docker Hub
+fallback disabled, and the private Firecracker bearer token file. Never call
+this strict no-network or reuse evidence across provider profiles.
+
+The full environment is proven at 2 CPU / 4 GiB / 10 GiB with a native tunnel
+round trip, paired with a separate cleanup/tunnel lifecycle receipt. This
+covers only the opaque 25-task non-Compose TB4 Sandoq partition. Three more
+resource-fitting tasks require Compose and therefore stay on VMVM. Certify TB4
+as a union with 38 VMVM CPU tasks and three GPU tasks recorded unsupported; keep the all-Sandoq
+stage blocked. The 2,499-task launcher also remains blocked until aggregate
+resource coverage or a provider partition covers the selector. Never silently
+lower task resource declarations.
+
+Treat requested concurrency as a certificate-capped input. A router profile
+that can be configured for 64 requests is not evidence that 64 was measured.
+The promotion validator must prove qualified concurrency is at least the
+requested value and no greater than the profile maximum.
+
+When the shared Kimi deployment YAML is group-writable, do not weaken source
+validation. Materialize the exact pinned spec and proxy-config bytes with
+`direct_kimi_workers.py snapshot-source` into an owner-only committed snapshot,
+then build and probe the 24-worker consistent-hash router from that snapshot.
+Do not use the shared proxy as the rollout endpoint.
+
+Run a login-side ARM64 ECR rotation service before the x86 batch and retain its
+private event log. The batch guard requires a live rotation state, fails closed
+before credential expiry, and always executes verified Sandoq cleanup. After
+the generation job is terminal, stop the rotator and use the server-scoped
+finalizer to certify exact 2,499-task coverage and export only reward-one
+traces. Exact provider JSON, reasoning/model I/O, request-graph agreement, and
+the tokenizer/rendering preflight are mandatory.
+
+All operational output must remain aggregate-only. Never print the selector,
+task identifiers, prompts, responses, or raw task errors.

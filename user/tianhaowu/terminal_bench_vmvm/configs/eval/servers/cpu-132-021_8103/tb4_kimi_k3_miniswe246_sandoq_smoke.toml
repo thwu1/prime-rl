@@ -1,0 +1,87 @@
+# Deployment namespace: cpu-132-021_8103
+# One-task native Mini-SWE-Agent gate for the full Firecracker tunnel lane.
+model = "Kimi-K3"
+num_tasks = 1
+num_rollouts = 1
+max_concurrent = 1
+max_turns = 3
+max_input_tokens = 262144
+max_output_tokens = 262144
+max_total_tokens = 262144
+multiplex = 1
+rich = false
+retain_traces = false
+
+[client]
+type = "eval"
+capture_model_io = true
+outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]
+base_url = "http://127.0.0.1:8000/v1"
+api_key_var = "OPENAI_API_KEY"
+timeout = 900
+connect_timeout = 120
+max_connections = 1
+max_keepalive_connections = 1
+max_retries = 0
+
+[sampling]
+temperature = 1.0
+top_p = 1.0
+max_tokens = 128
+reasoning_effort = "max"
+chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
+
+[taskset]
+id = "terminal-bench-vmvm"
+dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks"
+task_file = "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_short_smoke.tasks.txt"
+task_file_sha256 = "c1f745d4a1d3861deefb3fba4daa23f52ff3d1d4952a9fe2ba0ccbdc4040af97"
+image_manifest = "user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/tb4_images.sandoq.json"
+image_manifest_sha256 = "6dd632029af8da52f99f1d364e983a5da2e855afeb6a2ea5fc84fd00e1683513"
+ignore_dockerfile = true
+use_declared_images = true
+enable_compose = false
+verifier_runtime_retries = 0
+timeout_multiplier = 2.0
+resource_multiplier = 1.0
+
+[harness]
+id = "mini-swe-agent"
+version = "2.4.6"
+config_file = "mini"
+config_overrides = [
+    "agent.step_limit=3",
+    "environment.environment_class=local",
+    "environment.timeout=3000",
+    "model.model_kwargs.drop_params=true",
+    "model.model_kwargs.timeout=900",
+    "model.model_kwargs.temperature=1.0",
+    "model.model_kwargs.top_p=1.0",
+    "model.model_kwargs.parallel_tool_calls=false",
+]
+
+[harness.env]
+MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "1"
+
+[harness.runtime]
+type = "sandoq"
+mode = "oci-runner"
+session_timeout = 3600
+network_access = true
+host_tunnel = "sandoq"
+buffered_chat_completions = true
+guest_tunnel_url = "http://127.0.0.1:8485"
+tunnel_pool_size = 4
+tunnel_ready_timeout = 30
+expected_environment = "oci-runner-firecracker"
+ecr_token_file = "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
+
+[timeout]
+setup = 600
+rollout = 3000
+finalize = 300
+scoring = 600
+
+[retries.rollout]
+max_retries = 0
+include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]

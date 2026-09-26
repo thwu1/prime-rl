@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "kind": "qwen-2499-unfiltered-trajectory-package",
+  "compression": "zstd",
+  "archive": {
+    "bytes": 169287831,
+    "sha256": "90c933d6066defe7de9c0c1efd3de844749915ee36af1b9226589d607ce2599c"
+  },
+  "chunk_bytes": 95000000,
+  "chunks": [
+    {
+      "name": "qwen-2499-unfiltered-trajectories.tar.zst.000.part",
+      "bytes": 95000000,
+      "sha256": "4e7767245038f77378a9c11512ea3db68eb84cb4bcaf3fdf7c4ced8ac4b38f12"
+    },
+    {
+      "name": "qwen-2499-unfiltered-trajectories.tar.zst.001.part",
+      "bytes": 74287831,
+      "sha256": "76a7215472ce44561a1fb282cfda3ec8ee514c61e15b16830f7953aa2b710064"
+    }
+  ],
+  "inputs": {
+    "original_results_sha256": "4b4221826019fc7e0615393246e05620b605b3c19a2be35f26afb8adc085a641",
+    "continuation_results_sha256": "465ada70ad4eefbfebbd0fc7f33a30a8dfb89e2ab8b6ff6d9b5dda4a05e6b4f7",
+    "continuation_certificate_sha256": "17786bb8406fe59a5768e405fc978a50b330d386af543fb26d3fc4c000149ef5"
+  },
+  "project_revision": "1ae8855f96a83eeda90fe19a355f99a95de816ac"
+}

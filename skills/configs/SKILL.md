@@ -28,9 +28,22 @@ uv run rl --help                                  # all fields and defaults
 uv run rl @ rl.toml --dry-run --output-dir /tmp/x # write resolved TOML to /tmp/x/configs
 ```
 
+## SLURM host-memory requests
+
+`#SBATCH --exclusive` reserves whole nodes but does not override a cluster's
+`DefMemPerCPU` allocation. If a weight gather is killed near that computed cap,
+compare `sacct` MaxRSS with `scontrol show config` and the nodes' RealMemory.
+When the QoS permits it, copy the existing template and add `#SBATCH --mem=0`
+to request all physical memory without changing the shared template. Validate
+the rendered script with a dry run and `sbatch --test-only` before submission.
+
 ## Validators
 
 Incompatible combinations (e.g. CP requires flash attention) must raise in a `model_validator` at resolve time, not at runtime. When renaming a field, emit a deprecation warning with a migration hint — never silently drop.
+
+For SFT with context parallelism, `pack_function` may be `cat` or `fixed_stack`; variable-shape `stack` is unsupported. Use `fixed_stack` for complete pre-segmented trajectories that already fit `seq_len`: it preserves one trajectory per sequence and pads the remainder. `cat` concatenates rows and truncates the row that crosses the packing boundary, so it is inappropriate when every row must remain complete. CP still requires `micro_batch_size = 1` and a compatible divisible sequence length.
+
+Hybrid Mamba or linear-attention models such as NemotronH and Qwen3.5 must set `model.cp_style = "ulysses"`; `ring` is only valid for supported softmax-attention models and is rejected during model construction. The Ulysses CP degree must divide every partitioned Q/K/V head count. Nemotron 3 Super has two KV heads, so the current implementation supports CP2 but rejects CP4.
 
 ## Special syntax
 
