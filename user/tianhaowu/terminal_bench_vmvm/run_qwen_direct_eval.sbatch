@@ -51,7 +51,7 @@ deployment_root=${DIRECT_QWEN_DEPLOYMENT_ROOT:-/checkpoint/ram/shared/vllm_deplo
 router_site=${DIRECT_ROUTER_SITE:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/vllm_router_x86_64_0.1.26}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 post_eval_pythonpath="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$x86_site"
-sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
+sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_sdk1_82068}
 sandoq_extension="$project_dir/extensions/sandoq"
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
@@ -322,7 +322,7 @@ for path in paths:
 print(digest.hexdigest())
 PY
     )
-    if [[ "$wrapper_sandoq_site_sha256" != 852f66db48c06e3928c6a5ff974c94bb21c93511342b205c2b7d1b99e73c3d6b ]]; then
+    if [[ "$wrapper_sandoq_site_sha256" != df69cadb16edc799fcb62ea4fc144ee5d5572fe58fcd3e2bd6d165c607e02962 ]]; then
         printf 'Sandoq staged dependency tree does not match the approved closure\n' >&2
         exit 2
     fi
@@ -340,7 +340,7 @@ if len(distributions) != 1:
 print(distributions[0].version)
 PY
     )
-    if [[ "$wrapper_sandoq_client_version" != 0.4.0.2026.8.20.58304.0+hga81e4ca4d312 ]]; then
+    if [[ "$wrapper_sandoq_client_version" != 1.0.0.2026.9.23.82068.0+hg1a1d394e50c5 ]]; then
         printf 'Sandoq client version does not match the approved pin\n' >&2
         exit 2
     fi

@@ -26,7 +26,7 @@ fi
 project_dir=${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
-sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
+sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_sdk1_82068}
 sandoq_extension="$project_dir/extensions/sandoq"
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
@@ -269,9 +269,9 @@ fi
 if [[ "$sandbox_provider" == sandoq ]]; then
     sandoq_approved_provider_commit=${SANDOQ_APPROVED_PROVIDER_COMMIT:-4890302104d76220cef791c86d2009168597d35f}
     sandoq_approved_provider_tree=${SANDOQ_APPROVED_PROVIDER_TREE:-33f092a3982916660e12f472588e6ce34a906fc2}
-    sandoq_approved_provider_source_sha256=${SANDOQ_APPROVED_PROVIDER_SOURCE_SHA256:-ca983f92d79b6079b0813f5670823449802028e55fbc23512d2aec69c1e3be86}
-    sandoq_approved_client_version=${SANDOQ_APPROVED_CLIENT_VERSION:-0.4.0.2026.8.20.58304.0+hga81e4ca4d312}
-    sandoq_approved_site_sha256=${SANDOQ_APPROVED_SITE_SHA256:-852f66db48c06e3928c6a5ff974c94bb21c93511342b205c2b7d1b99e73c3d6b}
+    sandoq_approved_provider_source_sha256=${SANDOQ_APPROVED_PROVIDER_SOURCE_SHA256:-4eb6d4bfb6c77a33abd30a9b4238d8b3a52364b5167c89c4fa4f7f2fe7bd326c}
+    sandoq_approved_client_version=${SANDOQ_APPROVED_CLIENT_VERSION:-1.0.0.2026.9.23.82068.0+hg1a1d394e50c5}
+    sandoq_approved_site_sha256=${SANDOQ_APPROVED_SITE_SHA256:-df69cadb16edc799fcb62ea4fc144ee5d5572fe58fcd3e2bd6d165c607e02962}
     if [[ ! "$sandoq_approved_provider_commit" =~ ^[0-9a-f]{40}$ \
         || ! "$sandoq_approved_provider_tree" =~ ^[0-9a-f]{40}$ \
         || ! "$sandoq_approved_provider_source_sha256" =~ ^[0-9a-f]{64}$ \
@@ -424,7 +424,7 @@ derived_image_manifest_sha256=
 if [[ "$sandbox_provider" == sandoq ]]; then
     sandoq_provider_commit=4890302104d76220cef791c86d2009168597d35f
     sandoq_provider_tree=33f092a3982916660e12f472588e6ce34a906fc2
-    sandoq_provider_source_sha256=ca983f92d79b6079b0813f5670823449802028e55fbc23512d2aec69c1e3be86
+    sandoq_provider_source_sha256=4eb6d4bfb6c77a33abd30a9b4238d8b3a52364b5167c89c4fa4f7f2fe7bd326c
     if [[ "$verifiers_commit" != 80e58e7e2b194e9c1b8dc0990c00b7a839127eea ]]; then
         printf 'Verifiers revision is not the approved host-harness topology source\n' >&2
         exit 2

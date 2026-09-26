@@ -13,13 +13,14 @@ import asyncio
 import atexit
 import concurrent.futures
 import json
+import logging
 import math
 import random
 import threading
 import time
 from collections.abc import Callable, Coroutine
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from sandoq_provider.utils import exception_chain, exception_http_status
@@ -30,14 +31,22 @@ else:
     SandoqClientProtocol = Any
 
 _T = TypeVar("_T")
+_NO_RESULT = object()
 
 # The pinned client bounds DELETE at five 30-second attempts with four
 # exponential-backoff sleeps (5, 10, 20, and 40 seconds, each with up to 50%
 # jitter). Keep an outer cancellation guard without truncating that contract.
 _OFFICIAL_DELETE_BUDGET_SECONDS = 270.0
+# SDK1 bounds transport shutdown at 30 seconds, then synchronously exports
+# telemetry (up to two 10-second requests by default) and gives its batch
+# processor another 30 seconds to stop. Keep a watchdog margin around that
+# default-path budget instead of stopping the loop at the first internal bound.
+_OFFICIAL_CLOSE_BUDGET_SECONDS = 90.0
 _CREATE_BACKOFF_CAP_SECONDS = 600.0
 MAX_HTTP_RESPONSE_BYTES = 16 * 1024 * 1024
 _HTTP_RESPONSE_CHUNK_BYTES = 64 * 1024
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -77,6 +86,16 @@ class SandoqHttpTransportError(RuntimeError):
 
 class _SandoqHttpResponseTooLargeError(RuntimeError):
     pass
+
+
+@dataclass
+class _SubmissionCompletion:
+    """Cross-loop completion and result ownership for cancellable creates."""
+
+    completed: concurrent.futures.Future[None] = field(
+        default_factory=concurrent.futures.Future
+    )
+    result: Any = _NO_RESULT
 
 
 async def _read_bounded_response_text(response: Any) -> str:
@@ -182,6 +201,43 @@ def _creation_retry_client_type(base_type: type[Any]) -> type[Any]:
             retry_state.total_wait_time += sleep_time
             retry_state.backoff = min(retry_state.backoff * 2, _CREATE_BACKOFF_CAP_SECONDS)
 
+        async def _wait_for_accepted_session(
+            self,
+            accepted: object,
+            *args: Any,
+            **kwargs: Any,
+        ) -> Any:
+            try:
+                return await super()._wait_for_accepted_session(accepted, *args, **kwargs)
+            except asyncio.CancelledError as cancellation:
+                body = accepted if isinstance(accepted, dict) else {}
+                session_id = body.get("sessionId")
+                if not isinstance(session_id, str) or not session_id:
+                    raise
+
+                # A caller timeout must not strand a session whose 202 response
+                # the SDK has already accepted. Defer cancellation through the
+                # SDK's bounded, idempotent DELETE contract.
+                cleanup = asyncio.create_task(self.delete_session(session_id))
+                while not cleanup.done():
+                    try:
+                        await asyncio.shield(cleanup)
+                    except asyncio.CancelledError:
+                        if cleanup.cancelled():
+                            break
+                        continue
+                    except BaseException:
+                        break
+                try:
+                    cleanup.result()
+                except BaseException as release_error:
+                    logger.warning(
+                        "Failed to release cancelled unready Sandoq session %s: %s",
+                        session_id,
+                        release_error,
+                    )
+                raise cancellation
+
     ReliableCreationClient.__name__ = f"ReliableCreation{base_type.__name__}"
     return ReliableCreationClient
 
@@ -277,27 +333,128 @@ class SandoqGatewayAdapter:
         if "/api/v1/sessions" in request_url or "/api/v1/environments" in request_url:
             raise ValueError("Sandoq HTTP facade cannot call lifecycle URLs")
 
-    def _submit(self, operation: Coroutine[Any, Any, _T]) -> concurrent.futures.Future[_T]:
+    def _submit(
+        self,
+        operation: Coroutine[Any, Any, _T],
+        *,
+        completion: _SubmissionCompletion | None = None,
+    ) -> concurrent.futures.Future[_T]:
         try:
             loop = self._ensure_loop()
         except BaseException:
             operation.close()
+            if completion is not None:
+                completion.completed.set_result(None)
             raise
-        return asyncio.run_coroutine_threadsafe(operation, loop)
+        submitted = operation
+        if completion is not None:
+
+            async def acknowledge_completion() -> _T:
+                try:
+                    result = await operation
+                    completion.result = result
+                    return result
+                finally:
+                    completion.completed.set_result(None)
+
+            submitted = acknowledge_completion()
+        try:
+            return asyncio.run_coroutine_threadsafe(submitted, loop)
+        except BaseException:
+            submitted.close()
+            if submitted is not operation:
+                operation.close()
+            if completion is not None:
+                completion.completed.set_result(None)
+            raise
+
+    @staticmethod
+    async def _wait_after_cancellation(
+        future: asyncio.Future[Any],
+        timeout: float,
+    ) -> bool:
+        deadline = asyncio.get_running_loop().time() + timeout
+        while not future.done():
+            remaining = deadline - asyncio.get_running_loop().time()
+            if remaining <= 0:
+                return False
+            try:
+                done, _pending = await asyncio.wait((future,), timeout=remaining)
+            except asyncio.CancelledError:
+                continue
+            if not done:
+                return False
+        return True
+
+    async def _release_unclaimed_session(self, session: Any) -> None:
+        session_id = getattr(session, "session_id", None)
+        if not isinstance(session_id, str) or not session_id:
+            logger.error("Cancelled Sandoq create returned a session without an ID")
+            return
+
+        async def release() -> None:
+            await self._get_client().delete_session(session_id)
+
+        try:
+            cleanup = self._submit(release())
+        except BaseException as release_error:
+            logger.warning(
+                "Failed to start release of unclaimed Sandoq session %s: %s",
+                session_id,
+                release_error,
+            )
+            return
+        wrapped = asyncio.wrap_future(cleanup)
+        completed = await self._wait_after_cancellation(
+            wrapped,
+            _OFFICIAL_DELETE_BUDGET_SECONDS,
+        )
+        if not completed:
+            cleanup.cancel()
+            logger.error("Timed out releasing unclaimed Sandoq session %s", session_id)
+            return
+        try:
+            wrapped.result()
+        except BaseException as release_error:
+            logger.warning(
+                "Failed to release unclaimed Sandoq session %s: %s",
+                session_id,
+                release_error,
+            )
 
     async def _await(
         self,
         operation: Coroutine[Any, Any, _T],
         *,
         timeout: float | None = None,
+        defer_cancellation: bool = False,
     ) -> _T:
-        future = self._submit(operation)
+        completion = _SubmissionCompletion() if defer_cancellation else None
+        future = self._submit(operation, completion=completion)
         wrapped = asyncio.wrap_future(future)
         try:
             if timeout is None:
                 return await wrapped
             async with asyncio.timeout(timeout):
                 return await wrapped
+        except asyncio.CancelledError:
+            future.cancel()
+            if completion is not None:
+                completed = await self._wait_after_cancellation(
+                    asyncio.wrap_future(completion.completed),
+                    _OFFICIAL_DELETE_BUDGET_SECONDS,
+                )
+                if not completed:
+                    logger.error("Timed out waiting for cancelled Sandoq create cleanup")
+                elif completion.result is not _NO_RESULT:
+                    try:
+                        await self._release_unclaimed_session(completion.result)
+                    except BaseException as release_error:
+                        logger.warning(
+                            "Failed to release a completed Sandoq create during cancellation: %s",
+                            release_error,
+                        )
+            raise
         except BaseException:
             future.cancel()
             raise
@@ -432,13 +589,16 @@ class SandoqGatewayAdapter:
         environment_name: str,
         lease_duration: str,
         request_id: str,
+        acquisition_timeout: float,
     ) -> Any:
         client = self._get_client()
-        return await client.create_session(
-            environment_name=environment_name,
-            lease_duration=lease_duration,
-            request_id=request_id,
-        )
+        async with asyncio.timeout(acquisition_timeout):
+            return await client.create_session(
+                environment_name=environment_name,
+                lease_duration=lease_duration,
+                request_id=request_id,
+                ready_timeout_seconds=acquisition_timeout,
+            )
 
     async def create_session_async(
         self,
@@ -448,12 +608,13 @@ class SandoqGatewayAdapter:
         *,
         timeout: float,
     ) -> Session:
-        # The official client retries pool-exhaustion 429s for up to eight
-        # hours. This outer deadline deliberately preserves our configured
-        # acquisition bound while retaining one request ID across its retries.
+        # The in-loop timeout retains the configured total acquisition bound.
+        # This outer watchdog additionally reserves the SDK's bounded cleanup
+        # budget for a 202-accepted session.
         return await self._await(
-            self._create(environment_name, lease_duration, request_id),
-            timeout=timeout,
+            self._create(environment_name, lease_duration, request_id, timeout),
+            timeout=timeout + _OFFICIAL_DELETE_BUDGET_SECONDS,
+            defer_cancellation=True,
         )
 
     def create_session(
@@ -465,8 +626,8 @@ class SandoqGatewayAdapter:
         timeout: float,
     ) -> Session:
         return self._wait(
-            self._create(environment_name, lease_duration, request_id),
-            timeout=timeout,
+            self._create(environment_name, lease_duration, request_id, timeout),
+            timeout=timeout + _OFFICIAL_DELETE_BUDGET_SECONDS,
         )
 
     async def _get(self, session_id: str) -> Any:
@@ -629,7 +790,7 @@ class SandoqGatewayAdapter:
                 future = asyncio.run_coroutine_threadsafe(_close_client(), loop)
                 close_error: BaseException | None = None
                 try:
-                    future.result(timeout=30.0)
+                    future.result(timeout=_OFFICIAL_CLOSE_BUDGET_SECONDS)
                 except BaseException as exc:
                     close_error = exc
                 finally:

@@ -6,10 +6,12 @@ This directory vendors `extensions/sandoq` from
 
 - Upstream repository tree: `33f092a3982916660e12f472588e6ce34a906fc2`
 - Upstream subtree: `10b5bd9bbc76eba1b8253637e1869d6b63b7fc42`
-- Reviewed vendored tracked-inventory SHA-256 (excluding this metadata file):
-  `71fb8ab8c83e290c2618f8e357aa38fbd7b486624da16d82e9b5bce692036c61`
-- Sandoq client pin:
-  `0.4.0.2026.8.20.58304.0+hga81e4ca4d312`
+- Reviewed tracked-inventory SHA-256 (excluding this metadata file):
+  `9d3a1b4d4898659b6fff4d81efcec557286b94de4c9dd933cd8b4ea543ffe4ea`
+- Sandoq client compatibility pin:
+  `1.0.0.2026.9.23.82068.0+hg1a1d394e50c5`. This local dependency update is
+  required for the gateway's HTTP-202 Firecracker provisioning flow; the
+  vendored provider source remains based on the upstream revision above.
 
 Runtime launchers must put this directory on `PYTHONPATH`; its
 `sitecustomize.py` installs the SDK-backed `sandoq_provider` implementation.

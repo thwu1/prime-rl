@@ -17,7 +17,7 @@ workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
-sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
+sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_sdk1_82068}
 sandoq_extension="$project_dir/extensions/sandoq"
 sandoq_provider_commit=4890302104d76220cef791c86d2009168597d35f
 sandoq_provider_tree=33f092a3982916660e12f472588e6ce34a906fc2
@@ -225,7 +225,7 @@ for path in paths:
 print(digest.hexdigest())
 PY
 )
-    if [[ "$sandoq_site_sha256" != 852f66db48c06e3928c6a5ff974c94bb21c93511342b205c2b7d1b99e73c3d6b ]]; then
+    if [[ "$sandoq_site_sha256" != df69cadb16edc799fcb62ea4fc144ee5d5572fe58fcd3e2bd6d165c607e02962 ]]; then
         printf 'Sandoq staged dependency tree does not match the approved closure\n' >&2
         exit 2
     fi
@@ -243,7 +243,7 @@ if len(distributions) != 1:
 print(distributions[0].version)
 PY
     )
-    if [[ "$sandoq_client_version" != 0.4.0.2026.8.20.58304.0+hga81e4ca4d312 ]]; then
+    if [[ "$sandoq_client_version" != 1.0.0.2026.9.23.82068.0+hg1a1d394e50c5 ]]; then
         printf 'Sandoq client version does not match the approved pin\n' >&2
         exit 2
     fi

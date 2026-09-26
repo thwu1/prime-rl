@@ -27,7 +27,7 @@ probe="$workflow_dir/probe_sandoq_full_tunnel.py"
 expected_revision=${SANDOQ_FULL_TUNNEL_EXPECTED_REVISION:?}
 expected_probe_sha256=${SANDOQ_FULL_TUNNEL_PROBE_SHA256:?}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
-sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
+sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_sdk1_82068}
 output_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/sandoq-full-tunnel-20260922
 output_dir="$output_root/run-${SLURM_JOB_ID:?}"
 

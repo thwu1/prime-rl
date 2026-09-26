@@ -1015,7 +1015,7 @@ usage and reasoning fields are retained for SFT.
 The five-minute Qwen integration smoke is
 `run_qwen_miniswe246_sandoq_smoke.sbatch`. It uses the schema-3
 `qwen_sandoq_firecracker_host.json` profile, staged x86 dependencies from the
-`ram_prime_rl` f7313db4 build, and `oci-runner-firecracker-small` with nested
+SDK1 82068 closure, and `oci-runner-firecracker-small` with nested
 host networking solely for the native reverse tunnel. It resolves one
 historically positive row from the approved Mobius list by a pinned digest and
 rejects security-labelled metadata without printing the task identifier or

@@ -106,7 +106,7 @@ SANDOQ_VENDOR_RELATIVE = Path("extensions/sandoq")
 SANDOQ_UPSTREAM_COMMIT = "4890302104d76220cef791c86d2009168597d35f"
 SANDOQ_UPSTREAM_TREE = "33f092a3982916660e12f472588e6ce34a906fc2"
 SANDOQ_UPSTREAM_SUBTREE = "10b5bd9bbc76eba1b8253637e1869d6b63b7fc42"
-SANDOQ_UPSTREAM_INVENTORY_SHA256 = "71fb8ab8c83e290c2618f8e357aa38fbd7b486624da16d82e9b5bce692036c61"
+SANDOQ_UPSTREAM_INVENTORY_SHA256 = "9d3a1b4d4898659b6fff4d81efcec557286b94de4c9dd933cd8b4ea543ffe4ea"
 KIMI_SANDOQ_FALLBACK_ROLE = "kimi-direct-tb4-sandoq-fallback-diagnostic"
 KIMI_CAPACITY_SMOKE_ROLE = "kimi-direct-capacity-smoke"
 KIMI_PRODUCTION_ROLE = "kimi-direct-mobius"
@@ -901,7 +901,7 @@ def _validate_vendored_sandoq_provider(
     ).splitlines()
     inventory = [line for line in listing if not line.endswith("\textensions/sandoq/UPSTREAM.md")]
     if (
-        len(inventory) != 43
+        len(inventory) != 44
         or _sha256_bytes(("\n".join(inventory) + "\n").encode()) != SANDOQ_UPSTREAM_INVENTORY_SHA256
     ):
         raise EvalIdentityError("sandoq_provider_mismatch")

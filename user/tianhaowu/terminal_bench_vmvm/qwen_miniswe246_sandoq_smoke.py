@@ -927,7 +927,7 @@ def parser() -> argparse.ArgumentParser:
     orchestrate.add_argument(
         "--sandoq-site",
         type=Path,
-        default=Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4"),
+        default=Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_sdk1_82068"),
     )
     orchestrate.add_argument(
         "--ecr-token-file",

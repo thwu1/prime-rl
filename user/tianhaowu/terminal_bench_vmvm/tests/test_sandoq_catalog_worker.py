@@ -1108,6 +1108,17 @@ def test_provider_source_is_copied_into_an_exact_private_tree(
         worker._STAGED_PROVIDER_ROOT = None
 
 
+def test_vendored_provider_source_matches_catalog_and_eval_guards() -> None:
+    project_root = Path(worker.__file__).resolve().parents[4]
+    record, payloads = worker._provider_source_record(project_root / "extensions/sandoq")
+
+    assert len(payloads) == 13
+    assert sorted(payloads) == sorted(worker._PROVIDER_FILES)
+    assert worker._sha256(worker._canonical(record)) == worker.PINNED_PROVIDER_SOURCE_SHA256
+    run_eval = (project_root / "user/tianhaowu/terminal_bench_vmvm/run_eval.sbatch").read_text()
+    assert run_eval.count(worker.PINNED_PROVIDER_SOURCE_SHA256) == 2
+
+
 def test_runtime_distribution_record_allows_confined_parent_segments(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

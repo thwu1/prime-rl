@@ -24,7 +24,7 @@ status_root=${BUILD_STATUS_ROOT:?Set BUILD_STATUS_ROOT}
 token_file=${SANDOQ_BUILD_TOKEN_FILE:-/storage/home/tianhaowu/.config/oci-runner/firecracker-token}
 ecr_push_token_file=${ECR_PUSH_TOKEN_FILE:-/storage/home/tianhaowu/.config/oci-runner/ecr-dev-token}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
-sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_ram_prime_f7313db4}
+sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_sdk1_82068}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 

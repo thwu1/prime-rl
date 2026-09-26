@@ -80,7 +80,8 @@ fi
 
 # The pinned client was published after Prime-RL's workspace-wide cutoff. The
 # shared installer consumes this as a package-scoped exception, leaving the
-# cutoff unchanged for every other dependency.
-export RECIPE_UV_EXCLUDE_NEWER_PACKAGE="${RECIPE_UV_EXCLUDE_NEWER_PACKAGE:-sandoq-client=2026-08-21T00:00:00Z}"
+# cutoff unchanged for every other dependency. Version 1.0 is required for
+# Firecracker creates that return HTTP 202 while the session is provisioning.
+export RECIPE_UV_EXCLUDE_NEWER_PACKAGE="${RECIPE_UV_EXCLUDE_NEWER_PACKAGE:-sandoq-client=2026-09-24T00:00:00Z}"
 
 unset _sandoq_cert _sandoq_ca _sandoq_public_ca _sandoq_public_ca_candidate

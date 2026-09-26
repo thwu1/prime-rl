@@ -759,6 +759,9 @@ def test_eval_controller_is_cpu_only_and_supports_high_vmvm_concurrency() -> Non
     assert "verify_references=True" in text
     assert "sandoq_pool_cleanup.py" in text
     assert "sanitize_sandoq_cleanup_audit.py" in text
+    assert "sandoq_x86_64_sdk1_82068" in text
+    assert "1.0.0.2026.9.23.82068.0+hg1a1d394e50c5" in text
+    assert "df69cadb16edc799fcb62ea4fc144ee5d5572fe58fcd3e2bd6d165c607e02962" in text
     assert text.index("worktrees must all be clean") < text.index("create_client(config)")
     assert text.index("approved cutover source") < text.index("create_client(config)")
     assert text.index("approved closure") < text.index("create_client(config)")
@@ -852,6 +855,12 @@ def test_direct_qwen_launcher_is_fail_closed() -> None:
     assert 'ENVIRONMENT = "oci-runner"' in provider_context
     assert "SANDOQ_EFFECTIVE_TASK_NETWORK" in driver
     assert "sandoq_site_sha256" in driver
+    assert "sandoq_x86_64_sdk1_82068" in wrapper
+    assert "sandoq_x86_64_sdk1_82068" in driver
+    assert "1.0.0.2026.9.23.82068.0+hg1a1d394e50c5" in wrapper
+    assert "1.0.0.2026.9.23.82068.0+hg1a1d394e50c5" in driver
+    assert "df69cadb16edc799fcb62ea4fc144ee5d5572fe58fcd3e2bd6d165c607e02962" in wrapper
+    assert "df69cadb16edc799fcb62ea4fc144ee5d5572fe58fcd3e2bd6d165c607e02962" in driver
     assert "unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy" in driver
     assert '${#worker_urls[@]} -ne "$expected_worker_count"' in wrapper
     assert '"$active_workers" == "$expected_worker_count"' in wrapper
