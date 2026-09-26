@@ -5200,3 +5200,31 @@ replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
   quarantined retention truthfully rather than claim deletion. Production
   backend cleanup remains a separate lane and is still held pending its own
   race review.
+
+## 2026-09-26 19:42 UTC — Kimi smoke cross-cluster handoff
+
+- `origin/vmvm-sandbox` commit
+  `6ec42bfd6832d6352d049aab7226c8afb5e798b2` contains the native MiniSWE
+  smoke identity fix and the task-free, cleanup-verified Sandoq Firecracker
+  availability probe. Job `1591104` completed `0:0`: one real session was
+  returned in 1.263 seconds and deletion was verified by the official SDK's
+  typed 404. No task or model payload was used.
+- The exact Kimi Sandoq smoke `1591118` subsequently exhausted three bounded
+  outer-create cycles without creating a session or issuing a model request.
+  A same-allocation exact-adapter diagnostic received authoritative HTTP 429
+  capacity backpressure from `oci-runner-firecracker`; do not increase create
+  concurrency or blindly re-drive this generation. Its absent drain marker is
+  intentional fail-closed evidence for an unresolved no-ID create at drain.
+- The use2-1 VMVM task-free probes `1591641`, `1591649`, `1591665`, and
+  `1591670` all failed locally before a lease or task was created. The current
+  and pinned-788 `vacli` clients both classified the failure as VMVM lease
+  backend connection-refused. The first probe also proved that omitting the
+  x509 path pair makes the CLI fail locally. Do not launch the Kimi VMVM smoke
+  on `fair-cw-use2-1`; run the task-free VMVM gate first on the VMVM-enabled
+  sc-3/use2-3 cluster with its complete x509 and X2P environment.
+- A content-blind, sealed one-task VMVM MiniSWE diagnostic input is retained at
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/kimi-vmvm-smoke-6ec42bfd6-20260926-v1`.
+  It is diagnostic-only: MiniSWE 2.4.6, three steps per attempt, 900-second
+  request timeout, 128 output tokens, maximum reasoning, and model-I/O capture.
+  Never print the private selector. Revalidate cluster-local paths and the
+  endpoint-generation snapshot before using it from sc-3.
