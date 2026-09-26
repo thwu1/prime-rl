@@ -3,7 +3,7 @@
 #SBATCH --partition=cpu_x86
 #SBATCH --qos=cpu_x86_lowest
 #SBATCH --account=ram
-#SBATCH --time=00:10:00
+#SBATCH --time=00:20:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -109,7 +109,9 @@ setsid "$x86_uv" run --no-project --offline --python "$python_bin" \
     --endpoint-identifier cpu-132-021_8103 >"$router_log" 2>&1 &
 router_pid=$!
 
-for attempt in $(seq 1 60); do
+router_ready=0
+router_deadline=$((SECONDS + 90))
+while (( SECONDS < router_deadline )); do
     kill -0 "$router_pid" 2>/dev/null || blocked router_start_failed
     active_workers=$(
         curl --noproxy '*' --fail --silent --show-error --max-time 5 \
@@ -120,11 +122,12 @@ for attempt in $(seq 1 60); do
     if [[ "$active_workers" == 24 ]] \
         && curl --noproxy '*' --fail --silent --show-error --max-time 5 \
             "http://127.0.0.1:${router_port}/v1/models" >/dev/null; then
+        router_ready=1
         break
     fi
-    (( attempt < 60 )) || blocked router_start_failed
     sleep 1
 done
+[[ $router_ready == 1 ]] || blocked router_start_failed
 
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/kimi_miniswe246_sandoq_small_canary.py" orchestrate \

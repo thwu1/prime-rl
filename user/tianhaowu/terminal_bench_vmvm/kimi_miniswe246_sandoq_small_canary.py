@@ -21,19 +21,19 @@ import qwen_miniswe246_sandoq_smoke as shared
 
 MODEL = "Kimi-K3"
 MAX_MODEL_CALLS = 3
-MAX_OUTPUT_TOKENS = 64
-MODEL_TIMEOUT_SECONDS = 120
-EXECUTION_WALL_SECONDS = 400
-EXECUTE_PROCESS_TIMEOUT_SECONDS = 405
+MAX_OUTPUT_TOKENS = 128
+MODEL_TIMEOUT_SECONDS = 300
+EXECUTION_WALL_SECONDS = 960
+EXECUTE_PROCESS_TIMEOUT_SECONDS = 965
 CLEANUP_PROCESS_TIMEOUT_SECONDS = 25
 SANITIZE_PROCESS_TIMEOUT_SECONDS = 5
-SUPERVISOR_WALL_SECONDS = 470
-ORCHESTRATOR_WALL_SECONDS = 490
+SUPERVISOR_WALL_SECONDS = 1030
+ORCHESTRATOR_WALL_SECONDS = 1050
 EXPECTED_ROUTER_PROFILE = "sandoq-c64-w2-v1"
 EXPECTED_ENDPOINT_IDENTIFIER = "cpu-132-021_8103"
 EXPECTED_WORKERS = 24
 RECEIPT_KIND = "kimi-miniswe246-sandoq-firecracker-small-canary"
-EVAL_CONFIG_SHA256 = "7675211c4bbc93ad370002957dbf355cfb8514636c79b60d338ab14cfaae844f"
+EVAL_CONFIG_SHA256 = "517bdc47951cb798cf18332e88b5d4202ac643da4737301a203aeebb96d52ff0"
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
 SHARED_SMOKE_SHA256 = "41ddea1216187dead3eca7cd9e861cb23de5b12dbb989b463533aebe05341727"
 DIRECT_ROUTER_SHA256 = "217c7c64a93a5bc41fd2a5f4c5c530da67d50a2d3ff83f117f96926a353dd10c"
@@ -159,7 +159,7 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
             workdir=task.workdir or "/app",
             network_access=True,
             mode="oci-runner",
-            session_timeout=440,
+            session_timeout=1020,
             cpu=float(task.resources.cpu or 1),
             memory=float(task.resources.memory or 2),
             disk=float(task.resources.disk or 5),
@@ -214,7 +214,7 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
                     "--vf-config-override",
                     "agent.step_limit=3",
                     "--vf-config-override",
-                    "agent.wall_time_limit_seconds=380",
+                    "agent.wall_time_limit_seconds=900",
                     "--vf-config-override",
                     "environment.environment_class=local",
                     "--vf-config-override",
@@ -226,9 +226,9 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
                     "--vf-config-override",
                     "model.model_kwargs.drop_params=true",
                     "--vf-config-override",
-                    "model.model_kwargs.timeout=120",
+                    "model.model_kwargs.timeout=300",
                     "--vf-config-override",
-                    "model.model_kwargs.max_tokens=64",
+                    "model.model_kwargs.max_tokens=128",
                     "--vf-config-override",
                     "model.model_kwargs.temperature=1.0",
                     "--vf-config-override",

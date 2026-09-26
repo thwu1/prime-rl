@@ -4,7 +4,7 @@ num_rollouts = 1
 max_concurrent = 1
 max_turns = 3
 max_input_tokens = 262144
-max_output_tokens = 64
+max_output_tokens = 128
 max_total_tokens = 262144
 multiplex = 1
 rich = false
@@ -16,7 +16,7 @@ capture_model_io = true
 outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]
 base_url = "http://127.0.0.1:8000/v1"
 api_key_var = "OPENAI_API_KEY"
-timeout = 120
+timeout = 300
 connect_timeout = 15
 max_connections = 1
 max_keepalive_connections = 1
@@ -26,7 +26,7 @@ max_retries = 0
 reasoning_effort = "max"
 temperature = 1.0
 top_p = 1.0
-max_tokens = 64
+max_tokens = 128
 chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
 
 [taskset]
@@ -50,12 +50,12 @@ version = "2.4.6"
 config_file = "mini"
 config_overrides = [
     "agent.step_limit=3",
-    "agent.wall_time_limit_seconds=380",
+    "agent.wall_time_limit_seconds=900",
     "environment.environment_class=local",
     "environment.timeout=60",
     "model.model_kwargs.drop_params=true",
-    "model.model_kwargs.timeout=120",
-    "model.model_kwargs.max_tokens=64",
+    "model.model_kwargs.timeout=300",
+    "model.model_kwargs.max_tokens=128",
     "model.model_kwargs.temperature=1.0",
     "model.model_kwargs.top_p=1.0",
     "model.model_kwargs.parallel_tool_calls=false",
@@ -67,7 +67,7 @@ MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "1"
 [harness.runtime]
 type = "sandoq"
 mode = "oci-runner"
-session_timeout = 440
+session_timeout = 1020
 network_access = true
 host_tunnel = "sandoq"
 buffered_chat_completions = true
@@ -79,7 +79,7 @@ ecr_token_file = "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
 
 [timeout]
 setup = 120
-rollout = 380
+rollout = 900
 finalize = 10
 scoring = 30
 

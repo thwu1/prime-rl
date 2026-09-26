@@ -307,14 +307,16 @@ def test_frozen_config_and_launcher_contract() -> None:
         <= canary.SUPERVISOR_WALL_SECONDS
     )
     assert canary.SUPERVISOR_WALL_SECONDS + 10 <= canary.ORCHESTRATOR_WALL_SECONDS
-    assert canary.ORCHESTRATOR_WALL_SECONDS <= 490
+    assert canary.ORCHESTRATOR_WALL_SECONDS <= 1050
     assert config["sampling"]["reasoning_effort"] == "max"
     assert config["sampling"]["max_tokens"] == canary.MAX_OUTPUT_TOKENS
     assert config["harness"]["version"] == "2.4.6"
     assert config["harness"]["runtime"]["expected_environment"] == "oci-runner-firecracker-small"
     assert profile["environment"] == "oci-runner-firecracker-small"
     assert profile_path != workflow / "configs/provider_context/use2/qwen_sandoq_firecracker_host.json"
-    assert "#SBATCH --time=00:10:00" in launcher
+    assert "#SBATCH --time=00:20:00" in launcher
+    assert "router_deadline=$((SECONDS + 90))" in launcher
+    assert "[[ $router_ready == 1 ]] || blocked router_start_failed" in launcher
     assert "--capacity-profile sandoq-c64-w2-v1" in launcher
     assert "KIMI_SMALL_CANARY_EXPECTED_REVISION" in launcher
     assert '"--startup-timeout-seconds",\n            "3600",' in runner
