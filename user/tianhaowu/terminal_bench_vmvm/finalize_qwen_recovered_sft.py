@@ -826,7 +826,7 @@ def _scan_and_write(
                 raise RecoveredSFTError("duplicate_trace_id")
             seen_trace_ids.add(trace_id_sha256)
             try:
-                slug = exporter._opaque_task_slug(task, evaluator_order=task_context.approved_slug_order)
+                slug = exporter._opaque_task_slug(task)
             except exporter.ExportError as error:
                 raise RecoveredSFTError(error.code) from error
             if slug not in task_context.approved_slugs:

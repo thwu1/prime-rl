@@ -56,7 +56,11 @@ def _trace(index: int, slug: str, outcome: str) -> dict:
     }
 
 
-def _fixture(tmp_path: Path) -> tuple[finalizer.RecoveredSFTOptions, tuple[str, ...]]:
+def _fixture(
+    tmp_path: Path,
+    *,
+    stale_task_indices: bool = False,
+) -> tuple[finalizer.RecoveredSFTOptions, tuple[str, ...]]:
     project = tmp_path / "project"
     project.mkdir()
     source = tmp_path / "source"
@@ -69,6 +73,9 @@ def _fixture(tmp_path: Path) -> tuple[finalizer.RecoveredSFTOptions, tuple[str, 
         _trace(1, "task-b", "zero"),
         _trace(2, "task-c", "error"),
     ]
+    if stale_task_indices:
+        for row in rows:
+            row["task"]["idx"] = 2 - row["task"]["idx"]
     results_body = b"".join(json.dumps(row, sort_keys=True).encode() + b"\n" for row in rows)
     results_path = source / finalizer.RESULTS_FILENAME
     results_artifact = _write_private(results_path, results_body)
@@ -394,6 +401,19 @@ def test_positive_validation_failure_is_fail_closed_and_atomic(tmp_path: Path) -
         )
     assert not options.output_dir.exists()
     assert not tuple(options.output_root.iterdir())
+
+
+def test_certified_opaque_slug_ignores_stale_evaluator_index(tmp_path: Path) -> None:
+    options, _markers = _fixture(tmp_path, stale_task_indices=True)
+    summary = finalizer.finalize_recovered_sft(
+        options,
+        repository_validator=_code,
+        trace_validator=_validator,
+        archive_validator=_archive,
+        identity_validator=lambda _options: None,
+    )
+    assert summary["state"] == "finalized"
+    assert summary["selected_positive_traces"] == 1
 
 
 def test_package_manifest_digest_tamper_is_rejected(tmp_path: Path) -> None:
