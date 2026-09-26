@@ -43,6 +43,7 @@ PREFLIGHT_RENDER_WORKERS_ENV = "PRIME_RL_SFT_PREFLIGHT_WORKERS"
 SHA256_HEX = frozenset("0123456789abcdef")
 GIT_SHA_LENGTH = 40
 TARGET_RENDERING_CONTRACT_FILENAME = "target-rendering-contract.json"
+INCOMPLETE_PUBLICATION_MARKER = ".migration_incomplete"
 TARGET_RENDERING_CONTRACT_SHA256 = "305d66d12152b6de0f045a4fff3bd53adaaac173bcf8bbdc766efe4ceab3e981"
 TOKENIZER_TREE_ALGORITHM = "sha256-path-mode-size-content-v1"
 EXPECTED_TARGET_RENDERING_CONTRACT: dict[str, Any] = {
@@ -631,6 +632,8 @@ def _load_export_binding(export_root: Path, expected_manifest_sha256: str) -> Ex
     if not _valid_sha256(expected_manifest_sha256):
         raise SFTPreflightError("export_manifest_digest_invalid")
     root = _canonical_directory(export_root, "export_root_invalid")
+    if os.path.lexists(root / INCOMPLETE_PUBLICATION_MARKER):
+        raise SFTPreflightError("export_publication_incomplete")
     manifest_body, manifest_artifact = _read_regular(
         root / "manifest.json",
         "export_manifest_invalid",

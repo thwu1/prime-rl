@@ -25,8 +25,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import direct_qwen_workers as direct
 import export_sft as exporter
 import finalize_qwen_sft as common
+import migrate_qwen_router_affinity as migration
 
 SCHEMA_VERSION = 1
 EXPORT_KIND = "qwen-recovered-union-pass-only-sft"
@@ -681,8 +683,23 @@ def _validate_repository(project: Path, expected_revision: str, expected_finaliz
         "audit_traces.py": _fingerprint(
             workflow / "audit_traces.py", "code_artifact_invalid", modes=frozenset({0o644})
         ),
+        "direct_qwen_workers.py": _fingerprint(
+            workflow / "direct_qwen_workers.py",
+            "code_artifact_invalid",
+            modes=frozenset({0o644}),
+        ),
         "export_sft.py": _fingerprint(workflow / "export_sft.py", "code_artifact_invalid", modes=frozenset({0o644})),
+        "finalize_qwen_sft.py": _fingerprint(
+            workflow / "finalize_qwen_sft.py",
+            "code_artifact_invalid",
+            modes=frozenset({0o644}),
+        ),
         Path(__file__).name: _fingerprint(finalizer, "code_artifact_invalid", modes=frozenset({0o644, 0o755})),
+        "migrate_qwen_router_affinity.py": _fingerprint(
+            workflow / "migrate_qwen_router_affinity.py",
+            "code_artifact_invalid",
+            modes=frozenset({0o644}),
+        ),
         "verify_qwen_recovered_trace_archive.py": _fingerprint(
             workflow / "verify_qwen_recovered_trace_archive.py",
             "code_artifact_invalid",
@@ -1013,6 +1030,62 @@ def _assert_sources_unchanged(binding: LineageBinding, archive: ArchiveBinding) 
             raise RecoveredSFTError("source_changed")
 
 
+def _validate_published_output(
+    path: Path,
+    allow_incomplete: bool,
+    expected: Mapping[str, exporter.FileArtifact],
+) -> None:
+    required_files = {
+        "manifest.json",
+        RECEIPT_FILENAME,
+        "task-split.json",
+        exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+        "train/train.jsonl",
+        "validation/train.jsonl",
+    }
+    if set(expected) != required_files:
+        raise RecoveredSFTError("published_artifact_contract_invalid")
+    expected_root = {
+        "manifest.json",
+        RECEIPT_FILENAME,
+        "task-split.json",
+        exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+        "train",
+        "validation",
+    }
+    if allow_incomplete:
+        expected_root.add(direct.MIGRATION_INCOMPLETE_FILENAME)
+    try:
+        root_metadata = path.lstat()
+        if not stat.S_ISDIR(root_metadata.st_mode) or stat.S_IMODE(root_metadata.st_mode) != 0o700:
+            raise RecoveredSFTError("published_artifact_mode_invalid")
+        if {entry.name for entry in path.iterdir()} != expected_root:
+            raise RecoveredSFTError("published_artifact_inventory_invalid")
+        for directory in (path / "train", path / "validation"):
+            metadata = directory.lstat()
+            if not stat.S_ISDIR(metadata.st_mode) or stat.S_IMODE(metadata.st_mode) != 0o700:
+                raise RecoveredSFTError("published_artifact_mode_invalid")
+        if {entry.name for entry in (path / "train").iterdir()} != {"train.jsonl"} or {
+            entry.name for entry in (path / "validation").iterdir()
+        } != {"train.jsonl"}:
+            raise RecoveredSFTError("published_artifact_inventory_invalid")
+        for relative, artifact in expected.items():
+            target = path / relative
+            metadata = target.lstat()
+            if not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1 or stat.S_IMODE(metadata.st_mode) != 0o600:
+                raise RecoveredSFTError("published_artifact_mode_invalid")
+            if _fingerprint(target, "published_artifact_invalid", modes=frozenset({0o600})) != artifact:
+                raise RecoveredSFTError("published_artifact_digest_mismatch")
+        if allow_incomplete:
+            marker = (path / direct.MIGRATION_INCOMPLETE_FILENAME).lstat()
+            if not stat.S_ISREG(marker.st_mode) or marker.st_nlink != 1 or stat.S_IMODE(marker.st_mode) != 0o600:
+                raise RecoveredSFTError("published_artifact_mode_invalid")
+    except RecoveredSFTError:
+        raise
+    except OSError as error:
+        raise RecoveredSFTError("published_artifact_invalid") from error
+
+
 def finalize_recovered_sft(
     options: RecoveredSFTOptions,
     *,
@@ -1168,6 +1241,11 @@ def finalize_recovered_sft(
             "taskset": {"id": options.taskset_id, "dataset_revision": options.dataset_revision},
         }
         manifest_artifact = exporter._write_json(staging / "manifest.json", manifest)
+        published_artifacts = {
+            **artifacts,
+            RECEIPT_FILENAME: receipt_artifact,
+            "manifest.json": manifest_artifact,
+        }
         for directory in (staging / "train", staging / "validation", staging):
             exporter._fsync_dir(directory)
 
@@ -1183,10 +1261,21 @@ def finalize_recovered_sft(
             raise RecoveredSFTError("project_changed_during_finalization")
         if exporter._load_target_rendering_contract() != target_contract:
             raise RecoveredSFTError("target_rendering_contract_changed")
+
+        def validate_published(path: Path, allow_incomplete: bool) -> None:
+            _validate_published_output(path, allow_incomplete, published_artifacts)
+            if staging.exists():
+                try:
+                    shutil.rmtree(staging)
+                    exporter._fsync_dir(output_root)
+                except OSError as error:
+                    raise RecoveredSFTError("staging_cleanup_failed") from error
+
         try:
-            common._publish_output(staging, output)
-        except common.FinalizationError as error:
-            raise RecoveredSFTError(error.code) from error
+            migration._publish_directory(staging, output, validate_published)
+        except migration.MigrationError as error:
+            code = "output_already_exists" if str(error) == "destination_exists" else "output_publish_failed"
+            raise RecoveredSFTError(code) from error
         published = True
         return {
             "manifest_sha256": manifest_artifact.sha256,

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import errno
 import hashlib
 import io
 import json
+import os
 import shutil
 import subprocess
 import tarfile
@@ -263,6 +265,18 @@ def _archive(package: finalizer.PinnedJSON, _verifier: Path) -> finalizer.Archiv
     )
 
 
+def _published_artifacts(root: Path) -> dict[str, exporter.FileArtifact]:
+    relatives = {
+        "manifest.json",
+        finalizer.RECEIPT_FILENAME,
+        "task-split.json",
+        exporter.TARGET_RENDERING_CONTRACT_FILENAME,
+        "train/train.jsonl",
+        "validation/train.jsonl",
+    }
+    return {relative: exporter._fingerprint_stable_file(root / relative, required_mode=0o600) for relative in relatives}
+
+
 def _canonical_package(tmp_path: Path) -> finalizer.PinnedJSON:
     root = tmp_path / "canonical-package"
     chunks = root / "chunks"
@@ -431,9 +445,15 @@ def test_package_manifest_digest_tamper_is_rejected(tmp_path: Path) -> None:
     assert not options.output_dir.exists()
 
 
-def test_publish_race_never_replaces_destination(tmp_path: Path) -> None:
+def test_publish_race_never_replaces_destination(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     options, _markers = _fixture(tmp_path)
     sentinel = b"pre-existing destination\n"
+
+    def unsupported(_source: Path, _destination: Path) -> None:
+        raise OSError(errno.EINVAL, "unsupported")
 
     def race_archive(package: finalizer.PinnedJSON, verifier: Path) -> finalizer.ArchiveBinding:
         binding = _archive(package, verifier)
@@ -441,6 +461,7 @@ def test_publish_race_never_replaces_destination(tmp_path: Path) -> None:
         (options.output_dir / "sentinel").write_bytes(sentinel)
         return binding
 
+    monkeypatch.setattr(finalizer.migration, "_rename_noreplace", unsupported)
     with pytest.raises(finalizer.RecoveredSFTError, match="output_already_exists"):
         finalizer.finalize_recovered_sft(
             options,
@@ -451,6 +472,130 @@ def test_publish_race_never_replaces_destination(tmp_path: Path) -> None:
         )
     assert (options.output_dir / "sentinel").read_bytes() == sentinel
     assert sorted(path.name for path in options.output_root.iterdir()) == [options.output_dir.name]
+
+
+def test_unsupported_noreplace_uses_validated_marker_fallback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options, _markers = _fixture(tmp_path)
+
+    def unsupported(_source: Path, _destination: Path) -> None:
+        raise OSError(errno.EINVAL, "unsupported")
+
+    monkeypatch.setattr(finalizer.migration, "_rename_noreplace", unsupported)
+    summary = finalizer.finalize_recovered_sft(
+        options,
+        repository_validator=_code,
+        trace_validator=_validator,
+        archive_validator=_archive,
+        identity_validator=lambda _options: None,
+    )
+    assert summary["state"] == "finalized"
+    assert not os.path.lexists(options.output_dir / finalizer.direct.MIGRATION_INCOMPLETE_FILENAME)
+    assert sorted(path.name for path in options.output_root.iterdir()) == [options.output_dir.name]
+    binding = export_preflight._load_export_binding(options.output_dir, summary["manifest_sha256"])
+    assert binding.source_validation["require_exact_provider_json"] is True
+
+
+def test_fallback_validation_failure_removes_destination(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options, _markers = _fixture(tmp_path)
+    real_validate = finalizer._validate_published_output
+
+    def unsupported(_source: Path, _destination: Path) -> None:
+        raise OSError(errno.EINVAL, "unsupported")
+
+    def reject(path: Path, allow_incomplete: bool, expected: dict) -> None:
+        real_validate(path, allow_incomplete, expected)
+        raise finalizer.RecoveredSFTError("synthetic_validation_failure")
+
+    monkeypatch.setattr(finalizer.migration, "_rename_noreplace", unsupported)
+    monkeypatch.setattr(finalizer, "_validate_published_output", reject)
+    with pytest.raises(finalizer.RecoveredSFTError, match="^synthetic_validation_failure$"):
+        finalizer.finalize_recovered_sft(
+            options,
+            repository_validator=_code,
+            trace_validator=_validator,
+            archive_validator=_archive,
+            identity_validator=lambda _options: None,
+        )
+    assert not os.path.lexists(options.output_dir)
+    assert not tuple(options.output_root.iterdir())
+
+
+def test_fallback_crash_leaves_marker_that_preflight_rejects(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    options, _markers = _fixture(tmp_path)
+    real_validate = finalizer._validate_published_output
+
+    def unsupported(_source: Path, _destination: Path) -> None:
+        raise OSError(errno.EINVAL, "unsupported")
+
+    def crash(path: Path, allow_incomplete: bool, expected: dict) -> None:
+        real_validate(path, allow_incomplete, expected)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(finalizer.migration, "_rename_noreplace", unsupported)
+    monkeypatch.setattr(finalizer, "_validate_published_output", crash)
+    with pytest.raises(KeyboardInterrupt):
+        finalizer.finalize_recovered_sft(
+            options,
+            repository_validator=_code,
+            trace_validator=_validator,
+            archive_validator=_archive,
+            identity_validator=lambda _options: None,
+        )
+    marker = options.output_dir / export_preflight.INCOMPLETE_PUBLICATION_MARKER
+    assert marker.is_file()
+    manifest_sha256 = hashlib.sha256((options.output_dir / "manifest.json").read_bytes()).hexdigest()
+    with pytest.raises(export_preflight.SFTPreflightError, match="^export_publication_incomplete$"):
+        export_preflight._load_export_binding(options.output_dir, manifest_sha256)
+
+
+@pytest.mark.parametrize("marker_kind", ["regular", "symlink"])
+def test_preflight_rejects_incomplete_publication_marker(tmp_path: Path, marker_kind: str) -> None:
+    options, _markers = _fixture(tmp_path)
+    summary = finalizer.finalize_recovered_sft(
+        options,
+        repository_validator=_code,
+        trace_validator=_validator,
+        archive_validator=_archive,
+        identity_validator=lambda _options: None,
+    )
+    assert export_preflight.INCOMPLETE_PUBLICATION_MARKER == finalizer.direct.MIGRATION_INCOMPLETE_FILENAME
+    marker = options.output_dir / export_preflight.INCOMPLETE_PUBLICATION_MARKER
+    if marker_kind == "regular":
+        _write_private(marker, b"incomplete\n")
+    else:
+        marker.symlink_to("missing-marker-target")
+    with pytest.raises(export_preflight.SFTPreflightError, match="^export_publication_incomplete$"):
+        export_preflight._load_export_binding(options.output_dir, summary["manifest_sha256"])
+
+
+@pytest.mark.parametrize("replacement", ["symlink", "fifo"])
+def test_published_output_validation_rejects_non_regular_artifact(tmp_path: Path, replacement: str) -> None:
+    options, _markers = _fixture(tmp_path)
+    finalizer.finalize_recovered_sft(
+        options,
+        repository_validator=_code,
+        trace_validator=_validator,
+        archive_validator=_archive,
+        identity_validator=lambda _options: None,
+    )
+    expected = _published_artifacts(options.output_dir)
+    target = options.output_dir / "task-split.json"
+    target.unlink()
+    if replacement == "symlink":
+        target.symlink_to("manifest.json")
+    else:
+        os.mkfifo(target, mode=0o600)
+    with pytest.raises(finalizer.RecoveredSFTError, match="^published_artifact_mode_invalid$"):
+        finalizer._validate_published_output(options.output_dir, False, expected)
 
 
 @pytest.mark.parametrize("protected", ["project", "package"])
