@@ -26,10 +26,32 @@ execution_mode=${DIRECT_KIMI_EXECUTION_MODE:-certified}
 router_capacity_profile=${DIRECT_KIMI_ROUTER_CAPACITY_PROFILE:-legacy-c24}
 endpoint_identifier=${DIRECT_KIMI_ENDPOINT_IDENTIFIER:-}
 excluded_backend_sha256=${DIRECT_KIMI_EXCLUDED_BACKEND_SHA256:-}
+capacity_certificate=${DIRECT_KIMI_CAPACITY_CERTIFICATE:-}
+capacity_certificate_sha256=${DIRECT_KIMI_CAPACITY_CERTIFICATE_SHA256:-}
+capacity_gate_receipt=${DIRECT_KIMI_CAPACITY_GATE_RECEIPT:-}
+capacity_gate_receipt_sha256=${DIRECT_KIMI_CAPACITY_GATE_RECEIPT_SHA256:-}
 endpoint_walltime_profile=${KIMI_ENDPOINT_WALLTIME_PROFILE:-legacy}
 endpoint_minimum_remaining_seconds=${KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS:-324000}
+precaptured_endpoint_walltime_gate=${DIRECT_KIMI_PRECAPTURED_ENDPOINT_WALLTIME_GATE:-}
+precaptured_endpoint_walltime_gate_sha256=${DIRECT_KIMI_PRECAPTURED_ENDPOINT_WALLTIME_GATE_SHA256:-}
+precaptured_endpoint_load_gate=${DIRECT_KIMI_PRECAPTURED_ENDPOINT_LOAD_GATE:-}
+precaptured_endpoint_load_gate_sha256=${DIRECT_KIMI_PRECAPTURED_ENDPOINT_LOAD_GATE_SHA256:-}
 endpoint_walltime_receipt=
 endpoint_walltime_receipt_file_sha256=
+endpoint_load_gate_receipt=
+endpoint_load_gate_receipt_sha256=
+
+if { [[ -n "$precaptured_endpoint_walltime_gate" ]] \
+        && [[ -z "$precaptured_endpoint_walltime_gate_sha256" ]]; } \
+    || { [[ -z "$precaptured_endpoint_walltime_gate" ]] \
+        && [[ -n "$precaptured_endpoint_walltime_gate_sha256" ]]; } \
+    || { [[ -n "$precaptured_endpoint_load_gate" ]] \
+        && [[ -z "$precaptured_endpoint_load_gate_sha256" ]]; } \
+    || { [[ -z "$precaptured_endpoint_load_gate" ]] \
+        && [[ -n "$precaptured_endpoint_load_gate_sha256" ]]; }; then
+    printf 'Precaptured endpoint evidence requires both path and digest\n' >&2
+    exit 2
+fi
 
 if [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-capacity-smoke \
     && "$role" != kimi-direct-tb4 \
@@ -44,6 +66,22 @@ if [[ "$role" == kimi-direct-capacity-smoke ]]; then
         || "$router_capacity_profile" != sandoq-c64-w2-v1 \
         || "$endpoint_identifier" != cpu-132-021_8103 ]]; then
         printf 'Direct Kimi capacity smoke requires the exact bounded c64-w2 profile\n' >&2
+        exit 2
+    fi
+elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+    if [[ "$role" != kimi-direct-tb4 \
+        || ( "$sandbox_provider" != sandoq && "$sandbox_provider" != vmvm ) \
+        || "$execution_mode" != certified \
+        || ( "$sandbox_provider" == sandoq && "$rollout_concurrency" != 48 ) \
+        || ( "$sandbox_provider" == vmvm && "$rollout_concurrency" != 11 ) \
+        || "$endpoint_identifier" != cpu-132-021_8103 \
+        || ! "$capacity_certificate_sha256" =~ ^[0-9a-f]{64}$ \
+        || ! "$capacity_gate_receipt_sha256" =~ ^[0-9a-f]{64}$ \
+        || ! -f "$capacity_certificate" || -L "$capacity_certificate" \
+        || ! -f "$capacity_gate_receipt" || -L "$capacity_gate_receipt" \
+        || "$(sha256sum -- "$capacity_certificate" | cut -d' ' -f1)" != "$capacity_certificate_sha256" \
+        || "$(sha256sum -- "$capacity_gate_receipt" | cut -d' ' -f1)" != "$capacity_gate_receipt_sha256" ]]; then
+        printf 'Direct Kimi TB4 w2 requires its exact capacity authorization\n' >&2
         exit 2
     fi
 elif [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
@@ -398,35 +436,131 @@ if [[ "$direct_request_timeout" == 144000 ]]; then
     if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
         expected_walltime_profile=tb4-c23-v1
         maximum_two_wave_tasks=46
+    elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 \
+        && "$sandbox_provider" == vmvm ]]; then
+        expected_walltime_profile=tb4-extended-vmvm-union11-c11-v1
+        maximum_two_wave_tasks=11
+    elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+        expected_walltime_profile=tb4-extended-c48-w2-two-wave-v1
+        maximum_two_wave_tasks=96
+    fi
+    minimum_wave_concurrency=$expected_router_concurrency
+    if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+        minimum_wave_concurrency=$rollout_concurrency
+    fi
+    vmvm_union_walltime=0
+    if [[ "$expected_walltime_profile" == tb4-extended-vmvm-union11-c11-v1 ]]; then
+        vmvm_union_walltime=1
     fi
     if [[ "$endpoint_walltime_profile" != "$expected_walltime_profile" \
-        || "$role" != kimi-direct-tb4 || "$rollout_concurrency" != "$expected_router_concurrency" \
+        || "$role" != kimi-direct-tb4 \
         || ! "$approved_task_count" =~ ^[1-9][0-9]*$ \
-        || "$approved_task_count" -le "$expected_router_concurrency" \
+        || ( "$vmvm_union_walltime" != 1 && "$approved_task_count" -le "$minimum_wave_concurrency" ) \
+        || ( "$vmvm_union_walltime" == 1 && "$approved_task_count" != 11 ) \
         || "$approved_task_count" -gt "$maximum_two_wave_tasks" \
         || ! "$endpoint_minimum_remaining_seconds" =~ ^[1-9][0-9]*$ \
-        || "$endpoint_minimum_remaining_seconds" -lt 324000 ]]; then
+        || "$endpoint_minimum_remaining_seconds" -lt 324000 \
+        || ( "$router_capacity_profile" == sandoq-c64-w2-v1 \
+            && "$endpoint_minimum_remaining_seconds" -lt 345600 ) ]]; then
         printf 'Extended direct Kimi TB4 requires its sealed 90-hour endpoint walltime profile\n' >&2
         exit 2
     fi
-    endpoint_walltime_receipt="$(dirname -- "$worker_manifest")/direct_kimi_endpoint_walltime_gate.json"
-    if [[ -e "$endpoint_walltime_receipt" || -L "$endpoint_walltime_receipt" ]]; then
-        printf 'Direct Kimi endpoint walltime receipt namespace is not fresh\n' >&2
+    if [[ "$vmvm_union_walltime" == 1 ]]; then
+        if [[ "$rollout_concurrency" != 11 ]]; then
+            printf 'Extended direct Kimi VMVM union requires concurrency 11\n' >&2
+            exit 2
+        fi
+    elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+        if [[ "$rollout_concurrency" != 48 ]]; then
+            printf 'Extended direct Kimi w2 TB4 requires concurrency 48\n' >&2
+            exit 2
+        fi
+    elif [[ "$rollout_concurrency" != "$expected_router_concurrency" ]]; then
+        printf 'Extended direct Kimi TB4 concurrency is invalid\n' >&2
         exit 2
     fi
-    "$x86_uv" run --no-project --offline --python "$python_bin" \
-        python3 "$workflow_dir/kimi_endpoint_walltime_gate.py" capture \
-        --manifest "$worker_manifest" \
-        --manifest-sha256 "$worker_manifest_sha256" \
-        --profile "$endpoint_walltime_profile" \
-        --minimum-remaining-seconds "$endpoint_minimum_remaining_seconds" \
-        --task-count "$approved_task_count" \
-        --output "$endpoint_walltime_receipt"
-    endpoint_walltime_receipt_file_sha256=$(sha256sum -- "$endpoint_walltime_receipt" | cut -d' ' -f1)
+    if [[ -n "$precaptured_endpoint_walltime_gate" ]]; then
+        endpoint_walltime_receipt=$precaptured_endpoint_walltime_gate
+        endpoint_walltime_receipt_file_sha256=$precaptured_endpoint_walltime_gate_sha256
+        if [[ ! -f "$endpoint_walltime_receipt" || -L "$endpoint_walltime_receipt" \
+            || ! "$endpoint_walltime_receipt_file_sha256" =~ ^[0-9a-f]{64}$ \
+            || "$(sha256sum -- "$endpoint_walltime_receipt" | cut -d' ' -f1)" \
+                != "$endpoint_walltime_receipt_file_sha256" ]]; then
+            printf 'Precaptured endpoint walltime evidence is unavailable or changed\n' >&2
+            exit 2
+        fi
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/kimi_endpoint_walltime_gate.py" validate \
+            --manifest "$worker_manifest" \
+            --manifest-sha256 "$worker_manifest_sha256" \
+            --profile "$endpoint_walltime_profile" \
+            --minimum-remaining-seconds "$endpoint_minimum_remaining_seconds" \
+            --task-count "$approved_task_count" \
+            --receipt "$endpoint_walltime_receipt" >/dev/null
+    else
+        endpoint_walltime_receipt="$(dirname -- "$worker_manifest")/direct_kimi_endpoint_walltime_gate.json"
+        if [[ -e "$endpoint_walltime_receipt" || -L "$endpoint_walltime_receipt" ]]; then
+            printf 'Direct Kimi endpoint walltime receipt namespace is not fresh\n' >&2
+            exit 2
+        fi
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/kimi_endpoint_walltime_gate.py" capture \
+            --manifest "$worker_manifest" \
+            --manifest-sha256 "$worker_manifest_sha256" \
+            --profile "$endpoint_walltime_profile" \
+            --minimum-remaining-seconds "$endpoint_minimum_remaining_seconds" \
+            --task-count "$approved_task_count" \
+            --output "$endpoint_walltime_receipt"
+        endpoint_walltime_receipt_file_sha256=$(sha256sum -- "$endpoint_walltime_receipt" | cut -d' ' -f1)
+    fi
 elif [[ "$endpoint_walltime_profile" != legacy \
     || -n ${KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS:-} ]]; then
     printf 'Legacy direct Kimi runs cannot consume an endpoint walltime profile\n' >&2
     exit 2
+fi
+
+if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+    if [[ -n "$precaptured_endpoint_load_gate" ]]; then
+        endpoint_load_gate_receipt=$precaptured_endpoint_load_gate
+        endpoint_load_gate_receipt_sha256=$precaptured_endpoint_load_gate_sha256
+        if [[ ! -f "$endpoint_load_gate_receipt" || -L "$endpoint_load_gate_receipt" \
+            || ! "$endpoint_load_gate_receipt_sha256" =~ ^[0-9a-f]{64}$ \
+            || "$(sha256sum -- "$endpoint_load_gate_receipt" | cut -d' ' -f1)" \
+                != "$endpoint_load_gate_receipt_sha256" ]]; then
+            printf 'Precaptured endpoint load evidence is unavailable or changed\n' >&2
+            exit 2
+        fi
+        "$x86_uv" run --no-project --offline --python "$python_bin" python3 - \
+            "$endpoint_load_gate_receipt" "$endpoint_load_gate_receipt_sha256" \
+            "$worker_manifest_sha256" "$direct_endpoint_bundle_sha256" <<'PY'
+import sys
+from pathlib import Path
+
+from kimi_endpoint_load_gate import validate_load_gate
+
+validate_load_gate(
+    Path(sys.argv[1]),
+    expected_sha256=sys.argv[2],
+    manifest_sha256=sys.argv[3],
+    endpoint_bundle_sha256=sys.argv[4],
+    maximum_age_seconds=900,
+)
+PY
+    else
+        endpoint_load_gate_receipt="$(dirname -- "$worker_manifest")/kimi_endpoint_load_gate.json"
+        worker_urls="$(dirname -- "$worker_manifest")/worker_urls.private.txt"
+        if [[ -e "$endpoint_load_gate_receipt" || -L "$endpoint_load_gate_receipt" ]]; then
+            printf 'Direct Kimi endpoint load-gate namespace is not fresh\n' >&2
+            exit 2
+        fi
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/kimi_endpoint_load_gate.py" \
+            --manifest "$worker_manifest" \
+            --manifest-sha256 "$worker_manifest_sha256" \
+            --worker-urls "$worker_urls" \
+            --output "$endpoint_load_gate_receipt"
+        endpoint_load_gate_receipt_sha256=$(sha256sum -- "$endpoint_load_gate_receipt" | cut -d' ' -f1)
+    fi
 fi
 
 identity_args=(
@@ -460,7 +594,25 @@ identity_args=(
     --slurm-job-id "$SLURM_JOB_ID"
 )
 if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
-    identity_args+=(--direct-per-worker-capacity "$direct_per_worker_capacity")
+    identity_args+=(
+        --direct-per-worker-capacity "$direct_per_worker_capacity"
+        --direct-endpoint-load-gate "$endpoint_load_gate_receipt"
+        --direct-endpoint-load-gate-sha256 "$endpoint_load_gate_receipt_sha256"
+    )
+fi
+if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 && -n "$endpoint_walltime_receipt" ]]; then
+    identity_args+=(
+        --direct-endpoint-walltime-gate "$endpoint_walltime_receipt"
+        --direct-endpoint-walltime-gate-sha256 "$endpoint_walltime_receipt_file_sha256"
+    )
+fi
+if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 && "$role" == kimi-direct-tb4 ]]; then
+    identity_args+=(
+        --direct-capacity-certificate "$capacity_certificate"
+        --direct-capacity-certificate-sha256 "$capacity_certificate_sha256"
+        --direct-capacity-gate-receipt "$capacity_gate_receipt"
+        --direct-capacity-gate-receipt-sha256 "$capacity_gate_receipt_sha256"
+    )
 fi
 if [[ -n "$eval_config_sha256" ]]; then
     identity_args+=(--approved-config-sha256 "$eval_config_sha256")
@@ -625,18 +777,63 @@ if ! flock -n 9; then
 fi
 export OPENAI_API_KEY=EMPTY
 eval_log="$output_dir/control/evaluator.private.log"
+eval_pgid_file="$output_dir/control/evaluator.pgid"
+if [[ -e "$eval_pgid_file" || -L "$eval_pgid_file" ]]; then
+    printf 'Evaluator process-group evidence is not fresh\n' >&2
+    exit 2
+fi
+eval_pid=
+eval_stop_requested=0
+request_eval_stop() {
+    eval_stop_requested=1
+    if [[ -n "$eval_pid" ]] && kill -0 -- "-$eval_pid" 2>/dev/null; then
+        kill -INT -- "-$eval_pid" 2>/dev/null || true
+    fi
+}
+trap request_eval_stop INT TERM
 set +e
-DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=${DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS:-1} \
+setsid env DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=${DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS:-1} \
     /usr/bin/bash -p "$workflow_dir/run_eval_with_zero_model_resume.sh" \
-    >"$eval_log" 2>&1
+    >"$eval_log" 2>&1 &
+eval_pid=$!
+set -o noclobber
+printf '%s\n' "$eval_pid" >"$eval_pgid_file"
+set +o noclobber
+chmod 0600 "$eval_pgid_file"
+if [[ "$eval_stop_requested" == 1 ]]; then
+    request_eval_stop
+fi
+wait "$eval_pid"
 eval_status=$?
 set -e
+if [[ "$eval_stop_requested" == 1 ]]; then
+    graceful_deadline=$(( $(date +%s) + 300 ))
+    while kill -0 -- "-$eval_pid" 2>/dev/null && (( $(date +%s) < graceful_deadline )); do
+        sleep 1
+    done
+    if kill -0 -- "-$eval_pid" 2>/dev/null; then
+        kill -TERM -- "-$eval_pid" 2>/dev/null || true
+        terminate_deadline=$(( $(date +%s) + 60 ))
+        while kill -0 -- "-$eval_pid" 2>/dev/null && (( $(date +%s) < terminate_deadline )); do
+            sleep 1
+        done
+    fi
+    if kill -0 -- "-$eval_pid" 2>/dev/null; then
+        kill -KILL -- "-$eval_pid" 2>/dev/null || true
+    fi
+    wait "$eval_pid" 2>/dev/null || true
+    eval_status=130
+fi
+trap - INT TERM
+eval_pid=
+unlink "$eval_pgid_file"
 cleanup_status=0
 if [[ "$sandbox_provider" == sandoq ]]; then
     "$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 "$workflow_dir/sandoq_pool_cleanup.py" \
         --output-dir "$output_dir" --base-url "$OCI_RUNNER_BASE_URL" --owner "$SANDOQ_OWNER" \
-        --concurrency "$OCI_RUNNER_POOL_DRAIN_WORKERS" || cleanup_status=$?
+        --concurrency "$OCI_RUNNER_POOL_DRAIN_WORKERS" --wal "$OCI_RUNNER_POOL_WAL" \
+        || cleanup_status=$?
     if [[ "$cleanup_status" -eq 0 ]]; then
         "$x86_uv" run --no-project --offline --python "$python_bin" \
             python3 "$workflow_dir/sanitize_sandoq_cleanup_audit.py" \
@@ -664,6 +861,12 @@ if [[ -n "$endpoint_walltime_receipt" ]]; then
         --minimum-remaining-seconds "$endpoint_minimum_remaining_seconds" \
         --task-count "$approved_task_count" \
         --receipt "$endpoint_walltime_receipt" >/dev/null
+fi
+if [[ -n "$endpoint_load_gate_receipt" ]] \
+    && [[ "$(sha256sum -- "$endpoint_load_gate_receipt" | cut -d' ' -f1)" \
+        != "$endpoint_load_gate_receipt_sha256" ]]; then
+    printf 'Direct Kimi endpoint load-gate receipt changed during evaluation\n' >&2
+    exit 2
 fi
 if [[ "$eval_status" -ne 0 ]]; then
     exit "$eval_status"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Certify and merge the opaque Kimi TB4 MiniSWE 25/38/3 provider union."""
+"""Certify and merge the opaque Kimi TB4 MiniSWE 52/11/3 provider union."""
 
 from __future__ import annotations
 
@@ -18,8 +18,15 @@ from typing import Any
 
 import kimi_tb4_provider_split as split
 import prepare_kimi_tb4_miniswe246_union as union
+from direct_kimi_capacity import validate_capacity_certificate
+from direct_kimi_router import C64_W2_CAPACITY_PROFILE
 from direct_kimi_workers import load_saved_manifest, worker_generation_contract
+from eval_run_identity import _validate_w2_smoke_checkpoint_provenance
+from kimi_endpoint_load_gate import validate_load_gate
+from kimi_endpoint_walltime_gate import VMVM_UNION_PROFILE, W2_PROFILE
+from kimi_endpoint_walltime_gate import load_receipt as load_walltime_receipt
 from kimi_sandoq_production import _validate_provider_context_snapshot
+from kimi_tb4_w2_gate import validate_launch as validate_w2_launch
 
 LANE_CERTIFICATE_KIND = "direct-kimi-tb4-miniswe246-provider-lane"
 UNION_CERTIFICATE_KIND = "direct-kimi-sandoq-tb4"
@@ -30,6 +37,8 @@ MIN_CPU_PASSES = 7
 MIN_CPU_PASS_RATE = MIN_CPU_PASSES / union.CPU_TASKS
 MAX_CPU_PASS_RATE = 0.22
 SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
+REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
+OFFICIAL_SELECTOR = Path(__file__).resolve().parent / "configs/eval/tb4_qwen_a95b_miniswe.tasks.txt"
 
 
 class UnionCertificationError(ValueError):
@@ -113,7 +122,12 @@ def _artifact_from_plan(plan: Mapping[str, Any], role: str, name: str) -> tuple[
 
 
 def _stable_deployment_contract(identity: Mapping[str, Any], held: split._HeldArtifactSet) -> dict[str, Any]:
-    """Validate a lane deployment while excluding its private snapshot path."""
+    """Validate a lane deployment and return its provider-neutral model generation.
+
+    The two lanes deliberately use different admission envelopes (Sandoq c64-w2
+    and VMVM c24).  Those fields are compared separately as exact lane routing
+    contracts; only loopback paths and admission-only fields are removed here.
+    """
 
     try:
         deployment = split._deployment_contract(identity, held)
@@ -127,6 +141,22 @@ def _stable_deployment_contract(identity: Mapping[str, Any], held: split._HeldAr
     except (KeyError, OSError, TypeError, ValueError) as error:
         _fail("deployment_binding_invalid", error)
     generation.pop("deployment_root", None)
+    generation["schema_version"] = 0
+    generation_router = generation.get("router")
+    if not isinstance(generation_router, dict):
+        _fail("deployment_binding_invalid")
+    for key in (
+        "capacity_profile",
+        "endpoint_identifier",
+        "per_worker_capacity",
+        "max_concurrent_requests",
+        "queue_size",
+    ):
+        generation_router.pop(key, None)
+    neutral_router = dict(deployment["router"])
+    for key in ("capacity_profile", "endpoint_identifier", "per_worker_capacity", "provider_concurrency"):
+        neutral_router.pop(key, None)
+    deployment["router"] = neutral_router
     deployment["worker_generation_sha256"] = _sha256(_canonical(generation))
     return deployment
 
@@ -189,6 +219,7 @@ def _identity_contract(
     members: Sequence[str],
     run_evidence: Any,
     held: Any,
+    expected_revision: str,
 ) -> tuple[dict[str, Any], dict[str, Any], str, str, str]:
     try:
         envelope = split.load_eval_run_identity_bytes(
@@ -235,6 +266,7 @@ def _identity_contract(
         or identity.get("role") != "kimi-direct-tb4"
         or not isinstance(source, dict)
         or source.get("sandbox_provider", "vmvm") != provider
+        or source.get("prime_rl_commit") != expected_revision
         or source.get("verifiers_commit") != union.VERIFIERS_COMMIT
         or not isinstance(execution, dict)
         or execution.get("cleanup_must_succeed") is not True
@@ -332,7 +364,11 @@ def _identity_contract(
         shared["timeout_contract"] = timeout_contract
     return (
         identity,
-        {"shared": shared, "provider_context": provider_context},
+        {
+            "shared": shared,
+            "provider_context": provider_context,
+            "routing": json.loads(_canonical(identity["deployment"]["router"])),
+        },
         identity_sha256,
         invocation_sha256,
         slurm_job_id,
@@ -351,12 +387,15 @@ def _build_lane_certificate(
     run_dir: Path,
     launch_plan: Path,
     launch_plan_sha256: str,
+    expected_revision: str,
     capacity_receipt: Path | None = None,
     capacity_receipt_sha256: str | None = None,
     capacity_public_key: Path | None = None,
     capacity_public_key_sha256: str | None = None,
     publish_output: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    if REVISION_RE.fullmatch(expected_revision) is None:
+        _fail("source_revision_invalid")
     plan_value, plan_body, entries = _load_plan(launch_plan, launch_plan_sha256)
     plan = _plan_with_digest(plan_value, launch_plan_sha256)
     members = _lane_members(entries, role)
@@ -383,7 +422,46 @@ def _build_lane_certificate(
             members=members,
             run_evidence=evidence,
             held=held,
+            expected_revision=expected_revision,
         )
+        identity_deployment = identity.get("deployment")
+        identity_router = identity_deployment.get("router") if isinstance(identity_deployment, dict) else None
+        if (
+            not isinstance(identity_deployment, dict)
+            or not isinstance(identity_router, dict)
+            or identity_router.get("capacity_profile") != C64_W2_CAPACITY_PROFILE
+            or identity_router.get("endpoint_identifier") != "cpu-132-021_8103"
+            or identity_router.get("provider_concurrency") != 64
+            or identity_router.get("per_worker_capacity") != 2
+            or identity_router.get("worker_count") != 24
+            or identity_router.get("retries") != 0
+        ):
+            _fail("w2_router_contract_invalid")
+        try:
+            exact_deployment = split._deployment_contract(identity, held)
+            _manifest_body, lane_manifest = load_saved_manifest(
+                Path(identity_deployment["worker_manifest"]["path"]),
+                revalidate_live_source=False,
+                held=held,
+            )
+            smoke_payload = json.loads(
+                split.read_regular(
+                    Path(identity_deployment["smoke_checkpoint"]["path"]),
+                    code="w2_smoke_invalid",
+                    private=True,
+                    held=held,
+                )
+            )
+            if not _validate_w2_smoke_checkpoint_provenance(
+                smoke_payload,
+                lane_manifest,
+                expected_revision=expected_revision,
+                expected_tree_sha256=identity["source"]["prime_rl_tree_sha256"],
+            ):
+                _fail("w2_smoke_invalid")
+        except (KeyError, OSError, RuntimeError, TypeError, ValueError) as error:
+            _fail("w2_smoke_invalid", error)
+        contracts["deployment"] = exact_deployment
         verifier_modes = {entry.task_id: entry.verifier_mode for entry in entries}
         try:
             trace_audit, rows, results_artifact = split._audit_cpu_results(
@@ -407,6 +485,32 @@ def _build_lane_certificate(
             _fail("router_receipt_changed")
         artifacts["router_receipt"] = router_artifact
         artifacts["router_receipt_commit"] = router_marker
+        identity_deployment = identity["deployment"]
+        for name in (
+            "smoke_checkpoint",
+            "capacity_certificate",
+            "capacity_gate_receipt",
+            "endpoint_load_gate",
+            "endpoint_walltime_gate",
+        ):
+            record = identity_deployment.get(name)
+            if not isinstance(record, dict):
+                _fail("w2_artifact_missing")
+            observed = split._artifact(Path(str(record.get("path", ""))), private=True, held=held)
+            if observed.get("sha256") != record.get("sha256"):
+                _fail("w2_artifact_changed")
+            artifacts[name] = observed
+        try:
+            load_walltime_receipt(
+                Path(identity_deployment["endpoint_walltime_gate"]["path"]),
+                manifest_sha256=identity_deployment["worker_manifest"]["sha256"],
+                endpoint_bundle_sha256=identity_deployment["endpoint_bundle_sha256"],
+                profile=W2_PROFILE if provider == "sandoq" else VMVM_UNION_PROFILE,
+                minimum_remaining_seconds=96 * 60 * 60,
+                task_count=len(members),
+            )
+        except (OSError, RuntimeError, TypeError, ValueError) as error:
+            _fail("w2_walltime_evidence_invalid", error)
         capacity_summary: dict[str, Any] | None = None
         if provider == "sandoq":
             cleanup, cleanup_artifacts = split._validate_sandoq_cleanup(
@@ -426,6 +530,51 @@ def _build_lane_certificate(
             )
             if artifacts["provider_context"] != contracts["provider_context"]:
                 _fail("provider_context_changed")
+            try:
+                capacity_payload = validate_capacity_certificate(
+                    Path(identity_deployment["capacity_certificate"]["path"]),
+                    expected_sha256=identity_deployment["capacity_certificate"]["sha256"],
+                    required_concurrency=48,
+                    expected_endpoint_identifier="cpu-132-021_8103",
+                )
+                expected_gate = validate_w2_launch(
+                    certificate_path=Path(identity_deployment["capacity_certificate"]["path"]),
+                    certificate_sha256=identity_deployment["capacity_certificate"]["sha256"],
+                    manifest_path=Path(identity_deployment["worker_manifest"]["path"]),
+                    manifest_sha256=identity_deployment["worker_manifest"]["sha256"],
+                    selector=OFFICIAL_SELECTOR,
+                    dataset_dir=Path(identity["dataset"]["path"]),
+                    expected_revision=expected_revision,
+                    sandoq_site=Path(identity["source"]["sandoq_site"]),
+                    union_launch_plan=launch_plan,
+                    union_launch_plan_sha256=launch_plan_sha256,
+                )
+                observed_gate = json.loads(
+                    split.read_regular(
+                        Path(identity_deployment["capacity_gate_receipt"]["path"]),
+                        code="w2_gate_invalid",
+                        private=True,
+                        held=held,
+                    )
+                )
+                if observed_gate != expected_gate:
+                    _fail("w2_gate_invalid")
+                validate_load_gate(
+                    Path(identity_deployment["endpoint_load_gate"]["path"]),
+                    expected_sha256=identity_deployment["endpoint_load_gate"]["sha256"],
+                    manifest_sha256=identity_deployment["worker_manifest"]["sha256"],
+                    endpoint_bundle_sha256=identity_deployment["endpoint_bundle_sha256"],
+                )
+            except (OSError, RuntimeError, TypeError, ValueError) as error:
+                _fail("w2_evidence_invalid", error)
+            capacity_summary = {
+                "provider": "sandoq",
+                "qualification_scope": capacity_payload["qualification_scope"],
+                "qualified_concurrency": capacity_payload["qualified_concurrency"],
+                "receipt_sha256": identity_deployment["capacity_certificate"]["sha256"],
+                "gate_sha256": identity_deployment["capacity_gate_receipt"]["sha256"],
+                "load_gate_sha256": identity_deployment["endpoint_load_gate"]["sha256"],
+            }
             if any(
                 value is not None
                 for value in (
@@ -501,7 +650,11 @@ def _build_lane_certificate(
             "invocation_identity_sha256": invocation_sha256,
             "run_dir": str(run_dir),
             "implementation_sha256": _self_sha256(),
+            "source_revision": expected_revision,
+            "worker_manifest_sha256": identity["deployment"]["worker_manifest"]["sha256"],
             "shared_contract": contracts["shared"],
+            "deployment_contract": contracts["deployment"],
+            "routing_contract": contracts["routing"],
             "trace_audit": trace_audit,
             "tool_execution": tool_execution,
             "cleanup": cleanup,
@@ -530,6 +683,7 @@ def _load_lane_certificate(
     expected_role: str,
     launch_plan: Path,
     launch_plan_sha256: str,
+    expected_revision: str,
 ) -> tuple[dict[str, Any], bytes, dict[str, dict[str, Any]]]:
     try:
         value, body = split._load_bound_certificate(path, expected_sha256)
@@ -560,6 +714,7 @@ def _load_lane_certificate(
         run_dir=Path(str(value.get("run_dir", ""))),
         launch_plan=launch_plan,
         launch_plan_sha256=launch_plan_sha256,
+        expected_revision=expected_revision,
         capacity_receipt=capacity_receipt,
         capacity_receipt_sha256=capacity_receipt_sha256,
         capacity_public_key=capacity_public_key,
@@ -707,7 +862,10 @@ def merge_certified_lanes(
     vmvm_certificate: Path,
     vmvm_certificate_sha256: str,
     output: Path,
+    expected_revision: str,
 ) -> dict[str, Any]:
+    if REVISION_RE.fullmatch(expected_revision) is None:
+        _fail("source_revision_invalid")
     for path in (launch_plan, sandoq_certificate, vmvm_certificate):
         try:
             canonical = path.resolve(strict=True)
@@ -734,6 +892,7 @@ def merge_certified_lanes(
         expected_role=union.SANDOQ_ROLE,
         launch_plan=launch_plan,
         launch_plan_sha256=launch_plan_sha256,
+        expected_revision=expected_revision,
     )
     vmvm, vmvm_body, vmvm_rows = _load_lane_certificate(
         path=vmvm_certificate,
@@ -741,13 +900,21 @@ def merge_certified_lanes(
         expected_role=union.VMVM_ROLE,
         launch_plan=launch_plan,
         launch_plan_sha256=launch_plan_sha256,
+        expected_revision=expected_revision,
     )
     if (
         sandoq["shared_contract"] != vmvm["shared_contract"]
+        or sandoq["worker_manifest_sha256"] != vmvm["worker_manifest_sha256"]
+        or sandoq["deployment_contract"] != vmvm["deployment_contract"]
+        or sandoq["routing_contract"] != vmvm["routing_contract"]
         or sandoq["eval_run_identity_sha256"] == vmvm["eval_run_identity_sha256"]
         or sandoq["sandbox_provider"] != "sandoq"
         or vmvm["sandbox_provider"] != "vmvm"
         or vmvm.get("capacity", {}).get("provider") != "vmvm"
+        or any(
+            sandoq["artifacts"][name]["sha256"] != vmvm["artifacts"][name]["sha256"]
+            for name in ("smoke_checkpoint", "capacity_certificate", "capacity_gate_receipt", "endpoint_load_gate")
+        )
     ):
         _fail("provider_union_mismatch")
     manifest_sha256 = plan["source"]["manifest"]["sha256"]
@@ -799,6 +966,7 @@ def merge_certified_lanes(
         "state": "passed",
         "model": "Kimi-K3",
         "adapter": union.CERTIFIER_ADAPTER,
+        "source_revision": expected_revision,
         "launch_plan_sha256": launch_plan_sha256,
         "manifest_sha256": manifest_sha256,
         "results_sha256": _sha256(results_body),
@@ -889,12 +1057,14 @@ def validate_union_certificate(path: Path, expected_sha256: str) -> dict[str, An
         plan_path = Path(artifacts["launch_plan"]["path"])
         plan_sha256 = artifacts["launch_plan"]["sha256"]
         plan, _plan_body, entries = _load_plan(plan_path, plan_sha256)
+        source_revision = validated["source_revision"]
         sandoq, _sandoq_body, sandoq_rows = _load_lane_certificate(
             path=Path(artifacts["sandoq_lane_certificate"]["path"]),
             expected_sha256=artifacts["sandoq_lane_certificate"]["sha256"],
             expected_role=union.SANDOQ_ROLE,
             launch_plan=plan_path,
             launch_plan_sha256=plan_sha256,
+            expected_revision=source_revision,
         )
         vmvm, _vmvm_body, vmvm_rows = _load_lane_certificate(
             path=Path(artifacts["vmvm_lane_certificate"]["path"]),
@@ -902,6 +1072,7 @@ def validate_union_certificate(path: Path, expected_sha256: str) -> dict[str, An
             expected_role=union.VMVM_ROLE,
             launch_plan=plan_path,
             launch_plan_sha256=plan_sha256,
+            expected_revision=source_revision,
         )
         results_body, passes = _merge_rows(
             entries,
@@ -928,7 +1099,14 @@ def validate_union_certificate(path: Path, expected_sha256: str) -> dict[str, An
         observed_results != results_body
         or artifacts["results"]["sha256"] != _sha256(results_body)
         or sandoq["shared_contract"] != vmvm["shared_contract"]
+        or sandoq["worker_manifest_sha256"] != vmvm["worker_manifest_sha256"]
+        or sandoq["deployment_contract"] != vmvm["deployment_contract"]
+        or sandoq["routing_contract"] != vmvm["routing_contract"]
         or sandoq["eval_run_identity_sha256"] == vmvm["eval_run_identity_sha256"]
+        or any(
+            sandoq["artifacts"][name]["sha256"] != vmvm["artifacts"][name]["sha256"]
+            for name in ("smoke_checkpoint", "capacity_certificate", "capacity_gate_receipt", "endpoint_load_gate")
+        )
         or validated.get("launch_plan_sha256") != plan_sha256
         or artifacts.get("partition_receipt") != plan["source"]["partition_receipt"]
         or validated.get("implementation_sha256") != _self_sha256()
@@ -946,6 +1124,7 @@ def _parser() -> argparse.ArgumentParser:
     certify.add_argument("--run-dir", type=Path, required=True)
     certify.add_argument("--launch-plan", type=Path, required=True)
     certify.add_argument("--launch-plan-sha256", required=True)
+    certify.add_argument("--expected-revision", required=True)
     certify.add_argument("--output", type=Path, required=True)
     certify.add_argument("--capacity-receipt", type=Path)
     certify.add_argument("--capacity-receipt-sha256")
@@ -954,6 +1133,7 @@ def _parser() -> argparse.ArgumentParser:
     merge = commands.add_parser("merge")
     merge.add_argument("--launch-plan", type=Path, required=True)
     merge.add_argument("--launch-plan-sha256", required=True)
+    merge.add_argument("--expected-revision", required=True)
     merge.add_argument("--sandoq-certificate", type=Path, required=True)
     merge.add_argument("--sandoq-certificate-sha256", required=True)
     merge.add_argument("--vmvm-certificate", type=Path, required=True)
@@ -971,6 +1151,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 run_dir=args.run_dir,
                 launch_plan=args.launch_plan,
                 launch_plan_sha256=args.launch_plan_sha256,
+                expected_revision=args.expected_revision,
                 capacity_receipt=args.capacity_receipt,
                 capacity_receipt_sha256=args.capacity_receipt_sha256,
                 capacity_public_key=args.capacity_public_key,
@@ -987,6 +1168,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 vmvm_certificate=args.vmvm_certificate,
                 vmvm_certificate_sha256=args.vmvm_certificate_sha256,
                 output=args.output,
+                expected_revision=args.expected_revision,
             )
     except (KeyboardInterrupt, SystemExit):
         raise

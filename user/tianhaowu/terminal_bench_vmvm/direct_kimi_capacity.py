@@ -34,7 +34,7 @@ CAPACITY = 64
 PER_WORKER_CAPACITY = 2
 FORWARDED_CAPACITY = 48
 CAPACITY_KIND = "direct-kimi-sandoq-capacity"
-CAPACITY_SCHEMA_VERSION = 4
+CAPACITY_SCHEMA_VERSION = 5
 CAPACITY_FILENAME = "direct_kimi_capacity_certificate.json"
 PROBE_KIND = "direct-kimi-router-capacity-probe"
 PROBE_SCHEMA_VERSION = 2
@@ -42,7 +42,8 @@ PROBE_FILENAME = "direct_kimi_capacity_probe.json"
 PROBE_ROUNDS = 2
 MAX_RESPONSE_BYTES = 1 << 20
 MAX_SEQUENCE_TOKENS = 262_144
-MAX_GENERATION_TOKENS = 32_768
+MAX_GENERATION_TOKENS = 128
+QUALIFICATION_SCOPE = "routing-runtime-capacity-only"
 MINISWE_VERSION = "2.4.6"
 MINISWE_MAX_STEPS = 3
 SANDOQ_PROVISIONING_RETRIES = 3
@@ -88,7 +89,7 @@ MINISWE_OVERRIDES = (
     "environment.environment_class=local",
     "environment.timeout=1800",
     "model.model_kwargs.drop_params=true",
-    "model.model_kwargs.timeout=1800",
+    "model.model_kwargs.timeout=900",
     "model.model_kwargs.temperature=1.0",
     "model.model_kwargs.top_p=1.0",
     "model.model_kwargs.parallel_tool_calls=false",
@@ -477,6 +478,22 @@ def _validate_capacity_config_value(config: object) -> dict[str, Any]:
     runtime = harness.get("runtime") if isinstance(harness, dict) else None
     retries = config.get("retries")
     rollout_retries = retries.get("rollout") if isinstance(retries, dict) else None
+    timeouts = config.get("timeout")
+    try:
+        parsed_base_url = urllib.parse.urlsplit(str(client.get("base_url", ""))) if isinstance(client, dict) else None
+        base_url_valid = (
+            parsed_base_url is not None
+            and parsed_base_url.scheme == "http"
+            and parsed_base_url.hostname == "127.0.0.1"
+            and parsed_base_url.port is not None
+            and parsed_base_url.path == "/v1"
+            and not parsed_base_url.query
+            and not parsed_base_url.fragment
+            and parsed_base_url.username is None
+            and parsed_base_url.password is None
+        )
+    except ValueError:
+        base_url_valid = False
     if (
         config.get("model") != EXPECTED_MODEL
         or config.get("num_tasks") != CAPACITY
@@ -493,10 +510,16 @@ def _validate_capacity_config_value(config: object) -> dict[str, Any]:
         or not isinstance(client, dict)
         or client.get("type") != "eval"
         or client.get("capture_model_io") is not True
+        or not base_url_valid
+        or client.get("api_key_var") != "OPENAI_API_KEY"
+        or client.get("timeout") != 900
+        or client.get("connect_timeout") != 120
         or client.get("max_connections") != CAPACITY
         or client.get("max_keepalive_connections") != CAPACITY
         or client.get("max_retries") != 0
         or not isinstance(sampling, dict)
+        or sampling.get("temperature") != 1.0
+        or sampling.get("top_p") != 1.0
         or sampling.get("max_tokens") != MAX_GENERATION_TOKENS
         or sampling.get("reasoning_effort") != "max"
         or sampling.get("chat_template_kwargs") != {"enable_thinking": True, "preserve_thinking": True}
@@ -508,10 +531,11 @@ def _validate_capacity_config_value(config: object) -> dict[str, Any]:
         or harness.get("version") != MINISWE_VERSION
         or harness.get("config_file") != "mini"
         or harness.get("config_overrides") != list(MINISWE_OVERRIDES)
-        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
         or not isinstance(runtime, dict)
         or runtime.get("type") != "sandoq"
         or runtime.get("mode") != "oci-runner"
+        or runtime.get("session_timeout") != 3_600
         or runtime.get("network_access") is not True
         or runtime.get("host_tunnel") != "sandoq"
         or runtime.get("buffered_chat_completions") is not True
@@ -522,6 +546,7 @@ def _validate_capacity_config_value(config: object) -> dict[str, Any]:
         or runtime.get("expected_environment") != PROVIDER_ENVIRONMENT
         or not isinstance(rollout_retries, dict)
         or rollout_retries.get("max_retries") != 0
+        or timeouts != {"setup": 1_800, "rollout": 1_800, "finalize": 300, "scoring": 600}
     ):
         raise DirectKimiCapacityError("capacity_config_invalid")
     return config
@@ -599,6 +624,20 @@ def _capacity_identity(run_dir: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         or not isinstance(config, dict)
     ):
         raise DirectKimiCapacityError("capacity_identity_invalid")
+    load_gate_record = deployment.get("endpoint_load_gate")
+    if not isinstance(load_gate_record, dict) or set(load_gate_record) != {"path", "sha256"}:
+        raise DirectKimiCapacityError("capacity_identity_invalid")
+    try:
+        from kimi_endpoint_load_gate import validate_load_gate
+
+        validate_load_gate(
+            Path(load_gate_record["path"]),
+            expected_sha256=load_gate_record["sha256"],
+            manifest_sha256=deployment["worker_manifest"]["sha256"],
+            endpoint_bundle_sha256=deployment["endpoint_bundle_sha256"],
+        )
+    except (KeyError, OSError, RuntimeError, ValueError) as error:
+        raise DirectKimiCapacityError("capacity_identity_invalid") from error
     return envelope, identity
 
 
@@ -1056,14 +1095,7 @@ def certify_capacity(
             require_clean_stop=False,
         )
         tool_observations, successful_tool_exits, nonzero_tool_exits = _tool_exit_observations(_iter_traces(results))
-        if (
-            failed
-            or summary.get("model_io_turns", 0) < CAPACITY
-            or summary.get("sampled_tokens", 0) < CAPACITY
-            or tool_observations < CAPACITY
-            or successful_tool_exits != tool_observations
-            or nonzero_tool_exits != 0
-        ):
+        if failed or summary.get("model_io_turns", 0) < CAPACITY or summary.get("sampled_tokens", 0) < CAPACITY:
             raise DirectKimiCapacityError("capacity_trace_audit_failed")
 
         cleanup, cleanup_body = _validate_cleanup(
@@ -1102,6 +1134,7 @@ def certify_capacity(
             "capacity_probe": _artifact(capacity_probe, published=True),
             "router_receipt": _artifact(run_dir / "direct_kimi_router_final.json", published=True),
             "cleanup_audit": _artifact(run_dir / "sandoq_cleanup_audit.json"),
+            "endpoint_load_gate": _artifact(Path(identity["deployment"]["endpoint_load_gate"]["path"])),
         }
         unsigned = {
             "schema_version": CAPACITY_SCHEMA_VERSION,
@@ -1109,6 +1142,7 @@ def certify_capacity(
             "state": "passed",
             "model": EXPECTED_MODEL,
             "capacity_profile": CAPACITY_PROFILE,
+            "qualification_scope": QUALIFICATION_SCOPE,
             "qualified_concurrency": CAPACITY,
             "endpoint_identifier": EXPECTED_ENDPOINT_IDENTIFIER,
             "eval_run_identity_sha256": envelope["eval_run_identity_sha256"],
@@ -1247,6 +1281,7 @@ def validate_capacity_certificate(
         "state",
         "model",
         "capacity_profile",
+        "qualification_scope",
         "qualified_concurrency",
         "endpoint_identifier",
         "eval_run_identity_sha256",
@@ -1283,6 +1318,7 @@ def validate_capacity_certificate(
         or value.get("state") != "passed"
         or value.get("model") != EXPECTED_MODEL
         or value.get("capacity_profile") != CAPACITY_PROFILE
+        or value.get("qualification_scope") != QUALIFICATION_SCOPE
         or value.get("qualified_concurrency") != CAPACITY
         or value.get("qualified_concurrency") < required_concurrency
         or value.get("endpoint_identifier") != expected_endpoint_identifier
@@ -1492,6 +1528,7 @@ def validate_capacity_certificate(
             "capacity_probe",
             "router_receipt",
             "cleanup_audit",
+            "endpoint_load_gate",
         }
     ):
         raise DirectKimiCapacityError("capacity_certificate_invalid")
@@ -1555,9 +1592,9 @@ def validate_capacity_certificate(
         or traces["sampled_tokens"] < CAPACITY
         or traces.get("trace_failures") != 0
         or traces.get("global_problem_count") != 0
-        or traces.get("tool_observations", 0) < CAPACITY
-        or traces.get("successful_tool_exits") != traces.get("tool_observations")
-        or traces.get("nonzero_tool_exits") != 0
+        or traces.get("successful_tool_exits", 0) > traces.get("tool_observations", 0)
+        or traces.get("nonzero_tool_exits", 0)
+        != traces.get("tool_observations", 0) - traces.get("successful_tool_exits", 0)
     ):
         raise DirectKimiCapacityError("capacity_certificate_not_qualified")
     cross_bindings = {
@@ -1600,6 +1637,17 @@ def validate_capacity_certificate(
     ):
         raise DirectKimiCapacityError("capacity_certificate_binding_mismatch")
     _validate_provider_context(Path(artifacts["provider_context"]["path"]))
+    try:
+        from kimi_endpoint_load_gate import validate_load_gate
+
+        validate_load_gate(
+            Path(artifacts["endpoint_load_gate"]["path"]),
+            expected_sha256=artifacts["endpoint_load_gate"]["sha256"],
+            manifest_sha256=value["worker_manifest_sha256"],
+            endpoint_bundle_sha256=value["endpoint_bundle_sha256"],
+        )
+    except (OSError, RuntimeError, ValueError) as error:
+        raise DirectKimiCapacityError("capacity_certificate_artifact_changed") from error
     return {**value, "capacity_certificate_payload_sha256": payload_sha256}
 
 

@@ -62,6 +62,7 @@ export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_d
 exec "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/certify_kimi_tb4_miniswe246_union.py" merge \
     --launch-plan "$launch_plan" --launch-plan-sha256 "$launch_plan_sha256" \
+    --expected-revision "$expected_revision" \
     --sandoq-certificate "$sandoq_certificate" \
     --sandoq-certificate-sha256 "$sandoq_certificate_sha256" \
     --vmvm-certificate "$vmvm_certificate" \

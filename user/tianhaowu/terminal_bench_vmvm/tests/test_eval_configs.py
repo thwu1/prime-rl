@@ -3,8 +3,14 @@ import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
+import prepare_kimi_tb4_miniswe246_union as union
 import pytest
-from eval_run_identity import EvalIdentityError, _contract, _resolved_config_data
+from eval_run_identity import (
+    EvalIdentityError,
+    _contract,
+    _resolved_config_data,
+    _validate_direct_kimi_tb4_w2_config,
+)
 from verifiers.v1.configs.eval import EvalConfig
 from verifiers.v1.retries import RolloutRetryConfig, should_retry
 
@@ -205,7 +211,17 @@ def test_kimi_sandoq_configs_retry_transient_model_streams_only(config_path: Pat
     config = tomllib.loads(config_path.read_text())
 
     assert config["client"]["max_retries"] == 0
-    assert config["harness"]["env"] == {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
+    retry_stop = (
+        "1"
+        if config_path.name
+        in {
+            "mobius_kimi_k3_sandoq_capacity64.example.toml",
+            "tb4_kimi_k3_miniswe246_sandoq_smoke.toml",
+            "tb4_kimi_k3_miniswe246_union.extended.base.toml",
+        }
+        else "10"
+    )
+    assert config["harness"]["env"] == {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": retry_stop}
     assert config["retries"]["rollout"]["max_retries"] == 0
 
 
@@ -638,7 +654,7 @@ def test_direct_kimi_sandoq_scored_smoke_launcher_is_pinned() -> None:
     assert "from eval_run_identity import _vmvm_source_sha256" in stage
     assert 'sha256sum "$project_dir"/environments/vmvm_tb_v2' not in stage
     assert 'role == "kimi-direct-tb4" and timeout == 144_000' in launcher
-    assert 'timeout in {1_800, 10_800, 43_200}' in launcher
+    assert "timeout in {300, 900, 1_800, 10_800, 43_200}" in launcher
 
 
 def test_direct_kimi_tb4_miniswe246_host_tunnel_lane_is_pinned() -> None:
@@ -679,6 +695,78 @@ def test_direct_kimi_tb4_miniswe246_host_tunnel_lane_is_pinned() -> None:
     assert 'eval_log="$output_dir/control/evaluator.private.log"' in stage
 
 
+def test_direct_kimi_tb4_w2_lane_is_sealed_to_c48_and_zero_model_retries() -> None:
+    base, _body = union._base_config(union._base_config_path().resolve())
+    config = union._lane_config(
+        base,
+        role=union.SANDOQ_ROLE,
+        selector=Path("/private/sandoq.tasks"),
+        selector_sha256="a" * 64,
+        image_manifest=Path("/private/images.json"),
+        dataset_dir=Path("/private/dataset"),
+        concurrency=48,
+    )
+    config["client"]["headers"] = {}
+    contract, execution = _contract(
+        config,
+        "Kimi-K3",
+        role="kimi-direct-tb4",
+        sandbox_provider="sandoq",
+    )
+    _validate_direct_kimi_tb4_w2_config(config, "kimi-direct-tb4")
+    launcher = (
+        CONFIG_DIR / "servers/cpu-132-021_8103/run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch"
+    ).read_text()
+    stage = (CONFIG_DIR.parents[1] / "run_direct_kimi_sandoq_stage.sh").read_text()
+
+    assert execution["rollout_concurrency"] == 48
+    assert execution["multiplex"] == 48
+    assert execution["http_max_connections"] == 48
+    assert execution["http_max_keepalive_connections"] == 48
+    assert execution["runtime"]["expected_environment"] == "oci-runner-firecracker"
+    assert execution["runtime"]["session_timeout"] == 144_000
+    assert contract["context_tokens"] == {
+        "max_input_tokens": 262_144,
+        "max_output_tokens": 262_144,
+        "max_total_tokens": 262_144,
+    }
+    assert contract["reasoning_effort"] == "max"
+    assert contract["harness"]["version"] == "2.4.6"
+    assert contract["harness"]["request_max_retries"] == 0
+    assert config["harness"]["env"] == {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+    assert config["retries"]["rollout"]["max_retries"] == 0
+    assert "tb4-miniswe246-sandoq-union" in launcher
+    assert "KIMI_SANDOQ_CAPACITY_CERTIFICATE" in launcher
+    assert "kimi_tb4_w2_gate.py" in launcher
+    assert "tb4-extended-c48-w2-two-wave-v1" in launcher
+    assert "DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=0" in launcher
+    assert "capacity_gate_receipt" in stage
+
+    config["harness"]["env"]["MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT"] = "2"
+    with pytest.raises(EvalIdentityError, match="^direct_kimi_tb4_w2_config_invalid$"):
+        _validate_direct_kimi_tb4_w2_config(config, "kimi-direct-tb4")
+
+
+def test_direct_kimi_w2_manifest_cannot_authorize_lower_concurrency_config() -> None:
+    base, _body = union._base_config(union._base_config_path().resolve())
+    config = union._lane_config(
+        base,
+        role=union.SANDOQ_ROLE,
+        selector=Path("/private/sandoq.tasks"),
+        selector_sha256="a" * 64,
+        image_manifest=Path("/private/images.json"),
+        dataset_dir=Path("/private/dataset"),
+        concurrency=48,
+    )
+    config["max_concurrent"] = 24
+    config["multiplex"] = 24
+    config["client"]["max_connections"] = 24
+    config["client"]["max_keepalive_connections"] = 24
+
+    with pytest.raises(EvalIdentityError, match="^direct_kimi_tb4_w2_config_invalid$"):
+        _validate_direct_kimi_tb4_w2_config(config, "kimi-direct-tb4", required=True)
+
+
 def test_direct_kimi_miniswe246_smoke_matches_full_tunnel_lane() -> None:
     config = _resolved_eval_config("servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_sandoq_smoke.toml")
     contract, execution = _contract(
@@ -696,20 +784,22 @@ def test_direct_kimi_miniswe246_smoke_matches_full_tunnel_lane() -> None:
         "version": "2.4.6",
         "placement": "sandbox",
         "step_limit": 3,
-        "request_timeout_seconds": 43_200,
+        "request_timeout_seconds": 900,
         "request_max_retries": 0,
     }
     assert execution["runtime"]["expected_environment"] == "oci-runner-firecracker"
     assert execution["runtime"]["host_tunnel"] == "sandoq"
     assert execution["runtime"]["buffered_chat_completions"] is True
-    assert execution["runtime"]["session_timeout"] == 3300
-    assert config["sampling"]["max_tokens"] == 4_096
-    assert config["timeout"]["rollout"] == 2700
+    assert execution["runtime"]["session_timeout"] == 3600
+    assert config["sampling"]["max_tokens"] == 128
+    assert config["harness"]["env"] == {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+    assert config["client"]["timeout"] == 900
+    assert config["timeout"]["rollout"] == 3000
     assert config["taskset"]["enable_compose"] is False
     assert config["taskset"]["resource_multiplier"] == 1.0
     assert 'prepare_kimi_tb4_miniswe246_union.py" verify-smoke' in launcher
     assert '"$stage" == miniswe-smoke' in launcher
-    assert "expected_smoke_wall_limit=1:00:00" in launcher
+    assert "expected_smoke_wall_limit=2:00:00" in launcher
     assert "sandoq_pool_capacity=$(( stage_capacity * 2 ))" in launcher
     assert '--concurrency "$sandoq_pool_capacity"' in launcher
     assert "Direct Kimi Sandoq pool has no separate-verifier reserve" in launcher

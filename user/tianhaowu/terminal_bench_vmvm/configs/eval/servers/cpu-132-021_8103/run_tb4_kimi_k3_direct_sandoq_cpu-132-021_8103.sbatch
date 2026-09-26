@@ -117,7 +117,7 @@ if [[ "$stage" == smoke || "$stage" == miniswe-smoke \
     smoke_wall_limit=$(squeue -h -j "$SLURM_JOB_ID" -o '%l')
     expected_smoke_wall_limit=4:00:00
     if [[ "$stage" == miniswe-smoke ]]; then
-        expected_smoke_wall_limit=1:00:00
+        expected_smoke_wall_limit=2:00:00
     elif [[ "$stage" == mobius-smoke ]]; then
         expected_smoke_wall_limit=12:00
     elif [[ "$stage" == capacity-smoke ]]; then
@@ -284,6 +284,10 @@ if [[ "$stage" == tb4-miniswe246-sandoq-union || "$stage" == tb4-miniswe246-vmvm
     certificate_mode=miniswe-union
     smoke_checkpoint=${KIMI_SANDOQ_SMOKE_CHECKPOINT:?Set KIMI_SANDOQ_SMOKE_CHECKPOINT}
     smoke_checkpoint_sha256=${KIMI_SANDOQ_SMOKE_CHECKPOINT_SHA256:?Set KIMI_SANDOQ_SMOKE_CHECKPOINT_SHA256}
+    router_capacity_profile=sandoq-c64-w2-v1
+    endpoint_identifier=cpu-132-021_8103
+    capacity_certificate=${KIMI_SANDOQ_CAPACITY_CERTIFICATE:?Set KIMI_SANDOQ_CAPACITY_CERTIFICATE}
+    capacity_certificate_sha256=${KIMI_SANDOQ_CAPACITY_CERTIFICATE_SHA256:?Set KIMI_SANDOQ_CAPACITY_CERTIFICATE_SHA256}
 elif [[ "$stage" == tb4-miniswe246-sandoq-clamped-recovery ]]; then
     [[ "$execution_mode" == certified && "$sandbox_provider" == sandoq ]] \
         || { printf 'Clamped TB4 recovery requires certified Sandoq mode\n' >&2; exit 2; }
@@ -422,8 +426,29 @@ if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
         printf 'Direct Kimi c23 launch profile is invalid\n' >&2
         exit 2
     fi
-elif [[ "$router_capacity_profile" != legacy-c24 \
-    && "$router_capacity_profile" != sandoq-c64-w2-v1 ]]; then
+elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+    if [[ "$endpoint_identifier" != cpu-132-021_8103 \
+        || ( "$stage" != capacity-smoke && "$stage" != tb4-miniswe246-sandoq-union ) ]]; then
+        if [[ "$stage" != tb4-miniswe246-vmvm-union || "$sandbox_provider" != vmvm ]]; then
+            printf 'Direct Kimi c64-w2 launch profile is invalid\n' >&2
+            exit 2
+        fi
+    fi
+    if [[ "$stage" == capacity-smoke && "$stage_capacity" != 64 ]]; then
+        printf 'Direct Kimi c64-w2 capacity smoke is invalid\n' >&2
+        exit 2
+    fi
+    if [[ "$stage" == tb4-miniswe246-sandoq-union \
+        && ( "$stage_capacity" != 48 || "$task_count" != 52 ) ]]; then
+        printf 'Direct Kimi c48 Sandoq union scope is invalid\n' >&2
+        exit 2
+    fi
+    if [[ "$stage" == tb4-miniswe246-vmvm-union \
+        && ( "$stage_capacity" != 11 || "$task_count" != 11 ) ]]; then
+        printf 'Direct Kimi c11 VMVM union scope is invalid\n' >&2
+        exit 2
+    fi
+elif [[ "$router_capacity_profile" != legacy-c24 ]]; then
     printf 'Direct Kimi router profile is invalid\n' >&2
     exit 2
 elif [[ "$router_capacity_profile" != sandoq-c23-v1 && -n "$excluded_backend_sha256" ]]; then
@@ -480,7 +505,7 @@ if type(timeout) is not int:
     raise SystemExit(2)
 if role == "kimi-direct-tb4" and timeout == 144_000:
     print(144_000)
-elif timeout in {1_800, 10_800, 43_200}:
+elif timeout in {300, 900, 1_800, 10_800, 43_200}:
     print(43_200)
 else:
     raise SystemExit(2)
@@ -528,6 +553,25 @@ if [[ ${#worker_urls[@]} -ne "$expected_worker_count" || ${#router_ports[@]} -ne
 fi
 router_port=${router_ports[0]}
 metrics_port=${router_ports[1]}
+
+capacity_gate_receipt=
+capacity_gate_receipt_sha256=
+if [[ "$stage" == tb4-miniswe246-sandoq-union || "$stage" == tb4-miniswe246-vmvm-union ]]; then
+    capacity_gate_receipt="$generation_dir/kimi_tb4_w2_launch_gate.json"
+    PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:$sandoq_site:$x86_site" \
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/kimi_tb4_w2_gate.py" \
+        --capacity-certificate "$capacity_certificate" \
+        --capacity-certificate-sha256 "$capacity_certificate_sha256" \
+        --worker-manifest "$manifest" --worker-manifest-sha256 "$manifest_sha256" \
+        --selector "$workflow_dir/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt" \
+        --dataset-dir /checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks \
+        --expected-revision "$expected_revision" --sandoq-site "$sandoq_site" \
+        --union-launch-plan "$union_launch_plan" \
+        --union-launch-plan-sha256 "$union_launch_plan_sha256" \
+        --output "$capacity_gate_receipt"
+    capacity_gate_receipt_sha256=$(sha256sum -- "$capacity_gate_receipt" | cut -d' ' -f1)
+fi
 
 while IFS= read -r variable_name; do
     if [[ ${variable_name,,} == *_proxy ]]; then
@@ -589,14 +633,26 @@ stage_env=(
     DIRECT_KIMI_ENDPOINT_IDENTIFIER="${endpoint_identifier:-}"
     DIRECT_KIMI_EXCLUDED_BACKEND_SHA256="${excluded_backend_sha256:-}"
 )
+if [[ "$stage" == miniswe-smoke || "$stage" == capacity-smoke \
+    || "$stage" == tb4-miniswe246-sandoq-union \
+    || "$stage" == tb4-miniswe246-vmvm-union ]]; then
+    stage_env+=(DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=0)
+fi
 if [[ "$router_request_timeout" == 144000 ]]; then
     endpoint_walltime_profile=tb4-extended-c24-two-wave-v1
+    endpoint_minimum_remaining_seconds=324000
     if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
         endpoint_walltime_profile=tb4-c23-v1
+    elif [[ "$stage" == tb4-miniswe246-vmvm-union ]]; then
+        endpoint_walltime_profile=tb4-extended-vmvm-union11-c11-v1
+        endpoint_minimum_remaining_seconds=345600
+    elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+        endpoint_walltime_profile=tb4-extended-c48-w2-two-wave-v1
+        endpoint_minimum_remaining_seconds=345600
     fi
     stage_env+=(
         KIMI_ENDPOINT_WALLTIME_PROFILE="$endpoint_walltime_profile"
-        KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS=324000
+        KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS="$endpoint_minimum_remaining_seconds"
     )
 fi
 if [[ "$native_miniswe_stage" == 1 ]]; then
@@ -608,6 +664,17 @@ if [[ "$identity_role" == kimi-direct-tb4 ]]; then
     stage_env+=(
         DIRECT_KIMI_SMOKE_CHECKPOINT="$smoke_checkpoint"
         DIRECT_KIMI_SMOKE_CHECKPOINT_SHA256="$smoke_checkpoint_sha256"
+    )
+fi
+if [[ "$stage" == tb4-miniswe246-vmvm-union ]]; then
+    stage_env+=(VACLI_MAX_CONCURRENT_LEASES=11)
+fi
+if [[ "$stage" == tb4-miniswe246-sandoq-union || "$stage" == tb4-miniswe246-vmvm-union ]]; then
+    stage_env+=(
+        DIRECT_KIMI_CAPACITY_CERTIFICATE="$capacity_certificate"
+        DIRECT_KIMI_CAPACITY_CERTIFICATE_SHA256="$capacity_certificate_sha256"
+        DIRECT_KIMI_CAPACITY_GATE_RECEIPT="$capacity_gate_receipt"
+        DIRECT_KIMI_CAPACITY_GATE_RECEIPT_SHA256="$capacity_gate_receipt_sha256"
     )
 fi
 if [[ "$execution_mode" == sandoq-fallback-diagnostic ]]; then
@@ -630,15 +697,20 @@ elif [[ "$execution_mode" == diagnostic ]]; then
     )
 fi
 if [[ "$sandbox_provider" == sandoq ]]; then
-    # Terminal-Bench's separate verifier starts while the agent sandbox is
-    # still live.  Reserve an equal number of provider slots for verifier
-    # sandboxes; otherwise a saturated rollout wave waits on itself until the
-    # scoring deadline.  Sandoq's audited provider context caps the pool at 64.
+    # Sandoq's audited provider context caps the pool at 64.  The taskset
+    # finalizer releases each agent runtime before any separate verifier is
+    # acquired; capacity-smoke's selector is entirely shared-verifier tasks.
     sandoq_pool_capacity=$(( stage_capacity * 2 ))
     if (( sandoq_pool_capacity > 64 )); then
         sandoq_pool_capacity=64
     fi
-    if (( stage_capacity < 64 && sandoq_pool_capacity <= stage_capacity )); then
+    if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]] \
+        && [[ "$sandoq_pool_capacity" != 64 ]]; then
+        printf 'Direct Kimi c64-w2 Sandoq pool contract is invalid\n' >&2
+        exit 2
+    fi
+    if [[ "$router_capacity_profile" != sandoq-c64-w2-v1 ]] \
+        && (( stage_capacity < 64 && sandoq_pool_capacity <= stage_capacity )); then
         printf 'Direct Kimi Sandoq pool has no separate-verifier reserve\n' >&2
         exit 2
     fi
@@ -735,6 +807,7 @@ if [[ "$stage" == tb4-miniswe246-sandoq-union || "$stage" == tb4-miniswe246-vmvm
         python3 "$workflow_dir/certify_kimi_tb4_miniswe246_union.py" certify-lane \
         --role "$union_role" --run-dir "$output_dir" \
         --launch-plan "$union_launch_plan" --launch-plan-sha256 "$union_launch_plan_sha256" \
+        --expected-revision "$expected_revision" \
         --output "$output_dir/provider_partition_certificate.json" \
         "${union_certificate_args[@]}"
 elif [[ "$stage" == tb4-miniswe246-sandoq-clamped-recovery ]]; then

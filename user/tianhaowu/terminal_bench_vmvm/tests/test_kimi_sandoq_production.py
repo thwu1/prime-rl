@@ -92,15 +92,16 @@ def test_launch_value_binds_w2_forwarding_capacity(tmp_path: Path) -> None:
     assert launch["deployment"]["max_forwarded_capacity"] == 48
 
 
-def test_production_capacity_gate_requires_schema4_w2(
+def test_production_capacity_gate_requires_schema5_w2(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     value = {
-        "schema_version": 4,
+        "schema_version": 5,
         "kind": production.CAPACITY_KIND,
         "state": "passed",
         "capacity_profile": production.CAPACITY_PROFILE,
+        "qualification_scope": "routing-runtime-capacity-only",
         "qualified_concurrency": 64,
         "endpoint_identifier": production.DEPLOYMENT_NAMESPACE,
         "worker_manifest_sha256": "1" * 64,
@@ -123,7 +124,7 @@ def test_production_capacity_gate_requires_schema4_w2(
     assert observed == value
     assert artifact.sha256 == digest
 
-    stale = {**value, "schema_version": 3}
+    stale = {**value, "schema_version": 4}
     stale_path = _private_file(tmp_path / "stale-capacity.json", canonical_json(stale))
     with pytest.raises(production.KimiProductionError, match="capacity_certificate_invalid"):
         production._validate_capacity_certificate(

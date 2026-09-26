@@ -25,7 +25,7 @@ from audit_traces import (
     _read_expected_slugs,
     _summarize_traces,
 )
-from direct_kimi_router import C23_CAPACITY_PROFILE
+from direct_kimi_router import C23_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE
 from direct_kimi_workers import (
     EXPECTED_ENDPOINTS,
     EXPECTED_MODEL,
@@ -45,6 +45,7 @@ from eval_run_identity import (
     KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
     KIMI_MINISWE_COMPATIBILITY_SHA256,
     KIMI_MINISWE_VERSION,
+    _validate_w2_smoke_checkpoint_provenance,
     canonical_json,
     load_eval_run_identity,
 )
@@ -176,6 +177,29 @@ def _native_miniswe_smoke_execution(identity: dict[str, Any]) -> dict[str, Any] 
     return value
 
 
+def _native_smoke_model_retry_stop_after_attempt(identity: dict[str, Any]) -> int | None:
+    """Bind MiniSWE's provider retry policy into a native smoke certificate."""
+
+    execution = _native_miniswe_smoke_execution(identity)
+    if execution is None:
+        return None
+    record = identity.get("config", {}).get("resolved")
+    if not isinstance(record, dict) or set(record) != {"path", "sha256"}:
+        raise DirectKimiCertificateError("smoke_retry_contract_invalid")
+    path = Path(str(record["path"]))
+    if _sha256(path) != record["sha256"]:
+        raise DirectKimiCertificateError("smoke_retry_contract_invalid")
+    try:
+        config = tomllib.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise DirectKimiCertificateError("smoke_retry_contract_invalid") from error
+    harness = config.get("harness")
+    environment = harness.get("env") if isinstance(harness, dict) else None
+    if environment != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}:
+        raise DirectKimiCertificateError("smoke_retry_contract_invalid")
+    return 1
+
+
 def _expected_sandoq_pool_size(rollout_concurrency: int) -> int:
     """Reserve one verifier slot per live agent, within the audited pool cap."""
 
@@ -283,7 +307,12 @@ def _validate_identity(
         raise DirectKimiCertificateError("eval_identity_invalid")
     identity_router = deployment.get("router") if isinstance(deployment, dict) else None
     c23_profile = isinstance(identity_router, dict) and identity_router.get("capacity_profile") == C23_CAPACITY_PROFILE
-    expected_concurrency = 1 if role == "kimi-direct-smoke" else 23 if c23_profile else 24
+    w2_tb4 = (
+        role == "kimi-direct-tb4"
+        and isinstance(identity_router, dict)
+        and identity_router.get("capacity_profile") == C64_W2_CAPACITY_PROFILE
+    )
+    expected_concurrency = 1 if role == "kimi-direct-smoke" else 23 if c23_profile else 48 if w2_tb4 else 24
     expected_pool_size = _expected_sandoq_pool_size(expected_concurrency)
     environment = execution.get("sandoq_environment")
     runtime = execution.get("runtime")
@@ -355,6 +384,18 @@ def _validate_identity(
                 "endpoint_identifier": manifest["router"].get("endpoint_identifier"),
             }
         )
+    elif w2_tb4 and manifest["router"].get("capacity_profile") == C64_W2_CAPACITY_PROFILE:
+        expected_router.update(
+            {
+                "capacity_profile": C64_W2_CAPACITY_PROFILE,
+                "endpoint_identifier": manifest["router"].get("endpoint_identifier"),
+                "per_worker_capacity": 2,
+            }
+        )
+        for name in ("capacity_certificate", "capacity_gate_receipt"):
+            record = deployment.get(name)
+            if not isinstance(record, dict) or set(record) != {"path", "sha256"}:
+                raise DirectKimiCertificateError("capacity_gate_invalid")
     elif "capacity_profile" in manifest["router"]:
         raise DirectKimiCertificateError("worker_generation_invalid")
     if (
@@ -396,6 +437,7 @@ def _validate_router_receipt(
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
         raise DirectKimiCertificateError("router_receipt_invalid") from error
     c23_profile = manifest["router"].get("capacity_profile") == C23_CAPACITY_PROFILE
+    w2_profile = manifest["router"].get("capacity_profile") == C64_W2_CAPACITY_PROFILE
     worker_count = 23 if c23_profile else EXPECTED_ENDPOINTS
     router_capacity = manifest["router"].get("max_concurrent_requests", ROUTER_PROVIDER_CONCURRENCY)
     request_timeout = manifest["router"].get("request_timeout_seconds", ROUTER_REQUEST_TIMEOUT_SECONDS)
@@ -403,7 +445,7 @@ def _validate_router_receipt(
         (json.dumps([0] * worker_count, separators=(",", ":")) + "\n").encode()
     ).hexdigest()
     expected = {
-        "schema_version": 4 if c23_profile else 2,
+        "schema_version": 5 if w2_profile else 4 if c23_profile else 2,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": binding["eval_run_identity_sha256"],
@@ -426,13 +468,13 @@ def _validate_router_receipt(
         "worker_request_counts_sha256",
     }
     digest_keys = {"worker_request_counts_sha256"}
-    if c23_profile:
+    if c23_profile or w2_profile:
         expected.update(
             {
-                "capacity_profile": C23_CAPACITY_PROFILE,
+                "capacity_profile": C64_W2_CAPACITY_PROFILE if w2_profile else C23_CAPACITY_PROFILE,
                 "endpoint_identifier": manifest["router"].get("endpoint_identifier"),
                 "configured_capacity": router_capacity,
-                "configured_per_worker_capacity": 1,
+                "configured_per_worker_capacity": 2 if w2_profile else 1,
                 "active_forwarded_requests": 0,
                 "worker_active_request_counts_sha256": zero_worker_counts_sha256,
                 "active_worker_waiters": 0,
@@ -451,12 +493,22 @@ def _validate_router_receipt(
             }
         )
         digest_keys.add("worker_session_counts_sha256")
+    if w2_profile:
+        expected.update(
+            {
+                "worker_queue_timeouts": 0,
+                "upstream_http_429": 0,
+                "upstream_http_5xx": 0,
+            }
+        )
+        dynamic_keys.update({"max_active_forwarded_requests", "worker_max_active_request_counts_sha256"})
+        digest_keys.add("worker_max_active_request_counts_sha256")
     if (
         not isinstance(receipt, dict)
         or set(receipt) != {*expected, *dynamic_keys}
         or any(receipt.get(key) != value for key, value in expected.items())
         or (
-            c23_profile
+            (c23_profile or w2_profile)
             and any(
                 type(receipt.get(key)) is not int
                 for key in (
@@ -472,7 +524,7 @@ def _validate_router_receipt(
         or receipt["chat_requests"] < minimum_chat_requests
         or any(SHA256_RE.fullmatch(str(receipt.get(key, ""))) is None for key in digest_keys)
         or (
-            c23_profile
+            (c23_profile or w2_profile)
             and (
                 any(
                     type(receipt.get(key)) is not int or receipt[key] < 0
@@ -493,6 +545,13 @@ def _validate_router_receipt(
                 or receipt["tracked_sessions"] > receipt["chat_requests"]
             )
         )
+        or (
+            w2_profile
+            and (
+                not 1 <= receipt["max_active_forwarded_requests"] <= 48
+                or receipt["max_active_forwarded_requests"] > receipt["max_active_requests"]
+            )
+        )
     ):
         raise DirectKimiCertificateError("router_receipt_invalid")
     return receipt
@@ -503,6 +562,7 @@ def _validate_cleanup(
     *,
     expected_count: int,
     expected_concurrency: int,
+    minimum_concurrency: int | None = None,
     require_saturation: bool = True,
 ) -> tuple[dict[str, Any], bytes]:
     try:
@@ -537,6 +597,13 @@ def _validate_cleanup(
         "pool_drain_sha256",
     }
     expected_keys = {"schema_version", "kind", "state", *count_keys, *digest_keys}
+    minimum = (
+        expected_concurrency
+        if minimum_concurrency is None and require_saturation
+        else 1
+        if minimum_concurrency is None
+        else minimum_concurrency
+    )
     if (
         not isinstance(cleanup, dict)
         or set(cleanup) != expected_keys
@@ -553,7 +620,8 @@ def _validate_cleanup(
         or cleanup["recorded_outer_sessions"] != cleanup["outer_sessions_created"]
         or cleanup["recorded_outer_sessions"] != cleanup["outer_sessions_deleted"]
         or cleanup["recorded_outer_sessions"] < 1
-        or not 1 <= cleanup["assignment_measured_high_water"] <= expected_concurrency
+        or not 1 <= minimum <= expected_concurrency
+        or not minimum <= cleanup["assignment_measured_high_water"] <= expected_concurrency
         or not cleanup["assignment_measured_high_water"] <= cleanup["outer_session_high_water"] <= expected_concurrency
         or (require_saturation and cleanup["assignment_measured_high_water"] != expected_concurrency)
         or cleanup["assignments_acquired"] < expected_count
@@ -619,6 +687,7 @@ def certify_smoke(
         identity = envelope["identity"]
         capacity_scope = _capacity_limited_smoke_scope(identity)
         execution = _native_miniswe_smoke_execution(identity)
+        model_retry_stop_after_attempt = _native_smoke_model_retry_stop_after_attempt(identity)
         expected_slugs = _validate_task_selection(identity, expected_task_file, expected_task_file_sha256)
         if len(expected_slugs) != SMOKE_TASK_COUNT:
             raise DirectKimiCertificateError("task_selection_invalid")
@@ -666,6 +735,10 @@ def certify_smoke(
             "kind": "direct-kimi-sandoq-smoke",
             "state": "passed",
             "model": EXPECTED_MODEL,
+            "source": {
+                "prime_rl_commit": identity["source"]["prime_rl_commit"],
+                "prime_rl_tree_sha256": identity["source"]["prime_rl_tree_sha256"],
+            },
             "eval_run_identity_sha256": envelope["eval_run_identity_sha256"],
             "results_sha256": before,
             "task_file_sha256": expected_task_file_sha256,
@@ -676,6 +749,7 @@ def certify_smoke(
             "qualification_scope": "capacity-limited-smoke-only",
             "capacity_scope": capacity_scope,
             "execution": execution,
+            "model_retry_stop_after_attempt": model_retry_stop_after_attempt,
             "scoring": scoring,
             "tool_execution": tool_execution,
             "full_tb4_ready": False,
@@ -723,6 +797,7 @@ def certify_tb4(
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise DirectKimiCertificateError("smoke_checkpoint_invalid") from error
         manifest_record = identity["deployment"]["worker_manifest"]
+        w2_profile = manifest["router"].get("capacity_profile") == C64_W2_CAPACITY_PROFILE
         if (
             SHA256_RE.fullmatch(smoke_checkpoint_sha256) is None
             or hashlib.sha256(smoke_raw).hexdigest() != smoke_checkpoint_sha256
@@ -733,12 +808,25 @@ def certify_tb4(
             or smoke.get("kind") != "direct-kimi-sandoq-smoke"
             or smoke.get("state") != "passed"
             or smoke.get("model") != EXPECTED_MODEL
-            or smoke.get("full_tb4_ready") is not True
+            or (
+                smoke.get("full_tb4_ready") is not True
+                and not (
+                    w2_profile
+                    and _validate_w2_smoke_checkpoint_provenance(
+                        smoke,
+                        manifest,
+                        expected_revision=identity["source"]["prime_rl_commit"],
+                        expected_tree_sha256=identity["source"]["prime_rl_tree_sha256"],
+                    )
+                )
+            )
             or SHA256_RE.fullmatch(str(smoke.get("worker_manifest_sha256", ""))) is None
             or smoke.get("source_spec_sha256") != manifest["source_spec_sha256"]
             or smoke.get("endpoint_bundle_sha256") != manifest["endpoint_bundle_sha256"]
         ):
             raise DirectKimiCertificateError("smoke_checkpoint_invalid")
+        if w2_profile:
+            raise DirectKimiCertificateError("w2_provider_union_required")
         results = run_dir / "results.jsonl"
         before = _sha256(results)
         try:
@@ -766,10 +854,42 @@ def certify_tb4(
         cleanup, cleanup_raw = _validate_cleanup(
             run_dir / "sandoq_cleanup_audit.json",
             expected_count=EXPECTED_TASK_COUNT,
-            expected_concurrency=int(identity["execution"]["rollout_concurrency"]),
+            expected_concurrency=(64 if w2_profile else int(identity["execution"]["rollout_concurrency"])),
+            minimum_concurrency=(48 if w2_profile else None),
+            require_saturation=not w2_profile,
         )
         artifacts = _common_artifacts(run_dir)
         artifacts["smoke_checkpoint"] = _artifact(smoke_checkpoint)
+        if w2_profile:
+            artifacts["capacity_certificate"] = _artifact(Path(capacity_record["path"]))
+            artifacts["capacity_gate_receipt"] = _artifact(Path(gate_record["path"]))
+            artifacts["endpoint_load_gate"] = _artifact(Path(load_gate_record["path"]))
+        policy = {
+            "expected_tasks": EXPECTED_TASK_COUNT,
+            "expected_supported_tasks": EXPECTED_SUPPORTED_TASK_COUNT,
+            "rollouts_per_task": 1,
+            "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
+            "min_supported_pass_rate": TB4_MIN_SUPPORTED_PASS_RATE,
+            "max_supported_pass_rate": TB4_MAX_SUPPORTED_PASS_RATE,
+            "router_policy": ROUTER_POLICY,
+            "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
+            "request_timeout_seconds": manifest["router"]["request_timeout_seconds"],
+            "retries": ROUTER_RETRIES,
+        }
+        if w2_profile:
+            policy.update(
+                {
+                    "capacity_profile": C64_W2_CAPACITY_PROFILE,
+                    "router_admission": 64,
+                    "effective_rollout_concurrency": 48,
+                    "worker_count": 24,
+                    "per_worker_capacity": 2,
+                    "security_labelled_tasks": 7,
+                    "security_task_handling": "opaque-execution-aggregate-only",
+                    "membership_disclosed": False,
+                    "prelaunch_load_policy": "shared-low-load-no-exclusivity-v1",
+                }
+            )
         unsigned = {
             "schema_version": 1,
             "kind": "direct-kimi-sandoq-tb4",
@@ -794,18 +914,7 @@ def certify_tb4(
                 "supported_pass_rate": summary["supported_pass_rate"],
                 "all_task_pass_rate": summary["all_task_pass_rate"],
             },
-            "policy": {
-                "expected_tasks": EXPECTED_TASK_COUNT,
-                "expected_supported_tasks": EXPECTED_SUPPORTED_TASK_COUNT,
-                "rollouts_per_task": 1,
-                "max_sequence_tokens": MAX_SEQUENCE_TOKENS,
-                "min_supported_pass_rate": TB4_MIN_SUPPORTED_PASS_RATE,
-                "max_supported_pass_rate": TB4_MAX_SUPPORTED_PASS_RATE,
-                "router_policy": ROUTER_POLICY,
-                "request_id_headers": list(ROUTER_REQUEST_ID_HEADERS),
-                "request_timeout_seconds": manifest["router"]["request_timeout_seconds"],
-                "retries": ROUTER_RETRIES,
-            },
+            "policy": policy,
             "pool_cleanup": {
                 "audit_sha256": hashlib.sha256(cleanup_raw).hexdigest(),
                 "assignment_measured_high_water": cleanup["assignment_measured_high_water"],

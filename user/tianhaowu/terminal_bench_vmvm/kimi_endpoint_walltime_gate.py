@@ -24,15 +24,24 @@ EXPECTED_CLUSTER = "fair-cw-use2-1"
 EXPECTED_ENDPOINTS = 24
 EXTENDED_PROFILE = "tb4-extended-c24-two-wave-v1"
 C23_PROFILE = "tb4-c23-v1"
+W2_PROFILE = "tb4-extended-c48-w2-two-wave-v1"
+VMVM_UNION_PROFILE = "tb4-extended-vmvm-union11-c11-v1"
 C23_MANIFEST_CAPACITY_PROFILE = "sandoq-c23-v1"
+W2_MANIFEST_CAPACITY_PROFILE = "sandoq-c64-w2-v1"
 C23_MANIFEST_SELECTION_PROFILE = "exclude-one-from-c24-v1"
 C23_SELECTED_ENDPOINTS = 23
 EXTENDED_MINIMUM_REMAINING_SECONDS = 90 * 60 * 60
+VMVM_UNION_MINIMUM_REMAINING_SECONDS = 90 * 60 * 60
 EXTENDED_REQUEST_TIMEOUT_SECONDS = 144_000
 EXTENDED_ROUTER_CONCURRENCY = 24
 RECEIPT_KIND = "direct-kimi-endpoint-walltime-gate"
 RECEIPT_SCHEMA_VERSION = 1
 C23_RECEIPT_SCHEMA_VERSION = 2
+W2_RECEIPT_SCHEMA_VERSION = 3
+VMVM_UNION_RECEIPT_SCHEMA_VERSION = 4
+W2_ROLLOUT_CONCURRENCY = 48
+W2_ROUTER_ADMISSION = 64
+VMVM_UNION_TASK_COUNT = 11
 MAX_STATUS_BYTES = 8 * 1024 * 1024
 MAX_SCHEDULER_BYTES = 1 * 1024 * 1024
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
@@ -286,21 +295,31 @@ def parse_scheduler_output(
 
 
 def _validate_profile(profile: str, minimum_remaining_seconds: int) -> None:
-    if profile not in (EXTENDED_PROFILE, C23_PROFILE):
+    if profile not in (EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, VMVM_UNION_PROFILE):
         raise EndpointWalltimeGateError("endpoint_walltime_profile_invalid")
     if (
         not isinstance(minimum_remaining_seconds, int)
         or isinstance(minimum_remaining_seconds, bool)
         or minimum_remaining_seconds < EXTENDED_MINIMUM_REMAINING_SECONDS
+        or (profile == VMVM_UNION_PROFILE and minimum_remaining_seconds < VMVM_UNION_MINIMUM_REMAINING_SECONDS)
     ):
         raise EndpointWalltimeGateError("minimum_remaining_seconds_invalid")
 
 
 def _validate_task_count(task_count: int, *, profile: str = EXTENDED_PROFILE) -> None:
-    lower_bound = EXTENDED_ROUTER_CONCURRENCY
-    upper_bound = 2 * C23_SELECTED_ENDPOINTS if profile == C23_PROFILE else 2 * EXTENDED_ROUTER_CONCURRENCY
+    lower_bound = W2_ROLLOUT_CONCURRENCY if profile == W2_PROFILE else EXTENDED_ROUTER_CONCURRENCY
+    if profile == VMVM_UNION_PROFILE:
+        if type(task_count) is not int or task_count != VMVM_UNION_TASK_COUNT:
+            raise EndpointWalltimeGateError("extended_two_wave_task_count_invalid")
+        return
+    if profile == C23_PROFILE:
+        upper_bound = 2 * C23_SELECTED_ENDPOINTS
+    elif profile == W2_PROFILE:
+        upper_bound = 2 * W2_ROLLOUT_CONCURRENCY
+    else:
+        upper_bound = 2 * EXTENDED_ROUTER_CONCURRENCY
     if (
-        profile not in (EXTENDED_PROFILE, C23_PROFILE)
+        profile not in (EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, VMVM_UNION_PROFILE)
         or not isinstance(task_count, int)
         or isinstance(task_count, bool)
         or not lower_bound < task_count <= upper_bound
@@ -376,6 +395,19 @@ def _load_manifest(
             or selected_backends != sorted(selected_backends)
             or manifest.get("endpoint_bundle_sha256") != _bundle_sha256(selected_backends)
             or manifest.get("source_endpoint_bundle_sha256") != _bundle_sha256(full_backends)
+        )
+    elif profile in {W2_PROFILE, VMVM_UNION_PROFILE}:
+        workers = manifest.get("workers")
+        invalid = (
+            manifest.get("schema_version") != 3
+            or common_router_invalid
+            or router.get("capacity_profile") != W2_MANIFEST_CAPACITY_PROFILE
+            or router.get("endpoint_identifier") != "cpu-132-021_8103"
+            or router.get("max_concurrent_requests") != W2_ROUTER_ADMISSION
+            or router.get("queue_size") != W2_ROUTER_ADMISSION
+            or router.get("per_worker_capacity") != 2
+            or not isinstance(workers, list)
+            or len(workers) != EXPECTED_ENDPOINTS
         )
     else:
         raise EndpointWalltimeGateError("endpoint_walltime_profile_invalid")
@@ -459,11 +491,17 @@ def capture_gate(
         raise EndpointWalltimeGateError("deployment_endpoint_generation_changed")
 
     canonical_jobs = "".join(f"{job_id}\n" for job_id in job_ids).encode()
-    canonical_generation = "".join(
-        f"{route.job_id}|{route.backend_sha256}\n" for route in selected_routes
-    ).encode()
+    canonical_generation = "".join(f"{route.job_id}|{route.backend_sha256}\n" for route in selected_routes).encode()
     receipt: dict[str, Any] = {
-        "schema_version": C23_RECEIPT_SCHEMA_VERSION if profile == C23_PROFILE else RECEIPT_SCHEMA_VERSION,
+        "schema_version": (
+            C23_RECEIPT_SCHEMA_VERSION
+            if profile == C23_PROFILE
+            else W2_RECEIPT_SCHEMA_VERSION
+            if profile == W2_PROFILE
+            else VMVM_UNION_RECEIPT_SCHEMA_VERSION
+            if profile == VMVM_UNION_PROFILE
+            else RECEIPT_SCHEMA_VERSION
+        ),
         "kind": RECEIPT_KIND,
         "state": "passed",
         "profile": profile,
@@ -587,7 +625,15 @@ def validate_receipt(
         "status_snapshot_after_sha256",
         "scheduler_observation_sha256",
     )
-    expected_schema_version = C23_RECEIPT_SCHEMA_VERSION if profile == C23_PROFILE else RECEIPT_SCHEMA_VERSION
+    expected_schema_version = (
+        C23_RECEIPT_SCHEMA_VERSION
+        if profile == C23_PROFILE
+        else W2_RECEIPT_SCHEMA_VERSION
+        if profile == W2_PROFILE
+        else VMVM_UNION_RECEIPT_SCHEMA_VERSION
+        if profile == VMVM_UNION_PROFILE
+        else RECEIPT_SCHEMA_VERSION
+    )
     expected_endpoint_count = C23_SELECTED_ENDPOINTS if profile == C23_PROFILE else EXPECTED_ENDPOINTS
     if (
         value.get("schema_version") != expected_schema_version
@@ -739,7 +785,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     for command in (capture, validate):
         command.add_argument("--manifest", type=Path, required=True)
         command.add_argument("--manifest-sha256", required=True)
-        command.add_argument("--profile", choices=(EXTENDED_PROFILE, C23_PROFILE), required=True)
+        command.add_argument(
+            "--profile",
+            choices=(EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, VMVM_UNION_PROFILE),
+            required=True,
+        )
         command.add_argument(
             "--minimum-remaining-seconds",
             type=int,
@@ -778,9 +828,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 source_endpoint_bundle_sha256=(
                     manifest.get("source_endpoint_bundle_sha256") if args.profile == C23_PROFILE else None
                 ),
-                excluded_backend_sha256=(
-                    excluded.get("backend_sha256") if isinstance(excluded, dict) else None
-                ),
+                excluded_backend_sha256=(excluded.get("backend_sha256") if isinstance(excluded, dict) else None),
             )
     except EndpointWalltimeGateError as error:
         print(f"endpoint_walltime_gate_error:{error}", file=sys.stderr)

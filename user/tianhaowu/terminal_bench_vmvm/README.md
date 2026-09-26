@@ -1080,17 +1080,25 @@ setup, scoring, cleanup, and certificate publication. Do not use the shared
 front proxy as the evaluator base URL; the launcher derives and probes all 24
 direct workers before starting its loopback router.
 
+The W2 MiniSWE qualification is a separate `miniswe-smoke` stage. It runs one
+approved task for at most three turns with max reasoning, a 128-token
+per-response cap, a 900-second model/client timeout, a 3,000-second rollout
+timeout, and a 3,600-second Firecracker session timeout. Submit it with an
+exact two-hour Slurm wall. The resulting smoke checkpoint is valid only for
+the exact clean source revision, worker generation, MiniSWE 2.4.6 config, and
+retry-free request policy that produced it.
+
 ### Bounded direct-Kimi c64 capacity gate
 
 The router remains on the legacy `legacy-c24` profile unless a caller
 explicitly selects `sandoq-c64-w2-v1`. The latter admits 64 client requests,
 permits two forwarded requests per each of the 24 workers (48 model requests
-at once), accepts only endpoint identifier `cpu-132-021_8103`, and has no
-overflow queue or retry. It is restricted to the Sandoq
-`kimi-direct-capacity-smoke` role. Values above 64 and unbounded values are
-rejected. A production launcher must not select this profile until it has
-validated a capacity certificate from the exact source, config, worker
-manifest, and endpoint namespace it will use.
+at once), accepts only endpoint identifier `cpu-132-021_8103`, and performs no
+model retry. It is restricted to the Sandoq `kimi-direct-capacity-smoke` role
+and the capacity-certified TB4 provider-union roles. Values above 64 and
+unbounded values are rejected. A production launcher must not select this
+profile until it has validated a capacity certificate from the exact source,
+config, worker manifest, and endpoint namespace it will use.
 
 The checked-in `mobius_kimi_k3_sandoq_capacity64.example.toml` is a template,
 not a runnable selector. Materialize the 64-task selector content-blind from
@@ -1118,9 +1126,13 @@ overlap both reach 64; actual model forwarding reaches 48 with every worker
 reaching its cap of two; Sandoq assignment-order, measured-assignment, and
 outer-session high-water marks all reach 64; every assignment and outer
 session is cleaned; and queue timeout, upstream HTTP 429/5xx, retry,
-cross-route, cleanup, and trace anomaly counts are zero. The certificate stores
-hashes and aggregate counts, never task identifiers, prompts, responses, or
-raw errors.
+cross-route, cleanup, and unexpected trace-anomaly counts are zero. This is a
+routing/runtime capacity certificate, not a task-quality certificate: its
+MiniSWE calls are bounded to 128 output tokens with a 900-second model timeout
+and a 1,800-second rollout timeout. Traces must still be structurally clean;
+tool exit results are telemetry and do not qualify the capacity claim. The
+certificate stores hashes and aggregate counts, never task identifiers,
+prompts, responses, or raw errors.
 
 Consumers validate the write-once certificate and its live artifacts before
 using the measured cap:
@@ -1144,36 +1156,36 @@ The proven legacy TB4 result remains on public `oci-runner`. Native Mini-SWE
 recovery, capacity, and proposed 2,499-task stages use the distinct schema-4
 full `oci-runner-firecracker` profile with provider task network `host`,
 effective public network, and the native loopback reverse tunnel. This is not
-a strict no-network runtime. Requested concurrency is certificate-capped and
-is not assumed to be 64. The full environment is proven at only 2 CPU / 4 GiB /
-10 GiB. Twenty-eight tasks fit that resource envelope, but three require
-Compose. A certified TB4 MiniSWE result must therefore union the opaque 25-task
-Sandoq partition with 38 VMVM CPU tasks and record three GPU tasks unsupported. The
-all-Sandoq `tb4-miniswe` stage stays blocked, and production requires separate
-aggregate resource coverage or a provider partition for all 2,499 tasks.
+a strict no-network runtime. The full environment supplies at most 2 CPU /
+4 GiB / 10 GiB per task; the union planner clamps declared task resources to
+those limits for both the agent and verifier. A certified TB4 MiniSWE result
+therefore combines 52 non-Compose, non-GPU tasks on Sandoq at c48 with 11
+Compose tasks on VMVM at c11 and records three GPU tasks as deterministically
+unsupported. The all-Sandoq `tb4-miniswe` stage stays blocked, and production
+requires separate aggregate resource coverage or a provider partition for all
+2,499 tasks.
 
-An extended 144,000-second direct-Kimi TB4 config is admitted only when the
-launcher also receives
-`KIMI_ENDPOINT_WALLTIME_PROFILE=tb4-extended-c24-two-wave-v1`. The optional
-`KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS` may raise, but never lower, the
-324,000-second (90-hour) floor. Before model traffic, the gate reads the live
-deployment status twice around one read-only Slurm accounting query. It
-requires the exact 24 manifest-bound endpoints to remain unchanged and every
-job to be RUNNING, unrestarted, and above the floor. The owner-only receipt is
-stored beside the direct-worker manifest and contains only aggregate values
-and digests. Legacy timeout profiles do not run this gate and reject these
-extended-profile variables.
+The shared union uses the extended 144,000-second direct-Kimi request timeout
+and requires both lane-specific walltime receipts to prove at least 345,600
+seconds (96 hours) remain on the exact 24 manifest-bound workers. Before model
+traffic it also captures a two-snapshot aggregate load receipt requiring all
+24 workers healthy, no waiting or preemption increase, no more than four
+pre-existing requests, at most one per worker, and at most 5% KV-cache use.
+These owner-only receipts contain aggregate values and digests rather than
+worker membership or task data.
 
-Materialize the MiniSWE TB4 union with
-`prepare_kimi_tb4_miniswe246_union.py materialize`. Submit the same sealed plan
-twice through `run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch`, once
-with stage `tb4-miniswe246-sandoq-union` and provider `sandoq`, then with stage
-`tb4-miniswe246-vmvm-union` and provider `vmvm`. Each lane writes an owner-only
-`provider_partition_certificate.json`. After both are terminal, run
-`finalize_tb4_kimi_k3_miniswe246_union_cpu-132-021_8103.sbatch`; its adapter
-re-opens both runs, verifies numeric tool exit-code retention, cleanup,
-capacity, reasoning/model-I/O/request-graph capture, and emits the aggregate
-66-task certificate. Never launch the blocked all-Sandoq stage.
+Materialize a fresh MiniSWE TB4 plan from the extended base with
+`prepare_kimi_tb4_miniswe246_union.py materialize`, after the final source
+revision is fixed. Launch it only through
+`run_tb4_kimi_k3_miniswe246_shared_union_cpu-132-021_8103.sbatch`. That entry
+point owns one c64-W2 router and starts the Sandoq c48 and VMVM c11 evaluators
+concurrently, so their combined 59 clients share the certified admission-64 /
+forward-48 limit. It captures the load and walltime evidence once before model
+traffic, waits for verified provider cleanup, creates both lane certificates
+from one final router snapshot, and merges the aggregate 66-task certificate.
+The job requires an exact four-day wall and receives `TERM` 30 minutes before
+the limit for bounded cleanup. Never launch the two lanes as independent
+routers, reuse an older 25/38/3 plan, or launch the blocked all-Sandoq stage.
 
 ## Transcript capture gate
 

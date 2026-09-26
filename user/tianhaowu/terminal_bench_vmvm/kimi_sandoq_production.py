@@ -868,8 +868,8 @@ def _validate_tb4_miniswe_union_certificate(
     trace = value.get("trace_audit")
     artifacts = value.get("artifacts")
     expected_partition = {
-        "sandoq_firecracker": 25,
-        "vmvm_cpu": 38,
+        "sandoq_firecracker": 52,
+        "vmvm_cpu": 11,
         "gpu_unsupported": 3,
     }
     base_policy = {
@@ -897,6 +897,7 @@ def _validate_tb4_miniswe_union_certificate(
             "state",
             "model",
             "adapter",
+            "source_revision",
             "launch_plan_sha256",
             "manifest_sha256",
             "results_sha256",
@@ -915,6 +916,7 @@ def _validate_tb4_miniswe_union_certificate(
         or value.get("state") != "passed"
         or value.get("model") != MODEL
         or value.get("adapter") != "kimi-tb4-miniswe246-provider-union-v1"
+        or REVISION_RE.fullmatch(str(value.get("source_revision", ""))) is None
         or claimed != hashlib.sha256(canonical_json(unsigned)).hexdigest()
         or any(
             SHA256_RE.fullmatch(str(value.get(key, ""))) is None
@@ -976,19 +978,19 @@ def _validate_tb4_miniswe_union_certificate(
         or sandoq
         != {
             "state": "passed",
-            "task_count": 25,
+            "task_count": 52,
             "passes": sandoq.get("passes"),
             "cleanup_state": "passed",
             "provider_profile_sha256": PROVIDER_PROFILE_SHA256,
             "runtime_tunnel_receipt_sha256": RUNTIME_TUNNEL_RECEIPT_SHA256,
             "runtime_resource_receipt_sha256": RUNTIME_RESOURCE_RECEIPT_SHA256,
         }
-        or not _plain_int(sandoq.get("passes"), minimum=0, maximum=25)
+        or not _plain_int(sandoq.get("passes"), minimum=0, maximum=52)
         or not isinstance(vmvm, dict)
         or set(vmvm) != {"state", "task_count", "passes", "cleanup_state", "capacity"}
         or vmvm.get("state") != "passed"
-        or vmvm.get("task_count") != 38
-        or not _plain_int(vmvm.get("passes"), minimum=0, maximum=38)
+        or vmvm.get("task_count") != 11
+        or not _plain_int(vmvm.get("passes"), minimum=0, maximum=11)
         or vmvm.get("cleanup_state") != "passed"
         or not isinstance(vmvm.get("capacity"), dict)
         or vmvm["capacity"].get("provider") != "vmvm"
@@ -1229,10 +1231,11 @@ def _validate_capacity_certificate(
 ) -> tuple[dict[str, Any], Artifact]:
     value, artifact = _json_artifact(path, expected_sha256, "capacity_certificate_invalid")
     if (
-        value.get("schema_version") != 4
+        value.get("schema_version") != 5
         or value.get("kind") != CAPACITY_KIND
         or value.get("state") != "passed"
         or value.get("capacity_profile") != CAPACITY_PROFILE
+        or value.get("qualification_scope") != "routing-runtime-capacity-only"
         or value.get("endpoint_identifier") != DEPLOYMENT_NAMESPACE
         or not _plain_int(value.get("qualified_concurrency"), minimum=required_concurrency, maximum=MAX_CAPACITY)
     ):

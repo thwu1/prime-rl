@@ -882,9 +882,11 @@ def test_direct_kimi_w2_router_receipt_requires_measured_clean_forwarding(
             )
 
 
-def test_direct_kimi_w2_production_receipt_binds_observed_forwarding_peak(
+@pytest.mark.parametrize("role", ["kimi-direct-mobius", "kimi-direct-tb4"])
+def test_direct_kimi_w2_scored_receipt_binds_observed_forwarding_peak_without_requiring_saturation(
     tmp_path: Path,
     monkeypatch,
+    role: str,
 ) -> None:
     root = _deployment(tmp_path, monkeypatch)
     generation = tmp_path / "generation"
@@ -899,10 +901,10 @@ def test_direct_kimi_w2_production_receipt_binds_observed_forwarding_peak(
         endpoint_identifier="cpu-132-021_8103",
     )
     manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
-    run_dir = tmp_path / "production"
+    run_dir = tmp_path / role
     identity, invocations, provenance, _identity_sha256 = _binding_files(
         run_dir,
-        role="kimi-direct-mobius",
+        role=role,
         manifest_path=manifest_path,
     )
     stats = run_dir / "router-stats.json"

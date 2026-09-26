@@ -7,6 +7,7 @@ import tomllib
 from pathlib import Path
 
 import direct_kimi_capacity as capacity
+import kimi_endpoint_load_gate
 import pytest
 from direct_kimi_workers import _atomic_write
 from direct_qwen_union_contract import canonical_json
@@ -138,6 +139,7 @@ def _capacity_certificate(
 ) -> tuple[Path, str]:
     root = tmp_path / "private"
     root.mkdir(mode=0o700)
+    monkeypatch.setattr(kimi_endpoint_load_gate, "validate_load_gate", lambda *_args, **_kwargs: {})
     live_smoke = _install_live_smoke(root, monkeypatch)
     artifacts: dict[str, dict[str, str]] = {}
     for name in (
@@ -150,6 +152,7 @@ def _capacity_certificate(
         "capacity_probe",
         "router_receipt",
         "cleanup_audit",
+        "endpoint_load_gate",
     ):
         artifacts[name] = _artifact(_private_file(root / f"{name}.data", f"{name}\n".encode()))
     selector_receipt, selector_receipt_sha256 = _selector_receipt(
@@ -174,6 +177,7 @@ def _capacity_certificate(
         "state": "passed",
         "model": "Kimi-K3",
         "capacity_profile": capacity_profile,
+        "qualification_scope": capacity.QUALIFICATION_SCOPE,
         "qualified_concurrency": 64,
         "endpoint_identifier": "cpu-132-021_8103",
         "eval_run_identity_sha256": "1" * 64,
@@ -301,7 +305,8 @@ def test_capacity_certificate_validator_accepts_exact_c64_w2_evidence(
     )
 
     assert certificate["qualified_concurrency"] == 64
-    assert certificate["schema_version"] == 4
+    assert certificate["schema_version"] == 5
+    assert certificate["qualification_scope"] == "routing-runtime-capacity-only"
     assert certificate["capacity_profile"] == "sandoq-c64-w2-v1"
     assert certificate["router"]["configured_per_worker_capacity"] == 2
     assert certificate["router"]["max_active_forwarded_requests"] == 48
@@ -324,14 +329,15 @@ def test_capacity_certificate_validator_rejects_any_queue_overflow(
         capacity.validate_capacity_certificate(path, expected_sha256=digest)
 
 
-def test_capacity_certificate_validator_rejects_nonzero_tool_exit(
+def test_capacity_certificate_treats_tool_exit_as_telemetry_not_qualification(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     path, digest = _capacity_certificate(tmp_path, monkeypatch, nonzero_tool_exits=1)
 
-    with pytest.raises(capacity.DirectKimiCapacityError, match="capacity_certificate_not_qualified"):
-        capacity.validate_capacity_certificate(path, expected_sha256=digest)
+    observed = capacity.validate_capacity_certificate(path, expected_sha256=digest)
+
+    assert observed["traces"]["nonzero_tool_exits"] == 1
 
 
 def test_capacity_probe_schema2_binds_w2_forwarding_contract(tmp_path: Path) -> None:
@@ -528,6 +534,40 @@ def test_materialize_capacity_config_binds_opaque_selector_receipt(tmp_path: Pat
     assert rendered["harness"]["runtime"]["host_tunnel"] == "sandoq"
     assert rendered["harness"]["runtime"]["provisioning_retries"] == capacity.SANDOQ_PROVISIONING_RETRIES
     assert "agent.step_limit=3" in rendered["harness"]["config_overrides"]
+    assert rendered["client"]["timeout"] == 900
+    assert rendered["sampling"]["max_tokens"] == 128
+    assert rendered["timeout"]["rollout"] == 1800
+
+
+@pytest.mark.parametrize(
+    ("section", "key", "value"),
+    (
+        ("client", "timeout", 901),
+        ("client", "connect_timeout", 121),
+        ("sampling", "max_tokens", 32_768),
+        ("sampling", "temperature", 0.9),
+        ("sampling", "top_p", 0.9),
+        ("timeout", "rollout", 1_801),
+        ("harness.runtime", "session_timeout", 3_601),
+    ),
+)
+def test_capacity_config_rejects_unbounded_or_changed_timing(
+    section: str,
+    key: str,
+    value: object,
+) -> None:
+    template = (
+        Path(capacity.__file__).parent
+        / "configs/eval/servers/cpu-132-021_8103/mobius_kimi_k3_sandoq_capacity64.example.toml"
+    )
+    config = tomllib.loads(template.read_text())
+    target = config
+    for component in section.split("."):
+        target = target[component]
+    target[key] = value
+
+    with pytest.raises(capacity.DirectKimiCapacityError, match="^capacity_config_invalid$"):
+        capacity._validate_capacity_config_value(config)
 
 
 def test_tool_exit_observations_fail_closed() -> None:

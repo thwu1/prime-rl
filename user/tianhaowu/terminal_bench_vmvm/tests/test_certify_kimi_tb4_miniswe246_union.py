@@ -71,7 +71,11 @@ def test_stable_deployment_contract_ignores_only_snapshot_root(monkeypatch: pyte
     monkeypatch.setattr(
         certify.split,
         "_deployment_contract",
-        lambda _identity, _held: {"worker_generation_sha256": "0" * 64, "spec_sha256": "1" * 64},
+        lambda _identity, _held: {
+            "worker_generation_sha256": "0" * 64,
+            "spec_sha256": "1" * 64,
+            "router": {"policy": "consistent_hash", "provider_concurrency": 64},
+        },
     )
     monkeypatch.setattr(certify, "load_saved_manifest", lambda *_args, **_kwargs: (b"manifest", {}))
     monkeypatch.setattr(certify, "worker_generation_contract", lambda *_args, **_kwargs: dict(base))
@@ -108,6 +112,7 @@ def test_union_merge_rejects_relative_artifact_paths(tmp_path: Path) -> None:
             vmvm_certificate=tmp_path / "missing-vmvm.json",
             vmvm_certificate_sha256="2" * 64,
             output=tmp_path / "output",
+            expected_revision="3" * 40,
         )
 
 
@@ -193,6 +198,7 @@ runtime = { type = "vmvm" }
     identity = {
         "role": "kimi-direct-tb4",
         "source": source,
+        "deployment": {"router": {"policy": "consistent_hash"}},
         "execution": {
             "cleanup_must_succeed": True,
             "rollout_concurrency": 4,
@@ -236,6 +242,7 @@ runtime = { type = "vmvm" }
             members=("opaque-a",),
             run_evidence=evidence,
             held=held,
+            expected_revision="1" * 40,
         )
     finally:
         held.close()
@@ -333,6 +340,9 @@ def test_merge_emits_aggregate_schema2_certificate(
         is_sandoq = expected_role == union.SANDOQ_ROLE
         value = {
             "shared_contract": shared,
+            "worker_manifest_sha256": "9" * 64,
+            "deployment_contract": {"exact": True},
+            "routing_contract": {"profile": "w2"},
             "eval_run_identity_sha256": ("1" if is_sandoq else "2") * 64,
             "sandbox_provider": "sandoq" if is_sandoq else "vmvm",
             "trace_audit": {
@@ -347,6 +357,15 @@ def test_merge_emits_aggregate_schema2_certificate(
             },
             "cleanup": {"state": "passed"},
             "capacity": None if is_sandoq else {"provider": "vmvm"},
+            "artifacts": {
+                name: {"sha256": digest}
+                for name, digest in (
+                    ("smoke_checkpoint", "a" * 64),
+                    ("capacity_certificate", "b" * 64),
+                    ("capacity_gate_receipt", "c" * 64),
+                    ("endpoint_load_gate", "d" * 64),
+                )
+            },
         }
         return value, path.read_bytes(), lane_rows[expected_role]
 
@@ -360,6 +379,7 @@ def test_merge_emits_aggregate_schema2_certificate(
         vmvm_certificate=vmvm_path,
         vmvm_certificate_sha256=hashlib.sha256(vmvm_path.read_bytes()).hexdigest(),
         output=output,
+        expected_revision="a" * 40,
     )
 
     certificate = json.loads((output / certify.UNION_CERTIFICATE).read_bytes())
@@ -409,6 +429,8 @@ def test_cli_redacts_certification_failure(capsys: pytest.CaptureFixture[str]) -
                 "/missing/plan",
                 "--launch-plan-sha256",
                 "0" * 64,
+                "--expected-revision",
+                "1" * 40,
                 "--output",
                 "/missing/out",
             ]

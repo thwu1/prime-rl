@@ -30,6 +30,19 @@ def _arguments(tmp_path: Path) -> dict[str, object]:
     }
 
 
+def test_supervisor_termination_grace_is_strict(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("SANDOQ_PROVIDER_TERMINATION_GRACE_SECONDS", raising=False)
+    assert context._supervisor_termination_grace_seconds() == 10
+
+    monkeypatch.setenv("SANDOQ_PROVIDER_TERMINATION_GRACE_SECONDS", "300")
+    assert context._supervisor_termination_grace_seconds() == 300
+
+    for invalid in ("0", "9", "601", "1.5", " 300", ""):
+        monkeypatch.setenv("SANDOQ_PROVIDER_TERMINATION_GRACE_SECONDS", invalid)
+        with pytest.raises(context.ProviderContextError, match="provider_context_termination_grace_invalid"):
+            context._supervisor_termination_grace_seconds()
+
+
 def _runtime_smoke_receipt(tmp_path: Path) -> tuple[Path, str]:
     path = (tmp_path / "runtime-smoke.json").resolve()
     body = context._canonical_json(

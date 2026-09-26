@@ -1714,11 +1714,14 @@ def certify_router(
         profiled_capacity = c23_profile or c64_profile or w2_profile
         capacity_smoke = identity["role"] == "kimi-direct-capacity-smoke"
         w2_required = capacity_smoke or identity["role"] == "kimi-direct-mobius"
+        w2_tb4 = identity["role"] == "kimi-direct-tb4" and w2_profile
+        w2_allowed = w2_required or identity["role"] == "kimi-direct-tb4"
         c23_role_allowed = identity["role"] in {"kimi-direct-smoke", "kimi-direct-tb4"}
         if (
             (w2_required and not w2_profile)
+            or (w2_profile and not w2_allowed)
             or (not w2_required and c23_profile and not c23_role_allowed)
-            or (not w2_required and not c23_profile and capacity_profile != LEGACY_CAPACITY_PROFILE)
+            or (not w2_required and not w2_tb4 and not c23_profile and capacity_profile != LEGACY_CAPACITY_PROFILE)
         ):
             raise DirectKimiWorkerError("run_binding_invalid")
         expected_stats_keys = {
@@ -1871,6 +1874,10 @@ def certify_router(
             or router_stats.get("upstream_http_5xx") != 0
             or router_stats["max_active_forwarded_requests"] > router_stats["max_active_requests"]
             or router_stats["max_active_forwarded_requests"] > sum(worker_max_active_counts)
+            # The dedicated capacity run must demonstrate saturation.  A
+            # scored TB4 run consumes that immutable proof and only has to
+            # remain inside the proven per-worker envelope; task/model timing
+            # is not expected to reproduce the synthetic peak exactly.
             or (capacity_smoke and router_stats["max_active_forwarded_requests"] != W2_FORWARDED_CAPACITY)
             or (capacity_smoke and any(value != W2_PER_WORKER_CAPACITY for value in worker_max_active_counts))
         ):

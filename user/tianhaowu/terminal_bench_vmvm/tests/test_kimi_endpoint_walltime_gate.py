@@ -59,8 +59,7 @@ def _scheduler(
     indexes: range = range(gate.EXPECTED_ENDPOINTS),
 ) -> bytes:
     return "".join(
-        f"{10_000 + generation * 100 + index}|{state}|{restarts}|{elapsed_seconds}|10080\n"
-        for index in indexes
+        f"{10_000 + generation * 100 + index}|{state}|{restarts}|{elapsed_seconds}|10080\n" for index in indexes
     ).encode()
 
 
@@ -107,6 +106,25 @@ def _c23_manifest(*, excluded_index: int = 0) -> dict[str, object]:
             "capacity_profile": gate.C23_MANIFEST_CAPACITY_PROFILE,
             "max_concurrent_requests": gate.C23_SELECTED_ENDPOINTS,
             "queue_size": gate.C23_SELECTED_ENDPOINTS,
+            "request_timeout_seconds": gate.EXTENDED_REQUEST_TIMEOUT_SECONDS,
+            "queue_timeout_seconds": gate.EXTENDED_REQUEST_TIMEOUT_SECONDS,
+            "retries": 0,
+        },
+    }
+
+
+def _w2_manifest() -> dict[str, object]:
+    workers = [{"backend_sha256": _backend(f"worker-{index}")} for index in range(gate.EXPECTED_ENDPOINTS)]
+    return {
+        "schema_version": 3,
+        "workers": workers,
+        "endpoint_bundle_sha256": gate._bundle_sha256([worker["backend_sha256"] for worker in workers]),
+        "router": {
+            "capacity_profile": gate.W2_MANIFEST_CAPACITY_PROFILE,
+            "endpoint_identifier": "cpu-132-021_8103",
+            "max_concurrent_requests": gate.W2_ROUTER_ADMISSION,
+            "queue_size": gate.W2_ROUTER_ADMISSION,
+            "per_worker_capacity": 2,
             "request_timeout_seconds": gate.EXTENDED_REQUEST_TIMEOUT_SECONDS,
             "queue_timeout_seconds": gate.EXTENDED_REQUEST_TIMEOUT_SECONDS,
             "retries": 0,
@@ -180,6 +198,104 @@ def test_capture_gate_accepts_exact_stable_24_job_generation(
     )
 
 
+def test_w2_capture_binds_48_way_rollout_to_64_request_router(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = _w2_manifest()
+    manifest_path = tmp_path / "direct_kimi_workers.json"
+    manifest_raw = (json.dumps(manifest, sort_keys=True) + "\n").encode()
+    manifest_path.write_bytes(manifest_raw)
+    manifest_sha256 = hashlib.sha256(manifest_raw).hexdigest()
+    monkeypatch.setattr(direct_kimi_workers, "validate_saved_manifest", lambda *_args, **_kwargs: manifest)
+    tmp_path.chmod(0o700)
+    serve_sh = tmp_path / "serve.sh"
+    serve_sh.write_text("#!/bin/sh\n")
+
+    def runner(argv, _timeout):
+        if argv[0] == str(gate.SACCT):
+            return gate.CommandResult(0, _scheduler())
+        return gate.CommandResult(0, _status())
+
+    output = tmp_path / "endpoint-walltime-w2.json"
+    receipt = gate.capture_gate(
+        manifest_path=manifest_path,
+        manifest_sha256=manifest_sha256,
+        output=output,
+        profile=gate.W2_PROFILE,
+        minimum_remaining_seconds=gate.EXTENDED_MINIMUM_REMAINING_SECONDS,
+        task_count=66,
+        serve_sh=serve_sh,
+        runner=runner,
+        now=lambda: "2026-09-24T12:00:00Z",
+    )
+
+    assert receipt["schema_version"] == gate.W2_RECEIPT_SCHEMA_VERSION
+    assert receipt["profile"] == gate.W2_PROFILE
+    assert receipt["endpoint_count"] == gate.EXPECTED_ENDPOINTS
+    assert receipt["task_count"] == 66
+    assert (
+        gate.load_receipt(
+            output,
+            manifest_sha256=manifest_sha256,
+            endpoint_bundle_sha256=manifest["endpoint_bundle_sha256"],
+            profile=gate.W2_PROFILE,
+            minimum_remaining_seconds=gate.EXTENDED_MINIMUM_REMAINING_SECONDS,
+            task_count=66,
+        )
+        == receipt
+    )
+
+
+def test_vmvm_union_profile_accepts_exact_eleven_task_w2_generation(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = _w2_manifest()
+    manifest_path = tmp_path / "direct_kimi_workers.json"
+    manifest_raw = (json.dumps(manifest, sort_keys=True) + "\n").encode()
+    manifest_path.write_bytes(manifest_raw)
+    manifest_sha256 = hashlib.sha256(manifest_raw).hexdigest()
+    monkeypatch.setattr(direct_kimi_workers, "validate_saved_manifest", lambda *_args, **_kwargs: manifest)
+    tmp_path.chmod(0o700)
+    serve_sh = tmp_path / "serve.sh"
+    serve_sh.write_text("#!/bin/sh\n")
+
+    def runner(argv, _timeout):
+        if argv[0] == str(gate.SACCT):
+            return gate.CommandResult(0, _scheduler())
+        return gate.CommandResult(0, _status())
+
+    output = tmp_path / "endpoint-walltime-vmvm-union.json"
+    receipt = gate.capture_gate(
+        manifest_path=manifest_path,
+        manifest_sha256=manifest_sha256,
+        output=output,
+        profile=gate.VMVM_UNION_PROFILE,
+        minimum_remaining_seconds=96 * 60 * 60,
+        task_count=11,
+        serve_sh=serve_sh,
+        runner=runner,
+        now=lambda: "2026-09-24T12:00:00Z",
+    )
+
+    assert receipt["schema_version"] == gate.VMVM_UNION_RECEIPT_SCHEMA_VERSION
+    assert (
+        gate.load_receipt(
+            output,
+            manifest_sha256=manifest_sha256,
+            endpoint_bundle_sha256=manifest["endpoint_bundle_sha256"],
+            profile=gate.VMVM_UNION_PROFILE,
+            minimum_remaining_seconds=96 * 60 * 60,
+            task_count=11,
+        )
+        == receipt
+    )
+    for invalid in (0, 10, 12, 66):
+        with pytest.raises(gate.EndpointWalltimeGateError, match="extended_two_wave_task_count_invalid"):
+            gate._validate_task_count(invalid, profile=gate.VMVM_UNION_PROFILE)
+
+
 def test_c23_capture_requires_full_24_status_and_schedules_only_selected_23(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -235,9 +351,10 @@ def test_c23_capture_requires_full_24_status_and_schedules_only_selected_23(
         f"{10_000 + index}|{_backend(f'worker-{index}')}\n" for index in range(gate.EXPECTED_ENDPOINTS)
     ).encode()
     assert receipt["full_endpoint_generation_sha256"] == hashlib.sha256(full_generation).hexdigest()
-    assert receipt["excluded_endpoint_binding_sha256"] == hashlib.sha256(
-        f"{excluded_job_sha256}|{excluded_backend}\n".encode()
-    ).hexdigest()
+    assert (
+        receipt["excluded_endpoint_binding_sha256"]
+        == hashlib.sha256(f"{excluded_job_sha256}|{excluded_backend}\n".encode()).hexdigest()
+    )
     assert "10000" not in output.read_text()
     assert len(calls) == 3
     assert (
@@ -641,7 +758,7 @@ def test_direct_launcher_gates_only_explicit_extended_profile() -> None:
     assert "expected_walltime_profile=tb4-c23-v1" in launcher
     assert '"$endpoint_walltime_profile" != "$expected_walltime_profile"' in launcher
     assert 'elif [[ "$endpoint_walltime_profile" != legacy' in launcher
-    assert '"$approved_task_count" -le "$expected_router_concurrency"' in launcher
+    assert '"$approved_task_count" -le "$minimum_wave_concurrency"' in launcher
     assert '"$approved_task_count" -gt "$maximum_two_wave_tasks"' in launcher
     assert '"$endpoint_minimum_remaining_seconds" -lt 324000' in launcher
     assert launcher.index(capture) < launcher.index(identity)

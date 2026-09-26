@@ -28,23 +28,95 @@ class CleanupError(RuntimeError):
     """Stable aggregate-only cleanup failure."""
 
 
-def _recorded_outer_session_ids(output_dir: Path) -> list[str]:
-    event_log = output_dir / "pool_events.jsonl"
-    if not event_log.exists():
+def _jsonl_rows(
+    path: Path,
+    *,
+    code: str,
+    allow_incomplete_final: bool,
+    incomplete_final: list[bool] | None = None,
+) -> list[dict[str, Any]]:
+    if not os.path.lexists(path):
         return []
-    session_ids: set[str] = set()
-    with event_log.open(encoding="utf-8") as stream:
-        for line in stream:
-            if not line.strip():
+    try:
+        before = path.lstat()
+        raw = path.read_bytes()
+        after = path.lstat()
+    except OSError as error:
+        raise CleanupError(code) from error
+    if (
+        path.is_symlink()
+        or not stat.S_ISREG(before.st_mode)
+        or before.st_uid != os.geteuid()
+        or stat.S_IMODE(before.st_mode) & 0o077
+        or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns)
+        != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns)
+    ):
+        raise CleanupError(code)
+    lines = raw.splitlines(keepends=True)
+    rows: list[dict[str, Any]] = []
+    for index, encoded in enumerate(lines):
+        final_incomplete = index == len(lines) - 1 and not encoded.endswith(b"\n")
+        if not encoded.strip():
+            continue
+        try:
+            row = json.loads(encoded)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            if allow_incomplete_final and final_incomplete:
+                if incomplete_final is not None:
+                    incomplete_final.append(True)
                 continue
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError as error:
-                raise CleanupError("pool_event_log_invalid") from error
+            raise CleanupError(code) from error
+        if not isinstance(row, dict):
+            raise CleanupError(code)
+        rows.append(row)
+    return rows
+
+
+def _recorded_outer_session_ids(
+    output_dir: Path,
+    *,
+    wal_path: Path | None = None,
+    live_only: bool = False,
+    incomplete_wal: list[bool] | None = None,
+) -> list[str]:
+    event_created: set[str] = set()
+    event_live: set[str] = set()
+    for row in _jsonl_rows(
+        output_dir / "pool_events.jsonl",
+        code="pool_event_log_invalid",
+        allow_incomplete_final=True,
+    ):
+        session_id = row.get("outer_session_id")
+        if not isinstance(session_id, str) or not session_id:
+            continue
+        if row.get("event") == "outer_created":
+            event_created.add(session_id)
+            event_live.add(session_id)
+        elif row.get("event") == "outer_deleted":
+            event_live.discard(session_id)
+
+    wal_created: set[str] = set()
+    wal_live: set[str] = set()
+    wal_seen: set[str] = set()
+    if wal_path is not None:
+        for row in _jsonl_rows(
+            wal_path,
+            code="pool_wal_invalid",
+            allow_incomplete_final=live_only,
+            incomplete_final=incomplete_wal,
+        ):
             session_id = row.get("outer_session_id")
-            if isinstance(session_id, str) and session_id:
-                session_ids.add(session_id)
-    return sorted(session_ids)
+            if not isinstance(session_id, str) or not session_id:
+                continue
+            wal_seen.add(session_id)
+            if row.get("event") == "outer_created":
+                wal_created.add(session_id)
+                wal_live.add(session_id)
+            elif row.get("event") == "outer_deleted":
+                wal_live.discard(session_id)
+    if live_only:
+        return sorted(wal_live | (event_live - wal_seen))
+    return sorted(event_created | wal_created)
 
 
 def _publish_private(path: Path, value: object) -> None:
@@ -54,11 +126,7 @@ def _publish_private(path: Path, value: object) -> None:
     try:
         descriptor = os.open(
             temporary,
-            os.O_WRONLY
-            | os.O_CREAT
-            | os.O_EXCL
-            | os.O_CLOEXEC
-            | getattr(os, "O_NOFOLLOW", 0),
+            os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0),
             0o600,
         )
         os.write(descriptor, payload)
@@ -87,6 +155,8 @@ async def verify_pool_cleanup(
     base_url: str,
     owner: str,
     concurrency: int = 16,
+    wal_path: Path | None = None,
+    live_only: bool = False,
     adapter: Any | None = None,
 ) -> dict[str, Any]:
     if not 1 <= concurrency <= 64:
@@ -106,7 +176,13 @@ async def verify_pool_cleanup(
     if os.path.lexists(destination):
         raise CleanupError("cleanup_audit_not_fresh")
 
-    session_ids = _recorded_outer_session_ids(output_dir)
+    incomplete_wal: list[bool] = []
+    session_ids = _recorded_outer_session_ids(
+        output_dir,
+        wal_path=wal_path,
+        live_only=live_only,
+        incomplete_wal=incomplete_wal,
+    )
     gateway = adapter or get_gateway_adapter(base_url, owner)
     semaphore = asyncio.Semaphore(concurrency)
 
@@ -147,16 +223,15 @@ async def verify_pool_cleanup(
         "recorded_outer_sessions": len(session_ids),
         "already_absent": sum(bool(receipt["already_absent"]) for receipt in receipts),
         "deleted_and_verified": sum(
-            receipt["verified_http_status"] == 404 and not receipt["already_absent"]
-            for receipt in receipts
+            receipt["verified_http_status"] == 404 and not receipt["already_absent"] for receipt in receipts
         ),
-        "verified_http_404": sum(
-            receipt["verified_http_status"] == 404 for receipt in receipts
-        ),
+        "verified_http_404": sum(receipt["verified_http_status"] == 404 for receipt in receipts),
         "failures": failures,
         "receipts": receipts,
     }
     _publish_private(destination, audit)
+    if incomplete_wal:
+        raise CleanupError("pool_wal_incomplete")
     if failures:
         raise CleanupError("authoritative_cleanup_failed")
     return audit
@@ -168,15 +243,15 @@ def main() -> int:
     parser.add_argument("--base-url", default=os.environ.get("OCI_RUNNER_BASE_URL", DEFAULT_BASE_URL))
     parser.add_argument(
         "--owner",
-        default=os.environ.get("SANDOQ_OWNER")
-        or os.environ.get("OCI_RUNNER_OWNER")
-        or os.environ.get("USER"),
+        default=os.environ.get("SANDOQ_OWNER") or os.environ.get("OCI_RUNNER_OWNER") or os.environ.get("USER"),
     )
     parser.add_argument(
         "--concurrency",
         type=int,
         default=int(os.environ.get("OCI_RUNNER_POOL_DRAIN_WORKERS", "16")),
     )
+    parser.add_argument("--wal", type=Path, default=os.environ.get("OCI_RUNNER_POOL_WAL"))
+    parser.add_argument("--live-only", action="store_true")
     try:
         arguments = parser.parse_args()
         if not arguments.owner:
@@ -187,12 +262,12 @@ def main() -> int:
                 base_url=arguments.base_url,
                 owner=arguments.owner,
                 concurrency=arguments.concurrency,
+                wal_path=arguments.wal,
+                live_only=arguments.live_only,
             )
         )
         print(
-            "Sandoq cleanup passed "
-            f"recorded={audit['recorded_outer_sessions']} "
-            f"verified={audit['verified_http_404']}",
+            f"Sandoq cleanup passed recorded={audit['recorded_outer_sessions']} verified={audit['verified_http_404']}",
             flush=True,
         )
         return 0

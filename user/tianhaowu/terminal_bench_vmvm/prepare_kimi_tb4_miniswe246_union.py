@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Materialize an opaque 25/38/3 Kimi TB4 MiniSWE provider-union plan.
+"""Materialize an opaque 52/11/3 Kimi TB4 MiniSWE provider-union plan.
 
 Its output names the separate certifier adapter that re-opens both runs before publication.
 No task member is written to stdout or to the aggregate plan/receipt.
@@ -11,7 +11,6 @@ import argparse
 import copy
 import hashlib
 import json
-import math
 import os
 import re
 import stat
@@ -30,15 +29,15 @@ CERTIFIER_ADAPTER = "kimi-tb4-miniswe246-provider-union-v1"
 SANDOQ_ROLE = "sandoq_firecracker"
 VMVM_ROLE = "vmvm_cpu"
 GPU_ROLE = "gpu_unsupported"
-SANDOQ_TASKS = 25
-VMVM_TASKS = 38
+SANDOQ_TASKS = 52
+VMVM_TASKS = 11
 GPU_TASKS = 3
 CPU_TASKS = SANDOQ_TASKS + VMVM_TASKS
 SANDOQ_CPU_LIMIT = 2
 SANDOQ_MEMORY_LIMIT_BYTES = 4 * split.GIB
 SANDOQ_DISK_LIMIT_BYTES = 10 * split.GIB
-DEFAULT_SANDOQ_CONCURRENCY = 24
-DEFAULT_VMVM_CONCURRENCY = 4
+DEFAULT_SANDOQ_CONCURRENCY = 48
+DEFAULT_VMVM_CONCURRENCY = 11
 LEGACY_SANDOQ_PROVISIONING_RETRIES = 1
 SANDOQ_PROVISIONING_RETRIES = 3
 MINISWE_VERSION = "2.4.6"
@@ -47,7 +46,7 @@ PROVIDER_PROFILE_SHA256 = "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31d
 FULL_TUNNEL_RECEIPT_SHA256 = "39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276"
 FULL_RESOURCE_RECEIPT_SHA256 = "ce3fc3ed2ead1aaf8c71fc35e5dae324f1be9d51b4e7fffff7bc99d1a47adbf6"
 LEGACY_BASE_CONFIG_SHA256 = "de0e1961bf5440c257de8c623698955d80893079a78e7f5e05b9913174b4e9d1"
-BASE_CONFIG_SHA256 = "3c3ad8ea3f8001b307bac59f024fd7d8927bef2c6467cffd5b18c9d9d4480e64"
+BASE_CONFIG_SHA256 = "8e9296d0c877341a67989cf569b9ebbf5e457210f609869e33d9e69485ac8e31"
 LEGACY_REQUEST_TIMEOUT_SECONDS = 43_200
 LEGACY_ROLLOUT_TIMEOUT_SECONDS = 36_000
 LEGACY_SESSION_TIMEOUT_SECONDS = 43_200
@@ -261,54 +260,32 @@ def _fixed_provider_evidence() -> dict[str, dict[str, int | str]]:
 
 
 def derive_union_partition(entries: Sequence[split.ManifestEntry]) -> UnionPartition:
-    baseline = split.derive_partition(entries)
-    sandoq_members = frozenset(
+    if len(entries) != split.TOTAL_TASKS or len({entry.task_id for entry in entries}) != split.TOTAL_TASKS:
+        raise UnionPreparationError("partition_source_invalid")
+    gpu_members = frozenset(
         entry.task_id
         for entry in entries
-        if not entry.requires_compose
-        and all(
-            request.gpu_count == 0
-            and request.cpu_count <= SANDOQ_CPU_LIMIT
-            and request.memory_bytes <= SANDOQ_MEMORY_LIMIT_BYTES
-            and request.disk_bytes <= SANDOQ_DISK_LIMIT_BYTES
-            for request in split._phase_requests(entry)
-        )
+        if max(entry.agent_resources.gpu_count, entry.verifier_resources.gpu_count) > 0
     )
-    gpu_members = frozenset(baseline.gpu_unsupported)
+    if any(max(entry.agent_resources.gpu_count, entry.verifier_resources.gpu_count) > 1 for entry in entries):
+        raise UnionPreparationError("gpu_partition_invalid")
+    sandoq_members = frozenset(
+        entry.task_id for entry in entries if not entry.requires_compose and entry.task_id not in gpu_members
+    )
     sandoq = tuple(entry.task_id for entry in entries if entry.task_id in sandoq_members)
     vmvm = tuple(
         entry.task_id for entry in entries if entry.task_id not in sandoq_members and entry.task_id not in gpu_members
     )
     gpu = tuple(entry.task_id for entry in entries if entry.task_id in gpu_members)
     groups = (set(sandoq), set(vmvm), set(gpu))
-    vmvm_entries = [entry for entry in entries if entry.task_id in groups[1]]
-    required_cpu = max(
-        request.cpu_count * split.LARGE_RESOURCE_MULTIPLIER
-        for entry in vmvm_entries
-        for request in split._phase_requests(entry)
-    )
-    required_memory = max(
-        request.memory_bytes * split.LARGE_RESOURCE_MULTIPLIER
-        for entry in vmvm_entries
-        for request in split._phase_requests(entry)
-    )
-    required_disk = max(
-        request.disk_bytes * split.LARGE_RESOURCE_MULTIPLIER
-        for entry in vmvm_entries
-        for request in split._phase_requests(entry)
-    )
     if (
         (len(sandoq), len(vmvm), len(gpu)) != (SANDOQ_TASKS, VMVM_TASKS, GPU_TASKS)
         or any(groups[left] & groups[right] for left in range(3) for right in range(left + 1, 3))
         or set().union(*groups) != {entry.task_id for entry in entries}
-        or not set(baseline.compose_required).issubset(groups[1])
-        or required_cpu > split.LARGE_MIN_CPU_COUNT
-        or required_memory + max(split.MIN_MEMORY_HEADROOM_BYTES, math.ceil(split.LARGE_MIN_OUTER_MEMORY_BYTES * 0.1))
-        > split.LARGE_MIN_OUTER_MEMORY_BYTES
-        or required_disk + split.DISK_HEADROOM_BYTES > split.LARGE_MIN_DISK_AVAILABLE_BYTES
+        or {entry.task_id for entry in entries if entry.requires_compose} != groups[1]
     ):
         raise UnionPreparationError("partition_contract_invalid")
-    return UnionPartition(sandoq, vmvm, gpu, baseline.compose_required)
+    return UnionPartition(sandoq, vmvm, gpu, vmvm)
 
 
 def _selector_payload(members: Sequence[str]) -> bytes:
@@ -339,11 +316,9 @@ def _partition_receipt(manifest_sha256: str, partition: UnionPartition) -> dict[
         "selectors": {role: {"bytes": len(body), "sha256": _sha256(body)} for role, body in selectors.items()},
         "policy": {
             SANDOQ_ROLE: {
-                "selection": "declared-resource-envelope-v1",
-                "max_cpu": SANDOQ_CPU_LIMIT,
-                "max_memory_bytes": SANDOQ_MEMORY_LIMIT_BYTES,
-                "max_disk_bytes": SANDOQ_DISK_LIMIT_BYTES,
+                "selection": "non-compose-cpu-v1",
                 "resource_multiplier": 1.0,
+                "resource_caps": {"cpu": 2, "memory_mb": 4_096, "storage_mb": 10_240},
                 "compose_supported": False,
                 "environment": "oci-runner-firecracker",
                 "task_network": "host",
@@ -429,10 +404,7 @@ def _timeout_contract(value: dict[str, Any]) -> dict[str, int]:
 
 def _base_config(path: Path) -> tuple[dict[str, Any], bytes]:
     canonical = path.resolve(strict=True)
-    accepted = {
-        _base_config_path().resolve(strict=True): BASE_CONFIG_SHA256,
-        _legacy_base_config_path().resolve(strict=True): LEGACY_BASE_CONFIG_SHA256,
-    }
+    accepted = {_base_config_path().resolve(strict=True): BASE_CONFIG_SHA256}
     if canonical not in accepted:
         raise UnionPreparationError("base_config_path_invalid")
     body = _read(canonical, code="base_config_invalid", maximum_bytes=2 * 1024 * 1024)
@@ -481,16 +453,14 @@ def _base_config(path: Path) -> tuple[dict[str, Any], bytes]:
         or harness.get("version") != MINISWE_VERSION
         or harness.get("config_file") != "mini"
         or "runtime" in harness
-        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
         or "agent.step_limit=200" not in harness.get("config_overrides", ())
         or "model.model_kwargs.parallel_tool_calls=false" not in harness.get("config_overrides", ())
         or not isinstance(rollout_retry, dict)
         or rollout_retry.get("max_retries") != 0
     ):
         raise UnionPreparationError("base_config_contract_invalid")
-    if canonical == _base_config_path().resolve(strict=True) and timeout_contract != TIMEOUT_CONTRACT:
-        raise UnionPreparationError("base_config_contract_invalid")
-    if canonical == _legacy_base_config_path().resolve(strict=True) and timeout_contract != LEGACY_TIMEOUT_CONTRACT:
+    if timeout_contract != TIMEOUT_CONTRACT:
         raise UnionPreparationError("base_config_contract_invalid")
     return value, body
 
@@ -529,6 +499,9 @@ def _lane_config(
     taskset["enable_compose"] = not is_sandoq
     taskset["resource_multiplier"] = 1.0 if is_sandoq else 2.0
     if is_sandoq:
+        taskset["resource_cpu_cap"] = 2
+        taskset["resource_memory_mb_cap"] = 4_096
+        taskset["resource_storage_mb_cap"] = 10_240
         value["harness"]["runtime"] = {
             "type": "sandoq",
             "mode": "oci-runner",
@@ -565,6 +538,9 @@ def _provider_neutral_config(value: dict[str, Any]) -> dict[str, Any]:
     neutral["taskset"]["task_file_sha256"] = "0" * 64
     neutral["taskset"]["enable_compose"] = "provider-specific"
     neutral["taskset"]["resource_multiplier"] = "provider-specific"
+    neutral["taskset"].pop("resource_cpu_cap", None)
+    neutral["taskset"].pop("resource_memory_mb_cap", None)
+    neutral["taskset"].pop("resource_storage_mb_cap", None)
     neutral["harness"]["runtime"] = {"type": "provider-specific"}
     return neutral
 
@@ -1032,7 +1008,7 @@ def verify_smoke_selector(
         "state": "passed",
         "count": 1,
         "selector_sha256": selector_sha256,
-        "resource_policy": "declared-resource-envelope-v1",
+        "resource_policy": "non-compose-clamped-full-firecracker-v1",
     }
 
 

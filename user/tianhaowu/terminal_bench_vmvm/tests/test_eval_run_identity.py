@@ -600,7 +600,9 @@ def test_direct_kimi_tb4_sandoq_concurrency_is_plan_bound() -> None:
     role = "kimi-direct-tb4"
     assert eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 25, 4) == 4
     assert eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 25, 24) == 24
-    for concurrency in (None, 0, 25):
+    assert eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 66, 48) == 48
+    assert eval_run_identity._direct_kimi_expected_concurrency(role, "vmvm", 11, 11) == 11
+    for concurrency in (None, 0, 49):
         with pytest.raises(EvalIdentityError, match="direct_kimi_tb4_scope_invalid"):
             eval_run_identity._direct_kimi_expected_concurrency(
                 role,
@@ -613,7 +615,7 @@ def test_direct_kimi_tb4_sandoq_concurrency_is_plan_bound() -> None:
 def test_direct_kimi_router_timeout_is_extended_only_for_extended_tb4_miniswe() -> None:
     legacy_contract = {"harness": {"id": "mini-swe-agent", "request_timeout_seconds": 43_200}}
     extended_contract = {"harness": {"id": "mini-swe-agent", "request_timeout_seconds": 144_000}}
-    capacity_contract = {"harness": {"id": "mini-swe-agent", "request_timeout_seconds": 1_800}}
+    capacity_contract = {"harness": {"id": "mini-swe-agent", "request_timeout_seconds": 900}}
 
     assert (
         eval_run_identity._direct_kimi_router_request_timeout(
@@ -784,7 +786,7 @@ def test_direct_kimi_fallback_concurrency_is_bound_to_exact_lane_count() -> None
         eval_run_identity._direct_kimi_expected_concurrency(role, "sandoq", 21)
     with pytest.raises(EvalIdentityError, match="direct_kimi_fallback_scope_invalid"):
         eval_run_identity._direct_kimi_expected_concurrency(role, "vmvm", 17)
-    assert eval_run_identity.KIMI_PROVIDER_SPLIT_COUNTS == {25, 27, 31, 32, 38}
+    assert eval_run_identity.KIMI_PROVIDER_SPLIT_COUNTS == {11, 25, 27, 31, 32, 38, 52}
     assert eval_run_identity.KIMI_PROVIDER_SPLIT_COUNTS.isdisjoint({17, 4})
 
 
@@ -795,46 +797,11 @@ def test_direct_kimi_capacity_profile_is_exact_and_sandoq_only() -> None:
         with pytest.raises(EvalIdentityError, match="direct_kimi_capacity_scope_invalid"):
             eval_run_identity._direct_kimi_expected_concurrency(role, provider, task_count)
 
-    config = {
-        "num_tasks": 64,
-        "max_concurrent": 64,
-        "multiplex": 64,
-        "max_turns": 3,
-        "client": {
-            "max_connections": 64,
-            "max_keepalive_connections": 64,
-            "max_retries": 0,
-        },
-        "sampling": {"max_tokens": 32768},
-        "taskset": {"enable_compose": False, "verifier_runtime_retries": 0},
-        "harness": {
-            "id": "mini-swe-agent",
-            "version": "2.4.6",
-            "config_file": "mini",
-            "config_overrides": [
-                "agent.step_limit=3",
-                "environment.environment_class=local",
-                "environment.timeout=1800",
-                "model.model_kwargs.drop_params=true",
-                "model.model_kwargs.timeout=1800",
-                "model.model_kwargs.temperature=1.0",
-                "model.model_kwargs.top_p=1.0",
-                "model.model_kwargs.parallel_tool_calls=false",
-            ],
-            "env": {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"},
-            "runtime": {
-                "network_access": True,
-                "host_tunnel": "sandoq",
-                "buffered_chat_completions": True,
-                "guest_tunnel_url": "http://127.0.0.1:8485",
-                "tunnel_pool_size": 4,
-                "tunnel_ready_timeout": 30,
-                "provisioning_retries": 3,
-                "expected_environment": "oci-runner-firecracker",
-                "session_timeout": 2400,
-            },
-        },
-    }
+    template = (
+        Path(eval_run_identity.__file__).parent
+        / "configs/eval/servers/cpu-132-021_8103/mobius_kimi_k3_sandoq_capacity64.example.toml"
+    )
+    config = tomllib.loads(template.read_text())
     eval_run_identity._validate_direct_kimi_capacity_config(config, role)
     for section, field, value in (
         ("top", "max_concurrent", 65),
@@ -1552,7 +1519,7 @@ def test_kimi_sandoq_host_contract_uses_approved_timeout_and_zero_retry(
     assert execution["runtime"]["type"] == "sandoq"
 
 
-@pytest.mark.parametrize(("provider", "task_count"), [("sandoq", 25), ("vmvm", 38)])
+@pytest.mark.parametrize(("provider", "task_count"), [("sandoq", 52), ("vmvm", 11)])
 def test_kimi_miniswe_pass_at_one_has_zero_whole_rollout_retries(provider: str, task_count: int) -> None:
     config = _resolved_config()
     config["harness"]["id"] = "mini-swe-agent"

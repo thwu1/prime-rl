@@ -1169,6 +1169,16 @@ def _reap_group_children(process: subprocess.Popen[bytes]) -> None:
             return
 
 
+def _supervisor_termination_grace_seconds() -> int:
+    raw = os.environ.get("SANDOQ_PROVIDER_TERMINATION_GRACE_SECONDS", "10")
+    if re.fullmatch(r"[1-9][0-9]*", raw) is None:
+        _fail("provider_context_termination_grace_invalid")
+    value = int(raw)
+    if not 10 <= value <= 600:
+        _fail("provider_context_termination_grace_invalid")
+    return value
+
+
 def _terminate_group(process: subprocess.Popen[bytes], grace_seconds: float = 10) -> bool:
     pgid = process.pid
     if not _group_exists(pgid):
@@ -1247,6 +1257,7 @@ def supervise(
     receipt_path: Path | None = None
     child: subprocess.Popen[bytes] | None = None
     received_signal: int | None = None
+    termination_grace_seconds = _supervisor_termination_grace_seconds()
     prior_subreaper = _set_child_subreaper(True)
 
     def request_stop(signum: int, _frame: object) -> None:
@@ -1330,7 +1341,7 @@ def supervise(
                 else:
                     proxy.serve_once()
             if received_signal is not None:
-                if not _terminate_group(child):
+                if not _terminate_group(child, grace_seconds=termination_grace_seconds):
                     _fail("provider_context_child_cleanup_failed")
                 return 128 + received_signal
             return_code = child.wait()
@@ -1340,7 +1351,7 @@ def supervise(
     finally:
         cleanup_failed = False
         if child is not None and _group_exists(child.pid):
-            if not _terminate_group(child):
+            if not _terminate_group(child, grace_seconds=termination_grace_seconds):
                 cleanup_failed = True
         for signum, handler in previous_handlers.items():
             try:

@@ -36,7 +36,7 @@ from audit_traces import (
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from direct_kimi_router import C23_CAPACITY_PROFILE
+from direct_kimi_router import C23_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE
 from direct_kimi_workers import DirectKimiWorkerError, worker_generation_contract
 from eval_run_identity import load_eval_run_identity_bytes
 
@@ -1330,13 +1330,15 @@ def _deployment_contract(
         "retries": manifest_router.get("retries"),
         "worker_count": len(manifest["workers"]),
     }
-    if manifest_router.get("capacity_profile") == C23_CAPACITY_PROFILE:
+    if manifest_router.get("capacity_profile") in {C23_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE}:
         expected_router.update(
             {
-                "capacity_profile": C23_CAPACITY_PROFILE,
+                "capacity_profile": manifest_router["capacity_profile"],
                 "endpoint_identifier": manifest_router.get("endpoint_identifier"),
             }
         )
+        if manifest_router["capacity_profile"] == C64_W2_CAPACITY_PROFILE:
+            expected_router["per_worker_capacity"] = manifest_router.get("per_worker_capacity")
     elif "capacity_profile" in manifest_router:
         raise KimiProviderSplitError("deployment_worker_manifest_invalid")
     if (
@@ -1579,9 +1581,12 @@ def _validate_direct_router_receipt(
     if not isinstance(router, dict) or not isinstance(worker, dict):
         raise KimiProviderSplitError("router_receipt_invalid")
     c23_profile = router.get("capacity_profile") == C23_CAPACITY_PROFILE
-    zero_worker_counts_sha256 = sha256_bytes((json.dumps([0] * 23, separators=(",", ":")) + "\n").encode())
+    w2_profile = router.get("capacity_profile") == C64_W2_CAPACITY_PROFILE
+    profiled_capacity = c23_profile or w2_profile
+    worker_count = 23 if c23_profile else 24
+    zero_worker_counts_sha256 = sha256_bytes((json.dumps([0] * worker_count, separators=(",", ":")) + "\n").encode())
     expected = {
-        "schema_version": 4 if c23_profile else 2,
+        "schema_version": 5 if w2_profile else 4 if c23_profile else 2,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": identity_sha256,
@@ -1599,13 +1604,13 @@ def _validate_direct_router_receipt(
     }
     dynamic = {"max_active_requests", "total_requests", "chat_requests", "worker_request_counts_sha256"}
     digests = {"worker_request_counts_sha256"}
-    if c23_profile:
+    if profiled_capacity:
         expected.update(
             {
-                "capacity_profile": C23_CAPACITY_PROFILE,
+                "capacity_profile": C64_W2_CAPACITY_PROFILE if w2_profile else C23_CAPACITY_PROFILE,
                 "endpoint_identifier": router.get("endpoint_identifier"),
                 "configured_capacity": router.get("provider_concurrency"),
-                "configured_per_worker_capacity": 1,
+                "configured_per_worker_capacity": 2 if w2_profile else 1,
                 "active_forwarded_requests": 0,
                 "worker_active_request_counts_sha256": zero_worker_counts_sha256,
                 "active_worker_waiters": 0,
@@ -1624,11 +1629,21 @@ def _validate_direct_router_receipt(
             }
         )
         digests.add("worker_session_counts_sha256")
+    if w2_profile:
+        expected.update(
+            {
+                "worker_queue_timeouts": 0,
+                "upstream_http_429": 0,
+                "upstream_http_5xx": 0,
+            }
+        )
+        dynamic.update({"max_active_forwarded_requests", "worker_max_active_request_counts_sha256"})
+        digests.add("worker_max_active_request_counts_sha256")
     if (
         set(value) != {*expected, *dynamic}
         or any(value.get(key) != item for key, item in expected.items())
         or (
-            c23_profile
+            profiled_capacity
             and any(
                 not _nonnegative_integer(value.get(key))
                 for key in (
@@ -1641,12 +1656,14 @@ def _validate_direct_router_receipt(
         or not all(
             _nonnegative_integer(value.get(key)) for key in ("max_active_requests", "total_requests", "chat_requests")
         )
-        or not 1 <= value["max_active_requests"] <= int(identity["execution"]["rollout_concurrency"])
+        or not 1
+        <= value["max_active_requests"]
+        <= (64 if w2_profile else int(identity["execution"]["rollout_concurrency"]))
         or value["total_requests"] < value["chat_requests"]
         or value["chat_requests"] < minimum_chat_requests
         or any(SHA256_RE.fullmatch(str(value.get(key, ""))) is None for key in digests)
         or (
-            c23_profile
+            profiled_capacity
             and (
                 not all(
                     _nonnegative_integer(value.get(key))
@@ -1666,6 +1683,13 @@ def _validate_direct_router_receipt(
                 or value["route_tracking_overflows"] != 0
                 or value["cross_route_anomalies"] != 0
                 or value["tracked_sessions"] > value["chat_requests"]
+            )
+        )
+        or (
+            w2_profile
+            and (
+                not 1 <= value["max_active_forwarded_requests"] <= 48
+                or value["max_active_forwarded_requests"] > value["max_active_requests"]
             )
         )
     ):

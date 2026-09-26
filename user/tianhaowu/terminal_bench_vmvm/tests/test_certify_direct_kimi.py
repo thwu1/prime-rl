@@ -22,6 +22,8 @@ from eval_run_identity import (
     KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256,
     KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
     KIMI_MINISWE_COMPATIBILITY_SHA256,
+    KIMI_NATIVE_MINISWE_SMOKE_SELECTOR_SHA256,
+    _valid_w2_smoke_checkpoint,
 )
 
 
@@ -85,6 +87,96 @@ def test_native_miniswe_smoke_execution_binds_full_tunnel_evidence() -> None:
     assert observed is not None
     assert observed["harness"] == {"id": "mini-swe-agent", "version": "2.4.6", "step_limit": 3}
     assert observed["provider_profile_sha256"] == KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256
+
+
+def _w2_smoke_payload() -> tuple[dict, dict]:
+    manifest = {"source_spec_sha256": "1" * 64, "endpoint_bundle_sha256": "2" * 64}
+    payload = {
+        "full_tb4_ready": False,
+        "source": {"prime_rl_commit": "4" * 40, "prime_rl_tree_sha256": "5" * 64},
+        "model_retry_stop_after_attempt": 1,
+        "qualification_scope": "capacity-limited-smoke-only",
+        "task_file_sha256": KIMI_NATIVE_MINISWE_SMOKE_SELECTOR_SHA256,
+        "source_spec_sha256": manifest["source_spec_sha256"],
+        "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
+        "worker_count": 24,
+        "trace_count": 1,
+        "model_io_turns": 3,
+        "sampled_tokens": 128,
+        "capacity_scope": {
+            "kind": "full-firecracker-minimum-resource-qualified",
+            "reasoning_effort": "max",
+            "resource_multiplier": 1.0,
+            "minimum_cpu_cores": 2,
+            "minimum_memory_gib": 4,
+            "minimum_disk_gib": 10,
+            "full_tb4_ready": False,
+        },
+        "execution": {
+            "harness": {"id": "mini-swe-agent", "version": "2.4.6", "step_limit": 3},
+            "provider_environment": "oci-runner-firecracker",
+            "provider_task_network": "host",
+            "host_tunnel": "sandoq",
+            "provider_profile_sha256": KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256,
+            "runtime_tunnel_receipt_sha256": KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
+            "runtime_resource_receipt_sha256": KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256,
+            "miniswe_compatibility_receipt_sha256": KIMI_MINISWE_COMPATIBILITY_SHA256,
+        },
+        "scoring": {"quality_gate": False, "reward_key": "solved", "score": 0.0, "scored": True},
+        "tool_execution": {
+            "tool_observations": 2,
+            "successful_tool_exits": 2,
+            "nonzero_tool_exits": 0,
+            "missing_tool_exits": 0,
+            "traces_with_tool_exit_evidence": 1,
+        },
+        "pool_cleanup": {
+            "audit_sha256": "3" * 64,
+            "assignment_measured_high_water": 1,
+            "outer_session_high_water": 1,
+            "failures": 0,
+        },
+    }
+    return payload, manifest
+
+
+def test_w2_smoke_composition_accepts_full_firecracker_three_step_smoke() -> None:
+    payload, manifest = _w2_smoke_payload()
+
+    assert _valid_w2_smoke_checkpoint(
+        payload,
+        manifest,
+        expected_revision="4" * 40,
+        expected_tree_sha256="5" * 64,
+    )
+
+
+@pytest.mark.parametrize(
+    ("section", "key", "value"),
+    (
+        (None, "full_tb4_ready", True),
+        (None, "worker_count", 23),
+        (None, "model_retry_stop_after_attempt", 10),
+        ("source", "prime_rl_commit", "6" * 40),
+        ("execution", "provider_environment", "oci-runner-firecracker-small"),
+        ("tool_execution", "successful_tool_exits", 0),
+    ),
+)
+def test_w2_smoke_composition_rejects_weakened_evidence(
+    section: str | None,
+    key: str,
+    value: object,
+) -> None:
+    payload, manifest = _w2_smoke_payload()
+    target = payload if section is None else payload[section]
+    target[key] = value
+
+    assert not _valid_w2_smoke_checkpoint(
+        payload,
+        manifest,
+        expected_revision="4" * 40,
+        expected_tree_sha256="5" * 64,
+    )
 
 
 @pytest.mark.parametrize(("rollout_concurrency", "pool_size"), [(1, 2), (23, 46), (24, 48), (64, 64)])
@@ -328,3 +420,96 @@ def test_certifier_accepts_c23_profiled_router_receipt(tmp_path: Path) -> None:
         )
         == receipt
     )
+
+
+def test_certifier_accepts_unsaturated_w2_receipt_within_capacity_proof_envelope(tmp_path: Path) -> None:
+    output = tmp_path / "private" / "direct_kimi_router_final.json"
+    binding = {
+        "eval_run_identity_sha256": "1" * 64,
+        "invocation_identity_sha256": "2" * 64,
+    }
+    manifest = {
+        "endpoint_bundle_sha256": "3" * 64,
+        "workers": [{} for _ in range(24)],
+        "router": {
+            "implementation": "direct-kimi-transparent-v2",
+            "implementation_sha256": "4" * 64,
+            "capacity_profile": "sandoq-c64-w2-v1",
+            "endpoint_identifier": "cpu-132-021_8103",
+            "max_concurrent_requests": 64,
+            "request_timeout_seconds": 144_000,
+        },
+    }
+    zero_counts = hashlib.sha256((json.dumps([0] * 24, separators=(",", ":")) + "\n").encode()).hexdigest()
+    receipt = {
+        "schema_version": 5,
+        "kind": "direct-kimi-router-final",
+        "state": "passed",
+        **binding,
+        "worker_manifest_sha256": "5" * 64,
+        "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
+        "active_workers": 24,
+        "implementation": manifest["router"]["implementation"],
+        "implementation_sha256": manifest["router"]["implementation_sha256"],
+        "policy": "consistent_hash",
+        "request_id_headers": ["x-session-id"],
+        "request_timeout_seconds": 144_000,
+        "retries": 0,
+        "max_active_requests": 32,
+        "total_requests": 66,
+        "chat_requests": 66,
+        "worker_request_counts_sha256": "6" * 64,
+        "source_generation_revalidated": True,
+        "capacity_profile": "sandoq-c64-w2-v1",
+        "endpoint_identifier": "cpu-132-021_8103",
+        "configured_capacity": 64,
+        "configured_per_worker_capacity": 2,
+        "active_forwarded_requests": 0,
+        "worker_active_request_counts_sha256": zero_counts,
+        "worker_session_counts_sha256": "7" * 64,
+        "active_worker_waiters": 0,
+        "worker_waiting_request_counts_sha256": zero_counts,
+        "max_active_chat_requests": 32,
+        "capacity_rejections": 0,
+        "queue_overflow_rejections": 0,
+        "route_tracking_overflows": 0,
+        "cross_route_anomalies": 0,
+        "tracked_sessions": 66,
+        "max_active_forwarded_requests": 32,
+        "worker_max_active_request_counts_sha256": "8" * 64,
+        "worker_queue_timeouts": 0,
+        "upstream_http_429": 0,
+        "upstream_http_5xx": 0,
+    }
+    direct_kimi_workers._atomic_write(
+        output,
+        (json.dumps(receipt, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+        exclusive=True,
+    )
+
+    assert (
+        _validate_router_receipt(
+            output,
+            manifest,
+            "5" * 64,
+            minimum_chat_requests=66,
+            binding=binding,
+        )
+        == receipt
+    )
+
+    invalid = dict(receipt, max_active_forwarded_requests=49)
+    invalid_output = tmp_path / "invalid" / "direct_kimi_router_final.json"
+    direct_kimi_workers._atomic_write(
+        invalid_output,
+        (json.dumps(invalid, sort_keys=True, separators=(",", ":")) + "\n").encode(),
+        exclusive=True,
+    )
+    with pytest.raises(DirectKimiCertificateError, match="^router_receipt_invalid$"):
+        _validate_router_receipt(
+            invalid_output,
+            manifest,
+            "5" * 64,
+            minimum_chat_requests=66,
+            binding=binding,
+        )
