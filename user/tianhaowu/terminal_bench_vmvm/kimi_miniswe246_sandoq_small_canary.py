@@ -21,7 +21,7 @@ import qwen_miniswe246_sandoq_smoke as shared
 
 MODEL = "Kimi-K3"
 MAX_MODEL_CALLS = 3
-MAX_OUTPUT_TOKENS = 32
+MAX_OUTPUT_TOKENS = 64
 MODEL_TIMEOUT_SECONDS = 120
 EXECUTION_WALL_SECONDS = 400
 EXECUTE_PROCESS_TIMEOUT_SECONDS = 405
@@ -33,7 +33,7 @@ EXPECTED_ROUTER_PROFILE = "sandoq-c64-w2-v1"
 EXPECTED_ENDPOINT_IDENTIFIER = "cpu-132-021_8103"
 EXPECTED_WORKERS = 24
 RECEIPT_KIND = "kimi-miniswe246-sandoq-firecracker-small-canary"
-EVAL_CONFIG_SHA256 = "943c0448758cf5126a52db7c35da8a1311ff80a92e64db5d06c904ee2dee274b"
+EVAL_CONFIG_SHA256 = "7675211c4bbc93ad370002957dbf355cfb8514636c79b60d338ab14cfaae844f"
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
 SHARED_SMOKE_SHA256 = "41ddea1216187dead3eca7cd9e861cb23de5b12dbb989b463533aebe05341727"
 DIRECT_ROUTER_SHA256 = "217c7c64a93a5bc41fd2a5f4c5c530da67d50a2d3ff83f117f96926a353dd10c"
@@ -228,7 +228,7 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
                     "--vf-config-override",
                     "model.model_kwargs.timeout=120",
                     "--vf-config-override",
-                    "model.model_kwargs.max_tokens=32",
+                    "model.model_kwargs.max_tokens=64",
                     "--vf-config-override",
                     "model.model_kwargs.temperature=1.0",
                     "--vf-config-override",

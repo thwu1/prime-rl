@@ -4,7 +4,7 @@ num_rollouts = 1
 max_concurrent = 1
 max_turns = 3
 max_input_tokens = 262144
-max_output_tokens = 32
+max_output_tokens = 64
 max_total_tokens = 262144
 multiplex = 1
 rich = false
@@ -26,7 +26,7 @@ max_retries = 0
 reasoning_effort = "max"
 temperature = 1.0
 top_p = 1.0
-max_tokens = 32
+max_tokens = 64
 chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
 
 [taskset]
@@ -55,7 +55,7 @@ config_overrides = [
     "environment.timeout=60",
     "model.model_kwargs.drop_params=true",
     "model.model_kwargs.timeout=120",
-    "model.model_kwargs.max_tokens=32",
+    "model.model_kwargs.max_tokens=64",
     "model.model_kwargs.temperature=1.0",
     "model.model_kwargs.top_p=1.0",
     "model.model_kwargs.parallel_tool_calls=false",
