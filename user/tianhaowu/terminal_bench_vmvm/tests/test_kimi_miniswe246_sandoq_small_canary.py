@@ -564,7 +564,8 @@ def test_tb4_small_scored_diagnostic_contract() -> None:
     assert config["client"]["capture_model_io"] is True
     assert config["client"]["max_retries"] == 0
     assert config["sampling"]["reasoning_effort"] == "max"
-    assert config["sampling"]["max_tokens"] == 128
+    assert config["sampling"]["max_tokens"] == canary.TB4_MAX_OUTPUT_TOKENS == 512
+    assert canary.TB4_MAX_OUTPUT_TOKENS > canary.MAX_OUTPUT_TOKENS
     assert config["sampling"]["chat_template_kwargs"] == {
         "enable_thinking": True,
         "preserve_thinking": True,
@@ -578,8 +579,32 @@ def test_tb4_small_scored_diagnostic_contract() -> None:
     assert config["harness"]["runtime"]["cpu"] == 1.0
     assert config["harness"]["runtime"]["memory"] == 2.0
     assert config["harness"]["runtime"]["disk"] == 10.0
+    assert config["client"]["timeout"] == canary.TB4_MODEL_TIMEOUT_SECONDS == 1800
+    assert canary.TB4_MODEL_TIMEOUT_SECONDS > canary.MODEL_TIMEOUT_SECONDS
+    assert config["harness"]["runtime"]["session_timeout"] == canary.TB4_SESSION_TIMEOUT_SECONDS
+    assert config["timeout"]["rollout"] == canary.TB4_EXECUTION_WALL_SECONDS
+    assert "agent.wall_time_limit_seconds=6000" in config["harness"]["config_overrides"]
+    assert "model.model_kwargs.timeout=1800" in config["harness"]["config_overrides"]
+    assert "model.model_kwargs.max_tokens=512" in config["harness"]["config_overrides"]
+    assert canary.TB4_EXECUTION_WALL_SECONDS > canary.EXECUTION_WALL_SECONDS
+    assert canary.TB4_MODEL_TIMEOUT_SECONDS * canary.MAX_MODEL_CALLS < canary.TB4_AGENT_WALL_SECONDS
+    assert canary.TB4_AGENT_WALL_SECONDS < canary.TB4_EXECUTION_WALL_SECONDS
+    assert canary.TB4_EXECUTION_WALL_SECONDS < canary.TB4_SESSION_TIMEOUT_SECONDS
+    assert canary.TB4_EXECUTION_WALL_SECONDS <= canary.TB4_EXECUTE_PROCESS_TIMEOUT_SECONDS
+    assert (
+        canary.TB4_EXECUTE_PROCESS_TIMEOUT_SECONDS
+        + 10
+        + canary.CLEANUP_PROCESS_TIMEOUT_SECONDS
+        + 10
+        + canary.SANITIZE_PROCESS_TIMEOUT_SECONDS
+        + 10
+        <= canary.TB4_SUPERVISOR_WALL_SECONDS
+    )
+    assert canary.TB4_SUPERVISOR_WALL_SECONDS + 10 <= canary.TB4_ORCHESTRATOR_WALL_SECONDS
     assert "return float(await taskset.solved(task, trace, runtime))" in runner
     assert 'choices=("mobius", "tb4")' in runner
     assert "KIMI_SMALL_CANARY_TASK_PROFILE=tb4" in wrapper.read_text()
+    assert "#SBATCH --time=02:00:00" in wrapper.read_text()
+    assert '"kimi-tb4-long" if args.task_profile == "tb4" else "standard"' in runner
     assert 'task_profile=${KIMI_SMALL_CANARY_TASK_PROFILE:-mobius}' in generic_launcher.read_text()
     assert stat.S_IMODE(wrapper.stat().st_mode) & 0o111

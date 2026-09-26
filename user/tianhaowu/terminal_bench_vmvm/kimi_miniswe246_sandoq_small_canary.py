@@ -31,13 +31,21 @@ CLEANUP_PROCESS_TIMEOUT_SECONDS = 25
 SANITIZE_PROCESS_TIMEOUT_SECONDS = 5
 SUPERVISOR_WALL_SECONDS = 1030
 ORCHESTRATOR_WALL_SECONDS = 1050
+TB4_MAX_OUTPUT_TOKENS = 512
+TB4_MODEL_TIMEOUT_SECONDS = 1800
+TB4_AGENT_WALL_SECONDS = 6000
+TB4_SESSION_TIMEOUT_SECONDS = 6900
+TB4_EXECUTION_WALL_SECONDS = 6600
+TB4_EXECUTE_PROCESS_TIMEOUT_SECONDS = 6605
+TB4_SUPERVISOR_WALL_SECONDS = 6670
+TB4_ORCHESTRATOR_WALL_SECONDS = 6690
 EXPECTED_ROUTER_PROFILE = "sandoq-c64-w2-v1"
 EXPECTED_ENDPOINT_IDENTIFIER = "cpu-132-021_8103"
 EXPECTED_WORKERS = 24
 RECEIPT_KIND = "kimi-miniswe246-sandoq-firecracker-small-canary"
 TB4_RECEIPT_KIND = "kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic"
 EVAL_CONFIG_SHA256 = "517bdc47951cb798cf18332e88b5d4202ac643da4737301a203aeebb96d52ff0"
-TB4_EVAL_CONFIG_SHA256 = "41fcaa0c2bcf7335e09c9cb22342101e378b1ca30fdaba04c34ebd4b11fca7f3"
+TB4_EVAL_CONFIG_SHA256 = "8f75c7a74fd43f22c9a7c4b4c56f6ac2a5c436e6aecaa1f7d71366c8590cb1f5"
 TB4_SELECTOR_SHA256 = "c1f745d4a1d3861deefb3fba4daa23f52ff3d1d4952a9fe2ba0ccbdc4040af97"
 TB4_IMAGE_MANIFEST_SHA256 = "6dd632029af8da52f99f1d364e983a5da2e855afeb6a2ea5fc84fd00e1683513"
 TB4_TASK_TREE_SHA256 = "55ee806f7a9be4c270161863b27010f7b684d2acaf31eff7c490e57f84a0dc86"
@@ -363,13 +371,18 @@ async def score_with_tb4_diagnostics(
 
 async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
     taskset, task = load_selected_task(args)
+    tb4 = args.task_profile == "tb4"
+    max_output_tokens = TB4_MAX_OUTPUT_TOKENS if tb4 else MAX_OUTPUT_TOKENS
+    model_timeout_seconds = TB4_MODEL_TIMEOUT_SECONDS if tb4 else MODEL_TIMEOUT_SECONDS
+    agent_wall_seconds = TB4_AGENT_WALL_SECONDS if tb4 else 900
+    session_timeout_seconds = TB4_SESSION_TIMEOUT_SECONDS if tb4 else 1020
     relay = shared.ModelRelay(
         _loopback_url(args.base_url, "/v1"),
         "EMPTY",
         os.urandom(16).hex(),
         model=MODEL,
-        max_output_tokens=MAX_OUTPUT_TOKENS,
-        request_timeout_seconds=MODEL_TIMEOUT_SECONDS,
+        max_output_tokens=max_output_tokens,
+        request_timeout_seconds=model_timeout_seconds,
         reasoning_effort="max",
     )
     runtime = shared.SandoqRuntime(
@@ -378,7 +391,7 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
             workdir=task.workdir or "/app",
             network_access=True,
             mode="oci-runner",
-            session_timeout=1020,
+            session_timeout=session_timeout_seconds,
             cpu=float(task.resources.cpu or 1),
             memory=float(task.resources.memory or 2),
             disk=float(task.resources.disk or 5),
@@ -434,7 +447,7 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
                     "--vf-config-override",
                     "agent.step_limit=3",
                     "--vf-config-override",
-                    "agent.wall_time_limit_seconds=900",
+                    f"agent.wall_time_limit_seconds={agent_wall_seconds}",
                     "--vf-config-override",
                     "environment.environment_class=local",
                     "--vf-config-override",
@@ -446,9 +459,9 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
                     "--vf-config-override",
                     "model.model_kwargs.drop_params=true",
                     "--vf-config-override",
-                    "model.model_kwargs.timeout=300",
+                    f"model.model_kwargs.timeout={model_timeout_seconds}",
                     "--vf-config-override",
-                    "model.model_kwargs.max_tokens=128",
+                    f"model.model_kwargs.max_tokens={max_output_tokens}",
                     "--vf-config-override",
                     "model.model_kwargs.temperature=1.0",
                     "--vf-config-override",
@@ -536,12 +549,20 @@ def execute_command(args: argparse.Namespace) -> int:
 
 
 def supervised_command(args: argparse.Namespace) -> int:
+    execution_wall_seconds = (
+        TB4_EXECUTION_WALL_SECONDS if args.task_profile == "tb4" else EXECUTION_WALL_SECONDS
+    )
+    execute_process_timeout_seconds = (
+        TB4_EXECUTE_PROCESS_TIMEOUT_SECONDS
+        if args.task_profile == "tb4"
+        else EXECUTE_PROCESS_TIMEOUT_SECONDS
+    )
     execute = [
         "/usr/bin/timeout",
         "--foreground",
         "--signal=TERM",
         "--kill-after=10s",
-        f"{EXECUTION_WALL_SECONDS + 20}s",
+        f"{execution_wall_seconds + 20}s",
         sys.executable,
         str(Path(__file__).resolve()),
         "execute",
@@ -560,13 +581,13 @@ def supervised_command(args: argparse.Namespace) -> int:
         "--output-dir",
         str(args.output_dir),
         "--wall-seconds",
-        str(EXECUTION_WALL_SECONDS),
+        str(execution_wall_seconds),
     ]
     # Reserve enough of the supervisor's hard budget for a timed-out process's
     # kill grace, authoritative cleanup, cleanup kill grace, sanitization, and
     # sanitization kill grace.  The shared helper can add at most ten seconds
     # after each timeout.
-    eval_status = shared._run_logged(execute, args.log, EXECUTE_PROCESS_TIMEOUT_SECONDS)
+    eval_status = shared._run_logged(execute, args.log, execute_process_timeout_seconds)
     cleanup = [
         sys.executable,
         str(args.workflow_dir / "sandoq_pool_cleanup.py"),
@@ -696,6 +717,12 @@ def receipt_exit_code(status: object, task_profile: str) -> int:
 
 def orchestrate_command(args: argparse.Namespace) -> int:
     started = time.monotonic()
+    supervisor_wall_seconds = (
+        TB4_SUPERVISOR_WALL_SECONDS if args.task_profile == "tb4" else SUPERVISOR_WALL_SECONDS
+    )
+    orchestrator_wall_seconds = (
+        TB4_ORCHESTRATOR_WALL_SECONDS if args.task_profile == "tb4" else ORCHESTRATOR_WALL_SECONDS
+    )
     output_dir: Path | None = None
     receipt_kind = TB4_RECEIPT_KIND if args.task_profile == "tb4" else RECEIPT_KIND
     receipt = public_receipt(
@@ -850,7 +877,7 @@ def orchestrate_command(args: argparse.Namespace) -> int:
             "--startup-timeout-seconds",
             "3600",
             "--lease-profile",
-            "standard",
+            "kimi-tb4-long" if args.task_profile == "tb4" else "standard",
             "--ecr-token-file",
             str(args.ecr_token_file),
             "--ecr-token-metadata",
@@ -862,8 +889,8 @@ def orchestrate_command(args: argparse.Namespace) -> int:
             "--",
             *supervised,
         ]
-        remaining = max(1.0, ORCHESTRATOR_WALL_SECONDS - (time.monotonic() - started))
-        shared._run_logged_with_environment(command, log, min(SUPERVISOR_WALL_SECONDS, remaining), environment)
+        remaining = max(1.0, orchestrator_wall_seconds - (time.monotonic() - started))
+        shared._run_logged_with_environment(command, log, min(supervisor_wall_seconds, remaining), environment)
         run_state = shared.read_private_json(output_dir / "run-private.json")
         cleanup = cleanup_passed(output_dir / "sandoq_cleanup_audit.json", args.task_profile)
         router_stats = read_router_stats(router_stats_url)
@@ -873,7 +900,7 @@ def orchestrate_command(args: argparse.Namespace) -> int:
         )
         router = router_audit(router_stats, int(run_state.get("model_calls", 0)))
         receipt = public_receipt(run_state, cleanup=cleanup, router=router, kind=receipt_kind)
-        if time.monotonic() - started > ORCHESTRATOR_WALL_SECONDS:
+        if time.monotonic() - started > orchestrator_wall_seconds:
             receipt = public_receipt(
                 shared.failed_run_state(),
                 cleanup=cleanup,
