@@ -488,6 +488,11 @@ def test_firecracker_host_profile_and_smoke_are_narrowly_pinned(tmp_path: Path) 
     assert args.sandoq_site == Path(
         "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_sdk1_82068"
     )
+    assert smoke.SANDOQ_SITE_NAME == "sandoq_x86_64_sdk1_82068"
+    assert smoke.SANDOQ_SITE_SHA256 == (
+        "df69cadb16edc799fcb62ea4fc144ee5d5572fe58fcd3e2bd6d165c607e02962"
+    )
+    assert smoke.SANDOQ_CLIENT_VERSION == "1.0.0.2026.9.23.82068.0+hg1a1d394e50c5"
 
 
 def test_firecracker_host_profile_is_active_under_supervisor(

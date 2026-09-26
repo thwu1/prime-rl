@@ -7,6 +7,7 @@ import argparse
 import asyncio
 import contextlib
 import hashlib
+import importlib.metadata
 import json
 import os
 import re
@@ -42,7 +43,9 @@ IMAGE_MANIFEST_SHA256 = "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157ed
 DATASET_REVISION = "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
 EVAL_CONFIG_SHA256 = "275d9bb4f0cd495455470caf4865c396626f5ca9f7274d2ad1db2afeb49962cf"
-REFERENCE_REVISION = "f7313db42eea4b3be8bcbe16a8072f73cf6abed5"
+SANDOQ_SITE_NAME = "sandoq_x86_64_sdk1_82068"
+SANDOQ_SITE_SHA256 = "df69cadb16edc799fcb62ea4fc144ee5d5572fe58fcd3e2bd6d165c607e02962"
+SANDOQ_CLIENT_VERSION = "1.0.0.2026.9.23.82068.0+hg1a1d394e50c5"
 REFERENCE_TUNNEL_SHA256 = "6bdb26e3676e161eb0a7cd57f42d4975c72ec51ba2fbb9ba1351c29eab4674bb"
 _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _REVISION_RE = re.compile(r"[0-9a-f]{40}")
@@ -68,6 +71,40 @@ def sha256_file(path: Path) -> str:
         while block := handle.read(1024 * 1024):
             digest.update(block)
     return digest.hexdigest()
+
+
+def validate_sandoq_site(path: Path) -> None:
+    resolved = path.resolve(strict=True)
+    if (
+        resolved != path
+        or path.is_symlink()
+        or not resolved.is_dir()
+        or path.name != SANDOQ_SITE_NAME
+    ):
+        raise SmokeError("sandoq_site_invalid")
+    digest = hashlib.sha256()
+    files = sorted(
+        (
+            item
+            for item in resolved.rglob("*")
+            if item.is_file() and item.suffix != ".pyc" and not item.name.startswith(".")
+        ),
+        key=lambda item: item.relative_to(resolved).as_posix(),
+    )
+    for item in files:
+        relative = item.relative_to(resolved).as_posix()
+        digest.update(f"{sha256_file(item)}  {relative}\n".encode())
+    distributions = [
+        distribution
+        for distribution in importlib.metadata.distributions(path=[str(resolved)])
+        if distribution.metadata["Name"].lower().replace("_", "-") == "sandoq-client"
+    ]
+    if (
+        digest.hexdigest() != SANDOQ_SITE_SHA256
+        or len(distributions) != 1
+        or distributions[0].version != SANDOQ_CLIENT_VERSION
+    ):
+        raise SmokeError("sandoq_site_invalid")
 
 
 def publish_private_bytes(path: Path, payload: bytes) -> None:
@@ -719,8 +756,7 @@ def orchestrate_command(args: argparse.Namespace) -> int:
         }
         if any(sha256_file(path.resolve(strict=True)) != digest for path, digest in expected_files.items()):
             raise SmokeError("frozen_input_changed")
-        if not args.sandoq_site.resolve(strict=True).is_dir() or REFERENCE_REVISION[:8] not in args.sandoq_site.name:
-            raise SmokeError("sandoq_site_invalid")
+        validate_sandoq_site(args.sandoq_site)
         job_id = os.environ.get("SLURM_JOB_ID", "")
         if re.fullmatch(r"[1-9][0-9]*", job_id) is None:
             raise SmokeError("slurm_job_invalid")
