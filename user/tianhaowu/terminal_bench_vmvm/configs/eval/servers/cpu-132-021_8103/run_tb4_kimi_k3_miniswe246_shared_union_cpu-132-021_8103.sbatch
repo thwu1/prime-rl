@@ -39,7 +39,7 @@ smoke_checkpoint_sha256=${KIMI_SANDOQ_SMOKE_CHECKPOINT_SHA256:?Set KIMI_SANDOQ_S
 capacity_certificate=${KIMI_SANDOQ_CAPACITY_CERTIFICATE:?Set KIMI_SANDOQ_CAPACITY_CERTIFICATE}
 capacity_certificate_sha256=${KIMI_SANDOQ_CAPACITY_CERTIFICATE_SHA256:?Set KIMI_SANDOQ_CAPACITY_CERTIFICATE_SHA256}
 
-deployment_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/kimi-k3-deployment-cpu132021-rollover-20260924-v3
+deployment_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/kimi-k3-deployment-shared-rollover-1591890-20260926-v1
 dataset_dir=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks
 official_selector="$workflow_dir/configs/eval/tb4_qwen_a95b_miniswe.tasks.txt"
 eval_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals

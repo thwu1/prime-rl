@@ -5,6 +5,7 @@ import json
 import stat
 import tomllib
 from pathlib import Path
+from types import SimpleNamespace
 
 import kimi_miniswe246_sandoq_small_canary as canary
 import pytest
@@ -105,6 +106,220 @@ def test_public_receipt_is_aggregate_only() -> None:
         "router_healthy",
         "status",
     }
+
+
+def test_tb4_receipt_requires_numeric_reward_and_cleanup() -> None:
+    state = {
+        "sandbox_lifecycle": True,
+        "model_calls": 3,
+        "shell_execution": True,
+        "exact_native_submission_marker": False,
+        "reasoning_content_retained": True,
+        "reward": 0.0,
+        "program_exit_ok": True,
+        "api_calls_match": True,
+        "mini_version_match": True,
+    }
+    router = canary.router_audit(_router_stats(), 3)
+    receipt = canary.public_receipt(
+        state,
+        cleanup=True,
+        router=router,
+        kind=canary.TB4_RECEIPT_KIND,
+    )
+    assert receipt["kind"] == canary.TB4_RECEIPT_KIND
+    assert receipt["status"] == "diagnostic_passed"
+    assert receipt["reward"] == 0.0
+    assert canary.receipt_exit_code(receipt["status"], "tb4") == 0
+    assert canary.receipt_exit_code(receipt["status"], "mobius") == 2
+
+    missing_reward = dict(state, reward=None)
+    assert (
+        canary.public_receipt(
+            missing_reward,
+            cleanup=True,
+            router=router,
+            kind=canary.TB4_RECEIPT_KIND,
+        )["status"]
+        == "failed"
+    )
+    assert (
+        canary.public_receipt(
+            state,
+            cleanup=False,
+            router=router,
+            kind=canary.TB4_RECEIPT_KIND,
+        )["status"]
+        == "failed"
+    )
+
+
+def test_cleanup_contract_counts_both_tb4_assignments(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    audit = tmp_path / "sandoq_cleanup_audit.json"
+    base = {
+        "kind": "sandoq-pool-cleanup",
+        "state": "passed",
+        "failures": 0,
+        "assignments_acquired": 2,
+        "assignments_cleanup_verified": 2,
+        "assignment_release_rows": 2,
+        "assignment_cancellation_rows": 0,
+        "recorded_outer_sessions": 2,
+        "outer_sessions_created": 2,
+        "outer_sessions_deleted": 2,
+        "verified_http_404": 2,
+        "deleted_and_verified": 0,
+        "already_absent": 2,
+        "outer_session_high_water": 1,
+        "assignment_measured_high_water": 1,
+    }
+    audit.write_text(json.dumps(base))
+    audit.chmod(0o600)
+    assert canary.cleanup_passed(audit, "tb4") is True
+
+    mobius = dict(base)
+    for field in (
+        "assignments_acquired",
+        "assignments_cleanup_verified",
+        "assignment_release_rows",
+        "recorded_outer_sessions",
+        "outer_sessions_created",
+        "outer_sessions_deleted",
+        "verified_http_404",
+        "already_absent",
+    ):
+        mobius[field] = 1
+    audit.write_text(json.dumps(mobius))
+    audit.chmod(0o600)
+    assert canary.cleanup_passed(audit, "mobius") is True
+
+    for field in (
+        "assignments_acquired",
+        "assignments_cleanup_verified",
+        "recorded_outer_sessions",
+        "outer_sessions_created",
+        "outer_sessions_deleted",
+    ):
+        changed = dict(base, **{field: 1})
+        audit.write_text(json.dumps(changed))
+        audit.chmod(0o600)
+        assert canary.cleanup_passed(audit, "tb4") is False
+
+
+def test_tb4_releases_agent_before_separate_verifier() -> None:
+    events: list[str] = []
+
+    class Runtime:
+        async def stop(self) -> None:
+            events.append("agent-stop")
+
+    class Taskset:
+        async def finalize(self, _task: object, _trace: object, _runtime: object) -> None:
+            events.append("finalize")
+
+        async def solved(self, _task: object, _trace: object, _runtime: object) -> float:
+            assert events == ["finalize", "agent-stop"]
+            events.append("separate-verifier")
+            return 0.0
+
+    reward = asyncio.run(
+        canary.finalize_and_score("tb4", Taskset(), object(), object(), Runtime())
+    )
+    assert reward == 0.0
+    assert events == ["finalize", "agent-stop", "separate-verifier"]
+
+
+def test_tb4_preserves_diagnostic_state_when_scoring_fails() -> None:
+    class Runtime:
+        async def stop(self) -> None:
+            return None
+
+    class Taskset:
+        async def finalize(self, _task: object, _trace: object, _runtime: object) -> None:
+            return None
+
+        async def solved(self, _task: object, _trace: object, _runtime: object) -> float:
+            raise RuntimeError("opaque verifier failure")
+
+    args = (Taskset(), object(), object(), Runtime())
+    reward, scoring = asyncio.run(canary.score_with_tb4_diagnostics("tb4", *args))
+    assert reward is None
+    assert scoring == {
+        "schema_version": 1,
+        "stage": "separate_verifier",
+        "state": "failed",
+        "failure_class": "runtime",
+        "numeric_reward": False,
+    }
+    with pytest.raises(RuntimeError, match="opaque verifier failure"):
+        asyncio.run(canary.score_with_tb4_diagnostics("mobius", *args))
+
+
+def test_tb4_task_rejects_gpu_and_compose_before_clamping(tmp_path: Path) -> None:
+    class Resources:
+        def __init__(self, cpu: float, memory: float, disk: float, gpu: str | None = None) -> None:
+            self.cpu = cpu
+            self.memory = memory
+            self.disk = disk
+            self.gpu = gpu
+
+        def model_copy(self, *, update: dict[str, object]) -> Resources:
+            return Resources(**update)
+
+    class Task(SimpleNamespace):
+        def model_copy(self, *, update: dict[str, object]) -> Task:
+            return Task(**{**vars(self), **update})
+
+    task_dir = tmp_path / "opaque-task"
+    task_dir.mkdir()
+    task = Task(
+        verifier_mode="separate",
+        image="agent@sha256:" + "a" * 64,
+        verifier_image="verifier@sha256:" + "b" * 64,
+        task_dir=str(task_dir),
+        resources=Resources(2.0, 4.0, 10.0),
+        verifier_resources=Resources(2.0, 4.0, 10.0),
+    )
+    bounded = canary.clamp_tb4_task(task)
+    assert (bounded.resources.cpu, bounded.resources.memory, bounded.resources.disk) == (
+        1.0,
+        2.0,
+        10.0,
+    )
+    assert (
+        bounded.verifier_resources.cpu,
+        bounded.verifier_resources.memory,
+        bounded.verifier_resources.disk,
+    ) == (1.0, 2.0, 10.0)
+
+    with pytest.raises(canary.CanaryError, match="tb4_task_invalid"):
+        canary.clamp_tb4_task(task.model_copy(update={"resources": Resources(2.0, 4.0, 10.0, "GPU")}))
+
+    environment = task_dir / "environment"
+    environment.mkdir()
+    (environment / "compose.yaml").write_text("services: {}\n")
+    with pytest.raises(canary.CanaryError, match="tb4_task_invalid"):
+        canary.clamp_tb4_task(task)
+
+
+def test_tb4_task_tree_identity_detects_mutation(tmp_path: Path) -> None:
+    task_dir = tmp_path / "opaque-task"
+    nested = task_dir / "nested"
+    nested.mkdir(parents=True)
+    first = task_dir / "task.toml"
+    second = nested / "payload"
+    first.write_bytes(b"first\n")
+    second.write_bytes(b"second\n")
+    original = canary._task_tree_identity(task_dir)
+    assert original[0] == 2
+    assert canary._task_tree_identity(task_dir) == original
+    second.chmod(0o700)
+    assert canary._task_tree_identity(task_dir) != original
+    second.chmod(0o644)
+    assert canary._task_tree_identity(task_dir) == original
+    second.write_bytes(b"changed\n")
+    assert canary._task_tree_identity(task_dir) != original
 
 
 def test_direct_router_urls_are_loopback_only() -> None:
@@ -321,3 +536,50 @@ def test_frozen_config_and_launcher_contract() -> None:
     assert "KIMI_SMALL_CANARY_EXPECTED_REVISION" in launcher
     assert '"--startup-timeout-seconds",\n            "3600",' in runner
     assert stat.S_IMODE(launcher_path.stat().st_mode) & 0o111
+
+
+def test_tb4_small_scored_diagnostic_contract() -> None:
+    workflow = Path(__file__).resolve().parents[1]
+    config_path = (
+        workflow
+        / "configs/eval/servers/cpu-132-021_8103/"
+        "tb4_kimi_k3_miniswe246_sandoq_firecracker_small_smoke.toml"
+    )
+    selector = workflow / "configs/eval/tb4_kimi_k3_short_smoke.tasks.txt"
+    image_manifest = (
+        workflow / "configs/eval/servers/cpu-132-021_8103/tb4_images.sandoq.json"
+    )
+    wrapper = workflow / "run_kimi_tb4_miniswe246_sandoq_small_smoke.sbatch"
+    generic_launcher = workflow / "run_kimi_miniswe246_sandoq_small_canary.sbatch"
+    runner = (workflow / "kimi_miniswe246_sandoq_small_canary.py").read_text()
+    config = tomllib.loads(config_path.read_text())
+
+    assert shared.sha256_file(config_path) == canary.TB4_EVAL_CONFIG_SHA256
+    assert shared.sha256_file(selector) == canary.TB4_SELECTOR_SHA256
+    assert shared.sha256_file(image_manifest) == canary.TB4_IMAGE_MANIFEST_SHA256
+    assert shared.sha256_file(workflow / "direct_kimi_workers.py") == canary.DIRECT_WORKERS_SHA256
+    assert config["num_tasks"] == 1
+    assert config["num_rollouts"] == 1
+    assert config["max_turns"] == 3
+    assert config["client"]["capture_model_io"] is True
+    assert config["client"]["max_retries"] == 0
+    assert config["sampling"]["reasoning_effort"] == "max"
+    assert config["sampling"]["max_tokens"] == 128
+    assert config["sampling"]["chat_template_kwargs"] == {
+        "enable_thinking": True,
+        "preserve_thinking": True,
+    }
+    assert config["taskset"]["timeout_multiplier"] == 0.5
+    assert config["taskset"]["verifier_runtime_retries"] == 0
+    assert config["harness"]["version"] == "2.4.6"
+    assert config["harness"]["runtime"]["expected_environment"] == (
+        "oci-runner-firecracker-small"
+    )
+    assert config["harness"]["runtime"]["cpu"] == 1.0
+    assert config["harness"]["runtime"]["memory"] == 2.0
+    assert config["harness"]["runtime"]["disk"] == 10.0
+    assert "return float(await taskset.solved(task, trace, runtime))" in runner
+    assert 'choices=("mobius", "tb4")' in runner
+    assert "KIMI_SMALL_CANARY_TASK_PROFILE=tb4" in wrapper.read_text()
+    assert 'task_profile=${KIMI_SMALL_CANARY_TASK_PROFILE:-mobius}' in generic_launcher.read_text()
+    assert stat.S_IMODE(wrapper.stat().st_mode) & 0o111

@@ -6,12 +6,14 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import hashlib
 import json
 import os
 import re
 import stat
 import sys
 import time
+import tomllib
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -33,12 +35,19 @@ EXPECTED_ROUTER_PROFILE = "sandoq-c64-w2-v1"
 EXPECTED_ENDPOINT_IDENTIFIER = "cpu-132-021_8103"
 EXPECTED_WORKERS = 24
 RECEIPT_KIND = "kimi-miniswe246-sandoq-firecracker-small-canary"
+TB4_RECEIPT_KIND = "kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic"
 EVAL_CONFIG_SHA256 = "517bdc47951cb798cf18332e88b5d4202ac643da4737301a203aeebb96d52ff0"
+TB4_EVAL_CONFIG_SHA256 = "41fcaa0c2bcf7335e09c9cb22342101e378b1ca30fdaba04c34ebd4b11fca7f3"
+TB4_SELECTOR_SHA256 = "c1f745d4a1d3861deefb3fba4daa23f52ff3d1d4952a9fe2ba0ccbdc4040af97"
+TB4_IMAGE_MANIFEST_SHA256 = "6dd632029af8da52f99f1d364e983a5da2e855afeb6a2ea5fc84fd00e1683513"
+TB4_TASK_TREE_SHA256 = "55ee806f7a9be4c270161863b27010f7b684d2acaf31eff7c490e57f84a0dc86"
+TB4_TASK_TREE_FILE_COUNT = 21
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
 SHARED_SMOKE_SHA256 = "41ddea1216187dead3eca7cd9e861cb23de5b12dbb989b463533aebe05341727"
 DIRECT_ROUTER_SHA256 = "217c7c64a93a5bc41fd2a5f4c5c530da67d50a2d3ff83f117f96926a353dd10c"
-DIRECT_WORKERS_SHA256 = "f01a4baffc86c5584bef40d1b95724f04d656b48a5a27dee8527aea8a3080212"
+DIRECT_WORKERS_SHA256 = "384b729a71cddbdc8771897dc19c95367e438d22cb3188583914274d3d699f5c"
 _REVISION_RE = re.compile(r"[0-9a-f]{40}")
+_SLUG_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 
 class CanaryError(RuntimeError):
@@ -137,13 +146,223 @@ def router_audit(stats: dict[str, Any], model_calls: int) -> dict[str, bool]:
     }
 
 
-async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
-    taskset, task = shared.load_selected_task(
-        args.selector,
-        args.selector_sha256,
-        args.dataset_dir,
-        args.image_manifest,
+def _task_tree_identity(task_dir: Path) -> tuple[int, str]:
+    try:
+        root = task_dir.resolve(strict=True)
+        root_before = root.stat()
+        entries = sorted(root.rglob("*"), key=lambda path: path.relative_to(root).as_posix())
+    except OSError as error:
+        raise CanaryError("tb4_task_invalid") from error
+    digest = hashlib.sha256()
+    count = 0
+    for path in entries:
+        try:
+            metadata = path.lstat()
+        except OSError as error:
+            raise CanaryError("tb4_task_invalid") from error
+        if stat.S_ISLNK(metadata.st_mode) or not (stat.S_ISDIR(metadata.st_mode) or stat.S_ISREG(metadata.st_mode)):
+            raise CanaryError("tb4_task_invalid")
+        if stat.S_ISDIR(metadata.st_mode):
+            continue
+        try:
+            descriptor = os.open(path, os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0))
+            with os.fdopen(descriptor, "rb") as handle:
+                before = os.fstat(handle.fileno())
+                body = handle.read(shared.MAX_BODY_BYTES + 1)
+                after = os.fstat(handle.fileno())
+        except OSError as error:
+            raise CanaryError("tb4_task_invalid") from error
+        visible = path.lstat()
+        if (
+            len(body) > shared.MAX_BODY_BYTES
+            or not stat.S_ISREG(before.st_mode)
+            or (before.st_dev, before.st_ino, before.st_size, before.st_mtime_ns, stat.S_IMODE(before.st_mode))
+            != (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, stat.S_IMODE(after.st_mode))
+            or (after.st_dev, after.st_ino, after.st_size, after.st_mtime_ns, stat.S_IMODE(after.st_mode))
+            != (visible.st_dev, visible.st_ino, visible.st_size, visible.st_mtime_ns, stat.S_IMODE(visible.st_mode))
+        ):
+            raise CanaryError("tb4_task_invalid")
+        relative = path.relative_to(root).as_posix()
+        digest.update(
+            f"{stat.S_IMODE(after.st_mode):04o} {hashlib.sha256(body).hexdigest()}  {relative}\n".encode()
+        )
+        count += 1
+    root_after = root.stat()
+    if (root_before.st_dev, root_before.st_ino, root_before.st_mtime_ns) != (
+        root_after.st_dev,
+        root_after.st_ino,
+        root_after.st_mtime_ns,
+    ):
+        raise CanaryError("tb4_task_invalid")
+    return count, digest.hexdigest()
+
+
+def _read_tb4_selector(selector: Path, selector_sha256: str, dataset_dir: Path) -> tuple[str, bytes]:
+    if selector_sha256 != TB4_SELECTOR_SHA256 or shared.sha256_file(selector) != selector_sha256:
+        raise CanaryError("tb4_selector_invalid")
+    try:
+        body = selector.read_bytes()
+        lines = [
+            line.strip().split("\t", 1)[0]
+            for line in body.decode("utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        ]
+        root = dataset_dir.resolve(strict=True)
+    except (OSError, UnicodeDecodeError) as error:
+        raise CanaryError("tb4_selector_invalid") from error
+    if len(lines) != 1 or _SLUG_RE.fullmatch(lines[0]) is None:
+        raise CanaryError("tb4_selector_invalid")
+    task_dir = (root / lines[0]).resolve(strict=True)
+    if task_dir.parent != root or task_dir.name != lines[0]:
+        raise CanaryError("tb4_selector_invalid")
+    if _task_tree_identity(task_dir) != (TB4_TASK_TREE_FILE_COUNT, TB4_TASK_TREE_SHA256):
+        raise CanaryError("tb4_task_invalid")
+    try:
+        metadata = tomllib.loads((task_dir / "task.toml").read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
+        raise CanaryError("tb4_selector_invalid") from error
+    if not shared._security_metadata_is_absent(metadata):
+        raise CanaryError("tb4_selector_invalid")
+    return lines[0], f"{lines[0]}\n".encode()
+
+
+def materialize_tb4_selector(source: Path, dataset_dir: Path, destination: Path) -> str:
+    _, payload = _read_tb4_selector(source, TB4_SELECTOR_SHA256, dataset_dir)
+    shared.publish_private_bytes(destination, payload)
+    return shared.sha256_file(destination)
+
+
+def _task_uses_compose(task_dir: Path) -> bool:
+    environment = task_dir / "environment"
+    return any(
+        os.path.lexists(environment / name)
+        for name in ("docker-compose.yaml", "docker-compose.yml", "compose.yaml", "compose.yml")
     )
+
+
+def clamp_tb4_task(task: Any) -> Any:
+    if (
+        task.verifier_mode != "separate"
+        or task.image is None
+        or "@sha256:" not in task.image
+        or task.verifier_image is None
+        or "@sha256:" not in task.verifier_image
+        or task.resources.gpu is not None
+        or task.verifier_resources.gpu is not None
+        or _task_uses_compose(Path(task.task_dir))
+    ):
+        raise CanaryError("tb4_task_invalid")
+
+    def clamp(resources: Any) -> Any:
+        values = {
+            "cpu": min(float(resources.cpu or 1.0), 1.0),
+            "memory": min(float(resources.memory or 2.0), 2.0),
+            "disk": min(float(resources.disk or 10.0), 10.0),
+            "gpu": None,
+        }
+        return resources.model_copy(update=values)
+
+    return task.model_copy(
+        update={
+            "resources": clamp(task.resources),
+            "verifier_resources": clamp(task.verifier_resources),
+        }
+    )
+
+
+def load_selected_task(args: argparse.Namespace) -> tuple[Any, Any]:
+    if args.task_profile == "mobius":
+        return shared.load_selected_task(
+            args.selector,
+            args.selector_sha256,
+            args.dataset_dir,
+            args.image_manifest,
+        )
+    _read_tb4_selector(args.selector, args.selector_sha256, args.dataset_dir)
+    if shared.sha256_file(args.image_manifest) != TB4_IMAGE_MANIFEST_SHA256:
+        raise CanaryError("tb4_image_manifest_invalid")
+    config = shared.TerminalBenchVMVMConfig(
+        dataset_dir=args.dataset_dir,
+        task_file=args.selector,
+        task_file_sha256=args.selector_sha256,
+        image_manifest=args.image_manifest,
+        image_manifest_sha256=TB4_IMAGE_MANIFEST_SHA256,
+        ignore_dockerfile=True,
+        use_declared_images=True,
+        enable_compose=False,
+        capture_convention_artifacts=True,
+        verifier_runtime_retries=0,
+        timeout_multiplier=0.5,
+        resource_multiplier=1.0,
+    )
+    taskset = shared.TerminalBenchVMVMTaskset(config)
+    tasks = taskset.load_tasks()
+    if len(tasks) != 1:
+        raise CanaryError("tb4_task_invalid")
+    _read_tb4_selector(args.selector, args.selector_sha256, args.dataset_dir)
+    return taskset, clamp_tb4_task(tasks[0])
+
+
+async def finalize_and_score(
+    task_profile: str,
+    taskset: Any,
+    task: Any,
+    trace: Any,
+    runtime: Any,
+) -> float:
+    await taskset.finalize(task, trace, runtime)
+    if task_profile == "tb4":
+        # TB4's selected task uses a separate verifier runtime.  Release the
+        # agent assignment before scoring so a one-slot diagnostic pool can
+        # create that verifier without deadlocking.  SandoqRuntime.stop() is
+        # idempotent; the unconditional finalizer below still verifies it.
+        await runtime.stop()
+    return float(await taskset.solved(task, trace, runtime))
+
+
+async def score_with_tb4_diagnostics(
+    task_profile: str,
+    taskset: Any,
+    task: Any,
+    trace: Any,
+    runtime: Any,
+) -> tuple[float | None, dict[str, Any] | None]:
+    try:
+        score = await finalize_and_score(task_profile, taskset, task, trace, runtime)
+        return score, (
+            {
+                "schema_version": 1,
+                "stage": "separate_verifier",
+                "state": "passed",
+                "failure_class": None,
+                "numeric_reward": True,
+            }
+            if task_profile == "tb4"
+            else None
+        )
+    except Exception as error:
+        if task_profile != "tb4":
+            raise
+        # Preserve the private model-I/O trajectory and aggregate model-call
+        # evidence when the separate verifier fails.  A missing numeric reward
+        # still makes the public TB4 receipt fail closed.
+        failure_class = {
+            "TimeoutError": "timeout",
+            "SandboxError": "sandbox",
+            "RuntimeError": "runtime",
+            "ValueError": "validation",
+        }.get(type(error).__name__, "other")
+        return None, {
+            "schema_version": 1,
+            "stage": "separate_verifier",
+            "state": "failed",
+            "failure_class": failure_class,
+            "numeric_reward": False,
+        }
+
+
+async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
+    taskset, task = load_selected_task(args)
     relay = shared.ModelRelay(
         _loopback_url(args.base_url, "/v1"),
         "EMPTY",
@@ -179,6 +398,7 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
     runtime_stopped = False
     result = None
     score: float | None = None
+    scoring_state: dict[str, Any] | None = None
     trajectory_bytes = b""
     await relay.start()
     try:
@@ -249,8 +469,13 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
                     },
                 )
                 trajectory_bytes = await runtime.read(trajectory_path)
-            await taskset.finalize(task, trace, runtime)
-            score = float(await taskset.solved(task, trace, runtime))
+            score, scoring_state = await score_with_tb4_diagnostics(
+                args.task_profile,
+                taskset,
+                task,
+                trace,
+                runtime,
+            )
     finally:
         if sandbox_started:
             with contextlib.suppress(Exception):
@@ -262,6 +487,8 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
             except Exception:
                 runtime_stopped = False
         await relay.close()
+    if args.task_profile == "tb4":
+        _read_tb4_selector(args.selector, args.selector_sha256, args.dataset_dir)
     if result is None or not trajectory_bytes:
         raise CanaryError("agent_result_missing")
     audit = shared.trajectory_audit(trajectory_bytes, len(relay.requests))
@@ -293,6 +520,8 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
     }
     shared.publish_private(args.output_dir / "raw-trace.json", raw)
     shared.publish_private(args.output_dir / "run-private.json", run_state)
+    if scoring_state is not None:
+        shared.publish_private(args.output_dir / "scoring-private.json", scoring_state)
     return run_state
 
 
@@ -320,6 +549,8 @@ def supervised_command(args: argparse.Namespace) -> int:
         str(args.selector),
         "--selector-sha256",
         args.selector_sha256,
+        "--task-profile",
+        args.task_profile,
         "--dataset-dir",
         str(args.dataset_dir),
         "--image-manifest",
@@ -376,6 +607,7 @@ def public_receipt(
     *,
     cleanup: bool,
     router: dict[str, bool],
+    kind: str = RECEIPT_KIND,
 ) -> dict[str, Any]:
     expected = set(shared.failed_run_state())
     if set(run_state) != expected:
@@ -399,10 +631,13 @@ def public_receipt(
         and all(router.values())
     )
     strict = valid and run_state["exact_native_submission_marker"] is True and reward > 0
-    status = "strict_passed" if strict else "infrastructure_only" if valid else "failed"
+    if kind == TB4_RECEIPT_KIND:
+        status = "diagnostic_passed" if valid else "failed"
+    else:
+        status = "strict_passed" if strict else "infrastructure_only" if valid else "failed"
     return {
         "schema_version": 1,
-        "kind": RECEIPT_KIND,
+        "kind": kind,
         "task_count": 1,
         "max_model_calls": MAX_MODEL_CALLS,
         "harness_version": "2.4.6",
@@ -427,29 +662,79 @@ def _failed_router_audit() -> dict[str, bool]:
     }
 
 
+def cleanup_passed(path: Path, task_profile: str) -> bool:
+    if task_profile == "mobius":
+        return shared._cleanup_passed(path)
+    try:
+        value = shared.read_private_json(path)
+    except (OSError, ValueError, shared.SmokeError):
+        return False
+    expected_assignments = 2
+    return (
+        value.get("kind") == "sandoq-pool-cleanup"
+        and value.get("state") == "passed"
+        and value.get("failures") == 0
+        and value.get("assignments_acquired") == expected_assignments
+        and value.get("assignments_cleanup_verified") == expected_assignments
+        and value.get("assignment_release_rows") == expected_assignments
+        and value.get("assignment_cancellation_rows") == 0
+        and value.get("recorded_outer_sessions") == expected_assignments
+        and value.get("outer_sessions_created") == expected_assignments
+        and value.get("outer_sessions_deleted") == expected_assignments
+        and value.get("verified_http_404") == expected_assignments
+        and value.get("deleted_and_verified", 0) + value.get("already_absent", 0)
+        == expected_assignments
+        and value.get("outer_session_high_water") == 1
+        and value.get("assignment_measured_high_water") == 1
+    )
+
+
+def receipt_exit_code(status: object, task_profile: str) -> int:
+    accepted = "diagnostic_passed" if task_profile == "tb4" else "strict_passed"
+    return 0 if status == accepted else 2
+
+
 def orchestrate_command(args: argparse.Namespace) -> int:
     started = time.monotonic()
     output_dir: Path | None = None
+    receipt_kind = TB4_RECEIPT_KIND if args.task_profile == "tb4" else RECEIPT_KIND
     receipt = public_receipt(
         shared.failed_run_state(),
         cleanup=False,
         router=_failed_router_audit(),
+        kind=receipt_kind,
     )
     try:
         project_root = args.project_root.resolve(strict=True)
         workflow_dir = project_root / "user/tianhaowu/terminal_bench_vmvm"
         shared._clean_source(project_root, args.expected_revision)
+        eval_config = workflow_dir / (
+            "configs/eval/servers/cpu-132-021_8103/"
+            + (
+                "tb4_kimi_k3_miniswe246_sandoq_firecracker_small_smoke.toml"
+                if args.task_profile == "tb4"
+                else "kimi_miniswe246_sandoq_firecracker_small_smoke.toml"
+            )
+        )
+        approved_selector = workflow_dir / (
+            "configs/eval/tb4_kimi_k3_short_smoke.tasks.txt"
+            if args.task_profile == "tb4"
+            else "configs/eval/mobius_valid_tasks_2500.txt"
+        )
         expected_files = {
-            workflow_dir
-            / "configs/eval/servers/cpu-132-021_8103/kimi_miniswe246_sandoq_firecracker_small_smoke.toml": EVAL_CONFIG_SHA256,
+            eval_config: TB4_EVAL_CONFIG_SHA256 if args.task_profile == "tb4" else EVAL_CONFIG_SHA256,
             workflow_dir
             / "configs/provider_context/use2/cpu-132-021_8103/kimi_sandoq_firecracker_small_host.json": PROVIDER_PROFILE_SHA256,
-            workflow_dir / "configs/eval/mobius_valid_tasks_2500.txt": shared.APPROVED_TASK_FILE_SHA256,
+            approved_selector: (
+                TB4_SELECTOR_SHA256 if args.task_profile == "tb4" else shared.APPROVED_TASK_FILE_SHA256
+            ),
             workflow_dir / "qwen_miniswe246_sandoq_smoke.py": SHARED_SMOKE_SHA256,
             workflow_dir / "direct_kimi_router.py": DIRECT_ROUTER_SHA256,
             workflow_dir / "direct_kimi_workers.py": DIRECT_WORKERS_SHA256,
             project_root / "extensions/sandoq/sandoq_provider/tunnel.py": shared.REFERENCE_TUNNEL_SHA256,
-            args.image_manifest: shared.IMAGE_MANIFEST_SHA256,
+            args.image_manifest: (
+                TB4_IMAGE_MANIFEST_SHA256 if args.task_profile == "tb4" else shared.IMAGE_MANIFEST_SHA256
+            ),
         }
         if any(shared.sha256_file(path.resolve(strict=True)) != digest for path, digest in expected_files.items()):
             raise CanaryError("frozen_input_changed")
@@ -478,11 +763,14 @@ def orchestrate_command(args: argparse.Namespace) -> int:
         log = output_dir / "execution.log"
         log.touch(mode=0o600, exist_ok=False)
         selector = output_dir / "selected-task.txt"
-        selector_sha256 = shared.materialize_selector(
-            workflow_dir / "configs/eval/mobius_valid_tasks_2500.txt",
-            args.dataset_dir,
-            selector,
-        )
+        if args.task_profile == "tb4":
+            selector_sha256 = materialize_tb4_selector(approved_selector, args.dataset_dir, selector)
+        else:
+            selector_sha256 = shared.materialize_selector(
+                approved_selector,
+                args.dataset_dir,
+                selector,
+            )
         socket_dir = Path(os.environ.get("SLURM_TMPDIR", "/tmp")) / f"oci-runner-pool-{os.getuid()}"
         socket_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
         socket_dir.chmod(0o700)
@@ -530,6 +818,8 @@ def orchestrate_command(args: argparse.Namespace) -> int:
             str(selector),
             "--selector-sha256",
             selector_sha256,
+            "--task-profile",
+            args.task_profile,
             "--dataset-dir",
             str(args.dataset_dir),
             "--image-manifest",
@@ -575,19 +865,20 @@ def orchestrate_command(args: argparse.Namespace) -> int:
         remaining = max(1.0, ORCHESTRATOR_WALL_SECONDS - (time.monotonic() - started))
         shared._run_logged_with_environment(command, log, min(SUPERVISOR_WALL_SECONDS, remaining), environment)
         run_state = shared.read_private_json(output_dir / "run-private.json")
-        cleanup = shared._cleanup_passed(output_dir / "sandoq_cleanup_audit.json")
+        cleanup = cleanup_passed(output_dir / "sandoq_cleanup_audit.json", args.task_profile)
         router_stats = read_router_stats(router_stats_url)
         shared.publish_private(
             output_dir / "control/direct-router-stats.private.json",
             router_stats,
         )
         router = router_audit(router_stats, int(run_state.get("model_calls", 0)))
-        receipt = public_receipt(run_state, cleanup=cleanup, router=router)
+        receipt = public_receipt(run_state, cleanup=cleanup, router=router, kind=receipt_kind)
         if time.monotonic() - started > ORCHESTRATOR_WALL_SECONDS:
             receipt = public_receipt(
                 shared.failed_run_state(),
                 cleanup=cleanup,
                 router=router,
+                kind=receipt_kind,
             )
         shared.publish_private(output_dir / "receipt.json", receipt)
     except Exception:
@@ -595,7 +886,7 @@ def orchestrate_command(args: argparse.Namespace) -> int:
             with contextlib.suppress(Exception):
                 shared.publish_private(output_dir / "receipt.json", receipt)
     print(shared.canonical_json(receipt).decode(), end="")
-    return 0 if receipt["status"] == "strict_passed" else 2
+    return receipt_exit_code(receipt["status"], args.task_profile)
 
 
 def parser() -> argparse.ArgumentParser:
@@ -610,6 +901,7 @@ def parser() -> argparse.ArgumentParser:
         command.add_argument("--image-manifest", type=Path, required=True)
         command.add_argument("--base-url", required=True)
         command.add_argument("--output-dir", type=Path, required=True)
+        command.add_argument("--task-profile", choices=("mobius", "tb4"), default="mobius")
     execute.add_argument("--wall-seconds", type=int, default=EXECUTION_WALL_SECONDS)
     supervised.add_argument("--workflow-dir", type=Path, required=True)
     supervised.add_argument("--log", type=Path, required=True)
@@ -619,6 +911,7 @@ def parser() -> argparse.ArgumentParser:
     orchestrate.add_argument("--expected-revision", required=True)
     orchestrate.add_argument("--base-url", required=True)
     orchestrate.add_argument("--router-stats-url", required=True)
+    orchestrate.add_argument("--task-profile", choices=("mobius", "tb4"), default="mobius")
     orchestrate.add_argument(
         "--output-root",
         type=Path,

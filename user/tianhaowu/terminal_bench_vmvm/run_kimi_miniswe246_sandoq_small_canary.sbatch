@@ -26,14 +26,25 @@ blocked() {
 project_dir=$(realpath -e -- "${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}")
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 expected_revision=${KIMI_SMALL_CANARY_EXPECTED_REVISION:?Set KIMI_SMALL_CANARY_EXPECTED_REVISION}
-deployment_root=${KIMI_SMALL_CANARY_DEPLOYMENT_ROOT:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/kimi-k3-deployment-cpu132021-rollover-20260924-v3}
+deployment_root=${KIMI_SMALL_CANARY_DEPLOYMENT_ROOT:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/kimi-k3-deployment-shared-rollover-1591890-20260926-v1}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_sdk1_82068}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 eval_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals
 generation_dir="$eval_root/kimi_miniswe246_small_router_${SLURM_JOB_ID:?}"
-output_root="$eval_root/kimi-miniswe246-sandoq-firecracker-small-canary"
+task_profile=${KIMI_SMALL_CANARY_TASK_PROFILE:-mobius}
+if [[ "$task_profile" == tb4 ]]; then
+    output_root="$eval_root/kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic"
+    dataset_dir=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks
+    image_manifest="$workflow_dir/configs/eval/servers/cpu-132-021_8103/tb4_images.sandoq.json"
+elif [[ "$task_profile" == mobius ]]; then
+    output_root="$eval_root/kimi-miniswe246-sandoq-firecracker-small-canary"
+    dataset_dir=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9
+    image_manifest=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/mobius_images.sandoq.json
+else
+    blocked task_profile_invalid
+fi
 deployment_snapshot="$generation_dir/deployment_source"
 manifest="$generation_dir/direct_kimi_workers.json"
 urls_file="$generation_dir/worker_urls.private.txt"
@@ -134,5 +145,9 @@ done
     --project-root "$project_dir" \
     --expected-revision "$expected_revision" \
     --sandoq-site "$sandoq_site" \
+    --task-profile "$task_profile" \
+    --output-root "$output_root" \
+    --dataset-dir "$dataset_dir" \
+    --image-manifest "$image_manifest" \
     --base-url "http://127.0.0.1:${router_port}/v1" \
     --router-stats-url "http://127.0.0.1:${router_port}/stats"
