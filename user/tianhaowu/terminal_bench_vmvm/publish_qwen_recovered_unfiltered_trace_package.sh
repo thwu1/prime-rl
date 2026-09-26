@@ -15,6 +15,7 @@ required=(
     QWEN_PUBLISH_EXPECTED_REMOTE_URL QWEN_PUBLISH_EXPECTED_PROJECT_REVISION
     QWEN_PUBLISH_EXPECTED_PACKAGER_SHA256 QWEN_PUBLISH_EXPECTED_WORKER_SHA256
     QWEN_PUBLISH_EXPECTED_ARCHIVE_VERIFIER_SHA256
+    QWEN_PUBLISH_EXPECTED_SUBMIT_LINE_SHA256
     QWEN_PUBLISH_EXPECTED_SOURCE_JOB QWEN_PUBLISH_EXPECTED_POSTRUN_JOB
     QWEN_PUBLISH_EXPECTED_POSTRUN_WORKER_SHA256
     QWEN_PUBLISH_EXPECTED_POSTPROCESSOR_REVISION
@@ -77,6 +78,7 @@ for variable in \
     QWEN_PUBLISH_EXPECTED_PACKAGER_SHA256 \
     QWEN_PUBLISH_EXPECTED_WORKER_SHA256 \
     QWEN_PUBLISH_EXPECTED_ARCHIVE_VERIFIER_SHA256 \
+    QWEN_PUBLISH_EXPECTED_SUBMIT_LINE_SHA256 \
     QWEN_PUBLISH_EXPECTED_POSTRUN_WORKER_SHA256 \
     QWEN_PUBLISH_EXPECTED_SELECTION_CONTRACT_SHA256 \
     QWEN_PUBLISH_EXPECTED_PREVIOUS_MANIFEST_SHA256 \
@@ -625,27 +627,46 @@ receipt_job=$(cat "$jobid_file")
 cmp -s -- "$jobid_file" <(printf '%s\n' "$package_job") \
     || fail package_job_receipt_invalid
 accounting_output=$(
-    sacct -j "$package_job" -X -n -P -o JobIDRaw,State,ExitCode \
+    sacct -j "$package_job" -X -n -P \
+        -o JobIDRaw,JobName,State,ExitCode,SubmitLine \
         | sed '/^[[:space:]]*$/d'
 ) || fail package_job_accounting_invalid
 [[ -n $accounting_output ]] || fail package_job_accounting_invalid
 mapfile -t accounting <<<"$accounting_output"
 [[ ${#accounting[@]} -eq 1 ]] || fail package_job_accounting_invalid
-IFS='|' read -r observed_job observed_state observed_exit <<<"${accounting[0]}"
+IFS='|' read -r observed_job observed_name observed_state observed_exit \
+    observed_submit_line accounting_extra <<<"${accounting[0]}"
 [[ $observed_job == "$package_job" && $observed_state == COMPLETED \
-    && $observed_exit == 0:0 ]] || fail package_job_not_successful
-description=$(scontrol show job -o "$package_job" 2>/dev/null) \
-    || fail package_job_provenance_invalid
-observed_job=$(sed -n 's/^JobId=\([^ ]*\).*/\1/p' <<<"$description")
-observed_name=$(sed -n 's/.* JobName=\([^ ]*\).*/\1/p' <<<"$description")
-[[ $observed_job == "$package_job" && $observed_name == "$expected_job_name" ]] \
-    || fail package_job_provenance_invalid
-observed_worker_sha256=$(
-    scontrol write batch_script "$package_job" - 2>/dev/null \
-        | sha256sum | cut -d' ' -f1
-) || fail package_job_provenance_invalid
-[[ $observed_worker_sha256 == "$QWEN_PUBLISH_EXPECTED_WORKER_SHA256" ]] \
-    || fail package_job_provenance_invalid
+    && $observed_exit == 0:0 && -z ${accounting_extra:-} ]] \
+    || fail package_job_not_successful
+[[ $observed_name == "$expected_job_name" ]] || fail package_job_provenance_invalid
+
+controller_status=0
+controller_output=$(scontrol show job -o "$package_job" 2>&1) \
+    || controller_status=$?
+if [[ $controller_status -eq 0 ]]; then
+    controller_job=$(sed -n 's/^JobId=\([^ ]*\).*/\1/p' <<<"$controller_output")
+    controller_name=$(sed -n 's/.* JobName=\([^ ]*\).*/\1/p' <<<"$controller_output")
+    [[ $controller_job == "$package_job" \
+        && $controller_name == "$expected_job_name" ]] \
+        || fail package_job_provenance_invalid
+    observed_worker_sha256=$(
+        scontrol write batch_script "$package_job" - 2>/dev/null \
+            | sha256sum | cut -d' ' -f1
+    ) || fail package_job_provenance_invalid
+    [[ $observed_worker_sha256 == "$QWEN_PUBLISH_EXPECTED_WORKER_SHA256" ]] \
+        || fail package_job_provenance_invalid
+elif [[ $controller_status -eq 1 \
+    && $controller_output == 'slurm_load_jobs error: Invalid job id specified' ]]; then
+    observed_submit_line_sha256=$(
+        printf '%s' "$observed_submit_line" | sha256sum | cut -d' ' -f1
+    ) || fail package_job_provenance_invalid
+    [[ $observed_submit_line_sha256 \
+        == "$QWEN_PUBLISH_EXPECTED_SUBMIT_LINE_SHA256" ]] \
+        || fail package_job_provenance_invalid
+else
+    fail package_job_provenance_invalid
+fi
 
 git_common_dir=$(git -C "$repository" rev-parse --git-common-dir)
 if [[ $git_common_dir != /* ]]; then

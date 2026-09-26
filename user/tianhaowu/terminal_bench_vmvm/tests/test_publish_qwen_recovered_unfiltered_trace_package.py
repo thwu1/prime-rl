@@ -229,8 +229,15 @@ def _fixture(tmp_path: Path) -> PublishFixture:
 
     fake_bin = tmp_path / "bin"
     fake_bin.mkdir()
+    package_worker = tmp_path / "package_worker.sbatch"
+    package_worker.write_bytes(package_worker_payload)
+    submit_line = f"sbatch --parsable --export=NONE {package_worker}"
     sacct = fake_bin / "sacct"
-    sacct.write_text("#!/bin/sh\nprintf '%s|COMPLETED|0:0\\n' \"$TEST_PACKAGE_JOB\"\n")
+    sacct.write_text(
+        "#!/bin/sh\n"
+        "printf '%s|qwen-recovered-package|COMPLETED|0:0|%s\\n' "
+        '"$TEST_PACKAGE_JOB" "$TEST_PACKAGE_SUBMIT_LINE"\n'
+    )
     sacct.chmod(0o755)
     scontrol = fake_bin / "scontrol"
     scontrol.write_text(
@@ -244,8 +251,6 @@ def _fixture(tmp_path: Path) -> PublishFixture:
         "fi\n"
     )
     scontrol.chmod(0o755)
-    package_worker = tmp_path / "package_worker.sbatch"
-    package_worker.write_bytes(package_worker_payload)
 
     environment = os.environ.copy()
     environment.update(
@@ -253,6 +258,7 @@ def _fixture(tmp_path: Path) -> PublishFixture:
             "PATH": f"{fake_bin}:{environment['PATH']}",
             "TEST_PACKAGE_JOB": PACKAGE_JOB,
             "TEST_PACKAGE_WORKER": str(package_worker),
+            "TEST_PACKAGE_SUBMIT_LINE": submit_line,
             "QWEN_PUBLISH_REPOSITORY": str(repository),
             "QWEN_PUBLISH_SOURCE": str(source),
             "QWEN_PUBLISH_TARGET_RELATIVE": TARGET_RELATIVE,
@@ -265,6 +271,7 @@ def _fixture(tmp_path: Path) -> PublishFixture:
             "QWEN_PUBLISH_EXPECTED_PACKAGER_SHA256": packager_sha256,
             "QWEN_PUBLISH_EXPECTED_WORKER_SHA256": worker_sha256,
             "QWEN_PUBLISH_EXPECTED_ARCHIVE_VERIFIER_SHA256": _sha256(ARCHIVE_VERIFIER),
+            "QWEN_PUBLISH_EXPECTED_SUBMIT_LINE_SHA256": _sha256_bytes(submit_line.encode()),
             "QWEN_PUBLISH_EXPECTED_SOURCE_JOB": SOURCE_JOB,
             "QWEN_PUBLISH_EXPECTED_POSTRUN_JOB": POSTRUN_JOB,
             "QWEN_PUBLISH_EXPECTED_POSTRUN_WORKER_SHA256": postrun_worker_sha256,
@@ -564,11 +571,71 @@ def test_publisher_rejects_manifest_revision_before_staging(tmp_path: Path) -> N
     assert not fixture.target.exists()
 
 
-def test_publisher_rejects_wrong_slurm_worker_provenance(tmp_path: Path) -> None:
+def test_publisher_rejects_live_controller_worker_mismatch_without_fallback(
+    tmp_path: Path,
+) -> None:
     fixture = _fixture(tmp_path)
     Path(fixture.environment["TEST_PACKAGE_WORKER"]).write_text("different worker\n")
     original_head = _git(fixture.repository, "rev-parse", "HEAD")
     completed = _publish(fixture)
+    assert completed.returncode == 2
+    assert "package_job_provenance_invalid" in completed.stderr
+    assert PRIVATE_MARKER not in completed.stdout
+    assert PRIVATE_MARKER not in completed.stderr
+    assert _git(fixture.repository, "rev-parse", "HEAD") == original_head
+    assert not fixture.target.exists()
+
+
+def test_publisher_uses_pinned_submit_line_when_controller_record_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    scontrol = Path(fixture.environment["PATH"].split(":", 1)[0]) / "scontrol"
+    scontrol.write_text(
+        "#!/bin/sh\n"
+        "printf '%s\\n' 'slurm_load_jobs error: Invalid job id specified' >&2\n"
+        "exit 1\n"
+    )
+
+    completed = _publish(fixture)
+
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(completed.stdout)["state"] == "published"
+    assert PRIVATE_MARKER not in completed.stdout
+    assert PRIVATE_MARKER not in completed.stderr
+
+
+def test_publisher_rejects_submit_line_mismatch_when_controller_record_is_unavailable(
+    tmp_path: Path,
+) -> None:
+    fixture = _fixture(tmp_path)
+    scontrol = Path(fixture.environment["PATH"].split(":", 1)[0]) / "scontrol"
+    scontrol.write_text(
+        "#!/bin/sh\n"
+        "printf '%s\\n' 'slurm_load_jobs error: Invalid job id specified' >&2\n"
+        "exit 1\n"
+    )
+    fixture.environment["TEST_PACKAGE_SUBMIT_LINE"] += " --changed"
+    original_head = _git(fixture.repository, "rev-parse", "HEAD")
+
+    completed = _publish(fixture)
+
+    assert completed.returncode == 2
+    assert "package_job_provenance_invalid" in completed.stderr
+    assert PRIVATE_MARKER not in completed.stdout
+    assert PRIVATE_MARKER not in completed.stderr
+    assert _git(fixture.repository, "rev-parse", "HEAD") == original_head
+    assert not fixture.target.exists()
+
+
+def test_publisher_rejects_other_controller_failure_without_fallback(tmp_path: Path) -> None:
+    fixture = _fixture(tmp_path)
+    scontrol = Path(fixture.environment["PATH"].split(":", 1)[0]) / "scontrol"
+    scontrol.write_text("#!/bin/sh\nprintf '%s\\n' 'transport failure' >&2\nexit 1\n")
+    original_head = _git(fixture.repository, "rev-parse", "HEAD")
+
+    completed = _publish(fixture)
+
     assert completed.returncode == 2
     assert "package_job_provenance_invalid" in completed.stderr
     assert PRIVATE_MARKER not in completed.stdout
