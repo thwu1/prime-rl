@@ -56,7 +56,62 @@ network_mode = "no-network"
     assert stat.S_IMODE(destination.stat().st_mode) == 0o600
 
 
+@pytest.mark.parametrize(
+    "category",
+    [
+        "security",
+        "cybersecurity",
+        "digital_forensics",
+        "cryptography",
+        "crypto",
+        "DevSecOps",
+        "credentials",
+        "secrets",
+        "attacks",
+        "exploits",
+        "injections",
+        "infosec",
+        "appsec",
+        "secops",
+        "red-team",
+        "pwn",
+        "CVE-2026",
+        "XSS",
+    ],
+)
 def test_content_blind_selector_rejects_security_metadata(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    category: str,
+) -> None:
+    tmp_path.chmod(0o700)
+    slug = "approved-task"
+    approved = tmp_path / "approved.txt"
+    approved.write_text(f"{slug}\n")
+    task_dir = tmp_path / "dataset" / slug
+    task_dir.mkdir(parents=True)
+    (task_dir / "task.toml").write_text(
+        f"""
+[metadata]
+category = "{category}"
+[environment]
+network_mode = "no-network"
+[verifier]
+network_mode = "no-network"
+""".lstrip()
+    )
+    monkeypatch.setattr(smoke, "APPROVED_TASK_FILE_SHA256", smoke.sha256_file(approved))
+    monkeypatch.setattr(
+        smoke,
+        "SELECTED_LINE_SHA256",
+        hashlib.sha256(f"{slug}\n".encode()).hexdigest(),
+    )
+
+    with pytest.raises(smoke.SmokeError, match="content_blind_selection_invalid"):
+        smoke.materialize_selector(approved, tmp_path / "dataset", tmp_path / "selection.txt")
+
+
+def test_content_blind_selector_rejects_missing_classification(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -68,8 +123,6 @@ def test_content_blind_selector_rejects_security_metadata(
     task_dir.mkdir(parents=True)
     (task_dir / "task.toml").write_text(
         """
-[metadata]
-category = "security"
 [environment]
 network_mode = "no-network"
 [verifier]

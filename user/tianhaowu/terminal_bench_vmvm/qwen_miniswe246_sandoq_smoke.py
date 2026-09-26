@@ -51,8 +51,11 @@ _SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _REVISION_RE = re.compile(r"[0-9a-f]{40}")
 _SLUG_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 _SECURITY_LABEL_RE = re.compile(
-    r"(?:^|[^a-z])(?:security|cyber|exploit|malware|vulnerab(?:ility|le)?|"
-    r"penetration|forensic|ctf|credential|password|secret|attack|injection)(?:[^a-z]|$)",
+    r"(?:^|[^a-z])(?:secur(?:ity|e)|cyber(?:security)?|"
+    r"exploit(?:s|ation|able)?|malware|vulnerab(?:ility|ilities|le)?|"
+    r"penetration|forensics?|ctf|credentials?|passwords?|secrets?|"
+    r"attacks?|injections?|crypt(?:o|ography|ographic)?|devsecops|"
+    r"infosec|appsec|secops|red[-_ ]?team|pwn(?:ing)?|cve(?:-[0-9]+)?|xss)(?:[^a-z]|$)",
     re.IGNORECASE,
 )
 
@@ -156,8 +159,12 @@ def read_private_json(path: Path) -> dict[str, Any]:
 
 
 def _security_metadata_is_absent(raw: dict[str, Any]) -> bool:
+    if not isinstance(raw.get("metadata"), dict):
+        return False
+    if raw.get("task") is not None and not isinstance(raw.get("task"), dict):
+        return False
     task = raw.get("task") if isinstance(raw.get("task"), dict) else {}
-    metadata = raw.get("metadata") if isinstance(raw.get("metadata"), dict) else {}
+    metadata = raw["metadata"]
     values: list[str] = []
     for value in (metadata.get("category"), metadata.get("tags"), task.get("keywords")):
         if value is None:
@@ -168,7 +175,9 @@ def _security_metadata_is_absent(raw: dict[str, Any]) -> bool:
             values.extend(value)
         else:
             return False
-    return not any(_SECURITY_LABEL_RE.search(value) for value in values)
+    return bool(values) and all(value.strip() for value in values) and not any(
+        _SECURITY_LABEL_RE.search(value) for value in values
+    )
 
 
 def materialize_selector(
@@ -218,10 +227,24 @@ def nonempty_reasoning_content(message: dict[str, Any]) -> bool:
 
 
 class ModelRelay:
-    def __init__(self, upstream: str, secret: str, session_id: str) -> None:
+    def __init__(
+        self,
+        upstream: str,
+        secret: str,
+        session_id: str,
+        *,
+        model: str = MODEL,
+        max_output_tokens: int = 8192,
+        request_timeout_seconds: int = 90,
+        reasoning_effort: str | None = None,
+    ) -> None:
         self.upstream = upstream.rstrip("/") + "/chat/completions"
         self.secret = secret
         self.session_id = session_id
+        self.model = model
+        self.max_output_tokens = max_output_tokens
+        self.request_timeout_seconds = request_timeout_seconds
+        self.reasoning_effort = reasoning_effort
         self.requests: list[dict[str, Any]] = []
         self.responses: list[dict[str, Any]] = []
         self.reasoning: list[bool] = []
@@ -233,7 +256,7 @@ class ModelRelay:
     async def start(self) -> None:
         self._session = ClientSession(
             connector=TCPConnector(limit=1, limit_per_host=1, ttl_dns_cache=300),
-            timeout=ClientTimeout(total=90, connect=15),
+            timeout=ClientTimeout(total=self.request_timeout_seconds, connect=15),
             trust_env=False,
         )
         app = web.Application(client_max_size=MAX_BODY_BYTES)
@@ -255,8 +278,6 @@ class ModelRelay:
             self._session = None
 
     async def handle(self, request: web.Request) -> web.Response:
-        if len(self.requests) >= MAX_MODEL_CALLS:
-            return web.json_response({"error": {"type": "step_limit"}}, status=429)
         raw_request = await request.read()
         if len(raw_request) > MAX_BODY_BYTES:
             return web.json_response({"error": {"type": "request_too_large"}}, status=413)
@@ -264,16 +285,21 @@ class ModelRelay:
             body = json.loads(raw_request)
         except (UnicodeDecodeError, json.JSONDecodeError):
             return web.json_response({"error": {"type": "invalid_json"}}, status=400)
-        if not isinstance(body, dict) or body.get("model") != MODEL:
+        if not isinstance(body, dict) or body.get("model") != self.model:
             return web.json_response({"error": {"type": "invalid_request"}}, status=400)
         requested_stream = bool(body.get("stream"))
         for name in ("logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"):
             body.pop(name, None)
         body["stream"] = False
         body.pop("stream_options", None)
-        body["max_tokens"] = min(int(body.get("max_tokens") or 8192), 8192)
+        body["max_tokens"] = min(
+            int(body.get("max_tokens") or self.max_output_tokens),
+            self.max_output_tokens,
+        )
         body.setdefault("temperature", 0.7)
         body.setdefault("top_p", 0.95)
+        if self.reasoning_effort is not None:
+            body["reasoning_effort"] = self.reasoning_effort
         body.setdefault(
             "chat_template_kwargs",
             {"enable_thinking": True, "preserve_thinking": True},
@@ -286,6 +312,11 @@ class ModelRelay:
                 if isinstance(message, dict) and message.get("role") == "assistant"
             )
         )
+        # There is no await between this check and append, so reservation is
+        # atomic with respect to other aiohttp handlers on the event loop.
+        if len(self.requests) >= MAX_MODEL_CALLS:
+            self.prior_reasoning.pop()
+            return web.json_response({"error": {"type": "step_limit"}}, status=429)
         self.requests.append(body)
         if self._session is None:
             raise SmokeError("relay_not_started")
