@@ -226,6 +226,16 @@ def nonempty_reasoning_content(message: dict[str, Any]) -> bool:
     return isinstance(value, str) and bool(value.strip())
 
 
+def normalize_reasoning_content(message: dict[str, Any]) -> None:
+    """Copy the Kimi wire alias into the canonical training field."""
+
+    canonical = message.get("reasoning_content")
+    alternate = message.get("reasoning")
+    if (not isinstance(canonical, str) or not canonical.strip()) and isinstance(alternate, str):
+        if alternate.strip():
+            message["reasoning_content"] = alternate
+
+
 class ModelRelay:
     def __init__(
         self,
@@ -343,11 +353,12 @@ class ModelRelay:
         choices = response_body.get("choices") if isinstance(response_body, dict) else None
         first = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else {}
         message = first.get("message") if isinstance(first.get("message"), dict) else {}
+        normalize_reasoning_content(message)
         self.reasoning.append(status == 200 and nonempty_reasoning_content(message))
         if status < 200 or status >= 300:
             return web.Response(body=raw_response, status=status, content_type=content_type)
         if not requested_stream:
-            return web.Response(body=raw_response, status=200, content_type=content_type)
+            return web.Response(body=canonical_json(response_body), status=200, content_type=content_type)
         try:
             events = BufferedChatCompletionsProxy._chat_events(response_body)
         except (AttributeError, TypeError, ValueError):

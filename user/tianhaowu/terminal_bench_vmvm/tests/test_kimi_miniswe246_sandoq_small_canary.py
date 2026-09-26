@@ -133,7 +133,7 @@ def test_kimi_model_relay_caps_tokens_and_preserves_reasoning() -> None:
                             "message": {
                                 "role": "assistant",
                                 "content": "done",
-                                "reasoning_content": "retained",
+                                "reasoning": "retained",
                             },
                             "finish_reason": "stop",
                         }
@@ -171,7 +171,7 @@ def test_kimi_model_relay_caps_tokens_and_preserves_reasoning() -> None:
                     },
                 ) as response:
                     assert response.status == 200
-                    await response.read()
+                    forwarded = await response.json()
         finally:
             await relay.close()
             await runner.cleanup()
@@ -184,6 +184,9 @@ def test_kimi_model_relay_caps_tokens_and_preserves_reasoning() -> None:
             "enable_thinking": True,
             "preserve_thinking": True,
         }
+        message = forwarded["choices"][0]["message"]
+        assert message["reasoning"] == "retained"
+        assert message["reasoning_content"] == "retained"
         assert relay.reasoning == [True]
 
     asyncio.run(scenario())
