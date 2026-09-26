@@ -1158,6 +1158,68 @@ def test_direct_kimi_identity_envelope_round_trip(tmp_path: Path) -> None:
     assert load_eval_run_identity(path, verify_references=False) == envelope
 
 
+def test_direct_kimi_native_miniswe_smoke_identity_envelope_round_trip(tmp_path: Path) -> None:
+    config_path = (
+        Path(__file__).parents[1] / "configs/eval/servers/cpu-132-021_8103/tb4_kimi_k3_miniswe246_sandoq_smoke.toml"
+    )
+    raw = tomllib.loads(config_path.read_text())
+    config = eval_run_identity._resolved_config_data(
+        eval_run_identity.EvalConfig.model_validate(raw),
+        explicit=raw,
+    )
+    contract, execution = _contract(
+        config,
+        "Kimi-K3",
+        role="kimi-direct-smoke",
+        sandbox_provider="sandoq",
+    )
+
+    identity = _direct_kimi_identity(smoke=True)
+    environment = identity["execution"]["sandoq_environment"]
+    environment.update(
+        environment=eval_run_identity.KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT,
+        provider_task_network="host",
+        provider_profile_sha256=eval_run_identity.KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256,
+        runtime_tunnel_receipt_sha256=eval_run_identity.KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
+        runtime_resource_receipt_sha256=eval_run_identity.KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256,
+        miniswe_compatibility_receipt_sha256=eval_run_identity.KIMI_MINISWE_COMPATIBILITY_SHA256,
+        tunnel_policy="native-sandoq-reverse-tunnel",
+        allow_dockerhub_fallback=False,
+        pull_timeout="1200s",
+        pull_poll_max_errors="10",
+        lease_profile="kimi-tb4-long",
+        lease_duration="12h",
+        managed_shell_recovery="definitive-404-410-single-replay-v1",
+        ecr_token_file=config["harness"]["runtime"]["ecr_token_file"],
+    )
+    execution["sandoq_environment"] = environment
+    identity["contract"] = contract
+    identity["execution"] = execution
+    identity["inputs"]["task_file"].update(
+        sha256=eval_run_identity.KIMI_NATIVE_MINISWE_SMOKE_SELECTOR_SHA256,
+        count=1,
+    )
+    identity["dataset"] = {
+        "kind": "archive",
+        "path": config["taskset"]["dataset_dir"],
+        "revision": None,
+        "archive": {"path": "/pinned/dataset.tar.gz", "sha256": "e" * 64},
+        "content_sha256": "f" * 64,
+    }
+    identity["deployment"]["base_url"] = config["client"]["base_url"]
+
+    envelope = _identity_envelope(identity)
+    path = tmp_path / "native_miniswe_smoke_identity.json"
+    path.write_text(json.dumps(envelope))
+
+    assert load_eval_run_identity(path, verify_references=False) == envelope
+
+    stale_timeout = json.loads(json.dumps(identity))
+    stale_timeout["contract"]["harness"]["request_timeout_seconds"] = 43_200
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(stale_timeout)
+
+
 def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeypatch) -> None:
     clean = hashlib.sha256(b"").hexdigest()
     args = SimpleNamespace(

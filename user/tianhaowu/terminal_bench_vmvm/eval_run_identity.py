@@ -2944,6 +2944,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
                 if role == QWEN_ERROR_RETRY_ROLE
                 else observed_harness.get("request_timeout_seconds")
                 if role == "kimi-direct-tb4"
+                else KIMI_NATIVE_MINISWE_SMOKE_REQUEST_TIMEOUT_SECONDS
+                if role == "kimi-direct-smoke"
                 else KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
                 if role == KIMI_CAPACITY_SMOKE_ROLE
                 else KIMI_REQUEST_TIMEOUT_SECONDS
