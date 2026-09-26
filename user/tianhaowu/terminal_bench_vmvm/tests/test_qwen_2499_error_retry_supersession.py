@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -140,6 +141,8 @@ def test_frozen_replay_rejects_structurally_consistent_predecessor_tamper(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    runtime_site = "/checkpoint/runtime/python-site"
+    monkeypatch.setenv("PYTHONPATH", runtime_site)
     project = tmp_path / "predecessor-project"
     workflow = project / "user" / "tianhaowu" / "terminal_bench_vmvm"
     workflow.mkdir(parents=True)
@@ -180,7 +183,8 @@ def test_frozen_replay_rejects_structurally_consistent_predecessor_tamper(
         }
         return retry.Artifact(path.stat().st_size, values[path.name])
 
-    def frozen_replay(command: list[str], **_kwargs) -> subprocess.CompletedProcess[bytes]:
+    def frozen_replay(command: list[str], **kwargs) -> subprocess.CompletedProcess[bytes]:
+        assert kwargs["env"]["PYTHONPATH"].split(os.pathsep)[-1] == runtime_site
         observed = Path(command[-2]).read_bytes()
         supplied_sha256 = command[-1]
         if observed != original_body or supplied_sha256 != original_sha256:

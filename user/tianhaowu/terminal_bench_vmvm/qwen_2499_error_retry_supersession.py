@@ -279,14 +279,16 @@ print(json.dumps({"certificate_sha256": hashlib.sha256(body).hexdigest(), "state
 '''
     environment = dict(os.environ)
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
-    environment["PYTHONPATH"] = ":".join(
-        (
-            str(workflow),
-            str(project / "environments" / "vmvm_tb_v2"),
-            str(project / "deps" / "verifiers"),
-            str(project / "deps" / "renderers"),
-            str(project / "deps" / "pydantic-config" / "src"),
-        )
+    frozen_paths = (
+        str(workflow),
+        str(project / "environments" / "vmvm_tb_v2"),
+        str(project / "deps" / "verifiers"),
+        str(project / "deps" / "renderers"),
+        str(project / "deps" / "pydantic-config" / "src"),
+    )
+    inherited_pythonpath = environment.get("PYTHONPATH")
+    environment["PYTHONPATH"] = os.pathsep.join(
+        (*frozen_paths, inherited_pythonpath) if inherited_pythonpath else frozen_paths
     )
     try:
         completed = subprocess.run(
