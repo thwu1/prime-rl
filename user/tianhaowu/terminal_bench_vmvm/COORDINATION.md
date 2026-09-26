@@ -5228,3 +5228,34 @@ replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
   request timeout, 128 output tokens, maximum reasoning, and model-I/O capture.
   Never print the private selector. Revalidate cluster-local paths and the
   endpoint-generation snapshot before using it from sc-3.
+
+## 2026-09-26 23:25 UTC — Kimi TB4 scored Firecracker-small smoke passed
+
+- `origin/vmvm-sandbox` commit
+  `e7d19174097c00da5c685a05ae3a36734ab939fd` is the exact source for
+  scored diagnostic job `1592194`. The job completed `0:0` in `00:34:20` on
+  `oci-runner-firecracker-small`; its public receipt is
+  `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic/run-1592194/receipt.json`
+  with SHA-256
+  `d62cde918a7f153269054d1670ad8af6b77976e20a2b9e2aecb07dd389307029`.
+- The receipt is `diagnostic_passed`: three model calls, retained reasoning,
+  shell execution, numeric reward `0.0`, healthy sticky c64-w2 routing, and
+  exact two-of-two sequential Sandoq session cleanup. A zero reward is a valid
+  infrastructure result for this one-task gate; it does not replace the
+  denominator-based 66-task score. No task identity or payload was disclosed.
+- The deployment remained healthy during the run: 24/24 workers, one request
+  above the four-request baseline, zero waiting or new preemptions, and no
+  per-worker concurrency above one. The observed maximum KV-cache use was
+  1.73%; no deployment-load anomaly appeared.
+- Full pass@1 handoff: reuse the existing MiniSWE union/lane and certification
+  machinery rather than introducing a second harness. Execute the 52 supported
+  rows at evaluator/pool concurrency 24 (three waves and 104 sequential
+  agent/verifier sessions), and synthesize the 11 Compose plus three GPU rows
+  as unsupported zeros in the fixed 66-task denominator. Add a distinct
+  Firecracker-small diagnostic mode; retain the extended full-eval limits,
+  long lease, reasoning/model-I/O capture, numeric scoring, sticky-router, and
+  exact cleanup gates. Keep the first invocation fresh with automatic resume
+  disabled: a retry needs a separately reviewed extension that admits only
+  missing/zero-model rows. A content-blind c24 allocation/cleanup soak, fresh
+  exact source/deployment freeze, and independent review remain required
+  before submission.
