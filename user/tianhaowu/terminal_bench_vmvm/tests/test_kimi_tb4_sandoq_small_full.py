@@ -429,6 +429,9 @@ def test_launchers_bind_small_diagnostic_and_zero_model_only_resume() -> None:
         "finalize_kimi_tb4_sandoq_small_full.py"
     )
     assert "prepare_kimi_tb4_sandoq_small_full.py" in stage
+    assert (
+        "approved_verifiers_revision=" + small.VERIFIERS_COMMIT
+    ) in stage
 
 
 def test_small_full_wrapper_reports_insufficient_walltime(tmp_path: Path) -> None:

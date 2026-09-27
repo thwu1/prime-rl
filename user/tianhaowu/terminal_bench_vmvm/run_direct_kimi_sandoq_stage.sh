@@ -333,7 +333,7 @@ if [[ "$(git -C "$project_dir" rev-parse HEAD)" != "$expected_revision" \
 fi
 approved_verifiers_revision=3df6efa9e9f6bdc8a013df7759a03074aec79111
 if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
-    approved_verifiers_revision=d5e8b77ce20ce79b0b9ae0e5b416fffb74969b08
+    approved_verifiers_revision=f11bf7cec1ca16ecadf7c88046f6a4a660af2031
 fi
 if [[ "$(git -C "$project_dir/deps/verifiers" rev-parse HEAD)" \
     != "$approved_verifiers_revision" ]]; then
