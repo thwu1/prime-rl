@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 import re
+import socket
 import stat
 import urllib.parse
 import urllib.request
@@ -552,7 +553,22 @@ def materialize_source_snapshot(
 
 def derive_ports(output_root: Path) -> tuple[int, int]:
     digest = hashlib.sha256(str(output_root.resolve()).encode()).digest()
-    return 20_000 + int.from_bytes(digest[:4], "big") % 10_000, 40_000 + int.from_bytes(digest[4:8], "big") % 10_000
+    ports = (
+        20_000 + int.from_bytes(digest[:4], "big") % 5_000,
+        25_000 + int.from_bytes(digest[4:8], "big") % 5_000,
+    )
+    sockets: list[socket.socket] = []
+    try:
+        for port in ports:
+            listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sockets.append(listener)
+            listener.bind(("127.0.0.1", port))
+    except OSError as error:
+        raise DirectKimiWorkerError("router_port_unavailable") from error
+    finally:
+        for listener in sockets:
+            listener.close()
+    return ports
 
 
 def _manifest(

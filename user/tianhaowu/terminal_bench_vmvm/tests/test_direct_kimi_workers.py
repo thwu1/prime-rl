@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import socket
 import stat
 from pathlib import Path
 
@@ -17,6 +18,29 @@ from direct_kimi_workers import (
     prepare_generation,
     validate_saved_manifest,
 )
+
+
+def test_router_ports_are_below_ephemeral_range_and_bindable(tmp_path: Path) -> None:
+    router_port, metrics_port = direct_kimi_workers.derive_ports(tmp_path)
+    assert 20_000 <= router_port < 25_000
+    assert 25_000 <= metrics_port < 30_000
+    assert router_port != metrics_port
+
+    listeners = [socket.socket(socket.AF_INET, socket.SOCK_STREAM) for _port in range(2)]
+    try:
+        listeners[0].bind(("127.0.0.1", router_port))
+        listeners[1].bind(("127.0.0.1", metrics_port))
+    finally:
+        for listener in listeners:
+            listener.close()
+
+
+def test_router_port_derivation_fails_closed_on_listener_collision(tmp_path: Path) -> None:
+    router_port, _metrics_port = direct_kimi_workers.derive_ports(tmp_path)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+        listener.bind(("127.0.0.1", router_port))
+        with pytest.raises(DirectKimiWorkerError, match="^router_port_unavailable$"):
+            direct_kimi_workers.derive_ports(tmp_path)
 
 
 def test_source_snapshot_accepts_only_exact_group_writable_deployment_bytes(
