@@ -14,8 +14,9 @@ GLIBC-version error on part of the heterogeneous `cpu_x86` fleet. Override
 Correctness invariants:
 
 - An infrastructure failure is never converted into reward zero.
-- Shared-verifier tasks retry the whole rollout after `SandboxError` or
-  `TunnelError`; verifier code cannot replay a model command.
+- Shared-verifier tasks may retry only scoring in the unchanged post-agent
+  runtime after `SandboxError`; exhausted errors propagate. A configured
+  framework rollout retry remains a separate operation that can call the model.
 - Separate-verifier tasks capture artifact bytes once and may retry only a
   fresh verifier VMVM against those identical bytes.
 - Image tags are immutable corpus revisions, never `latest`.

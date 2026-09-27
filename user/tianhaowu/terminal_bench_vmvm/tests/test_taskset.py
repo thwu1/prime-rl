@@ -1841,6 +1841,96 @@ def test_separate_verifier_retries_successful_score_after_teardown_failure(
     ]
 
 
+def test_shared_verifier_retries_only_scoring_in_original_runtime(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            verifier_runtime_retries=2,
+            retry_shared_verifier_scoring=True,
+        )
+    )
+    runtime = SimpleNamespace(descriptor="original-post-agent-runtime")
+    attempts: list[object] = []
+
+    async def run_verifier(task: object, observed_runtime: object, *, stage_tests: bool):
+        assert observed_runtime is runtime
+        assert stage_tests is True
+        attempts.append(task)
+        if len(attempts) < 3:
+            raise SandboxError(f"transient-{len(attempts)}")
+        return ProgramResult(exit_code=0, stdout="", stderr=""), False, 1.0, {"solved": 1.0}
+
+    monkeypatch.setattr(taskset, "_run_verifier", run_verifier)
+    task = SimpleNamespace(name="test")
+
+    outcome = asyncio.run(taskset._score_shared(task, runtime))
+
+    assert outcome[2:6] == (1.0, {"solved": 1.0}, "original-post-agent-runtime", 3)
+    assert outcome[6] == ["transient-1", "transient-2"]
+    assert attempts == [task, task, task]
+
+
+def test_shared_verifier_retry_exhaustion_remains_infrastructure_error(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            verifier_runtime_retries=1,
+            retry_shared_verifier_scoring=True,
+        )
+    )
+    runtime = SimpleNamespace(descriptor="original-post-agent-runtime")
+    attempts = 0
+
+    async def run_verifier(*args: object, **kwargs: object):
+        nonlocal attempts
+        attempts += 1
+        raise SandboxError(f"transient-{attempts}")
+
+    monkeypatch.setattr(taskset, "_run_verifier", run_verifier)
+
+    with pytest.raises(SandboxError, match="2 scoring-only attempts"):
+        asyncio.run(taskset._score_shared(SimpleNamespace(name="test"), runtime))
+    assert attempts == 2
+
+
+def test_shared_verifier_scoring_retry_is_opt_in(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            verifier_runtime_retries=2,
+        )
+    )
+    attempts = 0
+
+    async def run_verifier(*args: object, **kwargs: object):
+        nonlocal attempts
+        attempts += 1
+        raise SandboxError("transient")
+
+    monkeypatch.setattr(taskset, "_run_verifier", run_verifier)
+
+    with pytest.raises(SandboxError, match="1 scoring-only attempts"):
+        asyncio.run(
+            taskset._score_shared(
+                SimpleNamespace(name="test"),
+                SimpleNamespace(descriptor="original-post-agent-runtime"),
+            )
+        )
+    assert attempts == 1
+
+
 def test_separate_verifier_retries_source_wheel_cleanup_sandbox_error(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

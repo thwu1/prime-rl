@@ -4,9 +4,9 @@ The repository-root Mobius corpus uses Harbor's shared verifier mode.  The
 same adapter also supports Terminal-Bench 4's separate verifier containers by
 capturing the declared artifacts once and replaying those exact bytes into a
 fresh verifier VMVM.  Infrastructure failures are never converted into reward
-zero: shared-mode failures propagate so the framework can retry the rollout,
-while separate verifier failures retry only the verifier against the captured
-artifacts.
+zero: configured shared-mode retries re-run only scoring in the unchanged
+post-agent runtime, while separate verifier failures retry only a fresh
+verifier against the captured artifacts.  Exhausted failures propagate.
 """
 
 from __future__ import annotations
@@ -320,6 +320,8 @@ class TerminalBenchVMVMConfig(HarborConfig):
     """Optional MiB ceiling applied to each declared task storage request."""
 
     verifier_runtime_retries: int = Field(2, ge=0)
+    retry_shared_verifier_scoring: bool = False
+    """Use verifier_runtime_retries for shared-mode scoring without re-running the model."""
     capture_convention_artifacts: bool = True
     """Also preserve Harbor's conventional /logs/artifacts directory when present."""
 
@@ -4369,13 +4371,54 @@ for requirement in sys.argv[1:]:
             f"{task.name}: verifier VMVM failed after {self.config.verifier_runtime_retries + 1} attempts: {detail}"
         )
 
+    async def _score_shared(
+        self,
+        task: TerminalBenchTask,
+        runtime: Runtime,
+    ) -> tuple[ProgramResult, bool, float, dict[str, float], str | None, int, list[str]]:
+        """Retry only scoring in the original post-agent runtime.
+
+        This method never invokes the harness or model. Keeping it below the
+        reward boundary preserves the one model attempt and its exact captured
+        trajectory when scoring encounters a transient sandbox failure.
+        """
+
+        failures: list[str] = []
+        attempts = (
+            self.config.verifier_runtime_retries + 1
+            if self.config.retry_shared_verifier_scoring
+            else 1
+        )
+        for attempt in range(1, attempts + 1):
+            try:
+                outcome = await self._run_verifier(task, runtime, stage_tests=True)
+            except SandboxError as error:
+                failures.append(str(error))
+                if attempt < attempts:
+                    logger.warning(
+                        "%s shared verifier failed; retrying scoring in the same post-agent runtime (%d/%d): %s",
+                        task.name,
+                        attempt + 1,
+                        attempts,
+                        failures[-1],
+                    )
+                    continue
+                detail = "; ".join(
+                    f"attempt {index}: {value}" for index, value in enumerate(failures, start=1)
+                )
+                raise SandboxError(
+                    f"{task.name}: shared verifier failed after {attempts} scoring-only attempts: {detail}"
+                ) from error
+            return (*outcome, runtime.descriptor, attempt, failures)
+        raise AssertionError("unreachable shared verifier retry state")
+
     @reward(weight=1.0)
     async def solved(self, task: TerminalBenchTask, trace: vf.Trace, runtime: Runtime) -> float:
         if task.verifier_mode == "shared":
-            result, timed_out, score, rewards = await self._run_verifier(task, runtime, stage_tests=True)
-            descriptor = runtime.descriptor
-            attempts = 1
-            failures: list[str] = []
+            result, timed_out, score, rewards, descriptor, attempts, failures = await self._score_shared(
+                task,
+                runtime,
+            )
         else:
             try:
                 payloads = self._artifact_payloads.pop(trace.id)
@@ -4461,7 +4504,7 @@ for requirement in sys.argv[1:]:
                 activate=True,
             )
         if task.verifier_mode == "shared":
-            result, timed_out, score, rewards = await self._run_verifier(task, runtime, stage_tests=True)
+            result, timed_out, score, rewards, _, _, _ = await self._score_shared(task, runtime)
         else:
             payloads, _ = await self._capture_artifacts(task, runtime)
             result, timed_out, score, rewards, _, _, _ = await self._score_separate(
