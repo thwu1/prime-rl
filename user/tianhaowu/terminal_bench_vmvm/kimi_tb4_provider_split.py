@@ -1548,6 +1548,7 @@ def _validate_direct_router_receipt(
     identity_sha256: str,
     invocation_identity_sha256: str,
     held: _HeldArtifactSet | None = None,
+    allow_terminal_upstream_statuses: bool = False,
 ) -> tuple[bytes, dict[str, Any], dict[str, Any]]:
     body, artifact = _read_regular_evidence(
         path,
@@ -1585,6 +1586,8 @@ def _validate_direct_router_receipt(
     c23_profile = router.get("capacity_profile") == C23_CAPACITY_PROFILE
     w2_profile = router.get("capacity_profile") == C64_W2_CAPACITY_PROFILE
     stock_single_profile = router.get("capacity_profile") == STOCK_SINGLE_C64_CAPACITY_PROFILE
+    if allow_terminal_upstream_statuses and identity.get("role") != "kimi-direct-tb4-small-diagnostic":
+        raise KimiProviderSplitError("router_receipt_unexpected")
     forwarded_capacity_profile = w2_profile or stock_single_profile
     profiled_capacity = c23_profile or forwarded_capacity_profile
     worker_count = 1 if stock_single_profile else 23 if c23_profile else 24
@@ -1643,11 +1646,16 @@ def _validate_direct_router_receipt(
         expected.update(
             {
                 "worker_queue_timeouts": 0,
-                "upstream_http_429": 0,
-                "upstream_http_5xx": 0,
             }
         )
-        dynamic.update({"max_active_forwarded_requests", "worker_max_active_request_counts_sha256"})
+        dynamic.update(
+            {
+                "max_active_forwarded_requests",
+                "worker_max_active_request_counts_sha256",
+                "upstream_http_429",
+                "upstream_http_5xx",
+            }
+        )
         digests.add("worker_max_active_request_counts_sha256")
     if (
         set(value) != {*expected, *dynamic}
@@ -1700,6 +1708,17 @@ def _validate_direct_router_receipt(
             and (
                 not 1 <= value["max_active_forwarded_requests"] <= (64 if stock_single_profile else 48)
                 or value["max_active_forwarded_requests"] > value["max_active_requests"]
+                or any(
+                    not _nonnegative_integer(value.get(key))
+                    for key in ("upstream_http_429", "upstream_http_5xx")
+                )
+                or (
+                    not allow_terminal_upstream_statuses
+                    and (
+                        value["upstream_http_429"] != 0
+                        or value["upstream_http_5xx"] != 0
+                    )
+                )
             )
         )
     ):

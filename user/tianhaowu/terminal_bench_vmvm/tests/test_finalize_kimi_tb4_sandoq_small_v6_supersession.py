@@ -228,6 +228,90 @@ def test_v6_audit_retains_score_but_excludes_trace_invalid_row(
     )
 
 
+def test_v7_error_row_audits_all_sampled_model_io_and_accepts_canonical_provider_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _row("provider-error")
+    row["nodes"] = [{"sampled": True}, {"sampled": True}]
+    row["errors"] = [{"type": "ProviderError", "message": "opaque failure"}]
+    calls: list[dict] = []
+
+    def audit(*_args, **kwargs):
+        calls.append(kwargs)
+        return ["trace_has_errors"]
+
+    monkeypatch.setattr(v4.audit_traces, "_audit_trace", audit)
+    summary, _rows = v4._audit_supported_rows(
+        v6.split.canonical_json(row),
+        ("provider-error",),
+        {"provider-error": "shared"},
+        allow_nontrainable_scored_rows=True,
+        audit_error_model_io=True,
+    )
+
+    assert summary["source_model_io_turns"] == 2
+    assert summary["validated_error_model_io_turns"] == 2
+    assert summary["error_model_io_audit_required"] is True
+    assert len(calls) == 1
+    assert calls[0]["require_reasoning"] is True
+    assert calls[0]["require_model_io"] is True
+    assert calls[0]["require_request_graph_match"] is True
+    assert calls[0]["require_exact_provider_json"] is True
+    assert calls[0]["require_clean_stop"] is False
+
+    for traceback in (None, "trace"):
+        row["errors"] = [
+            {
+                "type": "ProviderError",
+                "message": "opaque failure",
+                "traceback": traceback,
+            }
+        ]
+        with pytest.raises(v4.V4RecoveryError, match="error_row_invalid"):
+            v4._audit_supported_rows(
+                v6.split.canonical_json(row),
+                ("provider-error",),
+                {"provider-error": "shared"},
+                audit_error_model_io=True,
+            )
+
+    row["errors"] = [
+        {"type": "SandboxError", "message": "opaque failure", "traceback": "trace"}
+    ]
+    with pytest.raises(v4.V4RecoveryError, match="model_bearing_error_row_invalid"):
+        v4._audit_supported_rows(
+            v6.split.canonical_json(row),
+            ("provider-error",),
+            {"provider-error": "shared"},
+            audit_error_model_io=True,
+        )
+
+    row["errors"] = [
+        {"type": "HarnessError", "message": "opaque failure", "traceback": "trace"}
+    ]
+    row["stop_condition"] = "agent_completed"
+    with pytest.raises(v4.V4RecoveryError, match="error_row_invalid"):
+        v4._audit_supported_rows(
+            v6.split.canonical_json(row),
+            ("provider-error",),
+            {"provider-error": "shared"},
+            audit_error_model_io=True,
+        )
+
+    row["errors"] = [
+        {"type": "ProviderError", "message": "opaque failure"},
+        {"type": "HarnessError", "message": "opaque failure", "traceback": "trace"},
+    ]
+    row["stop_condition"] = "error"
+    with pytest.raises(v4.V4RecoveryError, match="error_row_invalid"):
+        v4._audit_supported_rows(
+            v6.split.canonical_json(row),
+            ("provider-error",),
+            {"provider-error": "shared"},
+            audit_error_model_io=True,
+        )
+
+
 def test_v6_trace_invalid_pass_is_retained_but_blocks_diagnostic_gate(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -293,6 +377,183 @@ def test_v7_buffered_proxy_audit_enforces_exact_once_and_reports_replay() -> Non
     assert audit["integer_totals"]["logical_upstream_attempts"] == 2
     assert audit["integer_totals"]["anonymous_upstream_attempts"] == 0
     assert audit["integer_totals"]["replayed_requests"] == 1
+    assert audit["terminal_outcomes"] == {
+        "failure_records": 0,
+        "non_2xx_upstream_responses": 0,
+        "exception_records": 0,
+        "exception_observations": 0,
+    }
+
+
+def test_v7_buffered_proxy_audit_and_trace_binding_count_one_typed_terminal() -> None:
+    summary = _proxy_summary(
+        requests=2,
+        logical_requests=2,
+        logical_upstream_attempts=2,
+        anonymous_upstream_attempts=0,
+        expired_logical_retries=0,
+        replayed_requests=0,
+        streamed_requests=2,
+        statuses={"200": 1, "503": 1},
+        protocols={"chat_completions": 2},
+        path_counts={
+            "/muse-code/models": 1,
+            "/v1/chat/completions": 2,
+            "/v1/responses": 0,
+        },
+    )
+    audit = v6._buffered_proxy_audit(
+        _proxy_log(summary),
+        expected_schema="logical-exact-once-v1",
+    )
+    bound = v6._exact_proxy_trace_binding(
+        audit,
+        {
+            "clean_model_io_turns": 1,
+            "source_model_io_turns": 1,
+            "validated_error_model_io_turns": 0,
+            "error_model_io_audit_required": True,
+            "execution_error_zeroes": 1,
+        },
+        expected_summary_records=1,
+    )
+
+    assert bound["terminal_outcomes"] == {
+        "failure_records": 1,
+        "non_2xx_upstream_responses": 1,
+        "exception_records": 0,
+        "exception_observations": 0,
+    }
+    assert bound["trace_binding"] == {
+        "source_model_io_turns": 1,
+        "validated_model_io_turns": 1,
+        "logical_requests": 2,
+        "terminal_attempt_gap": 1,
+        "maximum_terminal_gap": 1,
+        "gap_bound": "typed-error-rows-with-terminal-proxy-outcome",
+    }
+    with pytest.raises(v6.V6SupersessionError, match="buffered_proxy_trace_binding_invalid"):
+        v6._exact_proxy_trace_binding(
+            audit,
+            {
+                "clean_model_io_turns": 1,
+                "source_model_io_turns": 1,
+                "validated_error_model_io_turns": 0,
+                "error_model_io_audit_required": True,
+                "execution_error_zeroes": 1,
+            },
+            expected_summary_records=2,
+        )
+
+    router = {
+        "chat_requests": 2,
+        "upstream_failures": 0,
+        "upstream_http_429": 0,
+        "upstream_http_5xx": 1,
+    }
+    trace = {
+        "provider_error_zeroes": 1,
+    }
+    router_binding = v6._exact_router_proxy_binding(
+        v6.split.canonical_json(router),
+        bound,
+        trace,
+    )
+    assert router_binding["router_chat_requests"] == 2
+    assert router_binding["proxy_non_2xx_upstream_responses"] == 1
+    assert router_binding["provider_error_rows"] == 1
+
+    router["chat_requests"] = 1
+    with pytest.raises(v6.V6SupersessionError, match="router_transport_binding_invalid"):
+        v6._exact_router_proxy_binding(
+            v6.split.canonical_json(router),
+            bound,
+            trace,
+        )
+
+
+def test_v7_proxy_binding_counts_trace_invalid_scored_turn_as_persisted() -> None:
+    summary = _proxy_summary(
+        requests=2,
+        logical_requests=2,
+        logical_upstream_attempts=2,
+        anonymous_upstream_attempts=0,
+        expired_logical_retries=0,
+        replayed_requests=0,
+        streamed_requests=2,
+        protocols={"chat_completions": 2},
+        path_counts={
+            "/muse-code/models": 1,
+            "/v1/chat/completions": 2,
+            "/v1/responses": 0,
+        },
+    )
+    audit = v6._buffered_proxy_audit(
+        _proxy_log(summary),
+        expected_schema="logical-exact-once-v1",
+    )
+    bound = v6._exact_proxy_trace_binding(
+        audit,
+        {
+            "clean_model_io_turns": 1,
+            "source_model_io_turns": 2,
+            "validated_error_model_io_turns": 0,
+            "error_model_io_audit_required": True,
+            "execution_error_zeroes": 0,
+        },
+        expected_summary_records=1,
+    )
+
+    assert bound["trace_binding"]["source_model_io_turns"] == 2
+    assert bound["trace_binding"]["validated_model_io_turns"] == 1
+    assert bound["trace_binding"]["terminal_attempt_gap"] == 0
+
+
+def test_v7_buffered_proxy_directory_is_canonical_private_and_complete(tmp_path) -> None:
+    tmp_path.chmod(0o700)
+    directory = tmp_path / "buffered-proxy-stats"
+    directory.mkdir(mode=0o700)
+    summary = _proxy_summary(
+        logical_requests=2,
+        logical_upstream_attempts=2,
+        anonymous_upstream_attempts=0,
+        expired_logical_retries=0,
+    )
+    for index in range(2):
+        path = directory / f"summary-{index:032x}.json"
+        path.write_bytes(
+            v6.split.canonical_json(
+                {
+                    "schema_version": 1,
+                    "kind": "sandoq-buffered-model-proxy-summary",
+                    "counters": summary,
+                }
+            )
+        )
+        path.chmod(0o600)
+    held = v6.split._HeldArtifactSet.create()
+    try:
+        audit, artifacts = v6._buffered_proxy_directory_audit(
+            directory,
+            expected_records=2,
+            expected_schema="logical-exact-once-v1",
+            held=held,
+        )
+        assert audit["summary_records"] == 2
+        assert len(artifacts) == 2
+        held.revalidate()
+        with pytest.raises(
+            v6.V6SupersessionError,
+            match="buffered_proxy_directory_invalid",
+        ):
+            v6._buffered_proxy_directory_audit(
+                directory,
+                expected_records=1,
+                expected_schema="logical-exact-once-v1",
+                held=held,
+            )
+    finally:
+        held.close()
 
 
 @pytest.mark.parametrize(
@@ -302,6 +563,20 @@ def test_v7_buffered_proxy_audit_enforces_exact_once_and_reports_replay() -> Non
         ({"anonymous_upstream_attempts": 1},),
         ({"conflicting_requests": 1},),
         ({"expired_logical_retries": 1},),
+        ({"requests": 4},),
+        ({"streamed_requests": 2},),
+        ({"statuses": {"200": 1}},),
+        ({"protocols": {"chat_completions": 2}},),
+        (
+            {
+                "path_counts": {
+                    "/muse-code/models": 1,
+                    "/v1/chat/completions": 2,
+                    "/v1/responses": 0,
+                }
+            },
+        ),
+        ({"unknown_path_requests": 1},),
     ],
 )
 def test_v7_buffered_proxy_audit_rejects_exact_once_counter_violation(updates: dict) -> None:
@@ -334,3 +609,38 @@ def test_buffered_proxy_audit_rejects_partial_or_wrong_schema() -> None:
     )
     with pytest.raises(v6.V6SupersessionError, match="buffered_proxy_audit_invalid"):
         v6._buffered_proxy_audit(_proxy_log(exact), expected_schema="legacy")
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"statuses": {"503": 2}},
+        {"statuses": {"503": 1}, "error_count": 1},
+        {"statuses": {"200": 1, "400": 1}},
+    ],
+)
+def test_v7_buffered_proxy_audit_rejects_ambiguous_terminal_outcome(updates) -> None:
+    summary = _proxy_summary(
+        requests=2,
+        logical_requests=2,
+        logical_upstream_attempts=2,
+        anonymous_upstream_attempts=0,
+        expired_logical_retries=0,
+        replayed_requests=0,
+        streamed_requests=2,
+        protocols={"chat_completions": 2},
+        path_counts={
+            "/muse-code/models": 1,
+            "/v1/chat/completions": 2,
+            "/v1/responses": 0,
+        },
+    )
+    summary.update(updates)
+    with pytest.raises(
+        v6.V6SupersessionError,
+        match="buffered_proxy_terminal_outcome_invalid",
+    ):
+        v6._buffered_proxy_audit(
+            _proxy_log(summary),
+            expected_schema="logical-exact-once-v1",
+        )

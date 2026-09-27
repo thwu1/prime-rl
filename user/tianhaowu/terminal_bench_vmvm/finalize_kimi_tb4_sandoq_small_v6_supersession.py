@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import os
 import re
+import stat
 import subprocess
 import sys
 from contextlib import ExitStack
@@ -50,7 +52,12 @@ TB4_LANE_EXECUTION_FILES = (
     "user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/"
     "tb4_kimi_k3_miniswe246_sandoq_firecracker_small_full.base.toml",
 )
+V7_TB4_LANE_EXECUTION_FILES = (
+    "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_v7.py",
+    "user/tianhaowu/terminal_bench_vmvm/kimi_tb4_provider_split.py",
+)
 SUPERSESSION_SOURCE_FILES = (
+    "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_v7.py",
     "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_v6_supersession.py",
     "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_v4_recovery.py",
     "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_full.py",
@@ -68,6 +75,7 @@ VERIFIERS_EXECUTION_FILES = (
 PROVIDER_TOKEN_PATH_SHA256 = "19f886485a27dd272af667283ebeb57293a08723782af6c4bc83a05dca6dedc0"
 PROXY_SUMMARY_MARKER = b"sandoq: buffered model proxy summary "
 PROXY_SUMMARY_PREFIX_RE = re.compile(rb"[0-9]{2}:[0-9]{2}:[0-9]{2} +INFO \Z")
+PROXY_SUMMARY_RECORD_RE = re.compile(r"summary-[0-9a-f]{32}\.json\Z")
 PROXY_SUMMARY_INTEGER_FIELDS = (
     "requests",
     "upstream_attempts",
@@ -154,7 +162,15 @@ def _git_file_hashes(
     return values
 
 
-def _execution_semantics_manifest() -> dict[str, Any]:
+def _execution_semantics_manifest(
+    execution_revision: str = EXECUTION_SOURCE_REVISION,
+    verifiers_commit: str = EXECUTION_VERIFIERS_COMMIT,
+) -> dict[str, Any]:
+    if (
+        recovery.REVISION_RE.fullmatch(execution_revision) is None
+        or recovery.REVISION_RE.fullmatch(verifiers_commit) is None
+    ):
+        _fail("execution_semantics_invalid")
     project = Path(__file__).resolve(strict=True).parents[3]
     extension_paths = tuple(
         line.decode()
@@ -163,7 +179,7 @@ def _execution_semantics_manifest() -> dict[str, Any]:
             "ls-tree",
             "-r",
             "--name-only",
-            EXECUTION_SOURCE_REVISION,
+            execution_revision,
             "--",
             SANDOQ_EXTENSION_PREFIX,
         ).splitlines()
@@ -175,25 +191,28 @@ def _execution_semantics_manifest() -> dict[str, Any]:
         _fail("execution_semantics_invalid")
     shared_files = _git_file_hashes(
         project,
-        EXECUTION_SOURCE_REVISION,
+        execution_revision,
         PRIME_SHARED_EXECUTION_FILES,
     )
+    lane_paths = TB4_LANE_EXECUTION_FILES
+    if execution_revision != EXECUTION_SOURCE_REVISION:
+        lane_paths += V7_TB4_LANE_EXECUTION_FILES
     lane_files = _git_file_hashes(
         project,
-        EXECUTION_SOURCE_REVISION,
-        TB4_LANE_EXECUTION_FILES,
+        execution_revision,
+        lane_paths,
     )
-    extension_files = _git_file_hashes(project, EXECUTION_SOURCE_REVISION, extension_paths)
+    extension_files = _git_file_hashes(project, execution_revision, extension_paths)
     verifiers_repository = project / "deps/verifiers"
     verifier_files = _git_file_hashes(
         verifiers_repository,
-        EXECUTION_VERIFIERS_COMMIT,
+        verifiers_commit,
         VERIFIERS_EXECUTION_FILES,
     )
     return {
         "schema_version": 1,
         "hash_kind": "raw-file-sha256",
-        "source_revision": EXECUTION_SOURCE_REVISION,
+        "source_revision": execution_revision,
         "prime_rl_shared_files": shared_files,
         "prime_rl_shared_file_set_sha256": recovery._sha256(split.canonical_json(shared_files)),
         "tb4_lane_files": lane_files,
@@ -204,7 +223,7 @@ def _execution_semantics_manifest() -> dict[str, Any]:
             "file_set_sha256": recovery._sha256(split.canonical_json(extension_files)),
         },
         "verifiers": {
-            "commit": EXECUTION_VERIFIERS_COMMIT,
+            "commit": verifiers_commit,
             "files": verifier_files,
             "file_set_sha256": recovery._sha256(split.canonical_json(verifier_files)),
         },
@@ -300,24 +319,21 @@ def _counter_mapping(value: Any) -> bool:
     )
 
 
-def _buffered_proxy_audit(body: bytes, *, expected_schema: str) -> dict[str, Any]:
+def _buffered_proxy_records_audit(
+    records: Sequence[Mapping[str, Any]],
+    *,
+    expected_schema: str,
+) -> dict[str, Any]:
     expected_keys = PROXY_SUMMARY_SCHEMAS.get(expected_schema)
-    if expected_keys is None:
+    if expected_keys is None or not records:
         _fail("buffered_proxy_audit_invalid")
-    records: list[dict[str, Any]] = []
-    for line in body.splitlines():
-        marker_offset = line.find(PROXY_SUMMARY_MARKER)
-        if marker_offset < 0:
-            continue
-        if (
-            line.count(PROXY_SUMMARY_MARKER) != 1
-            or PROXY_SUMMARY_PREFIX_RE.fullmatch(line[:marker_offset]) is None
-        ):
-            _fail("buffered_proxy_audit_invalid")
-        try:
-            value = json.loads(line[marker_offset + len(PROXY_SUMMARY_MARKER) :])
-        except (UnicodeDecodeError, json.JSONDecodeError) as error:
-            _fail("buffered_proxy_audit_invalid", error)
+    normalized_records: list[dict[str, Any]] = []
+    terminal_failure_records = 0
+    terminal_non_2xx_upstream_responses = 0
+    terminal_exception_records = 0
+    terminal_exception_observations = 0
+    for candidate in records:
+        value = dict(candidate) if isinstance(candidate, Mapping) else None
         if (
             not isinstance(value, dict)
             or set(value) != expected_keys
@@ -346,33 +362,170 @@ def _buffered_proxy_audit(body: bytes, *, expected_schema: str) -> dict[str, Any
                 or value["conflicting_requests"] != 0
                 or value["expired_logical_retries"] != 0
                 or value["upstream_attempts"] != value["logical_upstream_attempts"]
+                or value["requests"]
+                != value["logical_requests"]
+                + value["coalesced_requests"]
+                + value["replayed_requests"]
+                or value["streamed_requests"] != value["requests"]
+                or sum(value["protocols"].values()) != value["requests"]
+                or value["path_counts"]["/v1/chat/completions"]
+                + value["path_counts"]["/v1/responses"]
+                != value["requests"]
+                or value["unknown_path_requests"] != 0
+                or sum(value["statuses"].values()) + value["error_count"]
+                != value["upstream_attempts"]
             ):
                 _fail("buffered_proxy_exact_once_invalid")
-        records.append(value)
-    if not records:
-        _fail("buffered_proxy_audit_invalid")
+        non_2xx = sum(
+            count
+            for status, count in value["statuses"].items()
+            if not status.startswith("2")
+        )
+        has_exception = value["error_count"] > 0
+        if expected_schema == "logical-exact-once-v1" and (
+            non_2xx > 1
+            or (non_2xx and has_exception)
+            or any(
+                not status.startswith("2")
+                and status != "429"
+                and not status.startswith("5")
+                for status in value["statuses"]
+            )
+        ):
+            _fail("buffered_proxy_terminal_outcome_invalid")
+        if non_2xx or has_exception:
+            terminal_failure_records += 1
+            terminal_non_2xx_upstream_responses += non_2xx
+            terminal_exception_records += int(has_exception)
+            terminal_exception_observations += value["error_count"]
+        normalized_records.append(value)
 
     integer_fields = list(PROXY_SUMMARY_INTEGER_FIELDS)
     if expected_schema == "logical-exact-once-v1":
         integer_fields.extend(PROXY_SUMMARY_EXACT_ONCE_FIELDS)
     integer_totals = {
-        field: sum(record[field] for record in records) for field in integer_fields
+        field: sum(record[field] for record in normalized_records)
+        for field in integer_fields
     }
     mapping_totals: dict[str, dict[str, int]] = {}
     for field in PROXY_SUMMARY_MAPPING_FIELDS:
-        keys = sorted({key for record in records for key in record[field]})
+        keys = sorted({key for record in normalized_records for key in record[field]})
         mapping_totals[field] = {
-            key: sum(record[field].get(key, 0) for record in records) for key in keys
+            key: sum(record[field].get(key, 0) for record in normalized_records)
+            for key in keys
         }
     return {
         "schema_version": 1,
         "source_schema": expected_schema,
-        "summary_records": len(records),
+        "summary_records": len(normalized_records),
         "exact_once_counters_required": expected_schema == "logical-exact-once-v1",
         "integer_totals": integer_totals,
         "mapping_totals": mapping_totals,
-        "record_set_sha256": recovery._sha256(split.canonical_json(records)),
+        "terminal_outcomes": {
+            "failure_records": terminal_failure_records,
+            "non_2xx_upstream_responses": terminal_non_2xx_upstream_responses,
+            "exception_records": terminal_exception_records,
+            "exception_observations": terminal_exception_observations,
+        },
+        "record_set_sha256": recovery._sha256(split.canonical_json(normalized_records)),
     }
+
+
+def _buffered_proxy_audit(body: bytes, *, expected_schema: str) -> dict[str, Any]:
+    records: list[dict[str, Any]] = []
+    for line in body.splitlines():
+        marker_offset = line.find(PROXY_SUMMARY_MARKER)
+        if marker_offset < 0:
+            continue
+        if (
+            line.count(PROXY_SUMMARY_MARKER) != 1
+            or PROXY_SUMMARY_PREFIX_RE.fullmatch(line[:marker_offset]) is None
+        ):
+            _fail("buffered_proxy_audit_invalid")
+        try:
+            value = json.loads(line[marker_offset + len(PROXY_SUMMARY_MARKER) :])
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            _fail("buffered_proxy_audit_invalid", error)
+        if not isinstance(value, dict):
+            _fail("buffered_proxy_audit_invalid")
+        records.append(value)
+    return _buffered_proxy_records_audit(records, expected_schema=expected_schema)
+
+
+def _buffered_proxy_directory_audit(
+    directory: Path,
+    *,
+    expected_records: int,
+    expected_schema: str,
+    held: split._HeldArtifactSet,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    canonical = split._absolute_path(directory)
+    try:
+        before = canonical.lstat()
+        if (
+            directory != canonical
+            or canonical.is_symlink()
+            or canonical.resolve(strict=True) != canonical
+            or not stat.S_ISDIR(before.st_mode)
+            or stat.S_IMODE(before.st_mode) != 0o700
+            or before.st_uid != os.geteuid()
+        ):
+            _fail("buffered_proxy_directory_invalid")
+        paths = sorted(canonical.iterdir(), key=lambda path: path.name)
+        if (
+            len(paths) != expected_records
+            or any(PROXY_SUMMARY_RECORD_RE.fullmatch(path.name) is None for path in paths)
+        ):
+            _fail("buffered_proxy_directory_invalid")
+        records: list[dict[str, Any]] = []
+        artifacts: list[dict[str, Any]] = []
+        for path in paths:
+            body = split.read_regular(
+                path,
+                code="buffered_proxy_record_invalid",
+                maximum_bytes=64 * 1024,
+                private=True,
+                held=held,
+            )
+            envelope = split._json_object(
+                body,
+                code="buffered_proxy_record_invalid",
+                canonical=True,
+            )
+            if (
+                set(envelope) != {"schema_version", "kind", "counters"}
+                or envelope.get("schema_version") != 1
+                or envelope.get("kind") != "sandoq-buffered-model-proxy-summary"
+                or not isinstance(envelope.get("counters"), dict)
+            ):
+                _fail("buffered_proxy_record_invalid")
+            records.append(envelope["counters"])
+            artifacts.append(ordinary._artifact_bytes(path, body))
+        after = canonical.lstat()
+        if (
+            before.st_dev,
+            before.st_ino,
+            before.st_mode,
+            before.st_uid,
+            before.st_mtime_ns,
+            before.st_ctime_ns,
+        ) != (
+            after.st_dev,
+            after.st_ino,
+            after.st_mode,
+            after.st_uid,
+            after.st_mtime_ns,
+            after.st_ctime_ns,
+        ):
+            _fail("buffered_proxy_directory_changed")
+    except V6SupersessionError:
+        raise
+    except (OSError, RuntimeError, ValueError) as error:
+        _fail("buffered_proxy_directory_invalid", error)
+    return (
+        _buffered_proxy_records_audit(records, expected_schema=expected_schema),
+        artifacts,
+    )
 
 
 def _gate_met(trace_audit: Mapping[str, Any]) -> bool:
@@ -386,6 +539,126 @@ def _gate_met(trace_audit: Mapping[str, Any]) -> bool:
     ):
         _fail("gate_inputs_invalid")
     return passes >= TARGET_PASSES and invalid_passes == 0
+
+
+def _exact_proxy_trace_binding(
+    proxy_audit: Mapping[str, Any],
+    trace_audit: Mapping[str, Any],
+    *,
+    expected_summary_records: int,
+) -> dict[str, Any]:
+    totals = proxy_audit.get("integer_totals")
+    terminal = proxy_audit.get("terminal_outcomes")
+    logical_requests = totals.get("logical_requests") if isinstance(totals, Mapping) else None
+    source_turns = trace_audit.get("source_model_io_turns")
+    clean_turns = trace_audit.get("clean_model_io_turns")
+    validated_error_turns = trace_audit.get("validated_error_model_io_turns")
+    terminal_failures = terminal.get("failure_records") if isinstance(terminal, Mapping) else None
+    execution_errors = trace_audit.get("execution_error_zeroes")
+    if (
+        proxy_audit.get("source_schema") != "logical-exact-once-v1"
+        or proxy_audit.get("exact_once_counters_required") is not True
+        or proxy_audit.get("summary_records") != expected_summary_records
+        or trace_audit.get("error_model_io_audit_required") is not True
+        or any(
+            not _nonnegative_integer(value)
+            for value in (
+                logical_requests,
+                source_turns,
+                clean_turns,
+                terminal_failures,
+                execution_errors,
+                validated_error_turns,
+            )
+        )
+        or source_turns > logical_requests
+        or logical_requests - source_turns != terminal_failures
+        or terminal_failures > execution_errors
+        or clean_turns + validated_error_turns > source_turns
+        or validated_error_turns > source_turns
+    ):
+        _fail("buffered_proxy_trace_binding_invalid")
+    return {
+        **dict(proxy_audit),
+        "trace_binding": {
+            "source_model_io_turns": source_turns,
+            "validated_model_io_turns": clean_turns + validated_error_turns,
+            "logical_requests": logical_requests,
+            "terminal_attempt_gap": logical_requests - source_turns,
+            "maximum_terminal_gap": execution_errors,
+            "gap_bound": "typed-error-rows-with-terminal-proxy-outcome",
+        },
+    }
+
+
+def _exact_router_proxy_binding(
+    router_body: bytes,
+    proxy_audit: Mapping[str, Any],
+    trace_audit: Mapping[str, Any],
+) -> dict[str, Any]:
+    try:
+        router = split._json_object(
+            router_body,
+            code="router_transport_binding_invalid",
+            canonical=True,
+        )
+    except Exception as error:
+        _fail("router_transport_binding_invalid", error)
+    totals = proxy_audit.get("integer_totals")
+    terminal = proxy_audit.get("terminal_outcomes")
+    statuses = proxy_audit.get("mapping_totals", {}).get("statuses")
+    if not isinstance(statuses, Mapping):
+        _fail("router_transport_binding_invalid")
+    non_2xx = sum(
+        count
+        for status, count in statuses.items()
+        if isinstance(status, str)
+        and _nonnegative_integer(count)
+        and not status.startswith("2")
+    )
+    router_429 = router.get("upstream_http_429")
+    router_5xx = router.get("upstream_http_5xx")
+    logical_requests = totals.get("logical_requests") if isinstance(totals, Mapping) else None
+    logical_upstream = (
+        totals.get("logical_upstream_attempts") if isinstance(totals, Mapping) else None
+    )
+    provider_error_rows = trace_audit.get("provider_error_zeroes")
+    if (
+        any(
+            not _nonnegative_integer(value)
+            for value in (
+                non_2xx,
+                router_429,
+                router_5xx,
+                logical_requests,
+                logical_upstream,
+                provider_error_rows,
+            )
+        )
+        or not isinstance(terminal, Mapping)
+        or terminal.get("exception_records") != 0
+        or terminal.get("exception_observations") != 0
+        or terminal.get("failure_records") != non_2xx
+        or terminal.get("non_2xx_upstream_responses") != non_2xx
+        or router.get("upstream_failures") != 0
+        or router.get("chat_requests") != logical_requests
+        or logical_upstream != logical_requests
+        or router_429 + router_5xx != non_2xx
+        or provider_error_rows != non_2xx
+    ):
+        _fail("router_transport_binding_invalid")
+    return {
+        "schema_version": 1,
+        "state": "passed",
+        "router_chat_requests": router["chat_requests"],
+        "proxy_logical_requests": logical_requests,
+        "proxy_logical_upstream_attempts": logical_upstream,
+        "router_upstream_http_429": router_429,
+        "router_upstream_http_5xx": router_5xx,
+        "proxy_non_2xx_upstream_responses": non_2xx,
+        "proxy_exception_records": 0,
+        "provider_error_rows": provider_error_rows,
+    }
 
 
 def _merge_rows(

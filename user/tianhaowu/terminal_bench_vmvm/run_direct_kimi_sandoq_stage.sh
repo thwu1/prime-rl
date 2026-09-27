@@ -140,7 +140,7 @@ if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
         || "$verified_stage" != tb4-miniswe246-sandoq-small-full \
         || "$verified_provider" != sandoq \
         || "$verified_count" != 52 || "$verified_concurrency" != 24 \
-        || "$verified_adapter" != kimi-tb4-miniswe246-sandoq-small-diagnostic-v1 \
+        || "$verified_adapter" != kimi-tb4-miniswe246-sandoq-small-diagnostic-v2 \
         || "$eval_config" != "$verified_config" \
         || "$eval_config_sha256" != "$verified_config_sha256" \
         || "$approved_task_file" != "$verified_selector" \
@@ -906,9 +906,17 @@ request_eval_stop() {
 }
 trap request_eval_stop INT TERM
 set +e
-setsid env DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=${DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS:-1} \
-    /usr/bin/bash -p "$workflow_dir/run_eval_with_zero_model_resume.sh" \
-    >"$eval_log" 2>&1 &
+if [[ "$role" == kimi-direct-tb4-small-diagnostic ]]; then
+    [[ "${DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS:-0}" == 0 ]] \
+        || blocked zero_model_resume_forbidden
+    setsid "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 -c 'from verifiers.v1.cli.eval.main import main; main()' \
+        --resume "$output_dir" >"$eval_log" 2>&1 &
+else
+    setsid env DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=${DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS:-1} \
+        /usr/bin/bash -p "$workflow_dir/run_eval_with_zero_model_resume.sh" \
+        >"$eval_log" 2>&1 &
+fi
 eval_pid=$!
 set -o noclobber
 printf '%s\n' "$eval_pid" >"$eval_pgid_file"

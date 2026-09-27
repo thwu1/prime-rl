@@ -165,16 +165,26 @@ def _valid_error_objects(errors: object) -> tuple[str, ...]:
         _fail("error_row_invalid")
     types: list[str] = []
     for error in errors:
+        error_type = error.get("type") if isinstance(error, dict) else None
         if (
             not isinstance(error, dict)
-            or set(error) != {"message", "traceback", "type"}
-            or error.get("type") not in ALLOWED_ERROR_TYPES
+            or error_type not in ALLOWED_ERROR_TYPES
             or not isinstance(error.get("message"), str)
             or not error["message"]
-            or not isinstance(error.get("traceback"), str)
+            or (
+                error_type == "ProviderError"
+                and set(error) != {"message", "type"}
+            )
+            or (
+                error_type != "ProviderError"
+                and (
+                    set(error) != {"message", "traceback", "type"}
+                    or not isinstance(error.get("traceback"), str)
+                )
+            )
         ):
             _fail("error_row_invalid")
-        types.append(error["type"])
+        types.append(error_type)
     return tuple(types)
 
 
@@ -236,6 +246,7 @@ def _audit_supported_rows(
     verifier_modes: Mapping[str, str],
     *,
     allow_nontrainable_scored_rows: bool = False,
+    audit_error_model_io: bool = False,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     try:
         rows = [json.loads(line) for line in body.splitlines() if line.strip()]
@@ -252,9 +263,13 @@ def _audit_supported_rows(
     trace_invalid_scored_rows = 0
     trace_invalid_passing_rows = 0
     clean_model_turns = 0
+    source_model_io_turns = 0
+    validated_error_model_io_turns = 0
     clean_sampled_tokens = 0
     zero_model_errors = 0
     model_bearing_errors = 0
+    zero_model_provider_errors = 0
+    model_bearing_provider_errors = 0
     error_types: Counter[str] = Counter()
     zero_model_row_hashes: list[str] = []
     error_row_hashes: list[str] = []
@@ -280,22 +295,51 @@ def _audit_supported_rows(
         ):
             _fail("provider_trace_audit_failed")
         trace_ids.add(trace_id)
+        turns = _model_turns(row)
+        source_model_io_turns += turns
 
         errors = row.get("errors")
         if errors:
-            for error_type in _valid_error_objects(errors):
+            row_error_types = _valid_error_objects(errors)
+            for error_type in row_error_types:
                 error_types[error_type] += 1
+            if audit_error_model_io:
+                if row.get("stop_condition") != "error" or len(row_error_types) != 1:
+                    _fail("error_row_invalid")
+                if turns > 0 and row_error_types not in {
+                    ("ProviderError",),
+                    ("HarnessError",),
+                }:
+                    _fail("model_bearing_error_row_invalid")
             if row.get("rewards") != {} or row.get("metrics") != {}:
                 _fail("error_row_invalid")
-            turns = _model_turns(row)
             zero_model = turns == 0
             if zero_model:
                 if row.get("nodes") != [] or row.get("info") != {}:
                     _fail("zero_model_error_row_invalid")
                 zero_model_errors += 1
+                zero_model_provider_errors += int(row_error_types == ("ProviderError",))
                 zero_model_row_hashes.append(_sha256(split.canonical_json(row)))
             else:
+                if audit_error_model_io:
+                    error_problems = audit_traces._audit_trace(
+                        row,
+                        require_reasoning=True,
+                        max_sequence_tokens=split.MAX_SEQUENCE_TOKENS,
+                        require_token_data=False,
+                        require_logprobs=False,
+                        require_model_io=True,
+                        model_io_contract=audit_traces.KIMI_K3_MAX_MODEL_IO_CONTRACT,
+                        require_request_graph_match=True,
+                        observations=observations,
+                        require_exact_provider_json=True,
+                        require_clean_stop=False,
+                    )
+                    if error_problems != ["trace_has_errors"]:
+                        _fail("error_row_model_io_audit_failed")
+                    validated_error_model_io_turns += turns
                 model_bearing_errors += 1
+                model_bearing_provider_errors += int(row_error_types == ("ProviderError",))
             error_row_hashes.append(_sha256(split.canonical_json(row)))
             by_task[task_id] = _derived_error_zero(row, zero_model=zero_model)
             continue
@@ -374,7 +418,14 @@ def _audit_supported_rows(
         "execution_error_zeroes": zero_model_errors + model_bearing_errors,
         "zero_model_error_zeroes": zero_model_errors,
         "model_bearing_error_zeroes": model_bearing_errors,
+        "provider_error_zeroes": zero_model_provider_errors
+        + model_bearing_provider_errors,
+        "zero_model_provider_error_zeroes": zero_model_provider_errors,
+        "model_bearing_provider_error_zeroes": model_bearing_provider_errors,
         "clean_model_io_turns": clean_model_turns,
+        "source_model_io_turns": source_model_io_turns,
+        "validated_error_model_io_turns": validated_error_model_io_turns,
+        "error_model_io_audit_required": audit_error_model_io,
         "clean_sampled_tokens": clean_sampled_tokens,
         "clean_trace_failures": 0,
         "exact_provider_json_required": True,

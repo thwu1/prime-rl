@@ -328,8 +328,14 @@ def test_materialized_small_plan_preserves_full_generation_contract(
     plan = json.loads((output / small.PLAN).read_bytes())
     assert plan["contracts"]["model_io_response_kind"] == "exact_provider_json"
     assert plan["contracts"]["model_retries"] == 0
+    assert plan["contracts"]["zero_model_resume_attempts"] == 0
     assert plan["contracts"]["guest_transport_retry_attempts"] == 10
     assert plan["contracts"]["logical_request_upstream_attempts"] == 1
+    assert plan["contracts"]["buffered_proxy_summary_schema"] == "logical-exact-once-v1"
+    assert plan["contracts"]["buffered_proxy_summary_records"] == 52
+    assert plan["contracts"]["audit_error_model_io"] is True
+    assert plan["contracts"]["router_terminal_status_binding_required"] is True
+    assert plan["contracts"]["terminal_proxy_exceptions_allowed"] is False
     assert plan["contracts"]["shell_command_timeout_seconds"] == 3_600
     assert plan["contracts"]["verifier_runtime_retries"] == 2
     assert plan["contracts"]["retry_shared_verifier_scoring"] is True
@@ -461,14 +467,18 @@ def test_launchers_bind_small_diagnostic_and_zero_model_only_resume() -> None:
     assert "minimum_job_remaining_seconds=475200" in wrapper
     assert "job_end_epoch" in wrapper
     assert "#SBATCH --time=6-00:00:00" in stock_wrapper
-    assert "DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=1" in launcher
+    assert "DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=0" in launcher
     assert "prepare_kimi_tb4_sandoq_small_full.py" in launcher
-    assert "finalize_kimi_tb4_sandoq_small_full.py" in launcher
-    assert launcher.index("setsid \"$x86_uv\"") < launcher.index("finalize_kimi_tb4_sandoq_small_full.py")
+    assert "finalize_kimi_tb4_sandoq_small_v7.py" in launcher
+    assert launcher.index("setsid \"$x86_uv\"") < launcher.index("finalize_kimi_tb4_sandoq_small_v7.py")
     assert launcher.index("direct_kimi_router_final.json") < launcher.rindex(
-        "finalize_kimi_tb4_sandoq_small_full.py"
+        "finalize_kimi_tb4_sandoq_small_v7.py"
     )
     assert "prepare_kimi_tb4_sandoq_small_full.py" in stage
+    assert "kimi-tb4-miniswe246-sandoq-small-diagnostic-v2" in stage
+    assert "kimi-tb4-miniswe246-sandoq-small-diagnostic-v1" not in stage
+    assert 'if [[ "$role" == kimi-direct-tb4-small-diagnostic ]]' in stage
+    assert "zero_model_resume_forbidden" in stage
     assert 'export SANDOQ_BUFFERED_STATS_DIR="$buffered_stats_dir"' in stage
     assert (
         "approved_verifiers_revision=" + small.VERIFIERS_COMMIT

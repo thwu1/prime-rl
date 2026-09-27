@@ -951,6 +951,123 @@ def test_router_receipt_requires_exact_direct_publication_marker(
     assert observed == body
 
 
+def test_small_router_receipt_allows_only_opted_in_terminal_upstream_status(
+    tmp_path: Path,
+) -> None:
+    tmp_path.chmod(0o700)
+    identity_sha256 = "a" * 64
+    invocation_sha256 = "b" * 64
+    zero_digest = hashlib.sha256(b"[0]\n").hexdigest()
+    identity = {
+        "role": "kimi-direct-tb4-small-diagnostic",
+        "execution": {"rollout_concurrency": 24},
+        "deployment": {
+            "kind": "direct_kimi",
+            "endpoint_bundle_sha256": "c" * 64,
+            "worker_manifest": {"sha256": "d" * 64},
+            "router": {
+                "capacity_profile": split.STOCK_SINGLE_C64_CAPACITY_PROFILE,
+                "endpoint_identifier": "tianhaowu-kimi-k3-stock-eval-20260927",
+                "worker_count": 1,
+                "implementation": "direct-kimi-transparent-v2",
+                "implementation_sha256": "e" * 64,
+                "policy": "consistent_hash",
+                "request_id_headers": ["x-session-id"],
+                "request_timeout_seconds": 144_000,
+                "retries": 0,
+                "provider_concurrency": 64,
+            },
+        },
+    }
+    value = {
+        "schema_version": 6,
+        "kind": "direct-kimi-router-final",
+        "state": "passed",
+        "eval_run_identity_sha256": identity_sha256,
+        "invocation_identity_sha256": invocation_sha256,
+        "worker_manifest_sha256": "d" * 64,
+        "endpoint_bundle_sha256": "c" * 64,
+        "active_workers": 1,
+        "implementation": "direct-kimi-transparent-v2",
+        "implementation_sha256": "e" * 64,
+        "policy": "consistent_hash",
+        "request_id_headers": ["x-session-id"],
+        "request_timeout_seconds": 144_000,
+        "retries": 0,
+        "source_generation_revalidated": True,
+        "max_active_requests": 1,
+        "total_requests": 3,
+        "chat_requests": 2,
+        "worker_request_counts_sha256": "f" * 64,
+        "capacity_profile": split.STOCK_SINGLE_C64_CAPACITY_PROFILE,
+        "endpoint_identifier": "tianhaowu-kimi-k3-stock-eval-20260927",
+        "configured_capacity": 64,
+        "configured_per_worker_capacity": 64,
+        "active_forwarded_requests": 0,
+        "worker_active_request_counts_sha256": zero_digest,
+        "worker_session_counts_sha256": "1" * 64,
+        "active_worker_waiters": 0,
+        "worker_waiting_request_counts_sha256": zero_digest,
+        "max_active_chat_requests": 1,
+        "capacity_rejections": 0,
+        "queue_overflow_rejections": 0,
+        "route_tracking_overflows": 0,
+        "cross_route_anomalies": 0,
+        "tracked_sessions": 1,
+        "max_active_forwarded_requests": 1,
+        "worker_max_active_request_counts_sha256": "2" * 64,
+        "worker_queue_timeouts": 0,
+        "upstream_http_429": 0,
+        "upstream_http_5xx": 1,
+    }
+    receipt = tmp_path / "direct_kimi_router_final.json"
+    body = split.canonical_json(value)
+    _private_file(receipt, body)
+    marker = {
+        "schema_version": 1,
+        "kind": "direct-kimi-file-publication",
+        "files": {
+            receipt.name: {
+                "bytes": len(body),
+                "sha256": hashlib.sha256(body).hexdigest(),
+            }
+        },
+    }
+    _private_file(
+        receipt.with_name(f".{receipt.name}.complete"),
+        split.canonical_json(marker),
+    )
+
+    with pytest.raises(split.KimiProviderSplitError, match="router_receipt_invalid"):
+        split._validate_direct_router_receipt(
+            receipt,
+            identity,
+            minimum_chat_requests=1,
+            identity_sha256=identity_sha256,
+            invocation_identity_sha256=invocation_sha256,
+        )
+    observed, _artifact, _marker = split._validate_direct_router_receipt(
+        receipt,
+        identity,
+        minimum_chat_requests=1,
+        identity_sha256=identity_sha256,
+        invocation_identity_sha256=invocation_sha256,
+        allow_terminal_upstream_statuses=True,
+    )
+    assert observed == body
+
+    identity["role"] = "kimi-direct-tb4"
+    with pytest.raises(split.KimiProviderSplitError, match="router_receipt_unexpected"):
+        split._validate_direct_router_receipt(
+            receipt,
+            identity,
+            minimum_chat_requests=1,
+            identity_sha256=identity_sha256,
+            invocation_identity_sha256=invocation_sha256,
+            allow_terminal_upstream_statuses=True,
+        )
+
+
 def test_capacity_receipt_requires_signature_binding_environment_and_minimums(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

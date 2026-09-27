@@ -216,7 +216,7 @@ if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
     if [[ -n "$verified_extra" || "$verified_launch" == *$'\n'* \
         || "$verified_stage" != "$stage" || "$verified_provider" != sandoq \
         || "$verified_count" != 52 || "$verified_concurrency" != 24 \
-        || "$verified_adapter" != kimi-tb4-miniswe246-sandoq-small-diagnostic-v1 ]]; then
+        || "$verified_adapter" != kimi-tb4-miniswe246-sandoq-small-diagnostic-v2 ]]; then
         printf 'Firecracker-small diagnostic launch plan binding failed\n' >&2
         exit 2
     fi
@@ -711,7 +711,7 @@ stage_env=(
     DIRECT_KIMI_EXCLUDED_BACKEND_SHA256="${excluded_backend_sha256:-}"
 )
 if [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
-    stage_env+=(DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=1)
+    stage_env+=(DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=0)
 elif [[ "$stage" == miniswe-smoke || "$stage" == capacity-smoke \
     || "$stage" == tb4-miniswe246-sandoq-union \
     || "$stage" == tb4-miniswe246-vmvm-union ]]; then
@@ -907,9 +907,10 @@ if [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
     router_pid=
     flock -u 8
     "$x86_uv" run --no-project --offline --python "$python_bin" \
-        python3 "$workflow_dir/finalize_kimi_tb4_sandoq_small_full.py" \
+        python3 "$workflow_dir/finalize_kimi_tb4_sandoq_small_v7.py" \
         --plan "$small_plan" --plan-sha256 "$small_plan_sha256" \
-        --run-dir "$output_dir" --expected-revision "$expected_revision"
+        --run-dir "$output_dir" --expected-revision "$expected_revision" \
+        --expected-slurm-job-id "$SLURM_JOB_ID"
 elif [[ "$stage" == tb4-miniswe246-sandoq-union || "$stage" == tb4-miniswe246-vmvm-union ]]; then
     kill -TERM -- "-$router_pid"
     wait "$router_pid" 2>/dev/null || true

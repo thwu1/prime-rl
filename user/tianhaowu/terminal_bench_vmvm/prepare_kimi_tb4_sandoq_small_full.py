@@ -20,7 +20,7 @@ import prepare_kimi_tb4_miniswe246_union as union
 SCHEMA_VERSION = 1
 KIND = "kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic-plan"
 STAGE = "tb4-miniswe246-sandoq-small-full"
-ADAPTER = "kimi-tb4-miniswe246-sandoq-small-diagnostic-v1"
+ADAPTER = "kimi-tb4-miniswe246-sandoq-small-diagnostic-v2"
 SUPPORTED_TASKS = 52
 COMPOSE_UNSUPPORTED_TASKS = 11
 GPU_UNSUPPORTED_TASKS = 3
@@ -509,8 +509,13 @@ def _contracts() -> dict[str, Any]:
         "model_retries": 0,
         "guest_transport_retry_attempts": 10,
         "logical_request_upstream_attempts": 1,
+        "buffered_proxy_summary_schema": "logical-exact-once-v1",
+        "buffered_proxy_summary_records": SUPPORTED_TASKS,
+        "audit_error_model_io": True,
+        "router_terminal_status_binding_required": True,
+        "terminal_proxy_exceptions_allowed": False,
         "shell_command_timeout_seconds": SHELL_COMMAND_TIMEOUT_SECONDS,
-        "zero_model_resume_attempts": 1,
+        "zero_model_resume_attempts": 0,
         "verifier_runtime_retries": VERIFIER_RUNTIME_RETRIES,
         "retry_shared_verifier_scoring": True,
         "provisioning_retries": SANDOQ_PROVISIONING_RETRIES,
