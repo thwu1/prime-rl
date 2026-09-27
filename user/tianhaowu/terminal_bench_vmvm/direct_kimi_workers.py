@@ -1775,7 +1775,6 @@ def certify_router(
         forwarded_capacity_profile = w2_profile or stock_single_profile
         profiled_capacity = c23_profile or c64_profile or forwarded_capacity_profile
         capacity_smoke = identity["role"] == "kimi-direct-capacity-smoke"
-        w2_required = capacity_smoke or identity["role"] == "kimi-direct-mobius"
         identity_source = identity.get("source")
         identity_execution = identity.get("execution")
         identity_environment = (
@@ -1792,17 +1791,31 @@ def certify_router(
         )
         w2_tb4 = (identity["role"] == "kimi-direct-tb4" or sealed_small_diagnostic) and w2_profile
         stock_tb4 = sealed_small_diagnostic and stock_single_profile
+        stock_small_production = (
+            identity["role"] == "kimi-direct-mobius"
+            and stock_single_profile
+            and isinstance(identity_source, dict)
+            and identity_source.get("sandbox_provider") == "sandoq"
+            and isinstance(identity_execution, dict)
+            and identity_execution.get("rollout_concurrency") == capacity
+            and isinstance(identity_environment, dict)
+            and identity_environment.get("environment") == "oci-runner-firecracker-small"
+        )
+        w2_required = capacity_smoke or (
+            identity["role"] == "kimi-direct-mobius" and not stock_small_production
+        )
         w2_allowed = w2_required or identity["role"] == "kimi-direct-tb4" or sealed_small_diagnostic
         c23_role_allowed = identity["role"] in {"kimi-direct-smoke", "kimi-direct-tb4"}
         if (
             (w2_required and not w2_profile)
             or (w2_profile and not w2_allowed)
-            or (stock_single_profile and not stock_tb4)
+            or (stock_single_profile and not (stock_tb4 or stock_small_production))
             or (not w2_required and c23_profile and not c23_role_allowed)
             or (
                 not w2_required
                 and not w2_tb4
                 and not stock_tb4
+                and not stock_small_production
                 and not c23_profile
                 and capacity_profile != LEGACY_CAPACITY_PROFILE
             )

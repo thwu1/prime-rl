@@ -1,5 +1,79 @@
 # Kimi K3 Max Sandoq production lane
 
+## Stock-single Firecracker-small sharded lane
+
+The current production path is prepared by
+`kimi_stock_small_task_image_soak.py` and `kimi_stock_small_shards.py`.  It is
+separate from the older full-Firecracker lane documented below.  It uses one
+stock Kimi endpoint with consistent-hash routing, a 64-slot
+`oci-runner-firecracker-small` pool, and 40 serial shards: 19 shards of 63
+tasks followed by 21 shards of 62 tasks.  Serial shards keep the endpoint at
+c64 while making each completed shard a durable resume boundary.
+
+Before a production plan can be materialized, all of these exact, immutable
+inputs must validate again:
+
+- the stock-model c64 capacity receipt and matching endpoint epoch;
+- the task-free Sandoq c64 lifecycle receipt;
+- an aggregate-only c64 soak over 64 real task images, with at least six days
+  of endpoint walltime remaining at capture time;
+- a qualifying TB4 certificate with at least 7/66 passes and lossless
+  `exact_provider_json` model I/O.
+
+The task-image soak runs setup, a no-op command, and shared-verifier startup;
+it invokes neither MiniSWE nor the model and never publishes membership, raw
+output, or task errors.  Prepare its private plan from a clean detached
+checkout, then submit the generated launcher only through
+`swebench_vmvm:Launcher.0`:
+
+```bash
+python user/tianhaowu/terminal_bench_vmvm/kimi_stock_small_task_image_soak.py \
+  materialize --project-root "$PWD" --expected-revision REVISION \
+  --dataset /path/to/canonical-dataset \
+  --image-manifest /path/to/pinned-image-manifest.json \
+  --output /path/to/private/task-image-soak-plan
+
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd $PWD && env KIMI_TASK_IMAGE_SOAK_EXPECTED_REVISION=REVISION KIMI_TASK_IMAGE_SOAK_PLAN=/path/to/private/task-image-soak-plan/plan.json KIMI_TASK_IMAGE_SOAK_PLAN_SHA256=PLAN_SHA256 sbatch user/tianhaowu/terminal_bench_vmvm/run_kimi_stock_small_task_image_soak.sbatch" C-m
+```
+
+After that soak and the TB4 gate pass, materialize the production plan with
+their exact receipt hashes:
+
+```bash
+python user/tianhaowu/terminal_bench_vmvm/kimi_stock_small_shards.py \
+  materialize --project-root "$PWD" --expected-revision REVISION \
+  --source user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt \
+  --dataset /path/to/canonical-dataset \
+  --image-manifest /path/to/pinned-image-manifest.json \
+  --tb4-certificate /path/to/tb4-certificate.json \
+  --tb4-certificate-sha256 TB4_SHA256 \
+  --task-image-soak-receipt /path/to/task-image-soak/receipt.json \
+  --task-image-soak-receipt-sha256 TASK_IMAGE_SOAK_SHA256 \
+  --output /path/to/private/production-plan \
+  --run-root /path/to/private/production-runs
+```
+
+Each shard uses MiniSWE 2.4.6, a 256K input/total cap, a 32K sampling cap,
+`reasoning_effort=max`, 144,000-second request/session timeouts, and a
+129,600-second rollout timeout.  Client, router, rollout, and model retries
+are zero.  Provisioning gets eight bounded pre-model retries, and shared
+verifier scoring gets two bounded retries in the unchanged post-agent
+runtime.  Model-bearing HarnessError rows are retained, exact-response
+audited, and marked non-trainable; they are never replayed.  Zero-model rows
+cannot certify a shard.  The general Verifiers `--resume` command must not be
+used on a mixed-error shard because it would replay all error rows.  Until a
+lossless zero-model-only selector/merge controller is certified, such a shard
+requires explicit manual recovery and cannot be marked complete.
+
+The launcher requires 48 hours of endpoint walltime at each shard start.  Its
+launch receipt binds the endpoint job epoch from the capacity proof; endpoint
+rollover therefore requires a new capacity/soak receipt and a new production
+plan.  Never reuse a partial attempt directory.  A shard is skipped only when
+its `complete.json` and every referenced artifact revalidate exactly.
+
+No production job is launched by either materializer.
+
 This is the server-scoped, pass@1 trace-generation lane for
 `cpu-132-021_8103`. It selects the 2,499 non-Compose members of the approved
 2,500-task Mobius oracle set and runs them through the direct Kimi router and

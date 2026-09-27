@@ -57,7 +57,8 @@ if [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-capacity-smoke \
     && "$role" != kimi-direct-tb4 \
     && "$role" != kimi-direct-tb4-diagnostic \
     && "$role" != kimi-direct-tb4-small-diagnostic \
-    && "$role" != kimi-direct-tb4-sandoq-fallback-diagnostic ]]; then
+    && "$role" != kimi-direct-tb4-sandoq-fallback-diagnostic \
+    && "$role" != kimi-direct-mobius ]]; then
     printf 'Invalid direct Kimi stage role\n' >&2
     exit 2
 fi
@@ -70,12 +71,19 @@ if [[ "$role" == kimi-direct-capacity-smoke ]]; then
         exit 2
     fi
 elif [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
-    if [[ "$role" != kimi-direct-tb4-small-diagnostic \
-        || "$sandbox_provider" != sandoq \
+    stock_small_production=0
+    if [[ "$role" == kimi-direct-mobius && "$execution_mode" == certified \
+        && "$rollout_concurrency" == 64 ]]; then
+        stock_small_production=1
+    elif [[ "$role" != kimi-direct-tb4-small-diagnostic \
         || "$execution_mode" != small-firecracker-diagnostic \
-        || "$rollout_concurrency" != 24 \
+        || "$rollout_concurrency" != 24 ]]; then
+        printf 'Direct Kimi stock-single profile requires an approved small lane\n' >&2
+        exit 2
+    fi
+    if [[ "$sandbox_provider" != sandoq \
         || "$endpoint_identifier" != tianhaowu-kimi-k3-stock-eval-20260927 ]]; then
-        printf 'Direct Kimi stock-single profile requires the exact c24 diagnostic lane\n' >&2
+        printf 'Direct Kimi stock-single profile requires its exact endpoint\n' >&2
         exit 2
     fi
 elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
@@ -119,7 +127,17 @@ if [[ "$execution_mode" != certified && "$execution_mode" != diagnostic \
     printf 'Invalid direct Kimi execution mode\n' >&2
     exit 2
 fi
-if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
+if [[ "$role" == kimi-direct-mobius ]]; then
+    [[ "$execution_mode" == certified && "$sandbox_provider" == sandoq \
+        && "$router_capacity_profile" == sandoq-stock-single-c64-v1 \
+        && "$rollout_concurrency" == 64 ]] \
+        || { printf 'Stock-small production shard contract is invalid\n' >&2; exit 2; }
+    production_launch=${DIRECT_KIMI_PRODUCTION_LAUNCH:?Set DIRECT_KIMI_PRODUCTION_LAUNCH}
+    production_launch_sha256=${DIRECT_KIMI_PRODUCTION_LAUNCH_SHA256:?Set DIRECT_KIMI_PRODUCTION_LAUNCH_SHA256}
+    "$x86_uv" run --no-project --offline --python "$python_bin" \
+        python3 "$workflow_dir/kimi_stock_small_shards.py" validate-launch \
+        --launch "$production_launch" --launch-sha256 "$production_launch_sha256" >/dev/null
+elif [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
     if [[ "$role" != kimi-direct-tb4-small-diagnostic || "$sandbox_provider" != sandoq ]]; then
         printf 'Firecracker-small diagnostic requires its exact role and provider\n' >&2
         exit 2
@@ -273,7 +291,8 @@ managed_shell_recovery_policy=disabled
 if [[ "$role" == kimi-direct-smoke || "$role" == kimi-direct-tb4 \
     || "$role" == kimi-direct-tb4-diagnostic \
     || "$role" == kimi-direct-tb4-small-diagnostic \
-    || "$role" == kimi-direct-tb4-sandoq-fallback-diagnostic ]]; then
+    || "$role" == kimi-direct-tb4-sandoq-fallback-diagnostic \
+    || "$role" == kimi-direct-mobius ]]; then
     expected_sandoq_lease_profile=kimi-tb4-long
     expected_sandoq_lease_duration=12h
     expected_managed_shell_recovery=1
@@ -288,6 +307,7 @@ fi
 if [[ "$native_miniswe" == 1 ]] \
     && [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-capacity-smoke \
         && "$role" != kimi-direct-tb4 \
+        && "$role" != kimi-direct-mobius \
         && ! ( "$role" == kimi-direct-tb4-small-diagnostic \
             && "$execution_mode" == small-firecracker-diagnostic ) ]]; then
     printf 'Native MiniSWE Sandoq context is not approved for this stage role\n' >&2
@@ -332,7 +352,10 @@ if [[ "$(git -C "$project_dir" rev-parse HEAD)" != "$expected_revision" \
     exit 2
 fi
 approved_verifiers_revision=3df6efa9e9f6bdc8a013df7759a03074aec79111
-if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
+if [[ "$role" == kimi-direct-mobius \
+    && "${OCI_RUNNER_ENVIRONMENT:-}" == oci-runner-firecracker-small ]]; then
+    approved_verifiers_revision=f11bf7cec1ca16ecadf7c88046f6a4a660af2031
+elif [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
     approved_verifiers_revision=f11bf7cec1ca16ecadf7c88046f6a4a660af2031
 fi
 if [[ "$(git -C "$project_dir/deps/verifiers" rev-parse HEAD)" \
@@ -508,7 +531,11 @@ fi
 if [[ "$direct_request_timeout" == 144000 ]]; then
     expected_walltime_profile=tb4-extended-c24-two-wave-v1
     maximum_two_wave_tasks=48
-    if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
+    if [[ "$role" == kimi-direct-mobius \
+        && "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
+        expected_walltime_profile=tb4-extended-c24-stock-single-three-wave-v1
+        maximum_two_wave_tasks=63
+    elif [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
         expected_walltime_profile=tb4-extended-c24-small-three-wave-v1
         maximum_two_wave_tasks=72
         if [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
@@ -536,16 +563,22 @@ if [[ "$direct_request_timeout" == 144000 ]]; then
     fi
     if [[ "$endpoint_walltime_profile" != "$expected_walltime_profile" \
         || ( "$role" != kimi-direct-tb4 \
+            && "$role" != kimi-direct-mobius \
             && ! ( "$role" == kimi-direct-tb4-small-diagnostic \
                 && "$execution_mode" == small-firecracker-diagnostic ) ) \
         || ! "$approved_task_count" =~ ^[1-9][0-9]*$ \
-        || ( "$vmvm_union_walltime" != 1 && "$approved_task_count" -le "$minimum_wave_concurrency" ) \
+        || ( "$role" != kimi-direct-mobius \
+            && "$vmvm_union_walltime" != 1 \
+            && "$approved_task_count" -le "$minimum_wave_concurrency" ) \
         || ( "$vmvm_union_walltime" == 1 && "$approved_task_count" != 11 ) \
         || "$approved_task_count" -gt "$maximum_two_wave_tasks" \
         || ! "$endpoint_minimum_remaining_seconds" =~ ^[1-9][0-9]*$ \
-        || "$endpoint_minimum_remaining_seconds" -lt 324000 \
+        || ( "$role" != kimi-direct-mobius \
+            && "$endpoint_minimum_remaining_seconds" -lt 324000 ) \
         || ( "$execution_mode" == small-firecracker-diagnostic \
             && "$endpoint_minimum_remaining_seconds" -lt 475200 ) \
+        || ( "$role" == kimi-direct-mobius \
+            && "$endpoint_minimum_remaining_seconds" -lt 172800 ) \
         || ( "$router_capacity_profile" == sandoq-c64-w2-v1 \
             && "$execution_mode" != small-firecracker-diagnostic \
             && "$endpoint_minimum_remaining_seconds" -lt 345600 ) ]]; then
@@ -702,7 +735,8 @@ if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 \
 fi
 if [[ -n "$endpoint_walltime_receipt" \
     && ( "$router_capacity_profile" == sandoq-c64-w2-v1 \
-        || "$execution_mode" == small-firecracker-diagnostic ) ]]; then
+        || "$execution_mode" == small-firecracker-diagnostic \
+        || "$role" == kimi-direct-mobius ) ]]; then
     identity_args+=(
         --direct-endpoint-walltime-gate "$endpoint_walltime_receipt"
         --direct-endpoint-walltime-gate-sha256 "$endpoint_walltime_receipt_file_sha256"
@@ -714,6 +748,12 @@ if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 && "$role" == kimi-direct-t
         --direct-capacity-certificate-sha256 "$capacity_certificate_sha256"
         --direct-capacity-gate-receipt "$capacity_gate_receipt"
         --direct-capacity-gate-receipt-sha256 "$capacity_gate_receipt_sha256"
+    )
+fi
+if [[ "$role" == kimi-direct-mobius ]]; then
+    identity_args+=(
+        --promotion-certificate "$production_launch"
+        --promotion-certificate-sha256 "$production_launch_sha256"
     )
 fi
 if [[ -n "$eval_config_sha256" ]]; then
@@ -803,7 +843,8 @@ PY
         --vacli-container-privileged "${VACLI_CONTAINER_PRIVILEGED:-1}"
     )
 fi
-if [[ ( "$role" == kimi-direct-smoke || "$role" == kimi-direct-capacity-smoke ) ]] \
+if [[ ( "$role" == kimi-direct-smoke || "$role" == kimi-direct-capacity-smoke \
+        || "$role" == kimi-direct-mobius ) ]] \
     && [[ "$(python3 - "$eval_config" <<'PY'
 import sys
 import tomllib

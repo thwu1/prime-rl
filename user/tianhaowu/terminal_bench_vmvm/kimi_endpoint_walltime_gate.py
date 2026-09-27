@@ -37,6 +37,7 @@ C23_SELECTED_ENDPOINTS = 23
 EXTENDED_MINIMUM_REMAINING_SECONDS = 90 * 60 * 60
 VMVM_UNION_MINIMUM_REMAINING_SECONDS = 90 * 60 * 60
 SMALL_MINIMUM_REMAINING_SECONDS = 132 * 60 * 60
+STOCK_SINGLE_MINIMUM_REMAINING_SECONDS = 48 * 60 * 60
 EXTENDED_REQUEST_TIMEOUT_SECONDS = 144_000
 EXTENDED_ROUTER_CONCURRENCY = 24
 RECEIPT_KIND = "direct-kimi-endpoint-walltime-gate"
@@ -238,6 +239,7 @@ def parse_scheduler_output(
     minimum_remaining_seconds: int,
     *,
     expected_endpoint_count: int = EXPECTED_ENDPOINTS,
+    minimum_floor_seconds: int = EXTENDED_MINIMUM_REMAINING_SECONDS,
 ) -> tuple[tuple[SchedulerObservation, ...], int, str]:
     """Validate exact sacct rows and return aggregate walltime evidence."""
 
@@ -246,7 +248,10 @@ def parse_scheduler_output(
     if (
         not isinstance(minimum_remaining_seconds, int)
         or isinstance(minimum_remaining_seconds, bool)
-        or minimum_remaining_seconds < EXTENDED_MINIMUM_REMAINING_SECONDS
+        or not isinstance(minimum_floor_seconds, int)
+        or isinstance(minimum_floor_seconds, bool)
+        or minimum_floor_seconds < STOCK_SINGLE_MINIMUM_REMAINING_SECONDS
+        or minimum_remaining_seconds < minimum_floor_seconds
     ):
         raise EndpointWalltimeGateError("minimum_remaining_seconds_invalid")
     expected = tuple(sorted(expected_job_ids, key=int))
@@ -320,11 +325,15 @@ def _validate_profile(profile: str, minimum_remaining_seconds: int) -> None:
     if (
         not isinstance(minimum_remaining_seconds, int)
         or isinstance(minimum_remaining_seconds, bool)
-        or minimum_remaining_seconds < EXTENDED_MINIMUM_REMAINING_SECONDS
-        or (profile == VMVM_UNION_PROFILE and minimum_remaining_seconds < VMVM_UNION_MINIMUM_REMAINING_SECONDS)
         or (
-            profile in {SMALL_PROFILE, STOCK_SINGLE_PROFILE}
-            and minimum_remaining_seconds < SMALL_MINIMUM_REMAINING_SECONDS
+            profile != STOCK_SINGLE_PROFILE
+            and minimum_remaining_seconds < EXTENDED_MINIMUM_REMAINING_SECONDS
+        )
+        or (profile == VMVM_UNION_PROFILE and minimum_remaining_seconds < VMVM_UNION_MINIMUM_REMAINING_SECONDS)
+        or (profile == SMALL_PROFILE and minimum_remaining_seconds < SMALL_MINIMUM_REMAINING_SECONDS)
+        or (
+            profile == STOCK_SINGLE_PROFILE
+            and minimum_remaining_seconds < STOCK_SINGLE_MINIMUM_REMAINING_SECONDS
         )
     ):
         raise EndpointWalltimeGateError("minimum_remaining_seconds_invalid")
@@ -533,6 +542,11 @@ def capture_gate(
         job_ids,
         minimum_remaining_seconds,
         expected_endpoint_count=selected_endpoint_count,
+        minimum_floor_seconds=(
+            STOCK_SINGLE_MINIMUM_REMAINING_SECONDS
+            if profile == STOCK_SINGLE_PROFILE
+            else EXTENDED_MINIMUM_REMAINING_SECONDS
+        ),
     )
 
     after_result = runner(status_argv, COMMAND_TIMEOUT_SECONDS)
