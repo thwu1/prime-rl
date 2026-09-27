@@ -69,7 +69,12 @@ if [[ "$role" == kimi-direct-capacity-smoke ]]; then
         exit 2
     fi
 elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
-    if [[ "$role" != kimi-direct-tb4 \
+    if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
+        [[ "$role" == kimi-direct-tb4-diagnostic \
+            && "$sandbox_provider" == sandoq \
+            && "$rollout_concurrency" == 24 ]] \
+            || { printf 'Direct Kimi TB4 small diagnostic requires c24 Sandoq\n' >&2; exit 2; }
+    elif [[ "$role" != kimi-direct-tb4 \
         || ( "$sandbox_provider" != sandoq && "$sandbox_provider" != vmvm ) \
         || "$execution_mode" != certified \
         || ( "$sandbox_provider" == sandoq && "$rollout_concurrency" != 48 ) \
@@ -99,11 +104,47 @@ elif [[ "$router_capacity_profile" != legacy-c24 || -n "$endpoint_identifier" \
     exit 2
 fi
 if [[ "$execution_mode" != certified && "$execution_mode" != diagnostic \
-    && "$execution_mode" != sandoq-fallback-diagnostic ]]; then
+    && "$execution_mode" != sandoq-fallback-diagnostic \
+    && "$execution_mode" != small-firecracker-diagnostic ]]; then
     printf 'Invalid direct Kimi execution mode\n' >&2
     exit 2
 fi
-if [[ "$role" == kimi-direct-tb4-sandoq-fallback-diagnostic ]]; then
+if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
+    if [[ "$role" != kimi-direct-tb4-diagnostic || "$sandbox_provider" != sandoq ]]; then
+        printf 'Firecracker-small diagnostic requires its exact role and provider\n' >&2
+        exit 2
+    fi
+    launch_plan=${DIRECT_KIMI_SMALL_PLAN:?Set DIRECT_KIMI_SMALL_PLAN}
+    launch_plan_sha256=${DIRECT_KIMI_SMALL_PLAN_SHA256:?Set DIRECT_KIMI_SMALL_PLAN_SHA256}
+    verified_launch=$(
+        PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:$sandoq_site:$x86_site" \
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/prepare_kimi_tb4_sandoq_small_full.py" verify \
+            --plan "$launch_plan" --plan-sha256 "$launch_plan_sha256" --format tsv
+    )
+    IFS=$'\t' read -r verified_stage verified_provider verified_config verified_config_sha256 \
+        verified_selector verified_selector_sha256 verified_count verified_concurrency verified_output \
+        verified_full_output verified_manifest verified_manifest_sha256 verified_adapter verified_extra \
+        <<< "$verified_launch"
+    if [[ -n "$verified_extra" || "$verified_launch" == *$'\n'* \
+        || "$verified_stage" != tb4-miniswe246-sandoq-small-full \
+        || "$verified_provider" != sandoq \
+        || "$verified_count" != 52 || "$verified_concurrency" != 24 \
+        || "$verified_adapter" != kimi-tb4-miniswe246-sandoq-small-diagnostic-v1 \
+        || "$eval_config" != "$verified_config" \
+        || "$eval_config_sha256" != "$verified_config_sha256" \
+        || "$approved_task_file" != "$verified_selector" \
+        || "$approved_task_file_sha256" != "$verified_selector_sha256" \
+        || "$approved_task_count" != "$verified_count" \
+        || "$rollout_concurrency" != "$verified_concurrency" \
+        || "$output_dir" != "$verified_output" \
+        || "${DIRECT_KIMI_SMALL_FULL_OUTPUT:?Set DIRECT_KIMI_SMALL_FULL_OUTPUT}" != "$verified_full_output" \
+        || "${DIRECT_KIMI_RESOURCE_MANIFEST:?Set DIRECT_KIMI_RESOURCE_MANIFEST}" != "$verified_manifest" \
+        || "${DIRECT_KIMI_RESOURCE_MANIFEST_SHA256:?Set DIRECT_KIMI_RESOURCE_MANIFEST_SHA256}" != "$verified_manifest_sha256" ]]; then
+        printf 'Firecracker-small diagnostic launch plan binding failed\n' >&2
+        exit 2
+    fi
+elif [[ "$role" == kimi-direct-tb4-sandoq-fallback-diagnostic ]]; then
     if [[ "$execution_mode" != sandoq-fallback-diagnostic || "$sandbox_provider" != sandoq ]]; then
         printf 'Fallback direct Kimi role requires its Sandoq diagnostic execution mode\n' >&2
         exit 2
@@ -229,11 +270,15 @@ if [[ "$role" == kimi-direct-smoke || "$role" == kimi-direct-tb4 \
 fi
 native_miniswe=0
 if [[ "$sandbox_provider" == sandoq \
-    && "${OCI_RUNNER_ENVIRONMENT:-}" == oci-runner-firecracker ]]; then
+    && ( "${OCI_RUNNER_ENVIRONMENT:-}" == oci-runner-firecracker \
+        || "${OCI_RUNNER_ENVIRONMENT:-}" == oci-runner-firecracker-small ) ]]; then
     native_miniswe=1
 fi
 if [[ "$native_miniswe" == 1 ]] \
-    && [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-capacity-smoke && "$role" != kimi-direct-tb4 ]]; then
+    && [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-capacity-smoke \
+        && "$role" != kimi-direct-tb4 \
+        && ! ( "$role" == kimi-direct-tb4-diagnostic \
+            && "$execution_mode" == small-firecracker-diagnostic ) ]]; then
     printf 'Native MiniSWE Sandoq context is not approved for this stage role\n' >&2
     exit 2
 fi
@@ -245,13 +290,24 @@ if [[ "$sandbox_provider" == sandoq ]] \
         || "$OCI_RUNNER_LEASE_DURATION" != "$expected_sandoq_lease_duration" \
         || "$OCI_RUNNER_POOL_RENEW_INTERVAL" != 5m \
         || "$OCI_RUNNER_MANAGED_SHELL_RECOVERY" != "$expected_managed_shell_recovery" \
-        || ( "$native_miniswe" == 1 && "$OCI_RUNNER_ENVIRONMENT" != oci-runner-firecracker ) \
+        || ( "$native_miniswe" == 1 && "$OCI_RUNNER_ENVIRONMENT" != oci-runner-firecracker \
+            && "$OCI_RUNNER_ENVIRONMENT" != oci-runner-firecracker-small ) \
         || ( "$native_miniswe" == 1 && "${OCI_RUNNER_TASK_NETWORK:-}" != host ) \
         || ( "$native_miniswe" == 1 && "${OCI_RUNNER_ALLOW_DOCKERHUB_FALLBACK:-}" != 0 ) \
-        || ( "$native_miniswe" == 1 && "${SANDOQ_PROVIDER_PROFILE_SHA256:-}" != 7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df ) \
-        || ( "$native_miniswe" == 1 && "${SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256:-}" != 39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276 ) \
-        || ( "$native_miniswe" == 1 && "${SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256:-}" != ce3fc3ed2ead1aaf8c71fc35e5dae324f1be9d51b4e7fffff7bc99d1a47adbf6 ) \
-        || ( "$native_miniswe" == 1 && "${DIRECT_KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256:-}" != cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220 ) \
+        || ( "$OCI_RUNNER_ENVIRONMENT" == oci-runner-firecracker \
+            && "${SANDOQ_PROVIDER_PROFILE_SHA256:-}" != 7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df ) \
+        || ( "$OCI_RUNNER_ENVIRONMENT" == oci-runner-firecracker \
+            && "${SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256:-}" != 39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276 ) \
+        || ( "$OCI_RUNNER_ENVIRONMENT" == oci-runner-firecracker \
+            && "${SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256:-}" != ce3fc3ed2ead1aaf8c71fc35e5dae324f1be9d51b4e7fffff7bc99d1a47adbf6 ) \
+        || ( "$OCI_RUNNER_ENVIRONMENT" == oci-runner-firecracker \
+            && "${DIRECT_KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256:-}" != cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220 ) \
+        || ( "$OCI_RUNNER_ENVIRONMENT" == oci-runner-firecracker-small \
+            && "${SANDOQ_PROVIDER_PROFILE_SHA256:-}" != 247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084 ) \
+        || ( "$OCI_RUNNER_ENVIRONMENT" == oci-runner-firecracker-small \
+            && ( -n ${SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256:-} \
+                || -n ${SANDOQ_RUNTIME_RESOURCE_RECEIPT_SHA256:-} \
+                || -n ${DIRECT_KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256:-} ) ) \
         || ( "$native_miniswe" == 0 && "$OCI_RUNNER_ENVIRONMENT" != oci-runner ) \
         || ( "$native_miniswe" == 0 && -n ${OCI_RUNNER_TASK_NETWORK:-} ) ]]; then
     printf 'Direct Kimi stage requires its exact sealed Sandoq context\n' >&2
@@ -433,7 +489,10 @@ fi
 if [[ "$direct_request_timeout" == 144000 ]]; then
     expected_walltime_profile=tb4-extended-c24-two-wave-v1
     maximum_two_wave_tasks=48
-    if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
+    if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
+        expected_walltime_profile=tb4-extended-c24-small-three-wave-v1
+        maximum_two_wave_tasks=72
+    elif [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
         expected_walltime_profile=tb4-c23-v1
         maximum_two_wave_tasks=46
     elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 \
@@ -453,7 +512,9 @@ if [[ "$direct_request_timeout" == 144000 ]]; then
         vmvm_union_walltime=1
     fi
     if [[ "$endpoint_walltime_profile" != "$expected_walltime_profile" \
-        || "$role" != kimi-direct-tb4 \
+        || ( "$role" != kimi-direct-tb4 \
+            && ! ( "$role" == kimi-direct-tb4-diagnostic \
+                && "$execution_mode" == small-firecracker-diagnostic ) ) \
         || ! "$approved_task_count" =~ ^[1-9][0-9]*$ \
         || ( "$vmvm_union_walltime" != 1 && "$approved_task_count" -le "$minimum_wave_concurrency" ) \
         || ( "$vmvm_union_walltime" == 1 && "$approved_task_count" != 11 ) \
@@ -470,7 +531,13 @@ if [[ "$direct_request_timeout" == 144000 ]]; then
             printf 'Extended direct Kimi VMVM union requires concurrency 11\n' >&2
             exit 2
         fi
-    elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+    elif [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
+        if [[ "$rollout_concurrency" != 24 ]]; then
+            printf 'Firecracker-small diagnostic requires concurrency 24\n' >&2
+            exit 2
+        fi
+    elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 \
+        && "$execution_mode" != small-firecracker-diagnostic ]]; then
         if [[ "$rollout_concurrency" != 48 ]]; then
             printf 'Extended direct Kimi w2 TB4 requires concurrency 48\n' >&2
             exit 2
@@ -600,7 +667,9 @@ if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
         --direct-endpoint-load-gate-sha256 "$endpoint_load_gate_receipt_sha256"
     )
 fi
-if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 && -n "$endpoint_walltime_receipt" ]]; then
+if [[ -n "$endpoint_walltime_receipt" \
+    && ( "$router_capacity_profile" == sandoq-c64-w2-v1 \
+        || "$execution_mode" == small-firecracker-diagnostic ) ]]; then
     identity_args+=(
         --direct-endpoint-walltime-gate "$endpoint_walltime_receipt"
         --direct-endpoint-walltime-gate-sha256 "$endpoint_walltime_receipt_file_sha256"

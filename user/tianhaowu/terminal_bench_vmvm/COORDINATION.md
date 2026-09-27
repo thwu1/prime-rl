@@ -5259,3 +5259,29 @@ replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
   missing/zero-model rows. A content-blind c24 allocation/cleanup soak, fresh
   exact source/deployment freeze, and independent review remain required
   before submission.
+
+## 2026-09-27 02:01 UTC — Kimi TB4 small-Firecracker full lane is source-ready but deployment-held
+
+- The diagnostic full lane preserves the MiniSWE-agent 2.4.6 pass@1 contract:
+  52 runnable CPU rows at concurrency 24, 200 turns, 32,768 sampled tokens per
+  call, 256K total context, maximum reasoning, zero model retries, exact model
+  I/O/provider capture, and fail-closed cleanup. The 11 Compose and three GPU
+  rows remain explicit unsupported zeroes in the fixed 66-row denominator.
+  Results are resource-clamped diagnostics and are neither official-comparable
+  nor certification-eligible.
+- Resume is limited to one evaluator retry after the existing content-blind
+  assessor proves the affected result rows made zero model calls. The full
+  result finalizer requires complete 52-row trace coverage, exact routing and
+  cleanup evidence, and cannot publish while the evaluator or router locks are
+  held.
+- Do not launch this lane against the September 23 custom-image deployment.
+  Its remaining lifetime is below the sealed 96-hour endpoint walltime gate,
+  and the direct-router snapshot cannot safely discover replacement workers.
+  A newly frozen generation must pass the load and walltime gates before
+  submission; do not relax either gate or claim cross-generation resume.
+- A task-free A/B check found the stock Kimi serving image dramatically faster
+  than the current custom image and retained maximum-reasoning/tool-call
+  behavior through concurrency 64. Prefer a separately sealed one-worker stock
+  deployment profile (router admission 64, initial evaluator concurrency 24)
+  once its multi-day generation is frozen; do not silently substitute it into
+  the existing 24-worker manifest contract.

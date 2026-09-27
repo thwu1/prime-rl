@@ -128,6 +128,9 @@ KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256 = "ce3fc3ed2ead1aaf8c71fc35e5dae324f1be
 KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256 = "39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276"
 KIMI_MINISWE_COMPATIBILITY_SHA256 = "cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220"
 KIMI_NATIVE_MINISWE_SMOKE_SELECTOR_SHA256 = "c1f745d4a1d3861deefb3fba4daa23f52ff3d1d4952a9fe2ba0ccbdc4040af97"
+KIMI_SMALL_TB4_DIAGNOSTIC_ROLE = "kimi-direct-tb4-diagnostic"
+KIMI_SMALL_FIRECRACKER_ENVIRONMENT = "oci-runner-firecracker-small"
+KIMI_SMALL_FIRECRACKER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
 KIMI_NATIVE_MINISWE_ROLES = frozenset(
     {"kimi-direct-smoke", KIMI_CAPACITY_SMOKE_ROLE, "kimi-direct-tb4", KIMI_PRODUCTION_ROLE}
 )
@@ -193,6 +196,10 @@ def _direct_kimi_expected_concurrency(
         ):
             raise EvalIdentityError("direct_kimi_production_scope_invalid")
         return int(configured_concurrency)
+    if role == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE:
+        if sandbox_provider != "sandoq" or task_count != 52 or configured_concurrency != 24:
+            raise EvalIdentityError("direct_kimi_tb4_small_scope_invalid")
+        return 24
     if role == "kimi-direct-tb4" and sandbox_provider == "sandoq":
         # TB4 union plans bind their own Sandoq lane concurrency.  Keep the
         # transparent router at its independently certified 24-request
@@ -406,6 +413,95 @@ def _validate_direct_kimi_tb4_w2_config(
         or rollout_retries.get("max_retries") != 0
     ):
         raise EvalIdentityError("direct_kimi_tb4_w2_config_invalid")
+
+
+def _validate_direct_kimi_tb4_small_config(config: dict[str, Any], role: str) -> None:
+    """Seal the resource-clamped 52-row Firecracker-small diagnostic."""
+
+    harness = config.get("harness")
+    runtime = harness.get("runtime") if isinstance(harness, dict) else None
+    if role != KIMI_SMALL_TB4_DIAGNOSTIC_ROLE:
+        return
+    client = config.get("client")
+    sampling = config.get("sampling")
+    taskset = config.get("taskset")
+    timeouts = config.get("timeout")
+    rollout_retries = config.get("retries", {}).get("rollout")
+    if (
+        not isinstance(runtime, dict)
+        or runtime.get("expected_environment") != KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+        or config.get("model") != "Kimi-K3"
+        or config.get("num_tasks") != 52
+        or config.get("num_rollouts") != 1
+        or config.get("max_concurrent") != 24
+        or config.get("multiplex") != 24
+        or config.get("max_turns") != 200
+        or any(config.get(key) != 262_144 for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens"))
+        or config.get("rich") is not False
+        or config.get("retain_traces") is not False
+        or not isinstance(client, dict)
+        or client.get("type") != "eval"
+        or client.get("capture_model_io") is not True
+        or client.get("outbound_body_denylist") != ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]
+        or client.get("timeout") != KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS
+        or client.get("connect_timeout") != KIMI_CONNECT_TIMEOUT_SECONDS
+        or client.get("max_connections") != 24
+        or client.get("max_keepalive_connections") != 24
+        or client.get("max_retries") != 0
+        or not isinstance(sampling, dict)
+        or sampling.get("max_tokens") != 32_768
+        or sampling.get("reasoning_effort") != "max"
+        or sampling.get("chat_template_kwargs") != {"enable_thinking": True, "preserve_thinking": True}
+        or not isinstance(taskset, dict)
+        or taskset.get("enable_compose") is not False
+        or taskset.get("ignore_dockerfile") is not True
+        or taskset.get("use_declared_images") is not True
+        or taskset.get("verifier_runtime_retries") != 0
+        or taskset.get("resource_multiplier") != 1.0
+        or taskset.get("resource_cpu_cap") != 1
+        or taskset.get("resource_memory_mb_cap") != 2_048
+        or taskset.get("resource_storage_mb_cap") != 10_240
+        or harness.get("id") != "mini-swe-agent"
+        or harness.get("version") != KIMI_MINISWE_VERSION
+        or harness.get("config_file") != "mini"
+        or harness.get("config_overrides")
+        != [
+            "agent.step_limit=200",
+            "environment.environment_class=local",
+            "environment.timeout=129600",
+            "model.model_kwargs.drop_params=true",
+            "model.model_kwargs.timeout=144000",
+            "model.model_kwargs.temperature=1.0",
+            "model.model_kwargs.top_p=1.0",
+            "model.model_kwargs.parallel_tool_calls=false",
+        ]
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+        or runtime
+        != {
+            "type": "sandoq",
+            "mode": "oci-runner",
+            "session_timeout": KIMI_TB4_EXTENDED_SESSION_TIMEOUT_SECONDS,
+            "network_access": True,
+            "host_tunnel": "sandoq",
+            "buffered_chat_completions": True,
+            "guest_tunnel_url": "http://127.0.0.1:8485",
+            "tunnel_pool_size": 4,
+            "tunnel_ready_timeout": 30,
+            "provisioning_retries": KIMI_SANDOQ_PROVISIONING_RETRIES,
+            "expected_environment": KIMI_SMALL_FIRECRACKER_ENVIRONMENT,
+            "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
+        }
+        or timeouts
+        != {
+            "setup": KIMI_SETUP_TIMEOUT_SECONDS,
+            "rollout": KIMI_TB4_EXTENDED_ROLLOUT_TIMEOUT_SECONDS,
+            "finalize": KIMI_FINALIZE_TIMEOUT_SECONDS,
+            "scoring": KIMI_SCORING_TIMEOUT_SECONDS,
+        }
+        or not isinstance(rollout_retries, dict)
+        or rollout_retries.get("max_retries") != 0
+    ):
+        raise EvalIdentityError("direct_kimi_tb4_small_config_invalid")
 
 
 def _valid_w2_smoke_checkpoint(
@@ -1631,7 +1727,7 @@ def _contract(
             runtime = harness.get("runtime")
             timeouts = config.get("timeout")
             if (
-                role == "kimi-direct-tb4"
+                role in {"kimi-direct-tb4", KIMI_SMALL_TB4_DIAGNOSTIC_ROLE}
                 and isinstance(runtime, dict)
                 and isinstance(timeouts, dict)
                 and client.get("timeout") == KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS
@@ -1734,15 +1830,19 @@ def _contract(
     if not isinstance(runtime, dict) or runtime.get("type") != sandbox_provider:
         error = "vmvm_runtime_required" if sandbox_provider == "vmvm" else "sandbox_runtime_mismatch"
         raise EvalIdentityError(error)
+    kimi_small_diagnostic = (
+        role == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE
+        and runtime.get("expected_environment") == KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+    )
     native_sandoq_miniswe = (
         sandbox_provider == "sandoq"
         and harness.get("id") == "mini-swe-agent"
-        and (role in KIMI_NATIVE_MINISWE_ROLES or qwen_error_retry)
+        and (role in KIMI_NATIVE_MINISWE_ROLES or qwen_error_retry or kimi_small_diagnostic)
     )
     expected_network_access = True
     expected_environment = (
-        QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT
-        if qwen_error_retry
+        KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+        if qwen_error_retry or kimi_small_diagnostic
         else KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
         if native_sandoq_miniswe
         else "oci-runner"
@@ -2202,13 +2302,15 @@ def _effective_sandoq_environment(
     if pool_size < rollout_concurrency:
         raise EvalIdentityError("sandoq_pool_size_below_rollout_concurrency")
     kimi_native_tunnel = args.sandoq_environment == KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
-    qwen_native_tunnel = args.sandoq_environment == QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT
-    native_tunnel = kimi_native_tunnel or qwen_native_tunnel
+    small_native_tunnel = args.sandoq_environment == KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+    qwen_native_tunnel = small_native_tunnel and args.role == QWEN_ERROR_RETRY_ROLE
+    kimi_small_native_tunnel = small_native_tunnel and args.role == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE
+    native_tunnel = kimi_native_tunnel or small_native_tunnel
     if kimi_native_tunnel:
         if args.role not in KIMI_NATIVE_MINISWE_ROLES:
             raise EvalIdentityError("sandoq_environment_invalid")
-    elif qwen_native_tunnel:
-        if args.role != QWEN_ERROR_RETRY_ROLE:
+    elif small_native_tunnel:
+        if not (qwen_native_tunnel or kimi_small_native_tunnel):
             raise EvalIdentityError("sandoq_environment_invalid")
     elif args.sandoq_environment != "oci-runner":
         raise EvalIdentityError("sandoq_environment_invalid")
@@ -2281,9 +2383,9 @@ def _effective_sandoq_environment(
             )
         )
         or (
-            qwen_native_tunnel
+            small_native_tunnel
             and (
-                os.environ.get("SANDOQ_PROVIDER_PROFILE_SHA256") != QWEN_ERROR_RETRY_FIRECRACKER_PROFILE_SHA256
+                os.environ.get("SANDOQ_PROVIDER_PROFILE_SHA256") != KIMI_SMALL_FIRECRACKER_PROFILE_SHA256
                 or os.environ.get("SANDOQ_RUNTIME_SMOKE_RECEIPT") is not None
                 or os.environ.get("SANDOQ_RUNTIME_SMOKE_RECEIPT_SHA256") is not None
                 or os.environ.get("SANDOQ_RUNTIME_RESOURCE_RECEIPT") is not None
@@ -2385,13 +2487,13 @@ def _effective_sandoq_environment(
             {
                 "provider_task_network": "host",
                 "provider_profile_sha256": (
-                    QWEN_ERROR_RETRY_FIRECRACKER_PROFILE_SHA256
-                    if qwen_native_tunnel
+                    KIMI_SMALL_FIRECRACKER_PROFILE_SHA256
+                    if small_native_tunnel
                     else KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256
                 ),
                 **(
                     {}
-                    if qwen_native_tunnel
+                    if small_native_tunnel
                     else {
                         "runtime_tunnel_receipt_sha256": KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256,
                         "runtime_resource_receipt_sha256": KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256,
@@ -2714,12 +2816,25 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         proxy_policy = None
     elif role in DIRECT_KIMI_ROLES:
         candidate_router = deployment.get("router") if isinstance(deployment, dict) else None
+        candidate_execution = identity.get("execution")
+        candidate_environment = (
+            candidate_execution.get("sandoq_environment")
+            if isinstance(candidate_execution, dict)
+            else None
+        )
         w2_tb4_role = (
             role == "kimi-direct-tb4"
             and isinstance(candidate_router, dict)
             and candidate_router.get("capacity_profile") == KIMI_W2_CAPACITY_PROFILE
         )
-        load_gated_role = role == KIMI_CAPACITY_SMOKE_ROLE or w2_tb4_role
+        small_tb4_role = (
+            role == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE
+            and isinstance(candidate_router, dict)
+            and candidate_router.get("capacity_profile") == KIMI_W2_CAPACITY_PROFILE
+            and isinstance(candidate_environment, dict)
+            and candidate_environment.get("environment") == KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+        )
+        load_gated_role = role == KIMI_CAPACITY_SMOKE_ROLE or w2_tb4_role or small_tb4_role
         expected_deployment_keys = {
             "kind",
             "worker_manifest",
@@ -2733,6 +2848,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             expected_deployment_keys.add("promotion_certificate")
         if w2_tb4_role:
             expected_deployment_keys.update({"capacity_certificate", "capacity_gate_receipt", "endpoint_walltime_gate"})
+        if small_tb4_role:
+            expected_deployment_keys.add("endpoint_walltime_gate")
         if load_gated_role:
             expected_deployment_keys.add("endpoint_load_gate")
         if not isinstance(deployment, dict) or set(deployment) != expected_deployment_keys:
@@ -2764,12 +2881,14 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "implementation_sha256": router.get("implementation_sha256") if isinstance(router, dict) else None,
             "policy": "consistent_hash",
             "request_id_headers": ["x-session-id"],
-            "provider_concurrency": (64 if capacity_role or w2_tb4_role else KIMI_C23_WORKER_COUNT if c23_role else 24),
+            "provider_concurrency": (
+                64 if capacity_role or w2_tb4_role or small_tb4_role else KIMI_C23_WORKER_COUNT if c23_role else 24
+            ),
             "request_timeout_seconds": direct_request_timeout,
             "retries": 0,
             "worker_count": KIMI_C23_WORKER_COUNT if c23_role else 24,
         }
-        if capacity_role or w2_tb4_role:
+        if capacity_role or w2_tb4_role or small_tb4_role:
             expected_router.update(
                 {
                     "capacity_profile": KIMI_W2_CAPACITY_PROFILE,
@@ -2821,6 +2940,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         if w2_tb4_role:
             _validate_artifact_shape(deployment.get("capacity_certificate"))
             _validate_artifact_shape(deployment.get("capacity_gate_receipt"))
+            _validate_artifact_shape(deployment.get("endpoint_walltime_gate"))
+        if small_tb4_role:
             _validate_artifact_shape(deployment.get("endpoint_walltime_gate"))
         if load_gated_role:
             _validate_artifact_shape(deployment.get("endpoint_load_gate"))
@@ -2943,7 +3064,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
                 QWEN_ERROR_RETRY_HARNESS_REQUEST_TIMEOUT_SECONDS
                 if role == QWEN_ERROR_RETRY_ROLE
                 else observed_harness.get("request_timeout_seconds")
-                if role == "kimi-direct-tb4"
+                if role in {"kimi-direct-tb4", KIMI_SMALL_TB4_DIAGNOSTIC_ROLE}
                 else KIMI_NATIVE_MINISWE_SMOKE_REQUEST_TIMEOUT_SECONDS
                 if role == "kimi-direct-smoke"
                 else KIMI_DIRECT_CAPACITY_REQUEST_TIMEOUT_SECONDS
@@ -2959,7 +3080,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
                 "request_max_retries": 0,
             }
             if (
-                role not in KIMI_NATIVE_MINISWE_ROLES | {QWEN_ERROR_RETRY_ROLE}
+                role not in KIMI_NATIVE_MINISWE_ROLES | {QWEN_ERROR_RETRY_ROLE, KIMI_SMALL_TB4_DIAGNOSTIC_ROLE}
                 or expected_miniswe_request_timeout
                 not in {
                     KIMI_REQUEST_TIMEOUT_SECONDS,
@@ -3085,8 +3206,10 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         ):
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         kimi_native_tunnel = environment.get("environment") == KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
-        qwen_native_tunnel = environment.get("environment") == QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT
-        native_tunnel = kimi_native_tunnel or qwen_native_tunnel
+        small_native_tunnel = environment.get("environment") == KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+        qwen_native_tunnel = small_native_tunnel and role == QWEN_ERROR_RETRY_ROLE
+        kimi_small_native_tunnel = small_native_tunnel and role == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE
+        native_tunnel = kimi_native_tunnel or small_native_tunnel
         native_environment_keys = {"provider_task_network", "provider_profile_sha256"}
         if kimi_native_tunnel:
             native_environment_keys.update(
@@ -3107,11 +3230,11 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             raise EvalIdentityError("eval_run_identity_schema_invalid")
         if (
             (kimi_native_tunnel and role not in KIMI_NATIVE_MINISWE_ROLES)
-            or (qwen_native_tunnel and role != QWEN_ERROR_RETRY_ROLE)
+            or (small_native_tunnel and not (qwen_native_tunnel or kimi_small_native_tunnel))
             or environment.get("environment")
             != (
-                QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT
-                if qwen_native_tunnel
+                KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+                if small_native_tunnel
                 else KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
                 if kimi_native_tunnel
                 else "oci-runner"
@@ -3128,8 +3251,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
                 )
             )
             or (
-                qwen_native_tunnel
-                and environment.get("provider_profile_sha256") != QWEN_ERROR_RETRY_FIRECRACKER_PROFILE_SHA256
+                small_native_tunnel
+                and environment.get("provider_profile_sha256") != KIMI_SMALL_FIRECRACKER_PROFILE_SHA256
             )
             or environment.get("tunnel_policy")
             != ("native-sandoq-reverse-tunnel" if native_tunnel else "host-interception-no-tunnel")
@@ -3156,8 +3279,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             or runtime.get("host_tunnel") != ("sandoq" if native_tunnel else "none")
             or runtime.get("expected_environment")
             != (
-                QWEN_ERROR_RETRY_FIRECRACKER_ENVIRONMENT
-                if qwen_native_tunnel
+                KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+                if small_native_tunnel
                 else KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT
                 if kimi_native_tunnel
                 else "oci-runner"
@@ -4366,7 +4489,7 @@ def _prepare_direct_qwen(args: argparse.Namespace) -> str:
 def _direct_kimi_router_request_timeout(role: str, contract: dict[str, Any]) -> int:
     harness_contract = contract.get("harness")
     if (
-        role == "kimi-direct-tb4"
+        role in {"kimi-direct-tb4", KIMI_SMALL_TB4_DIAGNOSTIC_ROLE}
         and isinstance(harness_contract, dict)
         and harness_contract.get("id") == "mini-swe-agent"
         and harness_contract.get("request_timeout_seconds") == KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS
@@ -4417,6 +4540,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
     _validate_direct_kimi_fallback_config(config, args.role, args.approved_task_count)
     _validate_direct_kimi_capacity_config(config, args.role)
     _validate_direct_kimi_tb4_w2_config(config, args.role)
+    _validate_direct_kimi_tb4_small_config(config, args.role)
     _validate_direct_kimi_production_config(config, args.role)
     expected_concurrency = _direct_kimi_expected_concurrency(
         args.role,
@@ -4482,15 +4606,20 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         raise EvalIdentityError("direct_kimi_router_contract_invalid")
     direct_per_worker_capacity = getattr(args, "direct_per_worker_capacity", "")
     w2_tb4_role = args.role == "kimi-direct-tb4" and router.get("capacity_profile") == KIMI_W2_CAPACITY_PROFILE
+    small_tb4_role = (
+        args.role == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE
+        and args.sandoq_environment == KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+        and router.get("capacity_profile") == KIMI_W2_CAPACITY_PROFILE
+    )
     _validate_direct_kimi_tb4_w2_config(config, args.role, required=w2_tb4_role)
-    if args.role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE} or w2_tb4_role:
+    if args.role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE} or w2_tb4_role or small_tb4_role:
         if _positive_int(direct_per_worker_capacity, "direct_per_worker_capacity") != router.get("per_worker_capacity"):
             raise EvalIdentityError("direct_kimi_router_contract_invalid")
     elif direct_per_worker_capacity not in (None, ""):
         raise EvalIdentityError("direct_kimi_router_contract_invalid")
 
     endpoint_load_gate = None
-    load_gated_role = args.role == KIMI_CAPACITY_SMOKE_ROLE or w2_tb4_role
+    load_gated_role = args.role == KIMI_CAPACITY_SMOKE_ROLE or w2_tb4_role or small_tb4_role
     if load_gated_role:
         if args.direct_endpoint_load_gate is None or args.direct_endpoint_load_gate_sha256 is None:
             raise EvalIdentityError("direct_kimi_endpoint_load_gate_required")
@@ -4515,7 +4644,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         raise EvalIdentityError("direct_kimi_endpoint_load_gate_role_invalid")
 
     endpoint_walltime_gate = None
-    if w2_tb4_role:
+    if w2_tb4_role or small_tb4_role:
         if args.direct_endpoint_walltime_gate is None or args.direct_endpoint_walltime_gate_sha256 is None:
             raise EvalIdentityError("direct_kimi_endpoint_walltime_gate_required")
         endpoint_walltime_gate = _artifact(
@@ -4524,13 +4653,21 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
             label="direct_kimi_endpoint_walltime_gate",
         )
         try:
-            from kimi_endpoint_walltime_gate import VMVM_UNION_PROFILE, W2_PROFILE, load_receipt
+            from kimi_endpoint_walltime_gate import SMALL_PROFILE, VMVM_UNION_PROFILE, W2_PROFILE, load_receipt
+
+            walltime_profile = (
+                SMALL_PROFILE
+                if small_tb4_role
+                else W2_PROFILE
+                if source.get("sandbox_provider", "vmvm") == "sandoq"
+                else VMVM_UNION_PROFILE
+            )
 
             load_receipt(
                 Path(endpoint_walltime_gate["path"]),
                 manifest_sha256=worker_manifest["sha256"],
                 endpoint_bundle_sha256=manifest["endpoint_bundle_sha256"],
-                profile=W2_PROFILE if source.get("sandbox_provider", "vmvm") == "sandoq" else VMVM_UNION_PROFILE,
+                profile=walltime_profile,
                 minimum_remaining_seconds=KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS,
                 task_count=inputs["task_file"]["count"],
             )
@@ -4771,7 +4908,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         "worker_count": len(manifest["workers"]),
     }
     if "capacity_profile" in router or "endpoint_identifier" in router or "per_worker_capacity" in router:
-        if args.role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE} or w2_tb4_role:
+        if args.role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE} or w2_tb4_role or small_tb4_role:
             identity_router.update(
                 {
                     "capacity_profile": router.get("capacity_profile"),

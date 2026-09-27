@@ -247,6 +247,51 @@ def test_w2_capture_binds_48_way_rollout_to_64_request_router(
     )
 
 
+def test_small_profile_binds_52_tasks_to_three_c24_waves(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    manifest = _w2_manifest()
+    manifest_path = tmp_path / "direct_kimi_workers.json"
+    manifest_raw = (json.dumps(manifest, sort_keys=True) + "\n").encode()
+    manifest_path.write_bytes(manifest_raw)
+    manifest_sha256 = hashlib.sha256(manifest_raw).hexdigest()
+    monkeypatch.setattr(direct_kimi_workers, "validate_saved_manifest", lambda *_args, **_kwargs: manifest)
+    tmp_path.chmod(0o700)
+    serve_sh = tmp_path / "serve.sh"
+    serve_sh.write_text("#!/bin/sh\n")
+
+    def runner(argv, _timeout):
+        if argv[0] == str(gate.SACCT):
+            return gate.CommandResult(0, _scheduler())
+        return gate.CommandResult(0, _status())
+
+    output = tmp_path / "endpoint-walltime-small.json"
+    receipt = gate.capture_gate(
+        manifest_path=manifest_path,
+        manifest_sha256=manifest_sha256,
+        output=output,
+        profile=gate.SMALL_PROFILE,
+        minimum_remaining_seconds=96 * 60 * 60,
+        task_count=52,
+        serve_sh=serve_sh,
+        runner=runner,
+        now=lambda: "2026-09-27T00:00:00Z",
+    )
+
+    assert receipt["schema_version"] == gate.SMALL_RECEIPT_SCHEMA_VERSION
+    assert receipt["profile"] == gate.SMALL_PROFILE
+    assert receipt["task_count"] == 52
+    assert gate.load_receipt(
+        output,
+        manifest_sha256=manifest_sha256,
+        endpoint_bundle_sha256=manifest["endpoint_bundle_sha256"],
+        profile=gate.SMALL_PROFILE,
+        minimum_remaining_seconds=96 * 60 * 60,
+        task_count=52,
+    ) == receipt
+
+
 def test_vmvm_union_profile_accepts_exact_eleven_task_w2_generation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

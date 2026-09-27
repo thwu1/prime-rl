@@ -25,6 +25,7 @@ EXPECTED_ENDPOINTS = 24
 EXTENDED_PROFILE = "tb4-extended-c24-two-wave-v1"
 C23_PROFILE = "tb4-c23-v1"
 W2_PROFILE = "tb4-extended-c48-w2-two-wave-v1"
+SMALL_PROFILE = "tb4-extended-c24-small-three-wave-v1"
 VMVM_UNION_PROFILE = "tb4-extended-vmvm-union11-c11-v1"
 C23_MANIFEST_CAPACITY_PROFILE = "sandoq-c23-v1"
 W2_MANIFEST_CAPACITY_PROFILE = "sandoq-c64-w2-v1"
@@ -39,6 +40,7 @@ RECEIPT_SCHEMA_VERSION = 1
 C23_RECEIPT_SCHEMA_VERSION = 2
 W2_RECEIPT_SCHEMA_VERSION = 3
 VMVM_UNION_RECEIPT_SCHEMA_VERSION = 4
+SMALL_RECEIPT_SCHEMA_VERSION = 5
 W2_ROLLOUT_CONCURRENCY = 48
 W2_ROUTER_ADMISSION = 64
 VMVM_UNION_TASK_COUNT = 11
@@ -295,7 +297,7 @@ def parse_scheduler_output(
 
 
 def _validate_profile(profile: str, minimum_remaining_seconds: int) -> None:
-    if profile not in (EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, VMVM_UNION_PROFILE):
+    if profile not in (EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, SMALL_PROFILE, VMVM_UNION_PROFILE):
         raise EndpointWalltimeGateError("endpoint_walltime_profile_invalid")
     if (
         not isinstance(minimum_remaining_seconds, int)
@@ -316,10 +318,12 @@ def _validate_task_count(task_count: int, *, profile: str = EXTENDED_PROFILE) ->
         upper_bound = 2 * C23_SELECTED_ENDPOINTS
     elif profile == W2_PROFILE:
         upper_bound = 2 * W2_ROLLOUT_CONCURRENCY
+    elif profile == SMALL_PROFILE:
+        upper_bound = 3 * EXTENDED_ROUTER_CONCURRENCY
     else:
         upper_bound = 2 * EXTENDED_ROUTER_CONCURRENCY
     if (
-        profile not in (EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, VMVM_UNION_PROFILE)
+        profile not in (EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, SMALL_PROFILE, VMVM_UNION_PROFILE)
         or not isinstance(task_count, int)
         or isinstance(task_count, bool)
         or not lower_bound < task_count <= upper_bound
@@ -396,7 +400,7 @@ def _load_manifest(
             or manifest.get("endpoint_bundle_sha256") != _bundle_sha256(selected_backends)
             or manifest.get("source_endpoint_bundle_sha256") != _bundle_sha256(full_backends)
         )
-    elif profile in {W2_PROFILE, VMVM_UNION_PROFILE}:
+    elif profile in {W2_PROFILE, SMALL_PROFILE, VMVM_UNION_PROFILE}:
         workers = manifest.get("workers")
         invalid = (
             manifest.get("schema_version") != 3
@@ -498,6 +502,8 @@ def capture_gate(
             if profile == C23_PROFILE
             else W2_RECEIPT_SCHEMA_VERSION
             if profile == W2_PROFILE
+            else SMALL_RECEIPT_SCHEMA_VERSION
+            if profile == SMALL_PROFILE
             else VMVM_UNION_RECEIPT_SCHEMA_VERSION
             if profile == VMVM_UNION_PROFILE
             else RECEIPT_SCHEMA_VERSION
@@ -630,6 +636,8 @@ def validate_receipt(
         if profile == C23_PROFILE
         else W2_RECEIPT_SCHEMA_VERSION
         if profile == W2_PROFILE
+        else SMALL_RECEIPT_SCHEMA_VERSION
+        if profile == SMALL_PROFILE
         else VMVM_UNION_RECEIPT_SCHEMA_VERSION
         if profile == VMVM_UNION_PROFILE
         else RECEIPT_SCHEMA_VERSION
@@ -787,7 +795,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         command.add_argument("--manifest-sha256", required=True)
         command.add_argument(
             "--profile",
-            choices=(EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, VMVM_UNION_PROFILE),
+            choices=(EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, SMALL_PROFILE, VMVM_UNION_PROFILE),
             required=True,
         )
         command.add_argument(

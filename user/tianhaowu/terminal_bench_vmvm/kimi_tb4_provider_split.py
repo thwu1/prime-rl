@@ -1481,6 +1481,8 @@ def _run_invocation_binding(
     invocation_body: bytes,
     provenance_body: bytes,
     identity_sha256: str,
+    *,
+    expected_role: str = "kimi-direct-tb4",
 ) -> tuple[str, str]:
     try:
         lines = provenance_body.decode("utf-8").splitlines()
@@ -1496,7 +1498,7 @@ def _run_invocation_binding(
     job_id = records.get("slurm_job_id")
     if (
         records.get("eval_run_identity_sha256") != identity_sha256
-        or records.get("eval_run_role") != "kimi-direct-tb4"
+        or records.get("eval_run_role") != expected_role
         or not isinstance(host, str)
         or not host.strip()
         or re.fullmatch(r"[1-9][0-9]*", str(job_id or "")) is None
@@ -1522,7 +1524,7 @@ def _run_invocation_binding(
         }
         or invocation.get("schema_version") != 1
         or invocation.get("eval_run_identity_sha256") != identity_sha256
-        or invocation.get("role") != "kimi-direct-tb4"
+        or invocation.get("role") != expected_role
         or invocation.get("resume") is not False
         or invocation.get("host") != host
         or invocation.get("slurm_job_id") != job_id
