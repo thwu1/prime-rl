@@ -5,10 +5,9 @@ import json
 import tomllib
 from pathlib import Path
 
-import pytest
-
 import eval_run_identity as identity
 import kimi_stock_small_shards as shards
+import pytest
 
 
 def _private_dir(path: Path) -> Path:
@@ -131,7 +130,7 @@ def test_base_config_is_exact_stock_small_c64_contract(tmp_path: Path) -> None:
     assert config["harness"]["runtime"]["session_timeout"] == 144_000
     assert config["harness"]["runtime"]["provisioning_retries"] == 8
     assert config["timeout"]["rollout"] == 129_600
-    assert config["harness"]["env"] == {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+    assert config["harness"]["env"] == {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
     assert config["taskset"]["verifier_runtime_retries"] == 2
     assert config["taskset"]["retry_shared_verifier_scoring"] is True
     assert config["taskset"]["resource_cpu_cap"] == 1
@@ -141,13 +140,16 @@ def test_base_config_is_exact_stock_small_c64_contract(tmp_path: Path) -> None:
     contracts = shards._contracts()
     assert contracts["model_attempts"] == 1
     assert contracts["model_retries"] == 0
+    assert contracts["guest_transport_retry_attempts"] == 10
+    assert contracts["logical_request_upstream_attempts"] == 1
     assert contracts["zero_model_resume_attempts"] == 0
+    assert contracts["model_bearing_errors_terminal"] is True
     assert contracts["resume"]["model_bearing_retry"] is False
     assert contracts["resume"]["zero_model_rows"] == "uncertifiable-manual-recovery"
     assert contracts["resume"]["rollover_policy"] == "new-plan-required"
     assert contracts["prelaunch_gates"]["real_task_image_c64_soak"] == {
         "kind": "kimi-k3-stock-small-task-image-c64-soak",
-        "task_count": 64,
+        "task_count": 2_499,
         "concurrency": 64,
         "minimum_endpoint_remaining_seconds": 518_400,
         "model_calls": 0,
@@ -160,6 +162,25 @@ def test_base_config_is_exact_stock_small_c64_contract(tmp_path: Path) -> None:
         "model_calls": 0,
         "infrastructure_errors_remain_errors": True,
     }
+
+
+def test_stock_small_identity_distinguishes_guest_replay_from_model_retry() -> None:
+    config = shards._load_base()[0]
+    config["num_tasks"] = 63
+    config["client"]["headers"] = {}
+
+    contract, _execution = identity._contract(
+        config,
+        "Kimi-K3",
+        role=identity.KIMI_PRODUCTION_ROLE,
+        sandbox_provider="sandoq",
+    )
+
+    assert config["client"]["max_retries"] == 0
+    assert config["retries"]["rollout"]["max_retries"] == 0
+    assert contract["harness"]["request_max_retries"] == 0
+    assert contract["harness"]["guest_transport_retry_attempts"] == 10
+    assert contract["harness"]["logical_request_upstream_attempts"] == 1
 
 
 def test_small_production_config_rejects_a_second_model_attempt() -> None:
@@ -243,6 +264,7 @@ def test_zero_reward_infrastructure_stop_is_not_certifiable(tmp_path: Path) -> N
 
 def test_launcher_is_serial_c64_and_never_reuses_partial_attempts() -> None:
     body = (shards._workflow_dir() / "run_kimi_2499_stock_small_shard.sbatch").read_text()
+    stage = (shards._workflow_dir() / "run_direct_kimi_sandoq_stage.sh").read_text()
     assert "#SBATCH --time=7-00:00:00" in body
     assert "minimum_job_remaining_seconds=475200" in body
     assert "squeue -h -j" in body
@@ -254,3 +276,85 @@ def test_launcher_is_serial_c64_and_never_reuses_partial_attempts() -> None:
     assert "DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=0" in body
     assert "KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS=172800" in body
     assert "partial_attempt_requires_manual_recovery" in body
+    assert "Stock-small production forbids broad resume" in stage
+    assert "--resume \"$output_dir\"" in stage
+
+
+def _proxy_summary(**overrides: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "requests": 1,
+        "upstream_attempts": 1,
+        "logical_requests": 1,
+        "logical_upstream_attempts": 1,
+        "anonymous_upstream_attempts": 0,
+        "coalesced_requests": 0,
+        "replayed_requests": 0,
+        "expired_logical_retries": 0,
+        "downstream_disconnects": 0,
+        "conflicting_requests": 0,
+        "inflight": 0,
+        "streamed_requests": 1,
+        "response_bytes": 100,
+        "statuses": {"200": 1},
+        "protocols": {"chat_completions": 1},
+        "path_counts": {
+            "/muse-code/models": 0,
+            "/v1/chat/completions": 1,
+            "/v1/responses": 0,
+        },
+        "error_count": 0,
+        "unknown_path_requests": 0,
+    }
+    value.update(overrides)
+    return value
+
+
+def _proxy_log(*records: dict[str, object]) -> bytes:
+    return b"".join(
+        b"12:34:56 INFO sandoq: buffered model proxy summary "
+        + json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
+        + b"\n"
+        for record in records
+    )
+
+
+def test_buffered_proxy_audit_requires_exact_once_and_retains_only_aggregates() -> None:
+    first = _proxy_summary()
+    second = _proxy_summary(requests=2, replayed_requests=1)
+    value = shards._buffered_proxy_audit(_proxy_log(first, second))
+
+    assert value["source_schema"] == "logical-exact-once-v1"
+    assert value["summary_records"] == 2
+    assert value["integer_totals"]["logical_requests"] == 2
+    assert value["integer_totals"]["logical_upstream_attempts"] == 2
+    assert value["integer_totals"]["replayed_requests"] == 1
+    assert "response_bytes" not in json.dumps(value["mapping_totals"])
+
+
+@pytest.mark.parametrize(
+    "override",
+    (
+        {"logical_upstream_attempts": 2, "upstream_attempts": 2},
+        {"anonymous_upstream_attempts": 1, "upstream_attempts": 2},
+        {"conflicting_requests": 1, "requests": 2},
+        {"expired_logical_retries": 1, "requests": 2},
+    ),
+)
+def test_buffered_proxy_audit_rejects_non_exact_once_transport(
+    override: dict[str, object],
+) -> None:
+    with pytest.raises(shards.StockSmallError, match="buffered_proxy_exact_once_invalid"):
+        shards._buffered_proxy_audit(_proxy_log(_proxy_summary(**override)))
+
+
+def test_transport_aggregation_is_shard_order_bound() -> None:
+    first = shards._buffered_proxy_audit(_proxy_log(_proxy_summary()))
+    second = shards._buffered_proxy_audit(
+        _proxy_log(_proxy_summary(requests=2, coalesced_requests=1))
+    )
+    aggregate = shards._aggregate_transport_audits([first, second])
+
+    assert aggregate["summary_records"] == 2
+    assert aggregate["integer_totals"]["logical_requests"] == 2
+    assert aggregate["integer_totals"]["coalesced_requests"] == 1
+    assert len(aggregate["shard_audit_set_sha256"]) == 64

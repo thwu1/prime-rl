@@ -761,7 +761,7 @@ def _validate_direct_kimi_production_config(config: dict[str, Any], role: str) -
                 "model.model_kwargs.top_p=1.0",
                 "model.model_kwargs.parallel_tool_calls=false",
             ]
-            or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+            or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
             or runtime.get("network_access") is not True
             or runtime.get("host_tunnel") != "sandoq"
             or runtime.get("buffered_chat_completions") is not True
@@ -2064,7 +2064,7 @@ def _contract(
             "request_timeout_seconds": harness_request_timeout,
             "request_max_retries": 0,
         }
-        if role == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE:
+        if kimi_small_diagnostic:
             contract["harness"].update(
                 {
                     "guest_transport_retry_attempts": 10,
@@ -3245,8 +3245,17 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
                 "request_timeout_seconds": expected_miniswe_request_timeout,
                 "request_max_retries": 0,
             }
+            if small_tb4_role or small_production_role:
+                expected_miniswe.update(
+                    {
+                        "guest_transport_retry_attempts": 10,
+                        "logical_request_upstream_attempts": 1,
+                    }
+                )
             if (
-                role not in KIMI_NATIVE_MINISWE_ROLES | {QWEN_ERROR_RETRY_ROLE, KIMI_SMALL_TB4_DIAGNOSTIC_ROLE}
+                role
+                not in KIMI_NATIVE_MINISWE_ROLES
+                | {QWEN_ERROR_RETRY_ROLE, KIMI_SMALL_TB4_DIAGNOSTIC_ROLE}
                 or expected_miniswe_request_timeout
                 not in {
                     KIMI_REQUEST_TIMEOUT_SECONDS,

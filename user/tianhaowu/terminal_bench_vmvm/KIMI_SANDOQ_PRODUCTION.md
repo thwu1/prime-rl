@@ -15,10 +15,10 @@ inputs must validate again:
 
 - the stock-model c64 capacity receipt and matching endpoint epoch;
 - the task-free Sandoq c64 lifecycle receipt;
-- an aggregate-only c64 soak over 64 real task images, with at least six days
-  of endpoint walltime remaining at capture time;
-- a qualifying TB4 certificate with at least 7/66 passes and lossless
-  `exact_provider_json` model I/O.
+- an aggregate-only soak over all 2,499 distinct real task images in c64
+  waves, with at least six days of endpoint walltime remaining at capture time;
+- a transport-qualified TB4 v7 certificate with at least 7/66 passes,
+  lossless `exact_provider_json` model I/O, and exact-once proxy counters.
 
 The task-image soak runs setup, a no-op command, and shared-verifier startup;
 it invokes neither MiniSWE nor the model and never publishes membership, raw
@@ -57,7 +57,10 @@ python user/tianhaowu/terminal_bench_vmvm/kimi_stock_small_shards.py \
 Each shard uses MiniSWE 2.4.6, a 256K input/total cap, a 32K sampling cap,
 `reasoning_effort=max`, 144,000-second request/session timeouts, and a
 129,600-second rollout timeout.  Client, router, rollout, and model retries
-are zero.  Provisioning gets eight bounded pre-model retries, and shared
+are zero.  MiniSWE may make up to ten guest transport attempts with one
+logical request ID; the buffered proxy must prove exactly one upstream model
+attempt per logical request, with no anonymous, expired, or conflicting
+requests.  Provisioning gets eight bounded pre-model retries, and shared
 verifier scoring gets two bounded retries in the unchanged post-agent
 runtime.  Model-bearing HarnessError rows are retained, exact-response
 audited, and marked non-trainable; they are never replayed.  Zero-model rows

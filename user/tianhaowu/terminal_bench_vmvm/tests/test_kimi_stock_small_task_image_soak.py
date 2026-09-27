@@ -49,7 +49,7 @@ class _Taskset:
         self.closed = False
 
     async def setup(self, task: int, runtime: _Runtime) -> None:
-        assert self.state.active == soak.CONCURRENCY
+        assert 1 <= self.state.active <= soak.CONCURRENCY
         assert runtime.active
 
     async def _score_shared(self, task: int, runtime: _Runtime):
@@ -82,11 +82,11 @@ def test_execute_soak_holds_all_images_before_setup_and_retains_only_aggregates(
 
     assert value["state"] == "passed"
     assert value["live_runtime_high_water"] == 64
-    assert value["counts"]["setup_succeeded"] == 64
-    assert value["counts"]["benign_exec_succeeded"] == 64
-    assert value["counts"]["shared_verifier_executed"] == 64
-    assert value["counts"]["shared_verifier_zero_reward"] == 64
-    assert value["counts"]["runtime_cleanup_succeeded"] == 64
+    assert value["counts"]["setup_succeeded"] == soak.SELECTED_TASKS
+    assert value["counts"]["benign_exec_succeeded"] == soak.SELECTED_TASKS
+    assert value["counts"]["shared_verifier_executed"] == soak.SELECTED_TASKS
+    assert value["counts"]["shared_verifier_zero_reward"] == soak.SELECTED_TASKS
+    assert value["counts"]["runtime_cleanup_succeeded"] == soak.SELECTED_TASKS
     assert state.high_water == 64
     assert state.active == 0
     assert taskset.closed
@@ -112,17 +112,44 @@ def test_execute_soak_allows_eight_bounded_pre_execution_retries() -> None:
     )
 
     assert value["state"] == "passed"
-    assert value["counts"]["provisioning_attempts"] == 65
+    assert value["counts"]["provisioning_attempts"] == soak.SELECTED_TASKS + 1
     assert value["counts"]["provisioning_retries"] == 1
     assert state.attempts[0] == 2
     assert state.high_water == 64
     assert state.active == 0
 
 
+def test_execute_soak_retries_runtime_factory_failure_without_leaking() -> None:
+    state = _State()
+    taskset = _Taskset(state)
+    factory_attempts: dict[int, int] = {}
+
+    def runtime_factory(task: int) -> _Runtime:
+        factory_attempts[task] = factory_attempts.get(task, 0) + 1
+        if task == 0 and factory_attempts[task] == 1:
+            raise RuntimeError("opaque")
+        return _Runtime(task, state, fail_first=False)
+
+    value = asyncio.run(
+        soak.execute_soak(
+            taskset,
+            tuple(range(soak.SELECTED_TASKS)),
+            runtime_factory=runtime_factory,
+            monotonic=lambda: 1.0,
+        )
+    )
+
+    assert value["state"] == "passed"
+    assert value["counts"]["provisioning_attempts"] == soak.SELECTED_TASKS + 1
+    assert factory_attempts[0] == 2
+    assert state.high_water == soak.CONCURRENCY
+    assert state.active == 0
+
+
 def test_contract_is_no_model_c64_firecracker_small() -> None:
     value = soak._contracts()
 
-    assert value["task_count"] == 64
+    assert value["task_count"] == 2_499
     assert value["concurrency"] == 64
     assert value["sandbox"]["environment"] == "oci-runner-firecracker-small"
     assert value["sandbox"]["resource_caps"] == {
@@ -136,6 +163,7 @@ def test_contract_is_no_model_c64_firecracker_small() -> None:
         "endpoint_identifier": "tianhaowu-kimi-k3-stock-eval-20260927",
         "capacity_receipt_sha256": soak.STOCK_CAPACITY_SHA256,
         "minimum_remaining_seconds": 518400,
+        "walltime_gate_task_count": 64,
         "capture_before_sandbox_start": True,
     }
     assert value["execution"]["taskset_setup"] is True
@@ -158,23 +186,23 @@ def test_run_result_validator_rejects_less_than_c64_high_water(tmp_path: Path) -
     plan = tmp_path / "plan.json"
     plan_sha256 = "a" * 64
     counts = {
-        "tasks": 64,
-        "provisioned": 64,
-        "provisioning_attempts": 64,
+        "tasks": 2_499,
+        "provisioned": 2_499,
+        "provisioning_attempts": 2_499,
         "provisioning_retries": 0,
         "provisioning_failures": 0,
         "provisioning_cleanup_failures": 0,
-        "setup_succeeded": 64,
-        "benign_exec_succeeded": 64,
-        "shared_verifier_executed": 64,
-        "shared_verifier_zero_reward": 64,
+        "setup_succeeded": 2_499,
+        "benign_exec_succeeded": 2_499,
+        "shared_verifier_executed": 2_499,
+        "shared_verifier_zero_reward": 2_499,
         "shared_verifier_positive_reward": 0,
         "shared_verifier_retry_attempts": 0,
         "setup_failures": 0,
         "benign_exec_failures": 0,
         "shared_verifier_failures": 0,
-        "taskset_cleanup_succeeded": 64,
-        "runtime_cleanup_succeeded": 64,
+        "taskset_cleanup_succeeded": 2_499,
+        "runtime_cleanup_succeeded": 2_499,
         "cleanup_failures": 0,
         "taskset_close_succeeded": 1,
     }
@@ -212,6 +240,8 @@ def test_launcher_is_c64_no_inference_and_fails_closed() -> None:
     assert "--lease-create-cap 8" in launcher
     assert "--lease-profile kimi-tb4-long" in launcher
     assert "--minimum-remaining-seconds 518400" in launcher
+    assert "--task-count 64" in launcher
+    assert '"$selected_tasks" == 2499' in launcher
     assert "f11bf7cec1ca16ecadf7c88046f6a4a660af2031" in launcher
     assert "kimi_endpoint_walltime_gate.py\" capture" in launcher
     assert launcher.index("kimi_endpoint_walltime_gate.py\" capture") < launcher.index("--concurrency 64")

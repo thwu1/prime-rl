@@ -2,8 +2,8 @@
 """Plan, run, and certify the aggregate-only Kimi c64 task-image soak.
 
 The soak deliberately performs no model request and invokes no agent harness.
-It proves that an opaque, deterministic sample of 64 approved production task
-images can be held concurrently in Sandoq Firecracker-small, prepared by the
+It proves that all 2,499 opaque approved production task images can run in
+64-way waves in Sandoq Firecracker-small, prepared by the
 real taskset adapter, exercised with a side-effect-free command, scored by the
 shared verifier, and then completely removed.  Task and provider identifiers,
 prompts, command output, and exception text never enter public output or the
@@ -43,7 +43,8 @@ RECEIPT_KIND = "kimi-k3-stock-small-task-image-c64-soak"
 SELECTOR_KIND = "kimi-k3-stock-small-task-image-c64-selector"
 
 CONCURRENCY = 64
-SELECTED_TASKS = 64
+SELECTED_TASKS = 2_499
+ENDPOINT_GATE_TASK_COUNT = CONCURRENCY
 PROVISIONING_RETRIES = 8
 MAX_PROVISIONING_ATTEMPTS = PROVISIONING_RETRIES + 1
 CPU_CAP = 1
@@ -438,7 +439,7 @@ def _derive_selection(dataset: Path) -> tuple[Path, bytes, Path, tuple[str, ...]
     try:
         dataset_path = legacy.verify_canonical_dataset(dataset)
         partition = legacy.derive_partition(source_body, dataset_path)
-        selected = legacy._opaque_capacity_members(partition.sandoq)
+        selected = tuple(partition.sandoq)
     except Exception as error:
         raise TaskImageSoakError("selection_invalid") from error
     if (
@@ -454,7 +455,7 @@ def _derive_selection(dataset: Path) -> tuple[Path, bytes, Path, tuple[str, ...]
 
 def _selector_receipt(selector_body: bytes, coverage: Mapping[str, Any]) -> dict[str, Any]:
     selection = {
-        "algorithm": "sha256-canonical-index-v1",
+        "algorithm": "canonical-approved-non-compose-v1",
         "approved_count": legacy.EXPECTED_SOURCE_COUNT,
         "candidate_count": legacy.EXPECTED_TASK_COUNT,
         "excluded_count": legacy.EXPECTED_EXCLUDED_COUNT,
@@ -501,6 +502,7 @@ def _contracts() -> dict[str, Any]:
             "endpoint_identifier": STOCK_ENDPOINT_IDENTIFIER,
             "capacity_receipt_sha256": STOCK_CAPACITY_SHA256,
             "minimum_remaining_seconds": MINIMUM_ENDPOINT_REMAINING_SECONDS,
+            "walltime_gate_task_count": ENDPOINT_GATE_TASK_COUNT,
             "capture_before_sandbox_start": True,
         },
         "execution": {
@@ -875,15 +877,19 @@ async def _finish_despite_cancellation(operation: Awaitable[_T]) -> tuple[_T, as
 
 async def _provision_one(task: Any, runtime_factory: Callable[[Any], Any]) -> tuple[Provisioned | None, int]:
     for attempt in range(1, MAX_PROVISIONING_ATTEMPTS + 1):
-        runtime = runtime_factory(task)
+        runtime: Any | None = None
         try:
+            runtime = runtime_factory(task)
             await runtime.start()
             return Provisioned(runtime=runtime, attempts=attempt), 0
         except asyncio.CancelledError:
-            with contextlib.suppress(Exception):
-                await asyncio.shield(runtime.stop())
+            if runtime is not None:
+                with contextlib.suppress(Exception):
+                    await asyncio.shield(runtime.stop())
             raise
         except Exception:
+            if runtime is None:
+                continue
             try:
                 async with asyncio.timeout(CLEANUP_TIMEOUT_SECONDS):
                     await runtime.stop()
@@ -980,67 +986,76 @@ async def execute_soak(
     if len(tasks) != SELECTED_TASKS:
         raise TaskImageSoakError("task_count_invalid")
     started_at = monotonic()
-    provision_tasks = [asyncio.create_task(_provision_one(task, runtime_factory)) for task in tasks]
     interrupted: asyncio.CancelledError | None = None
-    try:
-        provision_results = list(await asyncio.gather(*provision_tasks))
-    except asyncio.CancelledError as error:
-        interrupted = error
-        for operation in provision_tasks:
-            if not operation.done():
-                operation.cancel()
-        provision_results = []
-        settled, settle_interruption = await _finish_despite_cancellation(
-            asyncio.gather(*provision_tasks, return_exceptions=True)
-        )
-        interrupted = interrupted or settle_interruption
-        for value in settled:
-            provision_results.append(value if isinstance(value, tuple) and len(value) == 2 else (None, 0))
-
-    provisioned: list[tuple[Any, Provisioned]] = []
+    live_high_water = 0
     attempts = 0
     provisioning_cleanup_failures = 0
-    for task, outcome in zip(tasks, provision_results, strict=False):
-        provisioned_value, cleanup_failures = outcome
-        provisioning_cleanup_failures += cleanup_failures
-        if provisioned_value is None:
-            attempts += MAX_PROVISIONING_ATTEMPTS
-        else:
-            attempts += provisioned_value.attempts
-            provisioned.append((task, provisioned_value))
-
-    live_high_water = len(provisioned)
+    provisioned_count = 0
     exercise_counts: Counter[str] = Counter()
-    if interrupted is None and len(provisioned) == SELECTED_TASKS:
-        operations = [
-            asyncio.create_task(_exercise_one(taskset, task, provisioned_value.runtime))
-            for task, provisioned_value in provisioned
-        ]
+    cleanup_counts: Counter[str] = Counter()
+    for offset in range(0, SELECTED_TASKS, CONCURRENCY):
+        wave = tasks[offset : offset + CONCURRENCY]
+        provision_tasks = [asyncio.create_task(_provision_one(task, runtime_factory)) for task in wave]
         try:
-            for outcome in await asyncio.gather(*operations):
-                exercise_counts.update(outcome)
+            provision_results = list(await asyncio.gather(*provision_tasks))
         except asyncio.CancelledError as error:
             interrupted = error
-            for operation in operations:
+            for operation in provision_tasks:
                 if not operation.done():
                     operation.cancel()
-            _, settle_interruption = await _finish_despite_cancellation(
-                asyncio.gather(*operations, return_exceptions=True)
+            provision_results = []
+            settled, settle_interruption = await _finish_despite_cancellation(
+                asyncio.gather(*provision_tasks, return_exceptions=True)
             )
             interrupted = interrupted or settle_interruption
+            for value in settled:
+                provision_results.append(
+                    value if isinstance(value, tuple) and len(value) == 2 else (None, 0)
+                )
 
-    cleanup_results, cleanup_interruption = await _finish_despite_cancellation(
-        asyncio.gather(
-            *(
-                _cleanup_one(taskset, task, provisioned_value.runtime)
+        provisioned: list[tuple[Any, Provisioned]] = []
+        for task, outcome in zip(wave, provision_results, strict=False):
+            provisioned_value, cleanup_failures = outcome
+            provisioning_cleanup_failures += cleanup_failures
+            if provisioned_value is None:
+                attempts += MAX_PROVISIONING_ATTEMPTS
+            else:
+                attempts += provisioned_value.attempts
+                provisioned.append((task, provisioned_value))
+        provisioned_count += len(provisioned)
+        live_high_water = max(live_high_water, len(provisioned))
+
+        if interrupted is None and len(provisioned) == len(wave):
+            operations = [
+                asyncio.create_task(_exercise_one(taskset, task, provisioned_value.runtime))
                 for task, provisioned_value in provisioned
+            ]
+            try:
+                for outcome in await asyncio.gather(*operations):
+                    exercise_counts.update(outcome)
+            except asyncio.CancelledError as error:
+                interrupted = error
+                for operation in operations:
+                    if not operation.done():
+                        operation.cancel()
+                _, settle_interruption = await _finish_despite_cancellation(
+                    asyncio.gather(*operations, return_exceptions=True)
+                )
+                interrupted = interrupted or settle_interruption
+
+        cleanup_results, cleanup_interruption = await _finish_despite_cancellation(
+            asyncio.gather(
+                *(
+                    _cleanup_one(taskset, task, provisioned_value.runtime)
+                    for task, provisioned_value in provisioned
+                )
             )
         )
-    )
-    interrupted = interrupted or cleanup_interruption
-    cleanup_counts: Counter[str] = Counter()
-    for outcome in cleanup_results:
-        cleanup_counts.update(outcome)
+        interrupted = interrupted or cleanup_interruption
+        for outcome in cleanup_results:
+            cleanup_counts.update(outcome)
+        if interrupted is not None or len(provisioned) != len(wave):
+            break
     try:
         await taskset.close()
         taskset_close_succeeded = 1
@@ -1050,10 +1065,10 @@ async def execute_soak(
 
     counts = {
         "tasks": SELECTED_TASKS,
-        "provisioned": len(provisioned),
+        "provisioned": provisioned_count,
         "provisioning_attempts": attempts,
-        "provisioning_retries": max(attempts - len(provisioned), 0),
-        "provisioning_failures": SELECTED_TASKS - len(provisioned),
+        "provisioning_retries": max(attempts - provisioned_count, 0),
+        "provisioning_failures": SELECTED_TASKS - provisioned_count,
         "provisioning_cleanup_failures": provisioning_cleanup_failures,
         **{
             key: exercise_counts[key]
@@ -1195,7 +1210,7 @@ def _validate_endpoint_gate(
             endpoint_bundle_sha256=STOCK_ENDPOINT_BUNDLE_SHA256,
             profile=WALLTIME_PROFILE,
             minimum_remaining_seconds=MINIMUM_ENDPOINT_REMAINING_SECONDS,
-            task_count=SELECTED_TASKS,
+            task_count=ENDPOINT_GATE_TASK_COUNT,
         )
     except TaskImageSoakError:
         raise
@@ -1211,6 +1226,7 @@ def _validate_endpoint_gate(
         "walltime_receipt": walltime_record,
         "endpoint_jobs_sha256": endpoint_jobs_sha256,
         "minimum_remaining_seconds": MINIMUM_ENDPOINT_REMAINING_SECONDS,
+        "walltime_gate_task_count": ENDPOINT_GATE_TASK_COUNT,
         "observed_minimum_remaining_seconds": walltime["observed_minimum_remaining_seconds"],
     }
 
@@ -1561,6 +1577,7 @@ def _build_receipt(
             "capacity_receipt_sha256": STOCK_CAPACITY_SHA256,
             "endpoint_jobs_sha256": endpoint_gate["endpoint_jobs_sha256"],
             "minimum_remaining_seconds": MINIMUM_ENDPOINT_REMAINING_SECONDS,
+            "walltime_gate_task_count": ENDPOINT_GATE_TASK_COUNT,
             "observed_minimum_remaining_seconds": endpoint_gate["observed_minimum_remaining_seconds"],
             "worker_manifest": endpoint_gate["worker_manifest"],
             "walltime_receipt": endpoint_gate["walltime_receipt"],

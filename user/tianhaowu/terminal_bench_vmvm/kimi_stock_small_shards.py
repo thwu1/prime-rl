@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import audit_traces
+import finalize_kimi_tb4_sandoq_small_v4_recovery as tb4_recovery
 import kimi_sandoq_production as legacy
 import kimi_stock_small_task_image_soak as task_image_soak
 import kimi_tb4_provider_split as split
@@ -69,10 +70,69 @@ SANDOQ_CAPACITY = Path(
 )
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
 IMAGE_MANIFEST_SHA256 = "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
-BASE_CONFIG_SHA256 = "d99aea0875e87849fc9c2fe2c561c52204bf5b71c91c94beb344239178c44779"
+BASE_CONFIG_SHA256 = "9ba753a1d96f8b5b2359d952634d0830630d853e503ab0cf8da1377fabfc3a12"
 SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
 MAX_RESULTS_ROW_BYTES = 128 * 1024 * 1024
+TB4_SHARED_PRIME_FILES = (
+    "user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm/taskset.py",
+    "user/tianhaowu/terminal_bench_vmvm/audit_traces.py",
+    "user/tianhaowu/terminal_bench_vmvm/run_eval_with_zero_model_resume.sh",
+    "user/tianhaowu/terminal_bench_vmvm/assess_zero_model_resume.py",
+    "user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm/sandoq_provider_context.py",
+    "user/tianhaowu/terminal_bench_vmvm/direct_kimi_router.py",
+)
+TB4_LANE_PRIME_FILES = (
+    "user/tianhaowu/terminal_bench_vmvm/eval_run_identity.py",
+    "user/tianhaowu/terminal_bench_vmvm/direct_kimi_workers.py",
+    "user/tianhaowu/terminal_bench_vmvm/prepare_kimi_tb4_sandoq_small_full.py",
+    "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_full.py",
+    "user/tianhaowu/terminal_bench_vmvm/run_direct_kimi_sandoq_stage.sh",
+    "user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/"
+    "run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch",
+    "user/tianhaowu/terminal_bench_vmvm/run_kimi_tb4_miniswe246_sandoq_stock_single_full.sbatch",
+    "user/tianhaowu/terminal_bench_vmvm/run_kimi_tb4_miniswe246_sandoq_small_full.sbatch",
+    "user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/"
+    "tb4_kimi_k3_miniswe246_sandoq_firecracker_small_full.base.toml",
+)
+TB4_PRODUCTION_VARIANT_FILES = frozenset(
+    {
+        "user/tianhaowu/terminal_bench_vmvm/eval_run_identity.py",
+        "user/tianhaowu/terminal_bench_vmvm/direct_kimi_workers.py",
+        "user/tianhaowu/terminal_bench_vmvm/run_direct_kimi_sandoq_stage.sh",
+    }
+)
+TB4_SANDOQ_EXTENSION_PREFIX = "extensions/sandoq/sandoq_provider"
+TB4_VERIFIERS_EXECUTION_FILES = (
+    "verifiers/v1/env.py",
+    "verifiers/v1/runtimes/sandoq.py",
+    "verifiers/v1/harnesses/mini_swe_agent/harness.py",
+    "verifiers/v1/harnesses/mini_swe_agent/program.py",
+)
+# Filled only after the transport-qualified TB4 v7 source and this production
+# source are immutable.  A placeholder deliberately prevents materialization.
+TB4_PRODUCTION_VARIANT_PAIR_SHA256 = "pending-transport-qualified-tb4-v7"
+
+PROXY_SUMMARY_MARKER = b"sandoq: buffered model proxy summary "
+PROXY_SUMMARY_PREFIX_RE = re.compile(rb"[0-9]{2}:[0-9]{2}:[0-9]{2} +INFO \Z")
+PROXY_SUMMARY_INTEGER_FIELDS = (
+    "requests",
+    "upstream_attempts",
+    "logical_requests",
+    "logical_upstream_attempts",
+    "anonymous_upstream_attempts",
+    "coalesced_requests",
+    "replayed_requests",
+    "expired_logical_retries",
+    "downstream_disconnects",
+    "conflicting_requests",
+    "inflight",
+    "streamed_requests",
+    "response_bytes",
+    "error_count",
+    "unknown_path_requests",
+)
+PROXY_SUMMARY_MAPPING_FIELDS = ("statuses", "protocols", "path_counts")
 
 
 class StockSmallError(ValueError):
@@ -143,6 +203,81 @@ def _json(body: bytes, *, code: str) -> dict[str, Any]:
     if not isinstance(value, dict) or body != _canonical(value):
         raise StockSmallError(code)
     return value
+
+
+def _counter_mapping(value: object) -> bool:
+    return (
+        isinstance(value, dict)
+        and all(isinstance(key, str) and key for key in value)
+        and all(_plain_nonnegative_integer(count) for count in value.values())
+    )
+
+
+def _buffered_proxy_audit(body: bytes) -> dict[str, Any]:
+    """Reduce private proxy logs to an aggregate exact-once receipt."""
+
+    expected_keys = frozenset(PROXY_SUMMARY_INTEGER_FIELDS + PROXY_SUMMARY_MAPPING_FIELDS)
+    records: list[dict[str, Any]] = []
+    for line in body.splitlines():
+        marker_offset = line.find(PROXY_SUMMARY_MARKER)
+        if marker_offset < 0:
+            continue
+        if (
+            line.count(PROXY_SUMMARY_MARKER) != 1
+            or PROXY_SUMMARY_PREFIX_RE.fullmatch(line[:marker_offset]) is None
+        ):
+            raise StockSmallError("buffered_proxy_audit_invalid")
+        try:
+            value = json.loads(line[marker_offset + len(PROXY_SUMMARY_MARKER) :])
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise StockSmallError("buffered_proxy_audit_invalid") from error
+        if (
+            not isinstance(value, dict)
+            or set(value) != expected_keys
+            or any(
+                not _plain_nonnegative_integer(value.get(field))
+                for field in PROXY_SUMMARY_INTEGER_FIELDS
+            )
+            or any(not _counter_mapping(value.get(field)) for field in PROXY_SUMMARY_MAPPING_FIELDS)
+            or set(value["path_counts"])
+            != {"/muse-code/models", "/v1/chat/completions", "/v1/responses"}
+            or not set(value["protocols"]).issubset({"chat_completions", "responses"})
+            or any(re.fullmatch(r"[1-5][0-9]{2}", key) is None for key in value["statuses"])
+            or value["inflight"] != 0
+            or value["logical_upstream_attempts"] != value["logical_requests"]
+            or value["anonymous_upstream_attempts"] != 0
+            or value["conflicting_requests"] != 0
+            or value["expired_logical_retries"] != 0
+            or value["upstream_attempts"] != value["logical_upstream_attempts"]
+            or value["requests"]
+            != value["logical_requests"]
+            + value["coalesced_requests"]
+            + value["replayed_requests"]
+        ):
+            raise StockSmallError("buffered_proxy_exact_once_invalid")
+        records.append(value)
+    if not records:
+        raise StockSmallError("buffered_proxy_audit_invalid")
+
+    integer_totals = {
+        field: sum(record[field] for record in records)
+        for field in PROXY_SUMMARY_INTEGER_FIELDS
+    }
+    mapping_totals: dict[str, dict[str, int]] = {}
+    for field in PROXY_SUMMARY_MAPPING_FIELDS:
+        keys = sorted({key for record in records for key in record[field]})
+        mapping_totals[field] = {
+            key: sum(record[field].get(key, 0) for record in records) for key in keys
+        }
+    return {
+        "schema_version": 1,
+        "source_schema": "logical-exact-once-v1",
+        "summary_records": len(records),
+        "exact_once_counters_required": True,
+        "integer_totals": integer_totals,
+        "mapping_totals": mapping_totals,
+        "record_set_sha256": _sha256(_canonical(records)),
+    }
 
 
 def _json_line(body: bytes, *, code: str) -> dict[str, Any]:
@@ -246,7 +381,7 @@ def _load_base(held: split._HeldArtifactSet | None = None) -> tuple[dict[str, An
         or not isinstance(harness, dict)
         or harness.get("id") != "mini-swe-agent"
         or harness.get("version") != "2.4.6"
-        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
         or harness.get("config_overrides")
         != [
             "agent.step_limit=200",
@@ -349,12 +484,210 @@ def _validate_sandoq_capacity(
     return canonical, body
 
 
+def _git_bytes(repository: Path, *arguments: str) -> bytes:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(repository), *arguments],
+            check=True,
+            capture_output=True,
+            timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError) as error:
+        raise StockSmallError("tb4_execution_semantics_invalid") from error
+    if completed.stderr:
+        raise StockSmallError("tb4_execution_semantics_invalid")
+    return completed.stdout
+
+
+def _git_file_hashes(repository: Path, revision: str, paths: Sequence[str]) -> dict[str, str]:
+    if REVISION_RE.fullmatch(revision) is None or not paths or len(paths) != len(set(paths)):
+        raise StockSmallError("tb4_execution_semantics_invalid")
+    values: dict[str, str] = {}
+    for relative in sorted(paths):
+        if not relative or relative.startswith("/") or ".." in Path(relative).parts:
+            raise StockSmallError("tb4_execution_semantics_invalid")
+        values[relative] = _sha256(_git_bytes(repository, "show", f"{revision}:{relative}"))
+    return values
+
+
+def _validated_hash_map(value: object, expected_paths: Sequence[str]) -> dict[str, str]:
+    expected = set(expected_paths)
+    if (
+        not isinstance(value, dict)
+        or set(value) != expected
+        or any(
+            not isinstance(path, str)
+            or not isinstance(digest, str)
+            or SHA256_RE.fullmatch(digest) is None
+            for path, digest in value.items()
+        )
+    ):
+        raise StockSmallError("tb4_execution_semantics_invalid")
+    return dict(value)
+
+
+def _validate_tb4_execution_semantics(
+    value: object,
+    *,
+    tb4_root: Path,
+    production_root: Path,
+    certificate_revision: str,
+    verifiers_revision: str,
+) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != {
+        "schema_version",
+        "hash_kind",
+        "source_revision",
+        "prime_rl_shared_files",
+        "prime_rl_shared_file_set_sha256",
+        "tb4_lane_files",
+        "tb4_lane_file_set_sha256",
+        "sandoq_extension",
+        "verifiers",
+    }:
+        raise StockSmallError("tb4_execution_semantics_invalid")
+    extension = value.get("sandoq_extension")
+    verifiers = value.get("verifiers")
+    if (
+        value.get("schema_version") != 1
+        or value.get("hash_kind") != "raw-file-sha256"
+        or value.get("source_revision") != certificate_revision
+        or not isinstance(extension, dict)
+        or set(extension) != {"path", "files", "file_set_sha256"}
+        or extension.get("path") != TB4_SANDOQ_EXTENSION_PREFIX
+        or not isinstance(verifiers, dict)
+        or set(verifiers) != {"commit", "files", "file_set_sha256"}
+        or verifiers.get("commit") != verifiers_revision
+    ):
+        raise StockSmallError("tb4_execution_semantics_invalid")
+
+    shared_files = _validated_hash_map(
+        value.get("prime_rl_shared_files"),
+        TB4_SHARED_PRIME_FILES,
+    )
+    lane_files = _validated_hash_map(value.get("tb4_lane_files"), TB4_LANE_PRIME_FILES)
+    extension_paths = tuple(
+        line.decode("utf-8")
+        for line in _git_bytes(
+            tb4_root,
+            "ls-tree",
+            "-r",
+            "--name-only",
+            certificate_revision,
+            "--",
+            TB4_SANDOQ_EXTENSION_PREFIX,
+        ).splitlines()
+        if line
+    )
+    if not extension_paths or any(
+        not path.startswith(TB4_SANDOQ_EXTENSION_PREFIX + "/") for path in extension_paths
+    ):
+        raise StockSmallError("tb4_execution_semantics_invalid")
+    extension_files = _validated_hash_map(extension.get("files"), extension_paths)
+    verifier_files = _validated_hash_map(verifiers.get("files"), TB4_VERIFIERS_EXECUTION_FILES)
+    observed_tb4_shared = _git_file_hashes(
+        tb4_root,
+        certificate_revision,
+        TB4_SHARED_PRIME_FILES,
+    )
+    observed_tb4_lane = _git_file_hashes(
+        tb4_root,
+        certificate_revision,
+        TB4_LANE_PRIME_FILES,
+    )
+    observed_tb4_extension = _git_file_hashes(tb4_root, certificate_revision, extension_paths)
+    observed_tb4_verifiers = _git_file_hashes(
+        tb4_root / "deps/verifiers",
+        verifiers_revision,
+        TB4_VERIFIERS_EXECUTION_FILES,
+    )
+    if (
+        shared_files != observed_tb4_shared
+        or value.get("prime_rl_shared_file_set_sha256") != _sha256(_canonical(shared_files))
+        or lane_files != observed_tb4_lane
+        or value.get("tb4_lane_file_set_sha256") != _sha256(_canonical(lane_files))
+        or extension_files != observed_tb4_extension
+        or extension.get("file_set_sha256") != _sha256(_canonical(extension_files))
+        or verifier_files != observed_tb4_verifiers
+        or verifiers.get("file_set_sha256") != _sha256(_canonical(verifier_files))
+    ):
+        raise StockSmallError("tb4_execution_semantics_invalid")
+
+    production_revision = _git(production_root, "rev-parse", "HEAD")
+    production_shared = _git_file_hashes(
+        production_root,
+        production_revision,
+        TB4_SHARED_PRIME_FILES,
+    )
+    if production_shared != shared_files:
+        raise StockSmallError("tb4_shared_execution_semantics_changed")
+    production_lane = _git_file_hashes(
+        production_root,
+        production_revision,
+        TB4_LANE_PRIME_FILES,
+    )
+    if any(
+        production_lane[path] != lane_files[path]
+        for path in set(TB4_LANE_PRIME_FILES) - TB4_PRODUCTION_VARIANT_FILES
+    ):
+        raise StockSmallError("tb4_lane_execution_semantics_changed")
+    variant_pairs = {
+        path: {"production": production_lane[path], "tb4": lane_files[path]}
+        for path in sorted(TB4_PRODUCTION_VARIANT_FILES)
+    }
+    if _sha256(_canonical(variant_pairs)) != TB4_PRODUCTION_VARIANT_PAIR_SHA256:
+        raise StockSmallError("tb4_lane_specific_semantics_changed")
+
+    production_extension_paths = tuple(
+        line.decode("utf-8")
+        for line in _git_bytes(
+            production_root,
+            "ls-tree",
+            "-r",
+            "--name-only",
+            production_revision,
+            "--",
+            TB4_SANDOQ_EXTENSION_PREFIX,
+        ).splitlines()
+        if line
+    )
+    production_extension = _git_file_hashes(
+        production_root,
+        production_revision,
+        production_extension_paths,
+    )
+    production_verifiers_revision = _git(production_root / "deps/verifiers", "rev-parse", "HEAD")
+    production_verifiers = _git_file_hashes(
+        production_root / "deps/verifiers",
+        production_verifiers_revision,
+        TB4_VERIFIERS_EXECUTION_FILES,
+    )
+    if (
+        production_extension_paths != extension_paths
+        or production_extension != extension_files
+        or production_verifiers_revision != verifiers_revision
+        or production_verifiers != verifier_files
+    ):
+        raise StockSmallError("tb4_shared_execution_semantics_changed")
+    return {
+        "schema_version": 1,
+        "tb4_source_revision": certificate_revision,
+        "production_source_revision": production_revision,
+        "shared_prime_file_set_sha256": value["prime_rl_shared_file_set_sha256"],
+        "tb4_lane_file_set_sha256": value["tb4_lane_file_set_sha256"],
+        "production_variant_pair_sha256": TB4_PRODUCTION_VARIANT_PAIR_SHA256,
+        "sandoq_extension_file_set_sha256": extension["file_set_sha256"],
+        "verifiers_commit": verifiers_revision,
+        "verifiers_file_set_sha256": verifiers["file_set_sha256"],
+    }
+
+
 def _validate_tb4_gate(
     path: Path,
     expected_sha256: str,
-    expected_revision: str,
+    production_root: Path,
     held: split._HeldArtifactSet | None = None,
-) -> tuple[Path, bytes]:
+) -> tuple[Path, bytes, dict[str, Any]]:
     if SHA256_RE.fullmatch(expected_sha256) is None:
         raise StockSmallError("tb4_gate_invalid")
     try:
@@ -367,15 +700,31 @@ def _validate_tb4_gate(
     value = _json(body, code="tb4_gate_invalid")
     counts = value.get("counts")
     scores = value.get("scores")
+    gate = value.get("gate")
     policy = value.get("policy")
     provider = value.get("provider_context")
     artifacts = value.get("artifacts")
+    source_run = value.get("source_run")
+    trace_claim = value.get("trace_audit")
+    proxy_claim = value.get("buffered_proxy_audit")
+    training = value.get("training_eligibility")
+    recovery = value.get("zero_model_recovery")
+    certificate_revision = value.get("source_revision")
     count_values = ()
     if isinstance(counts, dict):
         count_values = tuple(
-            counts.get(key) for key in ("denominator", "executed", "compose_unsupported", "gpu_unsupported", "passes", "failures")
+            counts.get(key)
+            for key in (
+                "denominator",
+                "executed",
+                "compose_unsupported",
+                "gpu_unsupported",
+                "passes",
+                "failures",
+                "execution_error_zeroes",
+            )
         )
-    counts_are_integers = len(count_values) == 6 and all(map(_plain_nonnegative_integer, count_values))
+    counts_are_integers = len(count_values) == 7 and all(map(_plain_nonnegative_integer, count_values))
     rate = scores.get("all_task_pass_rate") if isinstance(scores, dict) else None
     rate_is_number = isinstance(rate, (int, float)) and not isinstance(rate, bool) and math.isfinite(float(rate))
     identity_path: Path | None = None
@@ -386,28 +735,39 @@ def _validate_tb4_gate(
     if (
         value.get("schema_version") != 1
         or value.get("kind") != "kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic"
-        or value.get("state") != "passed"
-        or value.get("source_revision") != expected_revision
+        or value.get("state") != "finalized-with-explicit-error-zeroes"
+        or value.get("certification_eligible") is not False
+        or value.get("official_comparable") is not False
+        or not isinstance(certificate_revision, str)
+        or REVISION_RE.fullmatch(certificate_revision) is None
         or value.get("result_label") != "resource-clamped-firecracker-small-diagnostic"
         or not isinstance(counts, dict)
         or not counts_are_integers
         or counts.get("denominator") != 66
         or counts.get("executed") != 52
-        or counts["compose_unsupported"] < 0
-        or counts["gpu_unsupported"] < 0
-        or counts.get("compose_unsupported") + counts.get("gpu_unsupported") != 14
+        or counts.get("compose_unsupported") != 11
+        or counts.get("gpu_unsupported") != 3
         or not 0 <= counts["passes"] <= counts["executed"]
         or counts["passes"] < MINIMUM_TB4_PASSES
         or counts.get("failures") != 66 - counts["passes"]
+        or counts.get("execution_error_zeroes")
+        != (trace_claim.get("execution_error_zeroes") if isinstance(trace_claim, dict) else None)
         or not isinstance(scores, dict)
         or not rate_is_number
         or not math.isclose(float(rate), counts["passes"] / 66)
+        or not isinstance(scores.get("executed_pass_rate"), (int, float))
+        or isinstance(scores.get("executed_pass_rate"), bool)
+        or not math.isfinite(float(scores["executed_pass_rate"]))
+        or not math.isclose(float(scores["executed_pass_rate"]), counts["passes"] / 52)
+        or gate != {"target_passes": MINIMUM_TB4_PASSES, "met": True}
         or not isinstance(policy, dict)
         or policy.get("model_io_response_kind") != "exact_provider_json"
         or policy.get("reasoning_required") is not True
         or policy.get("reasoning_message_parity_required") is not True
         or policy.get("request_graph_match_required") is not True
         or policy.get("model_retries") != 0
+        or policy.get("guest_transport_retry_attempts") != 10
+        or policy.get("logical_request_upstream_attempts") != 1
         or policy.get("verifier_runtime_retries") != 2
         or policy.get("retry_shared_verifier_scoring") is not True
         or policy.get("provisioning_retries") != PROVISIONING_RETRIES
@@ -416,9 +776,39 @@ def _validate_tb4_gate(
         or not isinstance(provider, dict)
         or provider.get("provider_environment") != "oci-runner-firecracker-small"
         or provider.get("provider_profile_sha256") != PROVIDER_PROFILE_SHA256
+        or not isinstance(source_run, dict)
         or identity_path is None
     ):
         raise StockSmallError("tb4_gate_invalid")
+
+    launch_record = source_run.get("launch_plan")
+    if (
+        set(source_run)
+        != {"slurm_job_id", "source_revision", "launch_plan", "results", "results_mutated"}
+        or source_run.get("source_revision") != certificate_revision
+        or source_run.get("results_mutated") is not False
+        or not isinstance(source_run.get("slurm_job_id"), str)
+        or re.fullmatch(r"[1-9][0-9]*", source_run["slurm_job_id"]) is None
+        or source_run.get("results") != artifacts.get("executed_results")
+        or value.get("launch_plan_sha256")
+        != (launch_record.get("sha256") if isinstance(launch_record, dict) else None)
+    ):
+        raise StockSmallError("tb4_gate_invalid")
+    launch_path, launch_body = _record_body(
+        launch_record,
+        code="tb4_gate_plan_invalid",
+        private=True,
+        held=held,
+    )
+    try:
+        verified_plan = tb4_small.verify(
+            launch_path,
+            _sha256(launch_body),
+            held=held,
+            body=launch_body,
+        )
+    except (OSError, RuntimeError, ValueError) as error:
+        raise StockSmallError("tb4_gate_plan_invalid") from error
     identity_body = _read(identity_path, code="tb4_gate_identity_invalid", private=True, held=held)
     if _sha256(identity_body) != value.get("eval_run_identity_sha256"):
         raise StockSmallError("tb4_gate_identity_invalid")
@@ -438,7 +828,7 @@ def _validate_tb4_gate(
     if (
         not isinstance(identity, dict)
         or identity.get("role") != "kimi-direct-tb4-small-diagnostic"
-        or identity.get("source", {}).get("prime_rl_commit") != expected_revision
+        or identity.get("source", {}).get("prime_rl_commit") != certificate_revision
         or not isinstance(router, dict)
         or router.get("capacity_profile") != CAPACITY_PROFILE
         or router.get("endpoint_identifier") != ENDPOINT_IDENTIFIER
@@ -448,14 +838,31 @@ def _validate_tb4_gate(
         or identity.get("deployment", {}).get("endpoint_bundle_sha256") != ENDPOINT_BUNDLE_SHA256
     ):
         raise StockSmallError("tb4_gate_identity_invalid")
+    identity_source = identity.get("source")
+    if not isinstance(identity_source, dict):
+        raise StockSmallError("tb4_gate_identity_invalid")
+    tb4_root = Path(str(identity_source.get("project_root", "")))
+    verifiers_revision = str(identity_source.get("verifiers_commit", ""))
+    semantics_binding = _validate_tb4_execution_semantics(
+        value.get("execution_semantics"),
+        tb4_root=tb4_root,
+        production_root=production_root,
+        certificate_revision=certificate_revision,
+        verifiers_revision=verifiers_revision,
+    )
     task_record = identity.get("inputs", {}).get("task_file")
     executed_record = artifacts.get("executed_results") if isinstance(artifacts, dict) else None
+    evaluator_log_record = artifacts.get("evaluator_private_log") if isinstance(artifacts, dict) else None
     if (
         not isinstance(task_record, dict)
         or set(task_record) != {"path", "sha256", "count"}
         or task_record.get("count") != 52
+        or task_record.get("path") != verified_plan.get("selector")
+        or task_record.get("sha256") != verified_plan.get("selector_sha256")
         or not isinstance(executed_record, dict)
         or set(executed_record) != {"path", "bytes", "sha256"}
+        or not isinstance(evaluator_log_record, dict)
+        or set(evaluator_log_record) != {"path", "bytes", "sha256"}
     ):
         raise StockSmallError("tb4_gate_trace_invalid")
     selector_path = Path(str(task_record["path"]))
@@ -468,26 +875,82 @@ def _validate_tb4_gate(
         raise StockSmallError("tb4_gate_selector_invalid") from error
     if len(members) != 52 or len(set(members)) != 52 or selector_body != legacy._task_payload(members):
         raise StockSmallError("tb4_gate_selector_invalid")
+    plan_manifest = verified_plan.get("manifest")
+    if not isinstance(plan_manifest, str) or not isinstance(verified_plan.get("manifest_sha256"), str):
+        raise StockSmallError("tb4_gate_plan_invalid")
+    manifest_body = _read(
+        Path(plan_manifest),
+        code="tb4_gate_plan_invalid",
+        private=True,
+        held=held,
+    )
     try:
-        trace_audit, rows, result_artifact = split._audit_cpu_results(
+        _manifest, entries = split.parse_manifest(
+            manifest_body,
+            str(verified_plan["manifest_sha256"]),
+        )
+        verifier_modes = {entry.task_id: entry.verifier_mode for entry in entries}
+        results_body = _read(
             Path(str(executed_record["path"])),
+            code="tb4_gate_trace_invalid",
+            private=True,
+            held=held,
+            maximum_bytes=512 * 1024 * 1024,
+        )
+        trace_audit, rows = tb4_recovery._audit_supported_rows(
+            results_body,
             members,
-            {member: "separate" for member in members},
-            held,
-            require_exact_provider_json=True,
-            required_response_kind="exact_provider_json",
+            verifier_modes,
+            allow_nontrainable_scored_rows=True,
         )
     except (OSError, RuntimeError, ValueError) as error:
         raise StockSmallError("tb4_gate_trace_invalid") from error
+    result_artifact = _artifact(Path(str(executed_record["path"])), results_body)
+    evaluator_log_path, evaluator_log_body = _record_body(
+        evaluator_log_record,
+        code="tb4_gate_transport_invalid",
+        private=True,
+        held=held,
+    )
+    if evaluator_log_path.parent.parent != Path(str(executed_record["path"])).parent:
+        raise StockSmallError("tb4_gate_transport_invalid")
+    proxy_audit = _buffered_proxy_audit(evaluator_log_body)
     if (
         result_artifact != executed_record
         or trace_audit != value.get("trace_audit")
+        or proxy_audit != proxy_claim
         or trace_audit.get("passes") != counts["passes"]
-        or trace_audit.get("trace_failures") != 0
-        or any(audit_traces._clean_stop_problem(row) is not None for row in rows.values())
+        or trace_audit.get("clean_trace_failures") != 0
+        or trace_audit.get("trace_invalid_passing_rows") != 0
+        or not _plain_nonnegative_integer(trace_audit.get("clean_scored_rows"))
+        or not _plain_nonnegative_integer(trace_audit.get("execution_error_zeroes"))
+        or trace_audit.get("clean_scored_rows")
+        + trace_audit.get("execution_error_zeroes")
+        != counts["executed"]
+        or training
+        != {
+            "eligible_clean_scored_rows": trace_audit.get("clean_scored_rows"),
+            "excluded_error_rows": trace_audit.get("execution_error_zeroes"),
+            "excluded_trace_invalid_scored_rows": trace_audit.get(
+                "trace_invalid_scored_rows"
+            ),
+            "excluded_unsupported_rows": 14,
+            "error_rows_are_trainable": False,
+            "trace_invalid_scored_rows_are_trainable": False,
+        }
+        or recovery
+        != {
+            "state": "not_attempted",
+            "eligible_rows": trace_audit.get("zero_model_error_zeroes"),
+            "recovered_rows": 0,
+            "source_row_set_sha256": trace_audit.get("zero_model_row_set_sha256"),
+            "model_attempts_preserved": True,
+            "requires_new_versioned_supersession_for_recovered_rows": True,
+        }
     ):
         raise StockSmallError("tb4_gate_trace_invalid")
-    return canonical, body
+    del rows
+    return canonical, body, semantics_binding
 
 
 def _split_members(members: Sequence[str]) -> tuple[tuple[str, ...], ...]:
@@ -541,7 +1004,10 @@ def _contracts() -> dict[str, Any]:
         "request_graph_match_required": True,
         "model_attempts": 1,
         "model_retries": 0,
+        "guest_transport_retry_attempts": 10,
+        "logical_request_upstream_attempts": 1,
         "zero_model_resume_attempts": 0,
+        "model_bearing_errors_terminal": True,
         "verifier_recovery": {
             "mode": "same-post-agent-runtime-scoring-only",
             "retries": 2,
@@ -644,10 +1110,10 @@ def materialize(
     provider_path, provider_body = _validate_provider_profile()
     stock_path, stock_body = _validate_stock_capacity(stock_capacity, stock_capacity_sha256)
     sandoq_path, sandoq_body = _validate_sandoq_capacity(sandoq_capacity, sandoq_capacity_sha256)
-    tb4_path, tb4_body = _validate_tb4_gate(
+    tb4_path, tb4_body, tb4_semantics = _validate_tb4_gate(
         tb4_certificate,
         tb4_certificate_sha256,
-        expected_revision,
+        root,
     )
     try:
         task_soak_path, task_soak_body = task_image_soak.validate_task_image_soak_receipt(
@@ -732,6 +1198,7 @@ def materialize(
             "stock_model_c64": _artifact(stock_path, stock_body),
             "sandoq_small_c64": _artifact(sandoq_path, sandoq_body),
         },
+        "qualification": {"tb4_execution_semantics": tb4_semantics},
         "selection": {
             "approved_count": legacy.EXPECTED_SOURCE_COUNT,
             "selected_count": TOTAL_TASKS,
@@ -787,13 +1254,29 @@ def _verify_with_held(
     unsigned = dict(plan)
     claimed = unsigned.pop("plan_sha256", None)
     if (
-        plan.get("schema_version") != SCHEMA_VERSION
+        set(plan)
+        != {
+            "schema_version",
+            "kind",
+            "state",
+            "deployment_namespace",
+            "source_revision",
+            "contracts",
+            "source",
+            "qualification",
+            "selection",
+            "run_root",
+            "shards",
+            "plan_sha256",
+        }
+        or plan.get("schema_version") != SCHEMA_VERSION
         or plan.get("kind") != PLAN_KIND
         or plan.get("state") != "authorized"
         or plan.get("deployment_namespace") != DEPLOYMENT_NAMESPACE
         or claimed != _sha256(_canonical(unsigned))
         or plan.get("contracts") != _contracts()
         or not isinstance(plan.get("source"), dict)
+        or not isinstance(plan.get("qualification"), dict)
         or not isinstance(plan.get("selection"), dict)
         or not isinstance(plan.get("shards"), list)
         or len(plan["shards"]) != SHARD_COUNT
@@ -850,12 +1333,14 @@ def _verify_with_held(
         raise StockSmallError("plan_source_invalid")
     _validate_stock_capacity(records["stock_model_c64"][0], STOCK_CAPACITY_SHA256, held)
     _validate_sandoq_capacity(records["sandoq_small_c64"][0], SANDOQ_CAPACITY_SHA256, held)
-    _validate_tb4_gate(
+    _tb4_path, _tb4_body, tb4_semantics = _validate_tb4_gate(
         records["tb4_gate"][0],
         _sha256(records["tb4_gate"][1]),
-        str(plan["source_revision"]),
+        project_root,
         held,
     )
+    if plan["qualification"] != {"tb4_execution_semantics": tb4_semantics}:
+        raise StockSmallError("tb4_execution_semantics_invalid")
     try:
         task_image_soak.validate_task_image_soak_receipt(
             records["task_image_c64_soak"][0],
@@ -1070,6 +1555,8 @@ def create_launch(
             "session_timeout_seconds": SESSION_TIMEOUT_SECONDS,
             "rollout_timeout_seconds": ROLLOUT_TIMEOUT_SECONDS,
             "model_retries": 0,
+            "guest_transport_retry_attempts": 10,
+            "logical_request_upstream_attempts": 1,
             "zero_model_resume_attempts": 0,
             "verifier_runtime_retries": 2,
             "verifier_retry_mode": "same-post-agent-runtime-scoring-only",
@@ -1178,6 +1665,8 @@ def validate_launch(
             "session_timeout_seconds": SESSION_TIMEOUT_SECONDS,
             "rollout_timeout_seconds": ROLLOUT_TIMEOUT_SECONDS,
             "model_retries": 0,
+            "guest_transport_retry_attempts": 10,
+            "logical_request_upstream_attempts": 1,
             "zero_model_resume_attempts": 0,
             "verifier_runtime_retries": 2,
             "verifier_retry_mode": "same-post-agent-runtime-scoring-only",
@@ -1400,7 +1889,7 @@ def _validate_run_evidence(
     launch_path: Path,
     launch_sha256: str,
     run_dir: Path,
-) -> tuple[dict[str, Any], dict[str, Any]]:
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     shard_root = Path(str(shard["run_root"]))
     try:
         canonical_run = run_dir.resolve(strict=True)
@@ -1434,6 +1923,23 @@ def _validate_run_evidence(
             trace = audit_results(canonical_run / "results.jsonl", Path(str(shard["selector"]["path"])))
             if trace["zero_model_error_traces"] != 0:
                 raise StockSmallError("incomplete_trace_set")
+            evaluator_log_path = canonical_run / "control/evaluator.private.log"
+            evaluator_log_body = _read(
+                evaluator_log_path,
+                code="buffered_proxy_log_invalid",
+                private=True,
+                held=held,
+                maximum_bytes=512 * 1024 * 1024,
+            )
+            transport = _buffered_proxy_audit(evaluator_log_body)
+            transport_totals = transport["integer_totals"]
+            if (
+                transport["summary_records"] != int(shard["count"])
+                or transport_totals["logical_requests"] != trace["audited_model_io_turns"]
+                or transport_totals["logical_upstream_attempts"]
+                != trace["audited_model_io_turns"]
+            ):
+                raise StockSmallError("buffered_proxy_trace_mismatch")
 
             try:
                 from eval_run_identity import load_eval_run_identity_bytes
@@ -1557,6 +2063,7 @@ def _validate_run_evidence(
                 "eval_run_identity": evidence.artifact("eval_run_identity.json"),
                 "eval_invocations": evidence.artifact("eval_invocations.jsonl"),
                 "provenance": evidence.artifact("provenance.txt"),
+                "evaluator_private_log": _artifact(evaluator_log_path, evaluator_log_body),
                 "endpoint_walltime_gate": _artifact(
                     Path(str(walltime_record["path"])),
                     walltime_body,
@@ -1567,7 +2074,7 @@ def _validate_run_evidence(
             }
             evidence.revalidate()
             held.revalidate()
-            return trace, artifacts
+            return trace, transport, artifacts
     except StockSmallError:
         raise
     except (OSError, RuntimeError, ValueError) as error:
@@ -1643,7 +2150,7 @@ def _validate_completion_value(
         }
     ):
         raise StockSmallError("completion_invalid")
-    observed_trace, observed_artifacts = _validate_run_evidence(
+    observed_trace, observed_transport, observed_artifacts = _validate_run_evidence(
         plan=plan,
         shard=shard,
         launch=launch,
@@ -1651,7 +2158,11 @@ def _validate_completion_value(
         launch_sha256=str(launch_record["sha256"]),
         run_dir=Path(str(launch["run_dir"])),
     )
-    if observed_trace != trace or value.get("artifacts") != observed_artifacts:
+    if (
+        observed_trace != trace
+        or value.get("transport") != observed_transport
+        or value.get("artifacts") != observed_artifacts
+    ):
         raise StockSmallError("completion_trace_invalid")
     return dict(value)
 
@@ -1681,6 +2192,53 @@ def load_completion(plan_path: Path, plan_sha256: str, index: int) -> dict[str, 
     return _load_completion_for_plan(plan, plan_path, plan_sha256, index)
 
 
+def _aggregate_transport_audits(values: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    integer_totals: Counter[str] = Counter()
+    mapping_totals: dict[str, Counter[str]] = {
+        field: Counter() for field in PROXY_SUMMARY_MAPPING_FIELDS
+    }
+    summary_records = 0
+    for value in values:
+        if (
+            value.get("schema_version") != 1
+            or value.get("source_schema") != "logical-exact-once-v1"
+            or value.get("exact_once_counters_required") is not True
+            or not _plain_nonnegative_integer(value.get("summary_records"))
+            or not isinstance(value.get("integer_totals"), dict)
+            or set(value["integer_totals"]) != set(PROXY_SUMMARY_INTEGER_FIELDS)
+            or any(
+                not _plain_nonnegative_integer(value["integer_totals"].get(field))
+                for field in PROXY_SUMMARY_INTEGER_FIELDS
+            )
+            or not isinstance(value.get("mapping_totals"), dict)
+            or set(value["mapping_totals"]) != set(PROXY_SUMMARY_MAPPING_FIELDS)
+            or any(
+                not _counter_mapping(value["mapping_totals"].get(field))
+                for field in PROXY_SUMMARY_MAPPING_FIELDS
+            )
+            or SHA256_RE.fullmatch(str(value.get("record_set_sha256", ""))) is None
+        ):
+            raise StockSmallError("buffered_proxy_audit_invalid")
+        summary_records += int(value["summary_records"])
+        integer_totals.update(value["integer_totals"])
+        for field in PROXY_SUMMARY_MAPPING_FIELDS:
+            mapping_totals[field].update(value["mapping_totals"][field])
+    return {
+        "schema_version": 1,
+        "source_schema": "logical-exact-once-v1",
+        "summary_records": summary_records,
+        "exact_once_counters_required": True,
+        "integer_totals": {
+            field: integer_totals[field] for field in PROXY_SUMMARY_INTEGER_FIELDS
+        },
+        "mapping_totals": {
+            field: dict(sorted(mapping_totals[field].items()))
+            for field in PROXY_SUMMARY_MAPPING_FIELDS
+        },
+        "shard_audit_set_sha256": _sha256(_canonical(list(values))),
+    }
+
+
 def certify_shard(
     *,
     plan_path: Path,
@@ -1701,7 +2259,7 @@ def certify_shard(
         or launch.get("run_dir") != str(run_dir)
     ):
         raise StockSmallError("shard_launch_binding_invalid")
-    trace, artifacts = _validate_run_evidence(
+    trace, transport, artifacts = _validate_run_evidence(
         plan=plan,
         shard=shard,
         launch=launch,
@@ -1718,6 +2276,7 @@ def certify_shard(
         "launch": {"path": str(launch_path.resolve(strict=True)), "sha256": launch_sha256},
         "shard": {"index": index, "count": shard["count"], "selector_sha256": shard["selector"]["sha256"]},
         "trace": trace,
+        "transport": transport,
         "capture": {
             "response_kind": "exact_provider_json",
             "reasoning_required": True,
@@ -1750,6 +2309,7 @@ def status(plan_path: Path, plan_sha256: str) -> dict[str, Any]:
     complete: list[int] = []
     pending: list[int] = []
     counts: Counter[str] = Counter()
+    transport_audits: list[dict[str, Any]] = []
     for shard in plan["shards"]:
         index = shard["index"]
         completion = Path(shard["run_root"]) / "complete.json"
@@ -1767,6 +2327,8 @@ def status(plan_path: Path, plan_sha256: str) -> dict[str, Any]:
             "model_bearing_error_traces",
         ):
             counts[key] += value["trace"][key]
+        transport_audits.append(value["transport"])
+    transport = _aggregate_transport_audits(transport_audits)
     return {
         "state": "complete" if not pending else "incomplete",
         "completed_shards": len(complete),
@@ -1777,6 +2339,12 @@ def status(plan_path: Path, plan_sha256: str) -> dict[str, Any]:
         "error_traces": counts["error_traces"],
         "zero_model_error_traces": counts["zero_model_error_traces"],
         "model_bearing_error_traces": counts["model_bearing_error_traces"],
+        "logical_model_requests": transport["integer_totals"]["logical_requests"],
+        "logical_upstream_attempts": transport["integer_totals"][
+            "logical_upstream_attempts"
+        ],
+        "guest_replayed_requests": transport["integer_totals"]["replayed_requests"],
+        "guest_coalesced_requests": transport["integer_totals"]["coalesced_requests"],
         "pending_indexes": pending,
     }
 
@@ -1784,6 +2352,7 @@ def status(plan_path: Path, plan_sha256: str) -> dict[str, Any]:
 def finalize(plan_path: Path, plan_sha256: str, output: Path) -> dict[str, Any]:
     plan = verify(plan_path, plan_sha256)
     completions = []
+    transport_audits: list[dict[str, Any]] = []
     counts: Counter[str] = Counter()
     for shard in plan["shards"]:
         path = Path(shard["run_root"]) / "complete.json"
@@ -1805,6 +2374,7 @@ def finalize(plan_path: Path, plan_sha256: str, output: Path) -> dict[str, Any]:
         ):
             counts[key] += completion["trace"][key]
         completions.append(_artifact(path, body))
+        transport_audits.append(completion["transport"])
     if (
         counts["completed_tasks"] != TOTAL_TASKS
         or counts["zero_model_error_traces"] != 0
@@ -1823,6 +2393,16 @@ def finalize(plan_path: Path, plan_sha256: str, output: Path) -> dict[str, Any]:
         "model_bearing_error_traces": counts["model_bearing_error_traces"],
         "pending_indexes": [],
     }
+    transport = _aggregate_transport_audits(transport_audits)
+    if (
+        transport["summary_records"] != TOTAL_TASKS
+        or transport["integer_totals"]["logical_upstream_attempts"]
+        != transport["integer_totals"]["logical_requests"]
+        or transport["integer_totals"]["anonymous_upstream_attempts"] != 0
+        or transport["integer_totals"]["conflicting_requests"] != 0
+        or transport["integer_totals"]["expired_logical_retries"] != 0
+    ):
+        raise StockSmallError("production_transport_invalid")
     value = {
         "schema_version": SCHEMA_VERSION,
         "kind": FINAL_KIND,
@@ -1856,6 +2436,7 @@ def finalize(plan_path: Path, plan_sha256: str, output: Path) -> dict[str, Any]:
             "reasoning_message_parity_required": True,
             "request_graph_match_required": True,
         },
+        "transport": transport,
         "completion_receipts": completions,
     }
     value["certificate_sha256"] = _sha256(_canonical(value))
