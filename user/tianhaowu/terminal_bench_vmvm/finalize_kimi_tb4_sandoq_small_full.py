@@ -279,8 +279,8 @@ def _finalize_with_held(
                 supported,
                 verifier_modes,
                 held,
-                require_exact_provider_json=False,
-                required_response_kind="normalized_stream_response",
+                require_exact_provider_json=True,
+                required_response_kind="exact_provider_json",
             )
             cleanup, cleanup_artifacts = split._validate_sandoq_cleanup(
                 run_dir / "sandoq_cleanup_audit.json",

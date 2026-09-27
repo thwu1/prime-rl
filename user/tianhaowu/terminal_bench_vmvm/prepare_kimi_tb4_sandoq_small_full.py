@@ -404,7 +404,7 @@ def _contracts() -> dict[str, Any]:
         "generation_tokens": split.SAMPLING_MAX_TOKENS,
         "max_turns": 200,
         "reasoning_required": True,
-        "model_io_response_kind": "normalized_stream_response",
+        "model_io_response_kind": "exact_provider_json",
         "reasoning_message_parity_required": True,
         "request_graph_match_required": True,
         "model_retries": 0,

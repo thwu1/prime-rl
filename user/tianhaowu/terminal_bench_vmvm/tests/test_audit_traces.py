@@ -1311,6 +1311,119 @@ def test_audit_trace_requires_captured_request_messages_to_match_graph_path() ->
     ) == ["node_1_model_io_request_messages_mismatch"]
 
 
+def test_prompt_messages_allows_tool_id_reuse_after_each_occurrence_is_consumed() -> None:
+    graph = [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"id": "reused", "name": "bash", "arguments": '{"cmd":"first"}'}],
+        },
+        {"role": "tool", "content": "first-result", "tool_call_id": "reused", "name": "bash"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"id": "reused", "name": "bash", "arguments": '{"cmd":"second"}'}],
+        },
+        {"role": "tool", "content": "second-result", "tool_call_id": "reused"},
+    ]
+    wire = [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "reused",
+                    "type": "function",
+                    "function": {"name": "bash", "arguments": '{"cmd":"first"}'},
+                }
+            ],
+        },
+        {"role": "tool", "content": "first-result", "tool_call_id": "reused", "name": "bash"},
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": "reused",
+                    "type": "function",
+                    "function": {"name": "bash", "arguments": '{"cmd":"second"}'},
+                }
+            ],
+        },
+        {"role": "tool", "content": "second-result", "tool_call_id": "reused"},
+    ]
+
+    assert audit_traces._prompt_messages(wire, wire=True) == audit_traces._prompt_messages(
+        graph,
+        wire=False,
+    )
+    nodes = [
+        {
+            "parent": index - 1 if index else None,
+            "message": message,
+            "sampled": False,
+        }
+        for index, message in enumerate(graph)
+    ]
+    nodes.append(
+        {
+            "parent": len(nodes) - 1,
+            "message": {"role": "assistant", "content": "done"},
+            "sampled": True,
+        }
+    )
+    assert audit_traces._request_graph_message_problem(
+        nodes,
+        len(nodes) - 1,
+        {"messages": wire},
+    ) is None
+
+
+def test_prompt_messages_rejects_duplicate_or_unresolved_tool_occurrences() -> None:
+    duplicate_batch = [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {"id": "same", "name": "bash", "arguments": "{}"},
+                {"id": "same", "name": "bash", "arguments": "{}"},
+            ],
+        },
+        {"role": "tool", "content": "result", "tool_call_id": "same"},
+    ]
+    unresolved_reuse = [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"id": "same", "name": "bash", "arguments": "{}"}],
+        },
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"id": "same", "name": "bash", "arguments": "{}"}],
+        },
+    ]
+
+    with pytest.raises(ValueError, match="tool_calls"):
+        audit_traces._prompt_messages(duplicate_batch, wire=False)
+    with pytest.raises(ValueError, match="tool_calls"):
+        audit_traces._prompt_messages(unresolved_reuse, wire=False)
+
+
+def test_prompt_messages_rejects_wrong_tool_result_name() -> None:
+    messages = [
+        {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{"id": "call", "name": "bash", "arguments": "{}"}],
+        },
+        {"role": "tool", "content": "result", "tool_call_id": "call", "name": "other"},
+    ]
+
+    with pytest.raises(ValueError, match="message"):
+        audit_traces._prompt_messages(messages, wire=False)
+
+
 @pytest.mark.parametrize("finish_reason", ["content_filter", "function_call", "length", "unknown"])
 def test_strict_graph_audit_rejects_hash_valid_untrainable_raw_finish_reason(finish_reason: str) -> None:
     trace = _trace_with_model_io()

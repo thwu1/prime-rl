@@ -944,13 +944,20 @@ def _prompt_tool_calls(value: object, *, wire: bool) -> list[dict] | None:
 def _prompt_messages(messages: object, *, wire: bool) -> list[dict]:
     if not isinstance(messages, list):
         raise ValueError("messages")
-    tool_names: dict[str, str] = {}
+    # Tool-call IDs are scoped to one assistant action batch. MiniSWE 2.4.6
+    # legitimately reuses its deterministic ``bash:0`` ID on later turns, so
+    # global uniqueness would reject a lossless multi-turn transcript. Keep a
+    # strict pending batch instead: every call must be consumed exactly once,
+    # in the following tool-message run, before another conversational turn.
+    pending_tool_names: dict[str, str] = {}
     normalized: list[dict] = []
     for message in messages:
         if not isinstance(message, dict):
             raise ValueError("message")
         role = message.get("role")
         if role in {"system", "user"}:
+            if pending_tool_names:
+                raise ValueError("tool_calls")
             if set(message) != {"role", "content"}:
                 raise ValueError("message")
             normalized.append({"role": role, "content": _prompt_content(message["content"])})
@@ -961,12 +968,12 @@ def _prompt_messages(messages: object, *, wire: bool) -> list[dict]:
             ):
                 raise ValueError("message")
             call_id = message.get("tool_call_id")
-            if not isinstance(call_id, str) or not call_id:
+            if not isinstance(call_id, str) or not call_id or call_id not in pending_tool_names:
                 raise ValueError("message")
             name = message.get("name")
             if name is None:
-                name = tool_names.get(call_id)
-            if name is not None and (not isinstance(name, str) or not name):
+                name = pending_tool_names[call_id]
+            if not isinstance(name, str) or not name or name != pending_tool_names[call_id]:
                 raise ValueError("message")
             normalized.append(
                 {
@@ -976,9 +983,12 @@ def _prompt_messages(messages: object, *, wire: bool) -> list[dict]:
                     "name": name,
                 }
             )
+            del pending_tool_names[call_id]
             continue
         if role != "assistant":
             raise ValueError("message")
+        if pending_tool_names:
+            raise ValueError("tool_calls")
         allowed = {
             "role",
             "content",
@@ -1014,9 +1024,11 @@ def _prompt_messages(messages: object, *, wire: bool) -> list[dict]:
             normalized_message["tool_calls"] = calls
         normalized.append(normalized_message)
         for call in calls or []:
-            if call["id"] in tool_names:
+            if call["id"] in pending_tool_names:
                 raise ValueError("tool_calls")
-            tool_names[call["id"]] = call["name"]
+            pending_tool_names[call["id"]] = call["name"]
+    if pending_tool_names:
+        raise ValueError("tool_calls")
     return normalized
 
 

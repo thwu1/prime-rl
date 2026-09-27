@@ -253,9 +253,8 @@ def test_materialized_small_plan_preserves_full_generation_contract(
     assert config["taskset"]["resource_memory_mb_cap"] == 2_048
     assert b"opaque-case" not in json.dumps(result, sort_keys=True).encode()
     plan = json.loads((output / small.PLAN).read_bytes())
-    assert plan["contracts"]["model_io_response_kind"] == "normalized_stream_response"
+    assert plan["contracts"]["model_io_response_kind"] == "exact_provider_json"
     assert plan["contracts"]["reasoning_message_parity_required"] is True
-    assert "exact_provider_json_required" not in plan["contracts"]
 
     original_verify = small.verify
     replacement = tmp_path / "replacement-plan.json"
