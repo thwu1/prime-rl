@@ -300,6 +300,8 @@ def _sandoq_identity() -> dict:
         "sandbox_provider": "sandoq",
         "sandoq_provider_commit": "4" * 40,
         "sandoq_provider_tree": "5" * 40,
+        "sandoq_vendor_provenance": eval_run_identity.SANDOQ_VENDOR_PROVENANCE,
+        "sandoq_vendor_inventory_sha256": eval_run_identity.SANDOQ_VENDOR_INVENTORY_SHA256,
         "sandoq_client_version": "pinned-client",
         "sandoq_site": "/pinned/sandoq-site",
         "sandoq_site_sha256": "7" * 64,
@@ -1257,9 +1259,11 @@ def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeyp
         _source_identity(args)
 
 
-def test_vendored_sandoq_provider_matches_pinned_upstream_inventory() -> None:
+def test_vendored_sandoq_provider_matches_patched_vendor_inventory() -> None:
     project_root = Path(__file__).resolve().parents[4]
 
+    assert eval_run_identity.SANDOQ_VENDOR_PROVENANCE == "patched-upstream-subtree"
+    assert len(eval_run_identity.SANDOQ_VENDOR_INVENTORY_SHA256) == 64
     eval_run_identity._validate_vendored_sandoq_provider(
         project_root,
         expected_commit=eval_run_identity.SANDOQ_UPSTREAM_COMMIT,

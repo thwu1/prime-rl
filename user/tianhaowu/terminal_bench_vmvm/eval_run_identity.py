@@ -107,7 +107,8 @@ SANDOQ_VENDOR_RELATIVE = Path("extensions/sandoq")
 SANDOQ_UPSTREAM_COMMIT = "4890302104d76220cef791c86d2009168597d35f"
 SANDOQ_UPSTREAM_TREE = "33f092a3982916660e12f472588e6ce34a906fc2"
 SANDOQ_UPSTREAM_SUBTREE = "10b5bd9bbc76eba1b8253637e1869d6b63b7fc42"
-SANDOQ_UPSTREAM_INVENTORY_SHA256 = "9d3a1b4d4898659b6fff4d81efcec557286b94de4c9dd933cd8b4ea543ffe4ea"
+SANDOQ_VENDOR_PROVENANCE = "patched-upstream-subtree"
+SANDOQ_VENDOR_INVENTORY_SHA256 = "b91da5ab8fb09b6b99407e5354ca9330ddfc8f372fad0581e922da4b87bc83b2"
 KIMI_SANDOQ_FALLBACK_ROLE = "kimi-direct-tb4-sandoq-fallback-diagnostic"
 KIMI_CAPACITY_SMOKE_ROLE = "kimi-direct-capacity-smoke"
 KIMI_PRODUCTION_ROLE = "kimi-direct-mobius"
@@ -1304,7 +1305,8 @@ def _validate_vendored_sandoq_provider(
         SANDOQ_UPSTREAM_COMMIT,
         SANDOQ_UPSTREAM_TREE,
         SANDOQ_UPSTREAM_SUBTREE,
-        SANDOQ_UPSTREAM_INVENTORY_SHA256,
+        SANDOQ_VENDOR_PROVENANCE,
+        SANDOQ_VENDOR_INVENTORY_SHA256,
     )
     if (
         not stat.S_ISREG(metadata.st_mode)
@@ -1324,7 +1326,7 @@ def _validate_vendored_sandoq_provider(
     inventory = [line for line in listing if not line.endswith("\textensions/sandoq/UPSTREAM.md")]
     if (
         len(inventory) != 44
-        or _sha256_bytes(("\n".join(inventory) + "\n").encode()) != SANDOQ_UPSTREAM_INVENTORY_SHA256
+        or _sha256_bytes(("\n".join(inventory) + "\n").encode()) != SANDOQ_VENDOR_INVENTORY_SHA256
     ):
         raise EvalIdentityError("sandoq_provider_mismatch")
 
@@ -1396,6 +1398,8 @@ def _source_identity(args: argparse.Namespace) -> dict[str, str]:
         "sandbox_provider": "sandoq",
         "sandoq_provider_commit": args.sandoq_provider_commit,
         "sandoq_provider_tree": args.sandoq_provider_tree,
+        "sandoq_vendor_provenance": SANDOQ_VENDOR_PROVENANCE,
+        "sandoq_vendor_inventory_sha256": SANDOQ_VENDOR_INVENTORY_SHA256,
         "sandoq_client_version": args.sandoq_client_version,
         "sandoq_site": str(args.sandoq_site.resolve(strict=True)),
         "sandoq_site_sha256": args.sandoq_site_sha256,
@@ -2696,7 +2700,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
     if not isinstance(source, dict):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     sandbox_provider = source.get("sandbox_provider", "vmvm")
-    source_keys = (
+    base_source_keys = (
         common_source_keys | {"vmvm_tb_v2_sha256"}
         if sandbox_provider == "vmvm"
         else common_source_keys
@@ -2711,8 +2715,24 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "derived_image_manifest_sha256",
         }
     )
-    if sandbox_provider not in {"vmvm", "sandoq"} or set(source) != source_keys:
+    patched_vendor_keys = {
+        "sandoq_vendor_provenance",
+        "sandoq_vendor_inventory_sha256",
+    }
+    allowed_source_keys = (
+        {frozenset(base_source_keys)}
+        if sandbox_provider == "vmvm"
+        else {
+            frozenset(base_source_keys),
+            frozenset(base_source_keys | patched_vendor_keys),
+        }
+    )
+    source_keys = set(source)
+    if sandbox_provider not in {"vmvm", "sandoq"} or frozenset(source_keys) not in allowed_source_keys:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
+    if sandbox_provider == "sandoq" and patched_vendor_keys <= source_keys:
+        if source.get("sandoq_vendor_provenance") != SANDOQ_VENDOR_PROVENANCE:
+            raise EvalIdentityError("eval_run_identity_schema_invalid")
     project_root = source.get("project_root")
     if not isinstance(project_root, str) or not project_root or not Path(project_root).is_absolute():
         raise EvalIdentityError("eval_run_identity_schema_invalid")
@@ -2745,6 +2765,8 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             "sandoq_host_harness_sha256",
         )
     )
+    if sandbox_provider == "sandoq" and patched_vendor_keys <= source_keys:
+        digest_keys += ("sandoq_vendor_inventory_sha256",)
     for key in digest_keys:
         value = source.get(key)
         if not isinstance(value, str) or SHA256_RE.fullmatch(value) is None:
@@ -3587,7 +3609,7 @@ def _verify_source_record(source: object) -> None:
     if not isinstance(source, dict):
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     sandbox_provider = source.get("sandbox_provider", "vmvm")
-    expected_keys = (
+    base_expected_keys = (
         common_keys | {"vmvm_tb_v2_sha256"}
         if sandbox_provider == "vmvm"
         else common_keys
@@ -3602,7 +3624,19 @@ def _verify_source_record(source: object) -> None:
             "derived_image_manifest_sha256",
         }
     )
-    if sandbox_provider not in {"vmvm", "sandoq"} or set(source) != expected_keys:
+    patched_vendor_keys = {
+        "sandoq_vendor_provenance",
+        "sandoq_vendor_inventory_sha256",
+    }
+    allowed_expected_keys = (
+        {frozenset(base_expected_keys)}
+        if sandbox_provider == "vmvm"
+        else {
+            frozenset(base_expected_keys),
+            frozenset(base_expected_keys | patched_vendor_keys),
+        }
+    )
+    if sandbox_provider not in {"vmvm", "sandoq"} or frozenset(source) not in allowed_expected_keys:
         raise EvalIdentityError("eval_run_identity_schema_invalid")
     root = Path(source["project_root"]).resolve(strict=True)
     for label, repository, revision_key, tree_key in (
@@ -3627,6 +3661,11 @@ def _verify_source_record(source: object) -> None:
     if sandbox_provider == "vmvm" and source["vmvm_tb_v2_sha256"] != _vmvm_source_sha256(root):
         raise EvalIdentityError("vmvm_source_sha256_mismatch")
     if sandbox_provider == "sandoq":
+        if patched_vendor_keys <= set(source) and (
+            source["sandoq_vendor_provenance"] != SANDOQ_VENDOR_PROVENANCE
+            or source["sandoq_vendor_inventory_sha256"] != SANDOQ_VENDOR_INVENTORY_SHA256
+        ):
+            raise EvalIdentityError("sandoq_vendor_provenance_mismatch")
         _validate_vendored_sandoq_provider(
             root,
             expected_commit=source["sandoq_provider_commit"],
@@ -3809,6 +3848,14 @@ def _verify_saved_provenance(output_dir: Path, identity: dict[str, Any], identit
                 "sandbox_provider": "sandoq",
                 "sandoq_provider_commit": source["sandoq_provider_commit"],
                 "sandoq_provider_tree": source["sandoq_provider_tree"],
+                **(
+                    {
+                        "sandoq_vendor_provenance": source["sandoq_vendor_provenance"],
+                        "sandoq_vendor_inventory_sha256": source["sandoq_vendor_inventory_sha256"],
+                    }
+                    if "sandoq_vendor_provenance" in source
+                    else {}
+                ),
                 "sandoq_client_version": source["sandoq_client_version"],
                 "sandoq_site_sha256": source["sandoq_site_sha256"],
                 "sandoq_host_harness_sha256": source["sandoq_host_harness_sha256"],
@@ -4186,6 +4233,14 @@ def _bind_provenance(
                 "sandbox_provider": sandbox_provider,
                 "sandoq_provider_commit": source["sandoq_provider_commit"],
                 "sandoq_provider_tree": source["sandoq_provider_tree"],
+                **(
+                    {
+                        "sandoq_vendor_provenance": source["sandoq_vendor_provenance"],
+                        "sandoq_vendor_inventory_sha256": source["sandoq_vendor_inventory_sha256"],
+                    }
+                    if "sandoq_vendor_provenance" in source
+                    else {}
+                ),
                 "sandoq_client_version": source["sandoq_client_version"],
                 "sandoq_site_sha256": source["sandoq_site_sha256"],
                 "sandoq_host_harness_sha256": source["sandoq_host_harness_sha256"],
