@@ -66,8 +66,9 @@ logical request ID; the buffered proxy must prove exactly one upstream model
 attempt per logical request, with no anonymous, expired, or conflicting
 requests.  Provisioning gets eight bounded pre-model retries, and shared
 verifier scoring gets two bounded retries in the unchanged post-agent
-runtime.  Model-bearing HarnessError rows are retained, exact-response
-audited, and marked non-trainable; they are never replayed.  A missing final
+runtime.  Model-bearing `HarnessError` rows and exactly shaped terminal
+`ProviderError` rows are retained, exact-response audited, and marked
+non-trainable; they are never replayed.  A missing final
 model-I/O node is accepted only when its aggregate logical-request gap exactly
 matches a typed terminal proxy outcome.  Ambiguous delivery failures remain
 uncertifiable.  Zero-model rows cannot certify a shard.  The general Verifiers

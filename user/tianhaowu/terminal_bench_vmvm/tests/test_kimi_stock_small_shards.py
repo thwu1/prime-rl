@@ -152,6 +152,10 @@ def test_base_config_is_exact_stock_small_c64_contract(tmp_path: Path) -> None:
     assert contracts["logical_request_upstream_attempts"] == 1
     assert contracts["zero_model_resume_attempts"] == 0
     assert contracts["model_bearing_errors_terminal"] is True
+    assert contracts["model_bearing_error_schemas"] == {
+        "HarnessError": ["message", "traceback", "type"],
+        "ProviderError": ["message", "type"],
+    }
     assert contracts["timeouts"]["shell_action_seconds"] == 3_600
     assert contracts["resume"]["model_bearing_retry"] is False
     assert contracts["resume"]["zero_model_rows"] == "uncertifiable-manual-recovery"
