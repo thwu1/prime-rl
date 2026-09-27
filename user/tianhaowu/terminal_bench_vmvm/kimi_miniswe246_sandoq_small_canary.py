@@ -51,7 +51,7 @@ TB4_IMAGE_MANIFEST_SHA256 = "6dd632029af8da52f99f1d364e983a5da2e855afeb6a2ea5fc8
 TB4_TASK_TREE_SHA256 = "55ee806f7a9be4c270161863b27010f7b684d2acaf31eff7c490e57f84a0dc86"
 TB4_TASK_TREE_FILE_COUNT = 21
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
-SHARED_SMOKE_SHA256 = "e71a805f62ae10470cf4e6e74ec9ac538a598ec4e0fc62d5da79bc263ddee5d1"
+SHARED_SMOKE_SHA256 = "f02582924e5039f50604b0a7c003068ab7a1467bf095ef01164474cd01aeac77"
 DIRECT_ROUTER_SHA256 = "38398a48040879e242807dfa1f0272951aad0b9a0be371b42e7cabe61f3313db"
 DIRECT_WORKERS_SHA256 = "ec4d859e129bf02f02c943d784b4260ce5540e5514cc4a32f27fba6eb232652f"
 _REVISION_RE = re.compile(r"[0-9a-f]{40}")
@@ -512,7 +512,11 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
         _read_tb4_selector(args.selector, args.selector_sha256, args.dataset_dir)
     if result is None or not trajectory_bytes:
         raise CanaryError("agent_result_missing")
-    audit = shared.trajectory_audit(trajectory_bytes, len(relay.requests))
+    audit = shared.trajectory_audit(
+        trajectory_bytes,
+        len(relay.requests),
+        require_all_shell_success=not tb4,
+    )
     reasoning_retained = (
         1 <= len(relay.requests) <= MAX_MODEL_CALLS
         and len(relay.reasoning) == len(relay.requests)

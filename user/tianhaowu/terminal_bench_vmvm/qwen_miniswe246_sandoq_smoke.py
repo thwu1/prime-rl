@@ -374,49 +374,73 @@ class ModelRelay:
         )
 
 
-def trajectory_audit(payload: bytes, model_calls: int) -> dict[str, Any]:
+def trajectory_audit(
+    payload: bytes,
+    model_calls: int,
+    *,
+    require_all_shell_success: bool = True,
+) -> dict[str, Any]:
     trajectory = json.loads(payload)
     if not isinstance(trajectory, dict):
         raise SmokeError("trajectory_invalid")
     info = trajectory.get("info") if isinstance(trajectory.get("info"), dict) else {}
     model_stats = info.get("model_stats") if isinstance(info.get("model_stats"), dict) else {}
     messages = trajectory.get("messages") if isinstance(trajectory.get("messages"), list) else []
-    marker_action_ids: list[str] = []
-    action_ids: list[str] = []
+    action_records: list[tuple[str, str]] = []
     assistant_reasoning = 0
-    tool_results: dict[str, int] = {}
+    tool_results: list[tuple[str, int]] = []
     for message in messages:
         if not isinstance(message, dict):
             continue
         if message.get("role") == "assistant":
             assistant_reasoning += int(nonempty_reasoning_content(message))
             extra = message.get("extra") if isinstance(message.get("extra"), dict) else {}
-            actions = extra.get("actions") if isinstance(extra.get("actions"), list) else []
-            for action in actions:
+            message_actions = extra.get("actions") if isinstance(extra.get("actions"), list) else []
+            for action in message_actions:
                 if not isinstance(action, dict) or not isinstance(action.get("tool_call_id"), str):
                     continue
-                action_ids.append(action["tool_call_id"])
-                if action.get("command") == MARKER_COMMAND:
-                    marker_action_ids.append(action["tool_call_id"])
+                command = action.get("command")
+                if isinstance(command, str):
+                    action_records.append((action["tool_call_id"], command))
         elif message.get("role") == "tool":
             extra = message.get("extra") if isinstance(message.get("extra"), dict) else {}
             call_id = message.get("tool_call_id")
             returncode = extra.get("returncode")
             if isinstance(call_id, str) and isinstance(returncode, int) and not isinstance(returncode, bool):
-                tool_results[call_id] = returncode
-    shell_execution = (
-        bool(action_ids)
-        and len(action_ids) == len(tool_results)
-        and len(action_ids) == len(set(action_ids))
-        and all(tool_results.get(call_id) == 0 for call_id in action_ids)
+                tool_results.append((call_id, returncode))
+    paired = len(action_records) == len(tool_results) and all(
+        action_id == result_id
+        for (action_id, _command), (result_id, _returncode) in zip(
+            action_records,
+            tool_results,
+            strict=True,
+        )
     )
+    shell_execution = (
+        bool(action_records)
+        and paired
+        and any(returncode == 0 for _call_id, returncode in tool_results)
+        and (
+            not require_all_shell_success
+            or all(returncode == 0 for _call_id, returncode in tool_results)
+        )
+    )
+    marker_occurrences = [
+        returncode
+        for (_action_id, command), (_result_id, returncode) in zip(
+            action_records,
+            tool_results,
+            strict=True,
+        )
+        if command == MARKER_COMMAND
+    ] if paired else []
     return {
         "model_calls": model_calls,
         "api_calls_match": model_stats.get("api_calls") == model_calls,
         "mini_version_match": info.get("mini_version") == "2.4.6",
         "submitted": info.get("exit_status") == "Submitted",
         "shell_execution": shell_execution,
-        "exact_native_submission_marker": (len(marker_action_ids) == 1 and tool_results.get(marker_action_ids[0]) == 0),
+        "exact_native_submission_marker": marker_occurrences == [0],
         "trajectory_reasoning_retained": assistant_reasoning == model_calls,
     }
 

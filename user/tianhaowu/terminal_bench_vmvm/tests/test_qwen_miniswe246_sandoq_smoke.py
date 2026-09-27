@@ -188,6 +188,38 @@ def test_trajectory_audit_requires_exact_native_marker() -> None:
     assert smoke.trajectory_audit(smoke.canonical_json(trajectory), 2)["exact_native_submission_marker"] is False
 
 
+def test_tb4_shell_audit_accepts_matched_execution_with_one_success() -> None:
+    trajectory = {
+        "info": {
+            "mini_version": "2.4.6",
+            "exit_status": "LimitsExceeded",
+            "model_stats": {"api_calls": 2},
+        },
+        "messages": [
+            {
+                "role": "assistant",
+                "reasoning_content": "reasoning retained",
+                "extra": {"actions": [{"command": "first", "tool_call_id": "call-1"}]},
+            },
+            {"role": "tool", "tool_call_id": "call-1", "extra": {"returncode": 0}},
+            {
+                "role": "assistant",
+                "reasoning_content": "reasoning retained",
+                "extra": {"actions": [{"command": "second", "tool_call_id": "call-1"}]},
+            },
+            {"role": "tool", "tool_call_id": "call-1", "extra": {"returncode": 128}},
+        ],
+    }
+    payload = smoke.canonical_json(trajectory)
+
+    assert smoke.trajectory_audit(payload, 2)["shell_execution"] is False
+    assert smoke.trajectory_audit(
+        payload,
+        2,
+        require_all_shell_success=False,
+    )["shell_execution"] is True
+
+
 def test_model_relay_returns_litellm_compatible_reasoning_tool_call_sse() -> None:
     litellm = pytest.importorskip("litellm")
 
