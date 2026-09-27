@@ -160,6 +160,11 @@ def _binding_files(
         "source": {"sandbox_provider": "sandoq"},
         "deployment": deployment,
     }
+    if role == "kimi-direct-tb4-small-diagnostic":
+        identity_value["execution"] = {
+            "rollout_concurrency": 24,
+            "sandoq_environment": {"environment": "oci-runner-firecracker-small"},
+        }
     identity_sha256 = hashlib.sha256(
         json.dumps(
             identity_value,
@@ -906,7 +911,10 @@ def test_direct_kimi_w2_router_receipt_requires_measured_clean_forwarding(
             )
 
 
-@pytest.mark.parametrize("role", ["kimi-direct-mobius", "kimi-direct-tb4"])
+@pytest.mark.parametrize(
+    "role",
+    ["kimi-direct-mobius", "kimi-direct-tb4", "kimi-direct-tb4-small-diagnostic"],
+)
 def test_direct_kimi_w2_scored_receipt_binds_observed_forwarding_peak_without_requiring_saturation(
     tmp_path: Path,
     monkeypatch,
@@ -932,9 +940,7 @@ def test_direct_kimi_w2_scored_receipt_binds_observed_forwarding_peak_without_re
         manifest_path=manifest_path,
     )
     stats = run_dir / "router-stats.json"
-    stats.write_text(
-        json.dumps(
-            {
+    stats_value = {
                 "schema_version": 4,
                 "kind": "direct-kimi-transparent-router",
                 "implementation": "direct-kimi-transparent-v2",
@@ -964,7 +970,7 @@ def test_direct_kimi_w2_scored_receipt_binds_observed_forwarding_peak_without_re
                 "upstream_failures": 0,
                 "worker_queue_timeouts": 0,
                 "upstream_http_429": 0,
-                "upstream_http_5xx": 0,
+                "upstream_http_5xx": int(role == "kimi-direct-tb4-small-diagnostic"),
                 "tracked_sessions": 1,
                 "worker_request_counts": [1, *([0] * 23)],
                 "worker_active_request_counts": [0] * 24,
@@ -973,9 +979,21 @@ def test_direct_kimi_w2_scored_receipt_binds_observed_forwarding_peak_without_re
                 "worker_waiting_request_counts": [0] * 24,
                 "worker_max_active_request_counts": [1, *([0] * 23)],
             }
-        )
-    )
+    stats.write_text(json.dumps(stats_value))
     stats.chmod(0o600)
+
+    if role == "kimi-direct-tb4-small-diagnostic":
+        with pytest.raises(DirectKimiWorkerError, match="router_stats_invalid"):
+            certify_router(
+                manifest_path,
+                manifest_sha256,
+                24,
+                stats,
+                run_dir / "router-default.json",
+                eval_run_identity=identity,
+                eval_invocations=invocations,
+                provenance=provenance,
+            )
 
     receipt = certify_router(
         manifest_path,
@@ -986,10 +1004,14 @@ def test_direct_kimi_w2_scored_receipt_binds_observed_forwarding_peak_without_re
         eval_run_identity=identity,
         eval_invocations=invocations,
         provenance=provenance,
+        allow_terminal_upstream_statuses=(role == "kimi-direct-tb4-small-diagnostic"),
     )
 
     assert receipt["schema_version"] == 5
     assert receipt["max_active_forwarded_requests"] == 1
+    assert receipt["upstream_http_5xx"] == int(
+        role == "kimi-direct-tb4-small-diagnostic"
+    )
     assert (
         receipt["worker_max_active_request_counts_sha256"]
         == hashlib.sha256((json.dumps([1, *([0] * 23)], separators=(",", ":")) + "\n").encode()).hexdigest()

@@ -887,6 +887,10 @@ active_workers=$(
 curl --noproxy '*' --fail --silent --show-error --max-time 10 \
     "http://127.0.0.1:${router_port}/stats" --output "$router_stats"
 chmod 0600 "$router_stats"
+router_certify_args=()
+if [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
+    router_certify_args+=(--allow-terminal-upstream-statuses)
+fi
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" certify-router \
     --manifest "$manifest" --manifest-sha256 "$manifest_sha256" \
@@ -894,6 +898,7 @@ chmod 0600 "$router_stats"
     --eval-run-identity "$output_dir/eval_run_identity.json" \
     --eval-invocations "$output_dir/eval_invocations.jsonl" \
     --provenance "$output_dir/provenance.txt" \
+    "${router_certify_args[@]}" \
     --output "$output_dir/direct_kimi_router_final.json"
 
 if [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then

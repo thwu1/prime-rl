@@ -14,10 +14,10 @@ from typing import Any, Sequence
 
 SCHEMA_VERSION = 3
 KIND = "kimi-tb4-miniswe246-sandoq-firecracker-small-smoke-format"
-SOURCE_RECEIPT_SHA256 = "b6e80f87f63ab471e732158299d5e19ed0224984cb8eda9ba22a9b64f17690b2"
-SOURCE_RAW_TRACE_SHA256 = "773cc3424251c0d1591d37755b7cb1b53c2aa306c48fc9eb65457e5a26449cf6"
-SOURCE_JOB_ID = "1595198"
-SOURCE_REVISION = "84b0b8330f6b73d4004b19d8a04625fed2de9479"
+SOURCE_RECEIPT_SHA256 = "cfa6b1cf195b1c49ac3f2884223b183b7a726eca32a7218cdcc243d58e590ee7"
+SOURCE_RAW_TRACE_SHA256 = "c30a3b59a836443fab04cd169d301abdfefb5126806f87281a26dfd30c240636"
+SOURCE_JOB_ID = "1605262"
+SOURCE_REVISION = "96a469f0b924dcd5dd89b226294f025576f887a8"
 ENDPOINT_IDENTIFIER = "tianhaowu-kimi-k3-stock-eval-20260927"
 EXPECTED_CALLS = 3
 
@@ -109,9 +109,12 @@ def attest(*, receipt: Path, raw_trace: Path, output: Path) -> dict[str, Any]:
         raise SmokeFormatError("source_artifact_invalid") from error
     deployment = receipt_value.get("deployment") if isinstance(receipt_value, dict) else None
     router = deployment.get("router") if isinstance(deployment, dict) else None
+    transport = receipt_value.get("transport") if isinstance(receipt_value, dict) else None
+    summary = transport.get("summary") if isinstance(transport, dict) else None
+    totals = summary.get("integer_totals") if isinstance(summary, dict) else None
     if (
         not isinstance(receipt_value, dict)
-        or receipt_value.get("schema_version") != 2
+        or receipt_value.get("schema_version") != 3
         or receipt_value.get("status") != "diagnostic_passed"
         or receipt_value.get("model_calls") != EXPECTED_CALLS
         or receipt_value.get("reasoning_content_retained") is not True
@@ -122,6 +125,35 @@ def attest(*, receipt: Path, raw_trace: Path, output: Path) -> dict[str, Any]:
         or deployment.get("source_revision") != SOURCE_REVISION
         or not isinstance(router, dict)
         or router.get("endpoint_identifier") != ENDPOINT_IDENTIFIER
+        or not isinstance(summary, dict)
+        or summary.get("source_schema") != "logical-exact-once-v1"
+        or summary.get("summary_records") != 1
+        or summary.get("exact_once_counters_required") is not True
+        or not isinstance(totals, dict)
+        or any(
+            totals.get(key) != EXPECTED_CALLS
+            for key in (
+                "requests",
+                "upstream_attempts",
+                "logical_requests",
+                "logical_upstream_attempts",
+                "streamed_requests",
+            )
+        )
+        or any(
+            totals.get(key) != 0
+            for key in (
+                "anonymous_upstream_attempts",
+                "coalesced_requests",
+                "replayed_requests",
+                "expired_logical_retries",
+                "downstream_disconnects",
+                "conflicting_requests",
+                "inflight",
+                "error_count",
+                "unknown_path_requests",
+            )
+        )
     ):
         raise SmokeFormatError("source_receipt_invalid")
     if not isinstance(trace, dict) or set(trace) != {

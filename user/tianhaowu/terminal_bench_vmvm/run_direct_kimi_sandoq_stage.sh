@@ -333,7 +333,7 @@ if [[ "$(git -C "$project_dir" rev-parse HEAD)" != "$expected_revision" \
 fi
 approved_verifiers_revision=3df6efa9e9f6bdc8a013df7759a03074aec79111
 if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
-    approved_verifiers_revision=f11bf7cec1ca16ecadf7c88046f6a4a660af2031
+    approved_verifiers_revision=36b0dff6c18affb3d40b7c46d5836381d568050b
 fi
 if [[ "$(git -C "$project_dir/deps/verifiers" rev-parse HEAD)" \
     != "$approved_verifiers_revision" ]]; then
@@ -367,6 +367,18 @@ fi
 
 mkdir -p "$output_dir/control"
 chmod 0700 "$output_dir" "$output_dir/control"
+if [[ "$sandbox_provider" == sandoq && "$role" == kimi-direct-tb4-small-diagnostic ]]; then
+    buffered_stats_dir="$output_dir/control/buffered-proxy-stats"
+    if [[ -e "$buffered_stats_dir" || -L "$buffered_stats_dir" ]]; then
+        [[ -d "$buffered_stats_dir" && ! -L "$buffered_stats_dir" ]] \
+            || { printf 'Buffered proxy stats directory is unsafe\n' >&2; exit 2; }
+    else
+        mkdir -m 0700 -- "$buffered_stats_dir"
+    fi
+    [[ "$(stat -c '%a:%u' -- "$buffered_stats_dir")" == "700:$(id -u)" ]] \
+        || { printf 'Buffered proxy stats directory is not private\n' >&2; exit 2; }
+    export SANDOQ_BUFFERED_STATS_DIR="$buffered_stats_dir"
+fi
 export PRIME_RL_OUTPUT_DIR="$output_dir"
 if [[ "$native_miniswe" == 1 ]]; then
     "$x86_uv" run --no-project --offline --python "$python_bin" \

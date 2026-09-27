@@ -478,7 +478,7 @@ def _validate_direct_kimi_tb4_small_config(config: dict[str, Any], role: str) ->
         != [
             "agent.step_limit=200",
             "environment.environment_class=local",
-            "environment.timeout=129600",
+            "environment.timeout=3600",
             "model.model_kwargs.drop_params=true",
             "model.model_kwargs.timeout=144000",
             "model.model_kwargs.temperature=1.0",

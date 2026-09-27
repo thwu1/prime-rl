@@ -102,9 +102,9 @@ def test_materialized_small_plan_preserves_full_generation_contract(
                         "per_worker_capacity": 64,
                         "worker_count": 1,
                     },
-                    "slurm_job_id": "1595198",
+                    "slurm_job_id": "1605262",
                     "source_proxy_config_sha256": small.STOCK_SOURCE_PROXY_SHA256,
-                    "source_revision": small.STOCK_SOURCE_REVISION,
+                    "source_revision": small.STOCK_SMOKE_SOURCE_REVISION,
                     "source_spec_sha256": small.STOCK_SOURCE_SPEC_SHA256,
                     "worker_manifest_sha256": "b" * 64,
                 },
@@ -116,11 +116,38 @@ def test_materialized_small_plan_preserves_full_generation_contract(
                 "router_w2_profile_configured": True,
                 "sandbox_environment": "oci-runner-firecracker-small",
                 "sandbox_lifecycle": True,
-                "schema_version": 2,
+                "schema_version": 3,
                 "shell_execution": True,
                 "status": "diagnostic_passed",
                 "sticky_routing": True,
                 "task_count": 1,
+                "transport": {
+                    "schema_version": 1,
+                    "kind": "sandoq-buffered-chat-logical-exact-once",
+                    "summary_record": {"bytes": 100, "sha256": "a" * 64},
+                    "summary": {
+                        "schema_version": 1,
+                        "source_schema": "logical-exact-once-v1",
+                        "summary_records": 1,
+                        "exact_once_counters_required": True,
+                        "integer_totals": {
+                            "requests": 3,
+                            "upstream_attempts": 3,
+                            "logical_requests": 3,
+                            "logical_upstream_attempts": 3,
+                            "streamed_requests": 3,
+                            "anonymous_upstream_attempts": 0,
+                            "coalesced_requests": 0,
+                            "replayed_requests": 0,
+                            "expired_logical_retries": 0,
+                            "downstream_disconnects": 0,
+                            "conflicting_requests": 0,
+                            "inflight": 0,
+                            "error_count": 0,
+                            "unknown_path_requests": 0,
+                        },
+                    },
+                },
             }
         )
     )
@@ -158,8 +185,8 @@ def test_materialized_small_plan_preserves_full_generation_contract(
                         "path": str(smoke),
                         "sha256": smoke_sha256,
                     },
-                    "slurm_job_id": "1595198",
-                    "source_revision": small.STOCK_SOURCE_REVISION,
+                    "slurm_job_id": "1605262",
+                    "source_revision": small.STOCK_FORMAT_SOURCE_REVISION,
                 },
                 "state": "passed",
             }
@@ -303,6 +330,7 @@ def test_materialized_small_plan_preserves_full_generation_contract(
     assert plan["contracts"]["model_retries"] == 0
     assert plan["contracts"]["guest_transport_retry_attempts"] == 10
     assert plan["contracts"]["logical_request_upstream_attempts"] == 1
+    assert plan["contracts"]["shell_command_timeout_seconds"] == 3_600
     assert plan["contracts"]["verifier_runtime_retries"] == 2
     assert plan["contracts"]["retry_shared_verifier_scoring"] is True
     assert plan["contracts"]["provisioning_retries"] == 8
@@ -441,6 +469,7 @@ def test_launchers_bind_small_diagnostic_and_zero_model_only_resume() -> None:
         "finalize_kimi_tb4_sandoq_small_full.py"
     )
     assert "prepare_kimi_tb4_sandoq_small_full.py" in stage
+    assert 'export SANDOQ_BUFFERED_STATS_DIR="$buffered_stats_dir"' in stage
     assert (
         "approved_verifiers_revision=" + small.VERIFIERS_COMMIT
     ) in stage

@@ -1738,6 +1738,7 @@ def certify_router(
     eval_run_identity: Path,
     eval_invocations: Path,
     provenance: Path,
+    allow_terminal_upstream_statuses: bool = False,
 ) -> dict[str, Any]:
     held = _HeldArtifactSet.create()
     try:
@@ -1792,6 +1793,8 @@ def certify_router(
         )
         w2_tb4 = (identity["role"] == "kimi-direct-tb4" or sealed_small_diagnostic) and w2_profile
         stock_tb4 = sealed_small_diagnostic and stock_single_profile
+        if allow_terminal_upstream_statuses and not sealed_small_diagnostic:
+            raise DirectKimiWorkerError("run_binding_invalid")
         w2_allowed = w2_required or identity["role"] == "kimi-direct-tb4" or sealed_small_diagnostic
         c23_role_allowed = identity["role"] in {"kimi-direct-smoke", "kimi-direct-tb4"}
         if (
@@ -1957,8 +1960,17 @@ def certify_router(
                 for value in worker_max_active_counts
             )
             or router_stats.get("worker_queue_timeouts") != 0
-            or router_stats.get("upstream_http_429") != 0
-            or router_stats.get("upstream_http_5xx") != 0
+            or any(
+                type(router_stats.get(key)) is not int or router_stats[key] < 0
+                for key in ("upstream_http_429", "upstream_http_5xx")
+            )
+            or (
+                not allow_terminal_upstream_statuses
+                and (
+                    router_stats["upstream_http_429"] != 0
+                    or router_stats["upstream_http_5xx"] != 0
+                )
+            )
             or router_stats["max_active_forwarded_requests"] > router_stats["max_active_requests"]
             or router_stats["max_active_forwarded_requests"] > sum(worker_max_active_counts)
             # The dedicated capacity run must demonstrate saturation.  A
@@ -2085,6 +2097,7 @@ def main() -> None:
     certify.add_argument("--eval-invocations", type=Path, required=True)
     certify.add_argument("--provenance", type=Path, required=True)
     certify.add_argument("--output", type=Path, required=True)
+    certify.add_argument("--allow-terminal-upstream-statuses", action="store_true")
     args = parser.parse_args()
     if args.command == "snapshot-source":
         snapshot_value = materialize_source_snapshot(
@@ -2106,6 +2119,7 @@ def main() -> None:
             eval_run_identity=args.eval_run_identity,
             eval_invocations=args.eval_invocations,
             provenance=args.provenance,
+            allow_terminal_upstream_statuses=args.allow_terminal_upstream_statuses,
         )
         print(json.dumps({"active_workers": receipt["active_workers"], "ok": True}, sort_keys=True))
         return

@@ -30,23 +30,24 @@ MEMORY_MB_CAP = 2_048
 STORAGE_MB_CAP = 10_240
 VERIFIER_RUNTIME_RETRIES = 2
 SANDOQ_PROVISIONING_RETRIES = 8
-BASE_CONFIG_SHA256 = "746117ed8b1cf24284dac1484b8e049bb794e4bd9a00714bb03534a7bd2167c2"
+SHELL_COMMAND_TIMEOUT_SECONDS = 3_600
+BASE_CONFIG_SHA256 = "c9511e966308de60580d2a8f0cb985e628c57c817d5191d16f2a283f06a11f3d"
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
-VERIFIERS_COMMIT = "f11bf7cec1ca16ecadf7c88046f6a4a660af2031"
-SMOKE_RECEIPT_SHA256 = "b6e80f87f63ab471e732158299d5e19ed0224984cb8eda9ba22a9b64f17690b2"
+VERIFIERS_COMMIT = "36b0dff6c18affb3d40b7c46d5836381d568050b"
+SMOKE_RECEIPT_SHA256 = "cfa6b1cf195b1c49ac3f2884223b183b7a726eca32a7218cdcc243d58e590ee7"
 DEFAULT_SMOKE_RECEIPT = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/"
     "kimi-tb4-miniswe246-sandoq-firecracker-small-stock-single-diagnostic/"
-    "run-1595198/receipt.json"
+    "run-1605262/receipt.json"
 )
-SMOKE_FORMAT_ATTESTATION_SHA256 = "5f6f7e258f0f983706313266c6be8070d4fd88af0df402526b60bf003bfa3c4e"
+SMOKE_FORMAT_ATTESTATION_SHA256 = "bba7aacbd24c308ff691242bcd83bd842f11eea42cf007d0a584665111815cd5"
 DEFAULT_SMOKE_FORMAT_ATTESTATION = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/"
-    "kimi-tb4-small-smoke-format-1595198-v1/attestation.json"
+    "kimi-tb4-small-smoke-format-1605262-v1/attestation.json"
 )
-SMOKE_RAW_TRACE_SHA256 = "773cc3424251c0d1591d37755b7cb1b53c2aa306c48fc9eb65457e5a26449cf6"
-SMOKE_REQUEST_DIGEST_SET_SHA256 = "7272cc59d277e05e807f906dd3285d2b79d64112035abd609e6e9ea1d2439f07"
-SMOKE_RESPONSE_DIGEST_SET_SHA256 = "57b042f60bfa8c4ff80f9e7d731cb205bfbe920b49510d6341a201a2c3dabd99"
+SMOKE_RAW_TRACE_SHA256 = "c30a3b59a836443fab04cd169d301abdfefb5126806f87281a26dfd30c240636"
+SMOKE_REQUEST_DIGEST_SET_SHA256 = "49b3c5d0bcaf1e25839ff0ad90933f78a11660c8967200dc6645998440ea52ba"
+SMOKE_RESPONSE_DIGEST_SET_SHA256 = "5fc398f8a24279f50644bac1953b24c12bc745a826219c696ce25aa1193ba047"
 CAPACITY_RECEIPT_SHA256 = "244dc901a555b4b73649c6185692c8a9d497319e0f8bcdcdb7373f6604c6f946"
 DEFAULT_CAPACITY_RECEIPT = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/"
@@ -58,7 +59,8 @@ DEFAULT_SANDOQ_SOAK_RECEIPT = Path(
     "sandoq-firecracker-small-c24-soak-20260927/run-1596000/receipt.json"
 )
 STOCK_ENDPOINT_IDENTIFIER = "tianhaowu-kimi-k3-stock-eval-20260927"
-STOCK_SOURCE_REVISION = "84b0b8330f6b73d4004b19d8a04625fed2de9479"
+STOCK_SMOKE_SOURCE_REVISION = "96a469f0b924dcd5dd89b226294f025576f887a8"
+STOCK_FORMAT_SOURCE_REVISION = STOCK_SMOKE_SOURCE_REVISION
 STOCK_SOURCE_SPEC_SHA256 = "3b9d7b9e72767b9f65894ea024a08713ed10330c7d55c70cd99b2717056a9b39"
 STOCK_SOURCE_PROXY_SHA256 = "7894cd7205d0197620fa77edc747377e15c4e311769a0060be760659f5b29595"
 STOCK_ENDPOINT_BUNDLE_SHA256 = "7ee38ee5d10c9cc7b04c2ddf9ff5b7813df148b2f7d425c1a4ff192f8fc4d581"
@@ -186,7 +188,7 @@ def _load_base(
         != [
             "agent.step_limit=200",
             "environment.environment_class=local",
-            "environment.timeout=129600",
+            f"environment.timeout={SHELL_COMMAND_TIMEOUT_SECONDS}",
             "model.model_kwargs.drop_params=true",
             "model.model_kwargs.timeout=144000",
             "model.model_kwargs.temperature=1.0",
@@ -245,8 +247,12 @@ def _smoke_receipt(
     value = _json(body, code="smoke_receipt_invalid")
     deployment = value.get("deployment")
     router = deployment.get("router") if isinstance(deployment, dict) else None
+    transport = value.get("transport")
+    summary = transport.get("summary") if isinstance(transport, dict) else None
+    totals = summary.get("integer_totals") if isinstance(summary, dict) else None
+    record = transport.get("summary_record") if isinstance(transport, dict) else None
     if (
-        value.get("schema_version") != 2
+        value.get("schema_version") != 3
         or value.get("kind") != "kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic"
         or value.get("status") != "diagnostic_passed"
         or value.get("sandbox_environment") != "oci-runner-firecracker-small"
@@ -262,8 +268,8 @@ def _smoke_receipt(
         or value.get("router_w2_profile_configured") is not True
         or not isinstance(deployment, dict)
         or deployment.get("kind") != "direct-kimi-smoke-binding"
-        or deployment.get("source_revision") != STOCK_SOURCE_REVISION
-        or deployment.get("slurm_job_id") != "1595198"
+        or deployment.get("source_revision") != STOCK_SMOKE_SOURCE_REVISION
+        or deployment.get("slurm_job_id") != "1605262"
         or deployment.get("source_spec_sha256") != STOCK_SOURCE_SPEC_SHA256
         or deployment.get("source_proxy_config_sha256") != STOCK_SOURCE_PROXY_SHA256
         or deployment.get("endpoint_bundle_sha256") != STOCK_ENDPOINT_BUNDLE_SHA256
@@ -276,6 +282,39 @@ def _smoke_receipt(
             "per_worker_capacity": 64,
             "worker_count": 1,
         }
+        or not isinstance(transport, dict)
+        or set(transport) != {"schema_version", "kind", "summary_record", "summary"}
+        or transport.get("schema_version") != 1
+        or transport.get("kind") != "sandoq-buffered-chat-logical-exact-once"
+        or not isinstance(record, dict)
+        or set(record) != {"bytes", "sha256"}
+        or not isinstance(record.get("bytes"), int)
+        or isinstance(record.get("bytes"), bool)
+        or record["bytes"] < 1
+        or SHA256_RE.fullmatch(str(record.get("sha256", ""))) is None
+        or not isinstance(summary, dict)
+        or summary.get("source_schema") != "logical-exact-once-v1"
+        or summary.get("summary_records") != 1
+        or summary.get("exact_once_counters_required") is not True
+        or not isinstance(totals, dict)
+        or any(totals.get(key) != 3 for key in (
+            "requests",
+            "upstream_attempts",
+            "logical_requests",
+            "logical_upstream_attempts",
+            "streamed_requests",
+        ))
+        or any(totals.get(key) != 0 for key in (
+            "anonymous_upstream_attempts",
+            "coalesced_requests",
+            "replayed_requests",
+            "expired_logical_retries",
+            "downstream_disconnects",
+            "conflicting_requests",
+            "inflight",
+            "error_count",
+            "unknown_path_requests",
+        ))
     ):
         raise SmallDiagnosticError("smoke_receipt_invalid")
     return body, canonical
@@ -377,8 +416,8 @@ def _smoke_format_attestation(
         or value.get("kind") != "kimi-tb4-miniswe246-sandoq-firecracker-small-smoke-format"
         or value.get("state") != "passed"
         or not isinstance(source, dict)
-        or source.get("slurm_job_id") != "1595198"
-        or source.get("source_revision") != STOCK_SOURCE_REVISION
+        or source.get("slurm_job_id") != "1605262"
+        or source.get("source_revision") != STOCK_FORMAT_SOURCE_REVISION
         or receipt != _artifact(smoke_path, smoke_body)
         or not isinstance(raw_trace, dict)
         or set(raw_trace) != {"path", "bytes", "sha256"}
@@ -470,6 +509,7 @@ def _contracts() -> dict[str, Any]:
         "model_retries": 0,
         "guest_transport_retry_attempts": 10,
         "logical_request_upstream_attempts": 1,
+        "shell_command_timeout_seconds": SHELL_COMMAND_TIMEOUT_SECONDS,
         "zero_model_resume_attempts": 1,
         "verifier_runtime_retries": VERIFIER_RUNTIME_RETRIES,
         "retry_shared_verifier_scoring": True,

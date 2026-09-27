@@ -20,7 +20,7 @@ def _evidence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Pa
     receipt_body = _write_private(
         receipt,
         {
-            "schema_version": 2,
+            "schema_version": 3,
             "status": "diagnostic_passed",
             "model_calls": 3,
             "reasoning_content_retained": True,
@@ -30,6 +30,29 @@ def _evidence(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Pa
                 "slurm_job_id": attestor.SOURCE_JOB_ID,
                 "source_revision": attestor.SOURCE_REVISION,
                 "router": {"endpoint_identifier": attestor.ENDPOINT_IDENTIFIER},
+            },
+            "transport": {
+                "summary": {
+                    "source_schema": "logical-exact-once-v1",
+                    "summary_records": 1,
+                    "exact_once_counters_required": True,
+                    "integer_totals": {
+                        "requests": 3,
+                        "upstream_attempts": 3,
+                        "logical_requests": 3,
+                        "logical_upstream_attempts": 3,
+                        "streamed_requests": 3,
+                        "anonymous_upstream_attempts": 0,
+                        "coalesced_requests": 0,
+                        "replayed_requests": 0,
+                        "expired_logical_retries": 0,
+                        "downstream_disconnects": 0,
+                        "conflicting_requests": 0,
+                        "inflight": 0,
+                        "error_count": 0,
+                        "unknown_path_requests": 0,
+                    },
+                }
             },
         },
     )
