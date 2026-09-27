@@ -410,3 +410,43 @@ def test_transport_trace_binding_rejects_untyped_missing_model_io() -> None:
             audited_model_io_turns=0,
             maximum_terminal_gap=1,
         )
+
+
+def test_tb4_provider_context_reopens_private_snapshot_and_binds_run_dir(
+    tmp_path: Path,
+) -> None:
+    run = _private_dir(tmp_path / "run")
+    snapshot = {
+        "schema_version": 1,
+        "kind": "sandoq-provider-context-snapshot",
+        "state": "validated",
+        "provider_environment": "oci-runner-firecracker-small",
+        "effective_task_network": "public",
+        "task_network": "host",
+        "network_access": True,
+        "allow_dockerhub_fallback": False,
+        "provider_profile_sha256": shards.PROVIDER_PROFILE_SHA256,
+        "provider_token_file_path_sha256": shards.PROVIDER_TOKEN_PATH_SHA256,
+        "runtime_smoke_receipt_sha256": None,
+        "provider_context_contract_sha256": "a" * 64,
+    }
+    path = _private_file(run / "sandoq-provider-context.json", shards._canonical(snapshot))
+    value = {
+        "artifact": shards._artifact(path, path.read_bytes()),
+        "contract_sha256": "a" * 64,
+    }
+
+    assert (
+        shards._validate_tb4_provider_context(
+            value,
+            executed_results={"path": str(run / "results.jsonl")},
+            held=None,
+        )
+        == snapshot
+    )
+    with pytest.raises(shards.StockSmallError, match="tb4_gate_provider_context_invalid"):
+        shards._validate_tb4_provider_context(
+            value,
+            executed_results={"path": str(tmp_path / "other/results.jsonl")},
+            held=None,
+        )

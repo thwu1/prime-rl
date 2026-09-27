@@ -69,6 +69,7 @@ SANDOQ_CAPACITY = Path(
     "sandoq-firecracker-small-c64-soak-20260927/run-1596293/receipt.json"
 )
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
+PROVIDER_TOKEN_PATH_SHA256 = "19f886485a27dd272af667283ebeb57293a08723782af6c4bc83a05dca6dedc0"
 IMAGE_MANIFEST_SHA256 = "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
 BASE_CONFIG_SHA256 = "9ba753a1d96f8b5b2359d952634d0830630d853e503ab0cf8da1377fabfc3a12"
 SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
@@ -769,6 +770,62 @@ def _validate_tb4_execution_semantics(
     }
 
 
+def _validate_tb4_provider_context(
+    value: object,
+    *,
+    executed_results: Mapping[str, Any],
+    held: split._HeldArtifactSet | None,
+) -> dict[str, Any]:
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"artifact", "contract_sha256"}
+        or SHA256_RE.fullmatch(str(value.get("contract_sha256", ""))) is None
+    ):
+        raise StockSmallError("tb4_gate_provider_context_invalid")
+    provider_path, provider_body = _record_body(
+        value.get("artifact"),
+        code="tb4_gate_provider_context_invalid",
+        private=True,
+        held=held,
+    )
+    provider_snapshot = _json(provider_body, code="tb4_gate_provider_context_invalid")
+    expected_provider_keys = {
+        "schema_version",
+        "kind",
+        "state",
+        "provider_environment",
+        "effective_task_network",
+        "task_network",
+        "network_access",
+        "allow_dockerhub_fallback",
+        "provider_profile_sha256",
+        "provider_token_file_path_sha256",
+        "runtime_smoke_receipt_sha256",
+        "provider_context_contract_sha256",
+    }
+    if (
+        provider_path.parent != Path(str(executed_results.get("path", ""))).parent
+        or set(provider_snapshot) != expected_provider_keys
+        or provider_snapshot.get("schema_version") != 1
+        or provider_snapshot.get("kind") != "sandoq-provider-context-snapshot"
+        or provider_snapshot.get("state") != "validated"
+        or provider_snapshot.get("provider_environment")
+        != "oci-runner-firecracker-small"
+        or provider_snapshot.get("effective_task_network") != "public"
+        or provider_snapshot.get("task_network") != "host"
+        or provider_snapshot.get("network_access") is not True
+        or provider_snapshot.get("allow_dockerhub_fallback") is not False
+        or provider_snapshot.get("provider_profile_sha256") != PROVIDER_PROFILE_SHA256
+        or provider_snapshot.get("provider_token_file_path_sha256")
+        != PROVIDER_TOKEN_PATH_SHA256
+        or provider_snapshot.get("runtime_smoke_receipt_sha256") is not None
+        or provider_snapshot.get("provider_context_contract_sha256")
+        != value.get("contract_sha256")
+    ):
+        raise StockSmallError("tb4_gate_provider_context_invalid")
+    return provider_snapshot
+
+
 def _validate_tb4_gate(
     path: Path,
     expected_sha256: str,
@@ -861,8 +918,6 @@ def _validate_tb4_gate(
         or policy.get("timeouts", {}).get("request_seconds") != REQUEST_TIMEOUT_SECONDS
         or policy.get("timeouts", {}).get("rollout_seconds") != ROLLOUT_TIMEOUT_SECONDS
         or not isinstance(provider, dict)
-        or provider.get("provider_environment") != "oci-runner-firecracker-small"
-        or provider.get("provider_profile_sha256") != PROVIDER_PROFILE_SHA256
         or not isinstance(source_run, dict)
         or identity_path is None
     ):
@@ -896,6 +951,11 @@ def _validate_tb4_gate(
         )
     except (OSError, RuntimeError, ValueError) as error:
         raise StockSmallError("tb4_gate_plan_invalid") from error
+    _validate_tb4_provider_context(
+        provider,
+        executed_results=artifacts["executed_results"],
+        held=held,
+    )
     identity_body = _read(identity_path, code="tb4_gate_identity_invalid", private=True, held=held)
     if _sha256(identity_body) != value.get("eval_run_identity_sha256"):
         raise StockSmallError("tb4_gate_identity_invalid")
@@ -2214,7 +2274,23 @@ def _validate_completion_value(
     shard: Mapping[str, Any],
 ) -> dict[str, Any]:
     if (
-        value.get("schema_version") != SCHEMA_VERSION
+        set(value)
+        != {
+            "schema_version",
+            "kind",
+            "state",
+            "plan",
+            "launch",
+            "shard",
+            "trace",
+            "transport",
+            "capture",
+            "deployment",
+            "sandbox",
+            "training",
+            "artifacts",
+        }
+        or value.get("schema_version") != SCHEMA_VERSION
         or value.get("kind") != COMPLETION_KIND
         or value.get("state") != "passed"
         or value.get("plan") != {"path": str(plan_path), "sha256": plan_sha256}
