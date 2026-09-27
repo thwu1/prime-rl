@@ -3,7 +3,7 @@
 #SBATCH --partition=cpu_x86
 #SBATCH --qos=cpu_x86_lowest
 #SBATCH --account=ram
-#SBATCH --time=12:00:00
+#SBATCH --time=2-00:00:00
 #SBATCH --signal=B:TERM@1800
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -69,7 +69,7 @@ binding=$(
 IFS=$'\t' read -r verified_revision selected_tasks selector_sha256 binding_extra <<< "$binding"
 [[ -z "$binding_extra" && "$binding" != *$'\n'* \
     && "$verified_revision" == "$expected_revision" \
-    && "$selected_tasks" == 64 \
+    && "$selected_tasks" == 2499 \
     && "$selector_sha256" =~ ^[0-9a-f]{64}$ ]] || blocked plan_binding_invalid
 
 if [[ -e "$output_root" || -L "$output_root" ]]; then
