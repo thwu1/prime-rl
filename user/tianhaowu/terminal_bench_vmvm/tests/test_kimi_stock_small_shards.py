@@ -132,6 +132,7 @@ def test_base_config_is_exact_stock_small_c64_contract(tmp_path: Path) -> None:
     assert config["sampling"]["reasoning_effort"] == "max"
     assert config["client"]["timeout"] == 144_000
     assert config["harness"]["runtime"]["session_timeout"] == 144_000
+    assert "environment.timeout=3600" in config["harness"]["config_overrides"]
     assert config["harness"]["runtime"]["provisioning_retries"] == 8
     assert config["timeout"]["rollout"] == 129_600
     assert config["harness"]["env"] == {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
@@ -148,6 +149,7 @@ def test_base_config_is_exact_stock_small_c64_contract(tmp_path: Path) -> None:
     assert contracts["logical_request_upstream_attempts"] == 1
     assert contracts["zero_model_resume_attempts"] == 0
     assert contracts["model_bearing_errors_terminal"] is True
+    assert contracts["timeouts"]["shell_action_seconds"] == 3_600
     assert contracts["resume"]["model_bearing_retry"] is False
     assert contracts["resume"]["zero_model_rows"] == "uncertifiable-manual-recovery"
     assert contracts["resume"]["rollover_policy"] == "new-plan-required"
@@ -191,6 +193,14 @@ def test_small_production_config_rejects_a_second_model_attempt() -> None:
     config = shards._load_base()[0]
     config["num_tasks"] = 64
     config["harness"]["env"]["MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT"] = "2"
+    with pytest.raises(identity.EvalIdentityError, match="direct_kimi_production_config_invalid"):
+        identity._validate_direct_kimi_production_config(config, identity.KIMI_PRODUCTION_ROLE)
+
+
+def test_small_production_config_rejects_rollout_sized_shell_actions() -> None:
+    config = shards._load_base()[0]
+    config["num_tasks"] = 64
+    config["harness"]["config_overrides"][2] = "environment.timeout=129600"
     with pytest.raises(identity.EvalIdentityError, match="direct_kimi_production_config_invalid"):
         identity._validate_direct_kimi_production_config(config, identity.KIMI_PRODUCTION_ROLE)
 

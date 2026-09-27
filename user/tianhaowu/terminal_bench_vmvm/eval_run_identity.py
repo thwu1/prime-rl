@@ -123,6 +123,7 @@ KIMI_TB4_W2_ROLLOUT_CONCURRENCY = 48
 KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS = 96 * 60 * 60
 KIMI_TB4_SMALL_MINIMUM_REMAINING_SECONDS = 132 * 60 * 60
 KIMI_STOCK_SMALL_PRODUCTION_MINIMUM_REMAINING_SECONDS = 48 * 60 * 60
+KIMI_STOCK_SMALL_SHELL_ACTION_TIMEOUT_SECONDS = 3_600
 KIMI_MINISWE_VERSION = "2.4.6"
 KIMI_SANDOQ_PROVISIONING_RETRIES = 3
 KIMI_SMALL_SANDOQ_PROVISIONING_RETRIES = 8
@@ -754,7 +755,7 @@ def _validate_direct_kimi_production_config(config: dict[str, Any], role: str) -
             != [
                 "agent.step_limit=200",
                 "environment.environment_class=local",
-                "environment.timeout=129600",
+                f"environment.timeout={KIMI_STOCK_SMALL_SHELL_ACTION_TIMEOUT_SECONDS}",
                 "model.model_kwargs.drop_params=true",
                 "model.model_kwargs.timeout=144000",
                 "model.model_kwargs.temperature=1.0",

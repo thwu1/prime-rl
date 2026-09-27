@@ -48,6 +48,7 @@ SAMPLE_TOKENS = 32_768
 REQUEST_TIMEOUT_SECONDS = 144_000
 ROLLOUT_TIMEOUT_SECONDS = 129_600
 SESSION_TIMEOUT_SECONDS = 144_000
+SHELL_ACTION_TIMEOUT_SECONDS = 3_600
 MINIMUM_TB4_PASSES = 7
 CPU_CAP = 1
 MEMORY_MB_CAP = 2_048
@@ -71,7 +72,7 @@ SANDOQ_CAPACITY = Path(
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
 PROVIDER_TOKEN_PATH_SHA256 = "19f886485a27dd272af667283ebeb57293a08723782af6c4bc83a05dca6dedc0"
 IMAGE_MANIFEST_SHA256 = "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
-BASE_CONFIG_SHA256 = "9ba753a1d96f8b5b2359d952634d0830630d853e503ab0cf8da1377fabfc3a12"
+BASE_CONFIG_SHA256 = "6b2607348bfb536af6f6bbc787a9b5db4adb7b3091d956a2fd8f2ad9c6a1c630"
 SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
 MAX_RESULTS_ROW_BYTES = 128 * 1024 * 1024
@@ -474,7 +475,7 @@ def _load_base(held: split._HeldArtifactSet | None = None) -> tuple[dict[str, An
         != [
             "agent.step_limit=200",
             "environment.environment_class=local",
-            "environment.timeout=129600",
+            f"environment.timeout={SHELL_ACTION_TIMEOUT_SECONDS}",
             "model.model_kwargs.drop_params=true",
             "model.model_kwargs.timeout=144000",
             "model.model_kwargs.temperature=1.0",
@@ -1170,6 +1171,7 @@ def _contracts() -> dict[str, Any]:
             "request_seconds": REQUEST_TIMEOUT_SECONDS,
             "session_seconds": SESSION_TIMEOUT_SECONDS,
             "rollout_seconds": ROLLOUT_TIMEOUT_SECONDS,
+            "shell_action_seconds": SHELL_ACTION_TIMEOUT_SECONDS,
             "setup_seconds": 3_600,
             "finalize_seconds": 3_600,
             "scoring_seconds": 21_600,
@@ -1705,6 +1707,7 @@ def create_launch(
             "request_timeout_seconds": REQUEST_TIMEOUT_SECONDS,
             "session_timeout_seconds": SESSION_TIMEOUT_SECONDS,
             "rollout_timeout_seconds": ROLLOUT_TIMEOUT_SECONDS,
+            "shell_action_timeout_seconds": SHELL_ACTION_TIMEOUT_SECONDS,
             "model_retries": 0,
             "guest_transport_retry_attempts": 10,
             "logical_request_upstream_attempts": 1,
@@ -1815,6 +1818,7 @@ def validate_launch(
             "request_timeout_seconds": REQUEST_TIMEOUT_SECONDS,
             "session_timeout_seconds": SESSION_TIMEOUT_SECONDS,
             "rollout_timeout_seconds": ROLLOUT_TIMEOUT_SECONDS,
+            "shell_action_timeout_seconds": SHELL_ACTION_TIMEOUT_SECONDS,
             "model_retries": 0,
             "guest_transport_retry_attempts": 10,
             "logical_request_upstream_attempts": 1,

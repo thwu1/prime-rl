@@ -58,8 +58,10 @@ python user/tianhaowu/terminal_bench_vmvm/kimi_stock_small_shards.py \
 
 Each shard uses MiniSWE 2.4.6, a 256K input/total cap, a 32K sampling cap,
 `reasoning_effort=max`, 144,000-second request/session timeouts, and a
-129,600-second rollout timeout.  Client, router, rollout, and model retries
-are zero.  MiniSWE may make up to ten guest transport attempts with one
+129,600-second rollout timeout.  Each individual shell action is capped at
+3,600 seconds; the extended rollout/session envelope does not extend that
+per-action limit.  Client, router, rollout, and model retries are zero.
+MiniSWE may make up to ten guest transport attempts with one
 logical request ID; the buffered proxy must prove exactly one upstream model
 attempt per logical request, with no anonymous, expired, or conflicting
 requests.  Provisioning gets eight bounded pre-model retries, and shared
