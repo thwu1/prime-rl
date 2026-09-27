@@ -485,6 +485,11 @@ def _validate_direct_kimi_tb4_small_config(config: dict[str, Any], role: str) ->
         or runtime
         != {
             "type": "sandoq",
+            "image": "python:3.11-slim",
+            "workdir": "/app",
+            "cpu": 1.0,
+            "memory": 2.0,
+            "disk": 5.0,
             "mode": "oci-runner",
             "session_timeout": KIMI_TB4_EXTENDED_SESSION_TIMEOUT_SECONDS,
             "network_access": True,

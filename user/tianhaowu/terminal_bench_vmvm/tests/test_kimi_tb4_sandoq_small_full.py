@@ -293,7 +293,11 @@ def test_unsupported_rows_are_deterministic_explicit_zeroes() -> None:
 
 
 def test_identity_validator_seals_small_full_contract() -> None:
-    config, _body, _path = small._load_base()
+    explicit, _body, _path = small._load_base()
+    config = eval_run_identity._resolved_config_data(
+        eval_run_identity.EvalConfig.model_validate(explicit),
+        explicit=explicit,
+    )
 
     assert eval_run_identity.KIMI_SMALL_TB4_DIAGNOSTIC_ROLE != "kimi-direct-tb4-diagnostic"
 
@@ -324,7 +328,11 @@ def test_identity_validator_seals_small_full_contract() -> None:
             config,
             eval_run_identity.KIMI_SMALL_TB4_DIAGNOSTIC_ROLE,
         )
-    config, _body, _path = small._load_base()
+    explicit, _body, _path = small._load_base()
+    config = eval_run_identity._resolved_config_data(
+        eval_run_identity.EvalConfig.model_validate(explicit),
+        explicit=explicit,
+    )
     config["harness"]["runtime"]["expected_environment"] = "oci-runner"
     with pytest.raises(eval_run_identity.EvalIdentityError, match="direct_kimi_tb4_small_config_invalid"):
         eval_run_identity._validate_direct_kimi_tb4_small_config(
