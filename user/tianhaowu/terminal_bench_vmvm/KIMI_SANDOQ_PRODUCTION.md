@@ -63,8 +63,11 @@ attempt per logical request, with no anonymous, expired, or conflicting
 requests.  Provisioning gets eight bounded pre-model retries, and shared
 verifier scoring gets two bounded retries in the unchanged post-agent
 runtime.  Model-bearing HarnessError rows are retained, exact-response
-audited, and marked non-trainable; they are never replayed.  Zero-model rows
-cannot certify a shard.  The general Verifiers `--resume` command must not be
+audited, and marked non-trainable; they are never replayed.  A missing final
+model-I/O node is accepted only when its aggregate logical-request gap exactly
+matches a typed terminal proxy outcome.  Ambiguous delivery failures remain
+uncertifiable.  Zero-model rows cannot certify a shard.  The general Verifiers
+`--resume` command must not be
 used on a mixed-error shard because it would replay all error rows.  Until a
 lossless zero-model-only selector/merge controller is certified, such a shard
 requires explicit manual recovery and cannot be marked complete.
