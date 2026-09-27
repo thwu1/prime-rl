@@ -3137,6 +3137,13 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
                 "request_timeout_seconds": expected_miniswe_request_timeout,
                 "request_max_retries": 0,
             }
+            if role == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE:
+                expected_miniswe.update(
+                    {
+                        "guest_transport_retry_attempts": 10,
+                        "logical_request_upstream_attempts": 1,
+                    }
+                )
             if (
                 role not in KIMI_NATIVE_MINISWE_ROLES | {QWEN_ERROR_RETRY_ROLE, KIMI_SMALL_TB4_DIAGNOSTIC_ROLE}
                 or expected_miniswe_request_timeout

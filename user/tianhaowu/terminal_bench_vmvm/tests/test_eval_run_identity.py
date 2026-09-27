@@ -548,6 +548,75 @@ def test_direct_kimi_sandoq_identity_binds_router_and_smoke_lineage(tmp_path: Pa
             _validate_identity_shape(mismatched)
 
 
+def test_direct_kimi_stock_small_identity_binds_guest_transport_attempts() -> None:
+    identity = _direct_kimi_identity(smoke=False)
+    identity["role"] = eval_run_identity.KIMI_SMALL_TB4_DIAGNOSTIC_ROLE
+    identity["inputs"]["task_file"]["count"] = 52
+    identity["contract"]["harness"] = {
+        "id": "mini-swe-agent",
+        "version": "2.4.6",
+        "placement": "sandbox",
+        "step_limit": 200,
+        "request_timeout_seconds": 144_000,
+        "request_max_retries": 0,
+        "guest_transport_retry_attempts": 10,
+        "logical_request_upstream_attempts": 1,
+    }
+    identity["execution"]["runtime"].update(
+        {
+            "network_access": True,
+            "host_tunnel": "sandoq",
+            "buffered_chat_completions": True,
+            "guest_tunnel_url": "http://127.0.0.1:8485",
+            "tunnel_pool_size": 4,
+            "tunnel_ready_timeout": 30,
+            "expected_environment": eval_run_identity.KIMI_SMALL_FIRECRACKER_ENVIRONMENT,
+            "session_timeout": 144_000,
+        }
+    )
+    identity["execution"]["sandoq_environment"].update(
+        {
+            "environment": eval_run_identity.KIMI_SMALL_FIRECRACKER_ENVIRONMENT,
+            "provider_task_network": "host",
+            "provider_profile_sha256": eval_run_identity.KIMI_SMALL_FIRECRACKER_PROFILE_SHA256,
+            "tunnel_policy": "native-sandoq-reverse-tunnel",
+            "allow_dockerhub_fallback": False,
+            "pull_timeout": "1200s",
+            "pull_poll_max_errors": "10",
+        }
+    )
+    identity["deployment"]["smoke_checkpoint"] = None
+    identity["deployment"]["endpoint_load_gate"] = {
+        "path": "/run/endpoint_load_gate.json",
+        "sha256": "d" * 64,
+    }
+    identity["deployment"]["endpoint_walltime_gate"] = {
+        "path": "/run/endpoint_walltime_gate.json",
+        "sha256": "e" * 64,
+    }
+    identity["deployment"]["router"].update(
+        {
+            "provider_concurrency": 64,
+            "request_timeout_seconds": 144_000,
+            "worker_count": 1,
+            "capacity_profile": eval_run_identity.KIMI_STOCK_SINGLE_CAPACITY_PROFILE,
+            "endpoint_identifier": eval_run_identity.KIMI_STOCK_SINGLE_ENDPOINT_IDENTIFIER,
+            "per_worker_capacity": eval_run_identity.KIMI_STOCK_SINGLE_PER_WORKER_CAPACITY,
+        }
+    )
+
+    assert _validate_identity_shape(identity) == identity
+
+    for key, value in (
+        ("guest_transport_retry_attempts", 9),
+        ("logical_request_upstream_attempts", 2),
+    ):
+        mismatched = json.loads(json.dumps(identity))
+        mismatched["contract"]["harness"][key] = value
+        with pytest.raises(EvalIdentityError, match="schema_invalid"):
+            _validate_identity_shape(mismatched)
+
+
 @pytest.mark.parametrize("smoke", [False, True])
 def test_direct_kimi_c23_identity_binds_selected_worker_profile(smoke: bool, tmp_path: Path) -> None:
     identity = _direct_kimi_identity(smoke=smoke)
