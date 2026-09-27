@@ -130,7 +130,8 @@ fi
 if [[ "$role" == kimi-direct-mobius ]]; then
     [[ "$execution_mode" == certified && "$sandbox_provider" == sandoq \
         && "$router_capacity_profile" == sandoq-stock-single-c64-v1 \
-        && "$rollout_concurrency" == 64 ]] \
+        && "$rollout_concurrency" == 64 \
+        && "${OCI_RUNNER_ENVIRONMENT:-}" == oci-runner-firecracker-small ]] \
         || { printf 'Stock-small production shard contract is invalid\n' >&2; exit 2; }
     production_launch=${DIRECT_KIMI_PRODUCTION_LAUNCH:?Set DIRECT_KIMI_PRODUCTION_LAUNCH}
     production_launch_sha256=${DIRECT_KIMI_PRODUCTION_LAUNCH_SHA256:?Set DIRECT_KIMI_PRODUCTION_LAUNCH_SHA256}
@@ -390,7 +391,9 @@ fi
 
 mkdir -p "$output_dir/control"
 chmod 0700 "$output_dir" "$output_dir/control"
-if [[ "$sandbox_provider" == sandoq && "$role" == kimi-direct-tb4-small-diagnostic ]]; then
+if [[ "$sandbox_provider" == sandoq \
+    && ( "$role" == kimi-direct-tb4-small-diagnostic \
+        || "$role" == kimi-direct-mobius ) ]]; then
     buffered_stats_dir="$output_dir/control/buffered-proxy-stats"
     if [[ -e "$buffered_stats_dir" || -L "$buffered_stats_dir" ]]; then
         [[ -d "$buffered_stats_dir" && ! -L "$buffered_stats_dir" ]] \

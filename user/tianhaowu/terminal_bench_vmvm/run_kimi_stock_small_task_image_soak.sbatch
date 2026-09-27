@@ -55,7 +55,7 @@ deployment_root=${KIMI_TASK_IMAGE_SOAK_DEPLOYMENT_ROOT:-/checkpoint/ram/tianhaow
 [[ "$(git -C "$project_dir" rev-parse HEAD)" == "$expected_revision" \
     && -z "$(git -C "$project_dir" status --porcelain=v1 --untracked-files=all)" \
     && -z "$(git -C "$project_dir/deps/verifiers" status --porcelain=v1 --untracked-files=all)" \
-    && "$(git -C "$project_dir/deps/verifiers" rev-parse HEAD)" == f11bf7cec1ca16ecadf7c88046f6a4a660af2031 ]] \
+    && "$(git -C "$project_dir/deps/verifiers" rev-parse HEAD)" == 36b0dff6c18affb3d40b7c46d5836381d568050b ]] \
     || blocked source_identity_invalid
 
 export PYTHONDONTWRITEBYTECODE=1

@@ -150,6 +150,14 @@ def test_base_config_is_exact_stock_small_c64_contract(tmp_path: Path) -> None:
     assert contracts["model_retries"] == 0
     assert contracts["guest_transport_retry_attempts"] == 10
     assert contracts["logical_request_upstream_attempts"] == 1
+    assert contracts["transport_evidence"] == {
+        "schema": "logical-exact-once-v1",
+        "source": "per-runtime-mode-0600-summary-records",
+        "records_per_task": 1,
+        "router_proxy_trace_binding_required": True,
+        "terminal_provider_statuses": ["429", "5xx"],
+        "proxy_exception_records": 0,
+    }
     assert contracts["zero_model_resume_attempts"] == 0
     assert contracts["model_bearing_errors_terminal"] is True
     assert contracts["model_bearing_error_schemas"] == {
@@ -175,6 +183,9 @@ def test_base_config_is_exact_stock_small_c64_contract(tmp_path: Path) -> None:
         "model_calls": 0,
         "infrastructure_errors_remain_errors": True,
     }
+    assert shards.TB4_LANE_PRIME_FILES == (
+        shards.tb4_transport.TB4_LANE_EXECUTION_FILES + shards.tb4_transport.V7_TB4_LANE_EXECUTION_FILES
+    )
 
 
 def test_stock_small_identity_distinguishes_guest_replay_from_model_retry() -> None:
@@ -217,7 +228,9 @@ def test_exact_provider_audit_accepts_reasoning_and_rejects_normalized(tmp_path:
     selector = _private_file(root / "selector.txt", b"opaque-a\nopaque-b\n")
     exact = _private_file(
         root / "exact.jsonl",
-        b"".join(shards._canonical(_trace(f"trace-{index}", task)) for index, task in enumerate(("opaque-a", "opaque-b"))),
+        b"".join(
+            shards._canonical(_trace(f"trace-{index}", task)) for index, task in enumerate(("opaque-a", "opaque-b"))
+        ),
     )
     result = shards.audit_results(exact, selector)
     assert result["traces"] == 2
@@ -382,8 +395,15 @@ def test_launcher_is_serial_c64_and_never_reuses_partial_attempts() -> None:
     assert "DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=0" in body
     assert "KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS=172800" in body
     assert "partial_attempt_requires_manual_recovery" in body
+    assert "--allow-terminal-upstream-statuses" in body
+    assert "36b0dff6c18affb3d40b7c46d5836381d568050b" in body
+    assert 'exec 8>"$generation_dir/.direct_router.lock"' in body
+    assert body.index("flock -n 8") < body.index('direct_kimi_router.py"')
+    assert body.index("flock -u 8") < body.index('kimi_stock_small_shards.py" certify-shard')
     assert "Stock-small production forbids broad resume" in stage
-    assert "--resume \"$output_dir\"" in stage
+    assert '|| "$role" == kimi-direct-mobius' in stage
+    assert 'export SANDOQ_BUFFERED_STATS_DIR="$buffered_stats_dir"' in stage
+    assert '--resume "$output_dir"' in stage
 
 
 def _proxy_summary(**overrides: object) -> dict[str, object]:
@@ -426,7 +446,17 @@ def _proxy_log(*records: dict[str, object]) -> bytes:
 
 def test_buffered_proxy_audit_requires_exact_once_and_retains_only_aggregates() -> None:
     first = _proxy_summary()
-    second = _proxy_summary(requests=2, replayed_requests=1)
+    second = _proxy_summary(
+        requests=2,
+        replayed_requests=1,
+        streamed_requests=2,
+        protocols={"chat_completions": 2},
+        path_counts={
+            "/muse-code/models": 0,
+            "/v1/chat/completions": 2,
+            "/v1/responses": 0,
+        },
+    )
     value = shards._buffered_proxy_audit(_proxy_log(first, second))
 
     assert value["source_schema"] == "logical-exact-once-v1"
@@ -456,32 +486,53 @@ def test_buffered_proxy_audit_rejects_non_exact_once_transport(
 def test_transport_aggregation_is_shard_order_bound() -> None:
     first = shards._bind_proxy_audit_to_trace(
         shards._buffered_proxy_audit(_proxy_log(_proxy_summary())),
-        audited_model_io_turns=1,
+        source_model_io_turns=1,
+        clean_model_io_turns=1,
+        validated_error_model_io_turns=0,
         maximum_terminal_gap=0,
+        expected_summary_records=1,
     )
     second = shards._bind_proxy_audit_to_trace(
         shards._buffered_proxy_audit(
-            _proxy_log(_proxy_summary(requests=2, coalesced_requests=1))
+            _proxy_log(
+                _proxy_summary(
+                    requests=2,
+                    coalesced_requests=1,
+                    streamed_requests=2,
+                    protocols={"chat_completions": 2},
+                    path_counts={
+                        "/muse-code/models": 0,
+                        "/v1/chat/completions": 2,
+                        "/v1/responses": 0,
+                    },
+                )
+            )
         ),
-        audited_model_io_turns=1,
+        source_model_io_turns=1,
+        clean_model_io_turns=1,
+        validated_error_model_io_turns=0,
         maximum_terminal_gap=0,
+        expected_summary_records=1,
     )
     aggregate = shards._aggregate_transport_audits([first, second])
 
     assert aggregate["summary_records"] == 2
     assert aggregate["integer_totals"]["logical_requests"] == 2
     assert aggregate["integer_totals"]["coalesced_requests"] == 1
+    assert aggregate["trace_binding"]["source_model_io_turns"] == 2
+    assert aggregate["trace_binding"]["validated_model_io_turns"] == 2
     assert len(aggregate["shard_audit_set_sha256"]) == 64
 
 
 def test_transport_trace_binding_accepts_one_typed_terminal_attempt_gap() -> None:
-    audit = shards._buffered_proxy_audit(
-        _proxy_log(_proxy_summary(statuses={"503": 1}))
-    )
+    audit = shards._buffered_proxy_audit(_proxy_log(_proxy_summary(statuses={"503": 1})))
     bound = shards._bind_proxy_audit_to_trace(
         audit,
-        audited_model_io_turns=0,
+        source_model_io_turns=0,
+        clean_model_io_turns=0,
+        validated_error_model_io_turns=0,
         maximum_terminal_gap=1,
+        expected_summary_records=1,
     )
 
     assert bound["terminal_outcomes"]["failure_records"] == 1
@@ -493,9 +544,157 @@ def test_transport_trace_binding_rejects_untyped_missing_model_io() -> None:
     with pytest.raises(shards.StockSmallError, match="buffered_proxy_trace_mismatch"):
         shards._bind_proxy_audit_to_trace(
             audit,
-            audited_model_io_turns=0,
+            source_model_io_turns=0,
+            clean_model_io_turns=0,
+            validated_error_model_io_turns=0,
             maximum_terminal_gap=1,
+            expected_summary_records=1,
         )
+
+
+def test_transport_trace_binding_rejects_wrong_durable_record_count() -> None:
+    audit = shards._buffered_proxy_audit(_proxy_log(_proxy_summary()))
+    with pytest.raises(shards.StockSmallError, match="buffered_proxy_trace_mismatch"):
+        shards._bind_proxy_audit_to_trace(
+            audit,
+            source_model_io_turns=1,
+            clean_model_io_turns=1,
+            validated_error_model_io_turns=0,
+            maximum_terminal_gap=0,
+            expected_summary_records=2,
+        )
+
+
+def test_router_transport_binding_exactly_reconciles_terminal_provider_status() -> None:
+    audit = shards._buffered_proxy_audit(_proxy_log(_proxy_summary(statuses={"503": 1})))
+    bound = shards._bind_proxy_audit_to_trace(
+        audit,
+        source_model_io_turns=0,
+        clean_model_io_turns=0,
+        validated_error_model_io_turns=0,
+        maximum_terminal_gap=1,
+        expected_summary_records=1,
+    )
+    router = shards._canonical(
+        {
+            "chat_requests": 1,
+            "upstream_failures": 0,
+            "upstream_http_429": 0,
+            "upstream_http_5xx": 1,
+        }
+    )
+
+    binding = shards._bind_router_to_transport(
+        router,
+        bound,
+        provider_error_rows=1,
+    )
+    assert binding["router_chat_requests"] == 1
+    assert binding["proxy_non_2xx_upstream_responses"] == 1
+    assert binding["provider_error_rows"] == 1
+
+    with pytest.raises(shards.StockSmallError, match="router_transport_binding_invalid"):
+        shards._bind_router_to_transport(router, bound, provider_error_rows=0)
+
+
+def test_router_transport_aggregation_is_exact_and_order_bound() -> None:
+    first = {
+        "schema_version": 1,
+        "state": "passed",
+        "router_chat_requests": 2,
+        "proxy_logical_requests": 2,
+        "proxy_logical_upstream_attempts": 2,
+        "router_upstream_http_429": 0,
+        "router_upstream_http_5xx": 1,
+        "proxy_non_2xx_upstream_responses": 1,
+        "proxy_exception_records": 0,
+        "provider_error_rows": 1,
+    }
+    second = {**first, "router_upstream_http_5xx": 0, "proxy_non_2xx_upstream_responses": 0, "provider_error_rows": 0}
+    aggregate = shards._aggregate_router_transport_bindings([first, second])
+
+    assert aggregate["shards"] == 2
+    assert aggregate["router_chat_requests"] == 4
+    assert aggregate["provider_error_rows"] == 1
+    assert len(aggregate["shard_binding_set_sha256"]) == 64
+
+    invalid = {**first, "proxy_exception_records": 1}
+    with pytest.raises(shards.StockSmallError, match="router_transport_binding_invalid"):
+        shards._aggregate_router_transport_bindings([invalid])
+
+
+def test_stock_cleanup_binds_partial_wave_to_full_c64_pool(tmp_path: Path) -> None:
+    run = _private_dir(tmp_path / "run")
+    control = _private_dir(run / "control")
+    raw = shards._canonical({"schema_version": 1, "state": "passed"})
+    events = shards._canonical(
+        {
+            "schema_version": 2,
+            "record_type": "pool_event",
+            "event": "pool_drained",
+            "slurm_job_id": "123",
+        }
+    )
+    wal = shards._canonical({"schema_version": 2, "event": "outer_deleted", "slurm_job_id": "123"})
+    raw_path = _private_file(run / "pool_cleanup_audit.json", raw)
+    event_path = _private_file(run / "pool_events.jsonl", events)
+    wal_path = _private_file(control / "sandoq-pool.wal.jsonl", wal)
+    counts = {
+        "recorded_outer_sessions": 64,
+        "verified_http_404": 64,
+        "already_absent": 0,
+        "deleted_and_verified": 64,
+        "assignments_acquired": 62,
+        "assignment_release_rows": 62,
+        "assignment_cancellation_rows": 0,
+        "cleanup_gateway_retry_count": 0,
+        "assignments_cleanup_verified": 62,
+        "assignment_event_order_high_water": 62,
+        "assignment_measured_high_water": 62,
+        "outer_sessions_created": 64,
+        "outer_sessions_deleted": 64,
+        "outer_session_high_water": 64,
+        "pool_drain_deleted": 0,
+        "gateway_close_warnings": 0,
+        "recovered_poisoned_assignments": 0,
+        "failures": 0,
+    }
+    receipt = {
+        "schema_version": 1,
+        "kind": "sandoq-pool-cleanup",
+        "state": "passed",
+        **counts,
+        "raw_audit_sha256": hashlib.sha256(raw).hexdigest(),
+        "pool_event_log_sha256": hashlib.sha256(events).hexdigest(),
+        "pool_wal_sha256": hashlib.sha256(wal).hexdigest(),
+        "pool_drain_sha256": "d" * 64,
+    }
+    receipt_path = _private_file(run / "sandoq_cleanup_audit.json", shards._canonical(receipt))
+    run_identity = {
+        "execution": {
+            "sandoq_environment": {
+                "pool_event_log": str(event_path),
+                "pool_wal": str(wal_path),
+            }
+        }
+    }
+    held = shards.split._HeldArtifactSet.create()
+    try:
+        summary, artifacts = shards._validate_stock_small_cleanup(
+            receipt_path,
+            run,
+            run_identity,
+            "a" * 64,
+            "b" * 64,
+            "123",
+            62,
+            held,
+        )
+    finally:
+        held.close()
+
+    assert summary["assignment_measured_high_water"] == 62
+    assert artifacts["cleanup_raw_audit"] == shards._artifact(raw_path, raw)
 
 
 def test_tb4_provider_context_reopens_private_snapshot_and_binds_run_dir(

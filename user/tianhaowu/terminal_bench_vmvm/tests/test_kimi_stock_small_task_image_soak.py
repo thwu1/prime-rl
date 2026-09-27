@@ -242,7 +242,7 @@ def test_launcher_is_c64_no_inference_and_fails_closed() -> None:
     assert "--minimum-remaining-seconds 518400" in launcher
     assert "--task-count 64" in launcher
     assert '"$selected_tasks" == 2499' in launcher
-    assert "f11bf7cec1ca16ecadf7c88046f6a4a660af2031" in launcher
+    assert "36b0dff6c18affb3d40b7c46d5836381d568050b" in launcher
     assert "kimi_endpoint_walltime_gate.py\" capture" in launcher
     assert launcher.index("kimi_endpoint_walltime_gate.py\" capture") < launcher.index("--concurrency 64")
     assert "#SBATCH --cpus-per-task=72" in launcher

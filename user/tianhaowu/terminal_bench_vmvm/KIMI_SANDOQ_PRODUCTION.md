@@ -64,7 +64,10 @@ per-action limit.  Client, router, rollout, and model retries are zero.
 MiniSWE may make up to ten guest transport attempts with one
 logical request ID; the buffered proxy must prove exactly one upstream model
 attempt per logical request, with no anonymous, expired, or conflicting
-requests.  Provisioning gets eight bounded pre-model retries, and shared
+requests.  Certification reopens one private durable proxy-summary record per
+task and exactly reconciles logical requests, router calls, terminal 429/5xx
+responses, and terminal `ProviderError` rows; proxy exceptions fail closed.
+Provisioning gets eight bounded pre-model retries, and shared
 verifier scoring gets two bounded retries in the unchanged post-agent
 runtime.  Model-bearing `HarnessError` rows and exactly shaped terminal
 `ProviderError` rows are retained, exact-response audited, and marked

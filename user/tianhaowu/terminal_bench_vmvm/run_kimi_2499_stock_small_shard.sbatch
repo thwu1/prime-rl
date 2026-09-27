@@ -79,7 +79,7 @@ trap cleanup EXIT INT TERM
 [[ -z "$(git -C "$project_dir" status --porcelain=v1 --untracked-files=all)" ]] || blocked source_identity_invalid
 [[ -z "$(git -C "$project_dir/deps/verifiers" status --porcelain=v1 --untracked-files=all)" ]] \
     || blocked source_identity_invalid
-[[ "$(git -C "$project_dir/deps/verifiers" rev-parse HEAD)" == f11bf7cec1ca16ecadf7c88046f6a4a660af2031 ]] \
+[[ "$(git -C "$project_dir/deps/verifiers" rev-parse HEAD)" == 36b0dff6c18affb3d40b7c46d5836381d568050b ]] \
     || blocked source_identity_invalid
 [[ -x "$x86_uv" && -d "$x86_site/pydantic" && -d "$sandoq_site/sandoq_client" ]] \
     || blocked runtime_unavailable
@@ -152,6 +152,9 @@ launch="$generation_dir/shard-launch.json"
 [[ ! -e "$generation_dir" && ! -L "$generation_dir" \
     && ! -e "$output_dir" && ! -L "$output_dir" ]] || blocked attempt_namespace_not_fresh
 mkdir -m 0700 -- "$generation_dir"
+exec 8>"$generation_dir/.direct_router.lock"
+chmod 0600 "$generation_dir/.direct_router.lock"
+flock -n 8 || blocked router_generation_busy
 
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" snapshot-source \
@@ -264,10 +267,12 @@ chmod 0600 "$router_stats"
     --eval-run-identity "$output_dir/eval_run_identity.json" \
     --eval-invocations "$output_dir/eval_invocations.jsonl" \
     --provenance "$output_dir/provenance.txt" \
+    --allow-terminal-upstream-statuses \
     --output "$output_dir/direct_kimi_router_final.json" >/dev/null
 kill -TERM -- "-$router_pid"
 wait "$router_pid" 2>/dev/null || true
 router_pid=
+flock -u 8
 
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/kimi_stock_small_shards.py" certify-shard \
