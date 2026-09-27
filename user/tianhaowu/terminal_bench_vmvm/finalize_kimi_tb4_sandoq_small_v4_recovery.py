@@ -68,7 +68,8 @@ def _legacy_contracts() -> dict[str, Any]:
     contracts["model_io_response_kind"] = ORIGINAL_RESPONSE_KIND
     contracts["verifiers_commit"] = ORIGINAL_VERIFIERS_COMMIT
     contracts.pop("verifier_runtime_retries", None)
-    contracts.pop("sandoq_provisioning_retries", None)
+    contracts.pop("retry_shared_verifier_scoring", None)
+    contracts.pop("provisioning_retries", None)
     return contracts
 
 

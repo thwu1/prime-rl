@@ -465,6 +465,7 @@ def _validate_direct_kimi_tb4_small_config(config: dict[str, Any], role: str) ->
         or taskset.get("ignore_dockerfile") is not True
         or taskset.get("use_declared_images") is not True
         or taskset.get("verifier_runtime_retries") != KIMI_SMALL_VERIFIER_RUNTIME_RETRIES
+        or taskset.get("retry_shared_verifier_scoring") is not True
         or taskset.get("resource_multiplier") != 1.0
         or taskset.get("resource_cpu_cap") != 1
         or taskset.get("resource_memory_mb_cap") != 2_048

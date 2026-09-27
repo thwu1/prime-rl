@@ -295,10 +295,14 @@ def test_materialized_small_plan_preserves_full_generation_contract(
     assert config["taskset"]["resource_cpu_cap"] == 1
     assert config["taskset"]["resource_memory_mb_cap"] == 2_048
     assert config["taskset"]["verifier_runtime_retries"] == 2
+    assert config["taskset"]["retry_shared_verifier_scoring"] is True
     assert config["harness"]["runtime"]["provisioning_retries"] == 8
     assert b"opaque-case" not in json.dumps(result, sort_keys=True).encode()
     plan = json.loads((output / small.PLAN).read_bytes())
     assert plan["contracts"]["model_io_response_kind"] == "exact_provider_json"
+    assert plan["contracts"]["verifier_runtime_retries"] == 2
+    assert plan["contracts"]["retry_shared_verifier_scoring"] is True
+    assert plan["contracts"]["provisioning_retries"] == 8
     assert plan["contracts"]["reasoning_message_parity_required"] is True
 
     original_verify = small.verify

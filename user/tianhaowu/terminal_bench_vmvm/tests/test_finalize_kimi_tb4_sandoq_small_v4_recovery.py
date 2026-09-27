@@ -94,8 +94,10 @@ def test_legacy_contract_diff_is_only_truthful_v4_fields() -> None:
     legacy = recovery._legacy_contracts()
     assert legacy["model_io_response_kind"] == "normalized_stream_response"
     assert "verifier_runtime_retries" not in legacy
-    assert "sandoq_provisioning_retries" not in legacy
+    assert "retry_shared_verifier_scoring" not in legacy
+    assert "provisioning_retries" not in legacy
     current = recovery.plan_module._contracts()
     assert current["model_io_response_kind"] == "exact_provider_json"
     assert current["verifier_runtime_retries"] == 2
-    assert current["sandoq_provisioning_retries"] == 8
+    assert current["retry_shared_verifier_scoring"] is True
+    assert current["provisioning_retries"] == 8

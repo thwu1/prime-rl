@@ -30,9 +30,9 @@ MEMORY_MB_CAP = 2_048
 STORAGE_MB_CAP = 10_240
 VERIFIER_RUNTIME_RETRIES = 2
 SANDOQ_PROVISIONING_RETRIES = 8
-BASE_CONFIG_SHA256 = "7fb88b33b6bc539de0d00beaaf44f30f80851ee714fc67d7f1503e58b86cb3e5"
+BASE_CONFIG_SHA256 = "07219f811f58892407c7e6e53d3c5e94d9e02c1c0cf9f72139e07fab6cfa22e1"
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
-VERIFIERS_COMMIT = "f11bf7ce77095b9fe04ae0798ed5bfaa69e88b36"
+VERIFIERS_COMMIT = "f11bf7cec1ca16ecadf7c88046f6a4a660af2031"
 SMOKE_RECEIPT_SHA256 = "b6e80f87f63ab471e732158299d5e19ed0224984cb8eda9ba22a9b64f17690b2"
 DEFAULT_SMOKE_RECEIPT = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/"
@@ -176,6 +176,7 @@ def _load_base(
         or taskset.get("resource_memory_mb_cap") != MEMORY_MB_CAP
         or taskset.get("resource_storage_mb_cap") != STORAGE_MB_CAP
         or taskset.get("verifier_runtime_retries") != VERIFIER_RUNTIME_RETRIES
+        or taskset.get("retry_shared_verifier_scoring") is not True
         or not isinstance(harness, dict)
         or harness.get("id") != "mini-swe-agent"
         or harness.get("version") != union.MINISWE_VERSION
@@ -469,7 +470,8 @@ def _contracts() -> dict[str, Any]:
         "model_retries": 0,
         "zero_model_resume_attempts": 1,
         "verifier_runtime_retries": VERIFIER_RUNTIME_RETRIES,
-        "sandoq_provisioning_retries": SANDOQ_PROVISIONING_RETRIES,
+        "retry_shared_verifier_scoring": True,
+        "provisioning_retries": SANDOQ_PROVISIONING_RETRIES,
         "timeouts": dict(union.TIMEOUT_CONTRACT),
         "resource_caps": {
             "cpu": CPU_CAP,

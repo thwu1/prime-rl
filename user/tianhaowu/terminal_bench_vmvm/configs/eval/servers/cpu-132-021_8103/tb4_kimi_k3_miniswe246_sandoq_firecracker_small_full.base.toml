@@ -42,6 +42,7 @@ ignore_dockerfile = true
 use_declared_images = true
 enable_compose = false
 verifier_runtime_retries = 2
+retry_shared_verifier_scoring = true
 timeout_multiplier = 2.0
 resource_multiplier = 1.0
 resource_cpu_cap = 1
