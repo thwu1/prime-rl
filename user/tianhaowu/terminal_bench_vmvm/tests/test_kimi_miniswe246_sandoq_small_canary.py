@@ -787,7 +787,7 @@ def test_tb4_small_scored_diagnostic_contract() -> None:
     assert "KIMI_SMALL_CANARY_TASK_PROFILE=tb4" in wrapper.read_text()
     assert "#SBATCH --time=02:00:00" in wrapper.read_text()
     assert '"kimi-tb4-long" if args.task_profile == "tb4" else "standard"' in runner
-    assert "runtime.interception_endpoint(relay.port)" in runner
+    assert 'runtime.interception_endpoint(relay.port, "sandoq-local-relay")' in runner
     assert '"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10" if tb4 else "1"' in runner
     assert 'task_profile=${KIMI_SMALL_CANARY_TASK_PROFILE:-mobius}' in generic_launcher.read_text()
     assert stat.S_IMODE(wrapper.stat().st_mode) & 0o111

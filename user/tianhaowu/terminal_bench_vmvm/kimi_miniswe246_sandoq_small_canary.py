@@ -433,7 +433,7 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
             await taskset.setup(task, runtime)
             task_setup = True
             endpoint_context = (
-                runtime.interception_endpoint(relay.port)
+                runtime.interception_endpoint(relay.port, "sandoq-local-relay")
                 if tb4
                 else runtime.host_endpoint(relay.port)
             )
