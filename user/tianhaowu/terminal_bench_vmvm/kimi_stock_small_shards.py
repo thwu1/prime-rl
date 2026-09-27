@@ -1160,6 +1160,10 @@ def _contracts() -> dict[str, Any]:
         "logical_request_upstream_attempts": 1,
         "zero_model_resume_attempts": 0,
         "model_bearing_errors_terminal": True,
+        "model_bearing_error_schemas": {
+            "HarnessError": ["message", "traceback", "type"],
+            "ProviderError": ["message", "type"],
+        },
         "verifier_recovery": {
             "mode": "same-post-agent-runtime-scoring-only",
             "retries": 2,
