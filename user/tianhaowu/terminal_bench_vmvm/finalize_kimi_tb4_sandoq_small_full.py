@@ -106,6 +106,7 @@ def _identity_contract(
     evidence: split._HeldRunEvidence,
     plan: Mapping[str, Any],
     expected_revision: str,
+    expected_verifiers_commit: str = plan_module.VERIFIERS_COMMIT,
     held: split._HeldArtifactSet,
 ) -> tuple[dict[str, Any], str, str, str]:
     try:
@@ -144,7 +145,7 @@ def _identity_contract(
         or not isinstance(source, dict)
         or source.get("sandbox_provider") != "sandoq"
         or source.get("prime_rl_commit") != expected_revision
-        or source.get("verifiers_commit") != plan_module.VERIFIERS_COMMIT
+        or source.get("verifiers_commit") != expected_verifiers_commit
         or not isinstance(config, dict)
         or config.get("source", {}).get("sha256") != lane["config"]["sha256"]
         or not isinstance(inputs, dict)

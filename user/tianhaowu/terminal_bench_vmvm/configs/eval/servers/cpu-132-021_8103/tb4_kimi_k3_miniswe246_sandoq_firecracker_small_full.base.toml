@@ -41,7 +41,7 @@ image_manifest_sha256 = "6dd632029af8da52f99f1d364e983a5da2e855afeb6a2ea5fc84fd0
 ignore_dockerfile = true
 use_declared_images = true
 enable_compose = false
-verifier_runtime_retries = 0
+verifier_runtime_retries = 2
 timeout_multiplier = 2.0
 resource_multiplier = 1.0
 resource_cpu_cap = 1
@@ -76,7 +76,7 @@ buffered_chat_completions = true
 guest_tunnel_url = "http://127.0.0.1:8485"
 tunnel_pool_size = 4
 tunnel_ready_timeout = 30
-provisioning_retries = 3
+provisioning_retries = 8
 expected_environment = "oci-runner-firecracker-small"
 ecr_token_file = "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
 

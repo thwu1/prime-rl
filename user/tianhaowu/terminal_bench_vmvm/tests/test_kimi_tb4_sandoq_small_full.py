@@ -127,6 +127,47 @@ def test_materialized_small_plan_preserves_full_generation_contract(
     smoke.chmod(0o600)
     smoke_sha256 = hashlib.sha256(smoke.read_bytes()).hexdigest()
     monkeypatch.setattr(small, "SMOKE_RECEIPT_SHA256", smoke_sha256)
+    smoke_format = tmp_path / "smoke-format.json"
+    smoke_format.write_bytes(
+        split.canonical_json(
+            {
+                "capture": {
+                    "canonical_trajectory_field": "reasoning_content",
+                    "model_calls": 3,
+                    "nonstream_provider_requests": 3,
+                    "raw_provider_field": "reasoning",
+                    "reasoning_exact_parity": 3,
+                    "reasoning_nonblank": 3,
+                    "request_digest_set_sha256": small.SMOKE_REQUEST_DIGEST_SET_SHA256,
+                    "response_digest_set_sha256": small.SMOKE_RESPONSE_DIGEST_SET_SHA256,
+                    "response_kind": "exact_provider_json",
+                    "tool_call_exact_semantic_parity": 3,
+                    "tool_call_turns": 3,
+                    "tool_calls_total": 3,
+                },
+                "kind": "kimi-tb4-miniswe246-sandoq-firecracker-small-smoke-format",
+                "schema_version": 3,
+                "source": {
+                    "raw_trace": {
+                        "bytes": 100,
+                        "path": "/private/raw-trace.json",
+                        "sha256": small.SMOKE_RAW_TRACE_SHA256,
+                    },
+                    "receipt": {
+                        "bytes": len(smoke.read_bytes()),
+                        "path": str(smoke),
+                        "sha256": smoke_sha256,
+                    },
+                    "slurm_job_id": "1595198",
+                    "source_revision": small.STOCK_SOURCE_REVISION,
+                },
+                "state": "passed",
+            }
+        )
+    )
+    smoke_format.chmod(0o600)
+    smoke_format_sha256 = hashlib.sha256(smoke_format.read_bytes()).hexdigest()
+    monkeypatch.setattr(small, "SMOKE_FORMAT_ATTESTATION_SHA256", smoke_format_sha256)
     capacity = tmp_path / "capacity.json"
     capacity.write_bytes(
         split.canonical_json(
@@ -220,6 +261,8 @@ def test_materialized_small_plan_preserves_full_generation_contract(
         run_label="test",
         smoke_receipt=smoke,
         smoke_receipt_sha256=smoke_sha256,
+        smoke_format_attestation=smoke_format,
+        smoke_format_attestation_sha256=smoke_format_sha256,
         capacity_receipt=capacity,
         capacity_receipt_sha256=capacity_sha256,
         sandoq_soak_receipt=soak,
@@ -251,6 +294,8 @@ def test_materialized_small_plan_preserves_full_generation_contract(
     assert config["harness"]["runtime"]["expected_environment"] == "oci-runner-firecracker-small"
     assert config["taskset"]["resource_cpu_cap"] == 1
     assert config["taskset"]["resource_memory_mb_cap"] == 2_048
+    assert config["taskset"]["verifier_runtime_retries"] == 2
+    assert config["harness"]["runtime"]["provisioning_retries"] == 8
     assert b"opaque-case" not in json.dumps(result, sort_keys=True).encode()
     plan = json.loads((output / small.PLAN).read_bytes())
     assert plan["contracts"]["model_io_response_kind"] == "exact_provider_json"

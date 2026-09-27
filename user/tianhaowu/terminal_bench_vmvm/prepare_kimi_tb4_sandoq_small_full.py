@@ -28,15 +28,25 @@ CONCURRENCY = 24
 CPU_CAP = 1
 MEMORY_MB_CAP = 2_048
 STORAGE_MB_CAP = 10_240
-BASE_CONFIG_SHA256 = "aa5737800031e79d560127cc025f5b379396767f46e81eaa0eb4f1dde02a7b08"
+VERIFIER_RUNTIME_RETRIES = 2
+SANDOQ_PROVISIONING_RETRIES = 8
+BASE_CONFIG_SHA256 = "7fb88b33b6bc539de0d00beaaf44f30f80851ee714fc67d7f1503e58b86cb3e5"
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
-VERIFIERS_COMMIT = "d5e8b77ce20ce79b0b9ae0e5b416fffb74969b08"
+VERIFIERS_COMMIT = "f11bf7ce77095b9fe04ae0798ed5bfaa69e88b36"
 SMOKE_RECEIPT_SHA256 = "b6e80f87f63ab471e732158299d5e19ed0224984cb8eda9ba22a9b64f17690b2"
 DEFAULT_SMOKE_RECEIPT = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/"
     "kimi-tb4-miniswe246-sandoq-firecracker-small-stock-single-diagnostic/"
     "run-1595198/receipt.json"
 )
+SMOKE_FORMAT_ATTESTATION_SHA256 = "5f6f7e258f0f983706313266c6be8070d4fd88af0df402526b60bf003bfa3c4e"
+DEFAULT_SMOKE_FORMAT_ATTESTATION = Path(
+    "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/"
+    "kimi-tb4-small-smoke-format-1595198-v1/attestation.json"
+)
+SMOKE_RAW_TRACE_SHA256 = "773cc3424251c0d1591d37755b7cb1b53c2aa306c48fc9eb65457e5a26449cf6"
+SMOKE_REQUEST_DIGEST_SET_SHA256 = "7272cc59d277e05e807f906dd3285d2b79d64112035abd609e6e9ea1d2439f07"
+SMOKE_RESPONSE_DIGEST_SET_SHA256 = "57b042f60bfa8c4ff80f9e7d731cb205bfbe920b49510d6341a201a2c3dabd99"
 CAPACITY_RECEIPT_SHA256 = "244dc901a555b4b73649c6185692c8a9d497319e0f8bcdcdb7373f6604c6f946"
 DEFAULT_CAPACITY_RECEIPT = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/"
@@ -165,7 +175,7 @@ def _load_base(
         or taskset.get("resource_cpu_cap") != CPU_CAP
         or taskset.get("resource_memory_mb_cap") != MEMORY_MB_CAP
         or taskset.get("resource_storage_mb_cap") != STORAGE_MB_CAP
-        or taskset.get("verifier_runtime_retries") != 0
+        or taskset.get("verifier_runtime_retries") != VERIFIER_RUNTIME_RETRIES
         or not isinstance(harness, dict)
         or harness.get("id") != "mini-swe-agent"
         or harness.get("version") != union.MINISWE_VERSION
@@ -193,7 +203,7 @@ def _load_base(
             "guest_tunnel_url": "http://127.0.0.1:8485",
             "tunnel_pool_size": 4,
             "tunnel_ready_timeout": 30,
-            "provisioning_retries": union.SANDOQ_PROVISIONING_RETRIES,
+            "provisioning_retries": SANDOQ_PROVISIONING_RETRIES,
             "expected_environment": "oci-runner-firecracker-small",
             "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
         }
@@ -344,6 +354,55 @@ def _capacity_receipt(
     return body, canonical
 
 
+def _smoke_format_attestation(
+    path: Path,
+    expected_sha256: str,
+    *,
+    smoke_path: Path,
+    smoke_body: bytes,
+    held: split._HeldArtifactSet | None = None,
+) -> tuple[bytes, Path]:
+    canonical = path.resolve(strict=True)
+    body = _read(canonical, code="smoke_format_attestation_invalid", private=True, held=held)
+    if expected_sha256 != SMOKE_FORMAT_ATTESTATION_SHA256 or _sha256(body) != expected_sha256:
+        raise SmallDiagnosticError("smoke_format_attestation_invalid")
+    value = _json(body, code="smoke_format_attestation_invalid")
+    source = value.get("source")
+    capture = value.get("capture")
+    receipt = source.get("receipt") if isinstance(source, dict) else None
+    raw_trace = source.get("raw_trace") if isinstance(source, dict) else None
+    if (
+        value.get("schema_version") != 3
+        or value.get("kind") != "kimi-tb4-miniswe246-sandoq-firecracker-small-smoke-format"
+        or value.get("state") != "passed"
+        or not isinstance(source, dict)
+        or source.get("slurm_job_id") != "1595198"
+        or source.get("source_revision") != STOCK_SOURCE_REVISION
+        or receipt != _artifact(smoke_path, smoke_body)
+        or not isinstance(raw_trace, dict)
+        or set(raw_trace) != {"path", "bytes", "sha256"}
+        or not isinstance(raw_trace.get("path"), str)
+        or not isinstance(raw_trace.get("bytes"), int)
+        or raw_trace["bytes"] < 1
+        or raw_trace.get("sha256") != SMOKE_RAW_TRACE_SHA256
+        or not isinstance(capture, dict)
+        or capture.get("response_kind") != "exact_provider_json"
+        or capture.get("model_calls") != 3
+        or capture.get("nonstream_provider_requests") != 3
+        or capture.get("reasoning_nonblank") != 3
+        or capture.get("reasoning_exact_parity") != 3
+        or capture.get("tool_call_turns") != 3
+        or capture.get("tool_calls_total") != 3
+        or capture.get("tool_call_exact_semantic_parity") != 3
+        or capture.get("raw_provider_field") != "reasoning"
+        or capture.get("canonical_trajectory_field") != "reasoning_content"
+        or capture.get("request_digest_set_sha256") != SMOKE_REQUEST_DIGEST_SET_SHA256
+        or capture.get("response_digest_set_sha256") != SMOKE_RESPONSE_DIGEST_SET_SHA256
+    ):
+        raise SmallDiagnosticError("smoke_format_attestation_invalid")
+    return body, canonical
+
+
 def _sandoq_soak_receipt(
     path: Path,
     expected_sha256: str,
@@ -409,6 +468,8 @@ def _contracts() -> dict[str, Any]:
         "request_graph_match_required": True,
         "model_retries": 0,
         "zero_model_resume_attempts": 1,
+        "verifier_runtime_retries": VERIFIER_RUNTIME_RETRIES,
+        "sandoq_provisioning_retries": SANDOQ_PROVISIONING_RETRIES,
         "timeouts": dict(union.TIMEOUT_CONTRACT),
         "resource_caps": {
             "cpu": CPU_CAP,
@@ -435,6 +496,8 @@ def _expected_plan(
     profile_body: bytes,
     smoke_path: Path,
     smoke_body: bytes,
+    smoke_format_path: Path,
+    smoke_format_body: bytes,
     capacity_path: Path,
     capacity_body: bytes,
     soak_path: Path,
@@ -465,6 +528,7 @@ def _expected_plan(
             "base_config": _artifact(base_path, base_body),
             "provider_profile": _artifact(profile_path, profile_body),
             "smoke_receipt": _artifact(smoke_path, smoke_body),
+            "smoke_format_attestation": _artifact(smoke_format_path, smoke_format_body),
             "capacity_receipt": _artifact(capacity_path, capacity_body),
             "sandoq_c24_soak_receipt": _artifact(soak_path, soak_body),
         },
@@ -510,6 +574,12 @@ def materialize(args: argparse.Namespace) -> dict[str, Any]:
     base, base_body, base_path = _load_base()
     profile_body, profile_path = _provider_profile()
     smoke_body, smoke_path = _smoke_receipt(args.smoke_receipt, args.smoke_receipt_sha256)
+    smoke_format_body, smoke_format_path = _smoke_format_attestation(
+        args.smoke_format_attestation,
+        args.smoke_format_attestation_sha256,
+        smoke_path=smoke_path,
+        smoke_body=smoke_body,
+    )
     capacity_body, capacity_path = _capacity_receipt(
         args.capacity_receipt,
         args.capacity_receipt_sha256,
@@ -555,6 +625,8 @@ def materialize(args: argparse.Namespace) -> dict[str, Any]:
         profile_body=profile_body,
         smoke_path=smoke_path,
         smoke_body=smoke_body,
+        smoke_format_path=smoke_format_path,
+        smoke_format_body=smoke_format_body,
         capacity_path=capacity_path,
         capacity_body=capacity_body,
         soak_path=soak_path,
@@ -586,10 +658,14 @@ def materialize(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def verify(
+def _verify_with_contracts(
     path: Path,
     expected_sha256: str,
     *,
+    expected_contracts: dict[str, Any],
+    base_loader: Any | None = None,
+    provider_profile_loader: Any | None = None,
+    require_smoke_format_attestation: bool = True,
     held: split._HeldArtifactSet | None = None,
     body: bytes | None = None,
 ) -> dict[str, Any]:
@@ -605,7 +681,7 @@ def verify(
         or plan.get("kind") != KIND
         or plan.get("state") != "materialized"
         or plan.get("required_adapter") != ADAPTER
-        or plan.get("contracts") != _contracts()
+        or plan.get("contracts") != expected_contracts
         or plan.get("evaluation")
         != {
             "denominator": split.TOTAL_TASKS,
@@ -625,10 +701,15 @@ def verify(
     if not isinstance(source, dict) or not isinstance(lane, dict) or not isinstance(unsupported, dict):
         raise SmallDiagnosticError("plan_invalid")
     records: dict[str, tuple[Path, bytes]] = {}
+    smoke_names = (
+        ("smoke_receipt", "smoke_format_attestation")
+        if require_smoke_format_attestation
+        else ("smoke_receipt",)
+    )
     for section, names, private in (
         (
             source,
-            ("manifest", "smoke_receipt", "capacity_receipt", "sandoq_c24_soak_receipt"),
+            ("manifest", *smoke_names, "capacity_receipt", "sandoq_c24_soak_receipt"),
             True,
         ),
         (source, ("image_manifest", "base_config", "provider_profile"), False),
@@ -660,13 +741,25 @@ def verify(
     gpu_body = union._selector_payload(partition.gpu_unsupported)
     if records["selector"][1] != supported_body or records["compose"][1] != compose_body or records["gpu"][1] != gpu_body:
         raise SmallDiagnosticError("partition_invalid")
-    base, base_body, base_path = _load_base(held)
-    profile_body, profile_path = _provider_profile(held)
+    load_base = _load_base if base_loader is None else base_loader
+    load_profile = _provider_profile if provider_profile_loader is None else provider_profile_loader
+    base, base_body, base_path = load_base(held)
+    profile_body, profile_path = load_profile(held)
     smoke_body, smoke_path = _smoke_receipt(
         records["smoke_receipt"][0],
         SMOKE_RECEIPT_SHA256,
         held,
     )
+    smoke_format = None
+    if require_smoke_format_attestation:
+        smoke_format_body, smoke_format_path = _smoke_format_attestation(
+            records["smoke_format_attestation"][0],
+            SMOKE_FORMAT_ATTESTATION_SHA256,
+            smoke_path=smoke_path,
+            smoke_body=smoke_body,
+            held=held,
+        )
+        smoke_format = (smoke_format_path, smoke_format_body)
     capacity_body, capacity_path = _capacity_receipt(
         records["capacity_receipt"][0],
         CAPACITY_RECEIPT_SHA256,
@@ -682,6 +775,10 @@ def verify(
         records["base_config"] != (base_path, base_body)
         or records["provider_profile"] != (profile_path, profile_body)
         or records["smoke_receipt"] != (smoke_path, smoke_body)
+        or (
+            require_smoke_format_attestation
+            and records["smoke_format_attestation"] != smoke_format
+        )
         or records["capacity_receipt"] != (capacity_path, capacity_body)
         or records["sandoq_c24_soak_receipt"] != (soak_path, soak_body)
         or _sha256(image_body) != split.CANONICAL_IMAGE_MANIFEST_SHA256
@@ -744,6 +841,22 @@ def verify(
     }
 
 
+def verify(
+    path: Path,
+    expected_sha256: str,
+    *,
+    held: split._HeldArtifactSet | None = None,
+    body: bytes | None = None,
+) -> dict[str, Any]:
+    return _verify_with_contracts(
+        path,
+        expected_sha256,
+        expected_contracts=_contracts(),
+        held=held,
+        body=body,
+    )
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -757,6 +870,15 @@ def _parser() -> argparse.ArgumentParser:
     make.add_argument("--run-label", required=True)
     make.add_argument("--smoke-receipt", type=Path, default=DEFAULT_SMOKE_RECEIPT)
     make.add_argument("--smoke-receipt-sha256", default=SMOKE_RECEIPT_SHA256)
+    make.add_argument(
+        "--smoke-format-attestation",
+        type=Path,
+        default=DEFAULT_SMOKE_FORMAT_ATTESTATION,
+    )
+    make.add_argument(
+        "--smoke-format-attestation-sha256",
+        default=SMOKE_FORMAT_ATTESTATION_SHA256,
+    )
     make.add_argument("--capacity-receipt", type=Path, default=DEFAULT_CAPACITY_RECEIPT)
     make.add_argument("--capacity-receipt-sha256", default=CAPACITY_RECEIPT_SHA256)
     make.add_argument("--sandoq-soak-receipt", type=Path, default=DEFAULT_SANDOQ_SOAK_RECEIPT)

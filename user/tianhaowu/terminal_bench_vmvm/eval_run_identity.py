@@ -123,6 +123,8 @@ KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS = 96 * 60 * 60
 KIMI_TB4_SMALL_MINIMUM_REMAINING_SECONDS = 132 * 60 * 60
 KIMI_MINISWE_VERSION = "2.4.6"
 KIMI_SANDOQ_PROVISIONING_RETRIES = 3
+KIMI_SMALL_SANDOQ_PROVISIONING_RETRIES = 8
+KIMI_SMALL_VERIFIER_RUNTIME_RETRIES = 2
 KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT = "oci-runner-firecracker"
 KIMI_FIRECRACKER_TUNNEL_PROFILE_SHA256 = "7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df"
 KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256 = "ce3fc3ed2ead1aaf8c71fc35e5dae324f1be9d51b4e7fffff7bc99d1a47adbf6"
@@ -462,7 +464,7 @@ def _validate_direct_kimi_tb4_small_config(config: dict[str, Any], role: str) ->
         or taskset.get("enable_compose") is not False
         or taskset.get("ignore_dockerfile") is not True
         or taskset.get("use_declared_images") is not True
-        or taskset.get("verifier_runtime_retries") != 0
+        or taskset.get("verifier_runtime_retries") != KIMI_SMALL_VERIFIER_RUNTIME_RETRIES
         or taskset.get("resource_multiplier") != 1.0
         or taskset.get("resource_cpu_cap") != 1
         or taskset.get("resource_memory_mb_cap") != 2_048
@@ -498,7 +500,7 @@ def _validate_direct_kimi_tb4_small_config(config: dict[str, Any], role: str) ->
             "guest_tunnel_url": "http://127.0.0.1:8485",
             "tunnel_pool_size": 4,
             "tunnel_ready_timeout": 30,
-            "provisioning_retries": KIMI_SANDOQ_PROVISIONING_RETRIES,
+            "provisioning_retries": KIMI_SMALL_SANDOQ_PROVISIONING_RETRIES,
             "expected_environment": KIMI_SMALL_FIRECRACKER_ENVIRONMENT,
             "ecr_token_file": "/storage/home/tianhaowu/.config/oci-runner/ecr-token",
         }
