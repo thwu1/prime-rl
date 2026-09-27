@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
 import os
@@ -322,6 +323,20 @@ def test_identity_validator_seals_small_full_contract() -> None:
         config,
         eval_run_identity.KIMI_SMALL_TB4_DIAGNOSTIC_ROLE,
     )
+    invalid_cpu = copy.deepcopy(config)
+    invalid_cpu["harness"]["runtime"]["cpu"] = 2.0
+    with pytest.raises(eval_run_identity.EvalIdentityError, match="direct_kimi_tb4_small_config_invalid"):
+        eval_run_identity._validate_direct_kimi_tb4_small_config(
+            invalid_cpu,
+            eval_run_identity.KIMI_SMALL_TB4_DIAGNOSTIC_ROLE,
+        )
+    unknown_runtime_field = copy.deepcopy(config)
+    unknown_runtime_field["harness"]["runtime"]["unexpected"] = "forbidden"
+    with pytest.raises(eval_run_identity.EvalIdentityError, match="direct_kimi_tb4_small_config_invalid"):
+        eval_run_identity._validate_direct_kimi_tb4_small_config(
+            unknown_runtime_field,
+            eval_run_identity.KIMI_SMALL_TB4_DIAGNOSTIC_ROLE,
+        )
     config["sampling"]["max_tokens"] = 512
     with pytest.raises(eval_run_identity.EvalIdentityError, match="direct_kimi_tb4_small_config_invalid"):
         eval_run_identity._validate_direct_kimi_tb4_small_config(
