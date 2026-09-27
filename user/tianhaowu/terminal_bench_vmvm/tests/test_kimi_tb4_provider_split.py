@@ -960,7 +960,13 @@ def test_small_router_receipt_allows_only_opted_in_terminal_upstream_status(
     zero_digest = hashlib.sha256(b"[0]\n").hexdigest()
     identity = {
         "role": "kimi-direct-tb4-small-diagnostic",
-        "execution": {"rollout_concurrency": 24},
+        "source": {"sandbox_provider": "sandoq"},
+        "execution": {
+            "rollout_concurrency": 24,
+            "sandoq_environment": {
+                "environment": "oci-runner-firecracker-small",
+            },
+        },
         "deployment": {
             "kind": "direct_kimi",
             "endpoint_bundle_sha256": "c" * 64,
@@ -980,7 +986,7 @@ def test_small_router_receipt_allows_only_opted_in_terminal_upstream_status(
         },
     }
     value = {
-        "schema_version": 6,
+        "schema_version": 7,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": identity_sha256,
@@ -1019,6 +1025,7 @@ def test_small_router_receipt_allows_only_opted_in_terminal_upstream_status(
         "worker_queue_timeouts": 0,
         "upstream_http_429": 0,
         "upstream_http_5xx": 1,
+        "upstream_failures": 0,
     }
     receipt = tmp_path / "direct_kimi_router_final.json"
     body = split.canonical_json(value)
@@ -1055,6 +1062,40 @@ def test_small_router_receipt_allows_only_opted_in_terminal_upstream_status(
         allow_terminal_upstream_statuses=True,
     )
     assert observed == body
+
+    missing_failure_counter = dict(value)
+    missing_failure_counter.pop("upstream_failures")
+    missing_failure_counter_body = split.canonical_json(missing_failure_counter)
+    _private_file(receipt, missing_failure_counter_body)
+    missing_marker = {
+        "schema_version": 1,
+        "kind": "direct-kimi-file-publication",
+        "files": {
+            receipt.name: {
+                "bytes": len(missing_failure_counter_body),
+                "sha256": hashlib.sha256(missing_failure_counter_body).hexdigest(),
+            }
+        },
+    }
+    _private_file(
+        receipt.with_name(f".{receipt.name}.complete"),
+        split.canonical_json(missing_marker),
+    )
+    with pytest.raises(split.KimiProviderSplitError, match="router_receipt_invalid"):
+        split._validate_direct_router_receipt(
+            receipt,
+            identity,
+            minimum_chat_requests=1,
+            identity_sha256=identity_sha256,
+            invocation_identity_sha256=invocation_sha256,
+            allow_terminal_upstream_statuses=True,
+        )
+
+    _private_file(receipt, body)
+    _private_file(
+        receipt.with_name(f".{receipt.name}.complete"),
+        split.canonical_json(marker),
+    )
 
     identity["role"] = "kimi-direct-tb4"
     with pytest.raises(split.KimiProviderSplitError, match="router_receipt_unexpected"):

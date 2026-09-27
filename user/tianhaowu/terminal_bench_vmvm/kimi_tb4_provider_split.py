@@ -1586,14 +1586,40 @@ def _validate_direct_router_receipt(
     c23_profile = router.get("capacity_profile") == C23_CAPACITY_PROFILE
     w2_profile = router.get("capacity_profile") == C64_W2_CAPACITY_PROFILE
     stock_single_profile = router.get("capacity_profile") == STOCK_SINGLE_C64_CAPACITY_PROFILE
-    if allow_terminal_upstream_statuses and identity.get("role") != "kimi-direct-tb4-small-diagnostic":
+    source = identity.get("source")
+    execution = identity.get("execution")
+    environment = execution.get("sandoq_environment") if isinstance(execution, dict) else None
+    sealed_small_diagnostic = (
+        identity.get("role") == "kimi-direct-tb4-small-diagnostic"
+        and isinstance(source, dict)
+        and source.get("sandbox_provider") == "sandoq"
+        and isinstance(execution, dict)
+        and execution.get("rollout_concurrency") == 24
+        and isinstance(environment, dict)
+        and environment.get("environment") == "oci-runner-firecracker-small"
+    )
+    stock_small_production = (
+        identity.get("role") == "kimi-direct-mobius"
+        and stock_single_profile
+        and isinstance(source, dict)
+        and source.get("sandbox_provider") == "sandoq"
+        and isinstance(execution, dict)
+        and execution.get("rollout_concurrency") == 64
+        and isinstance(environment, dict)
+        and environment.get("environment") == "oci-runner-firecracker-small"
+    )
+    terminal_status_receipt = allow_terminal_upstream_statuses and (
+        sealed_small_diagnostic or stock_small_production
+    )
+    if allow_terminal_upstream_statuses and not terminal_status_receipt:
         raise KimiProviderSplitError("router_receipt_unexpected")
     forwarded_capacity_profile = w2_profile or stock_single_profile
     profiled_capacity = c23_profile or forwarded_capacity_profile
     worker_count = 1 if stock_single_profile else 23 if c23_profile else 24
     zero_worker_counts_sha256 = sha256_bytes((json.dumps([0] * worker_count, separators=(",", ":")) + "\n").encode())
+    base_receipt_schema = 6 if stock_single_profile else 5 if w2_profile else 4 if c23_profile else 2
     expected = {
-        "schema_version": 6 if stock_single_profile else 5 if w2_profile else 4 if c23_profile else 2,
+        "schema_version": base_receipt_schema + (1 if terminal_status_receipt else 0),
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": identity_sha256,
@@ -1609,6 +1635,8 @@ def _validate_direct_router_receipt(
         "retries": router.get("retries"),
         "source_generation_revalidated": True,
     }
+    if terminal_status_receipt:
+        expected["upstream_failures"] = 0
     dynamic = {"max_active_requests", "total_requests", "chat_requests", "worker_request_counts_sha256"}
     digests = {"worker_request_counts_sha256"}
     if profiled_capacity:

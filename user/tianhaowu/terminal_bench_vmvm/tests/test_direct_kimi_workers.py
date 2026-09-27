@@ -1007,7 +1007,14 @@ def test_direct_kimi_w2_scored_receipt_binds_observed_forwarding_peak_without_re
         allow_terminal_upstream_statuses=(role == "kimi-direct-tb4-small-diagnostic"),
     )
 
-    assert receipt["schema_version"] == 5
+    assert receipt["schema_version"] == (
+        6 if role == "kimi-direct-tb4-small-diagnostic" else 5
+    )
+    assert ("upstream_failures" in receipt) == (
+        role == "kimi-direct-tb4-small-diagnostic"
+    )
+    if role == "kimi-direct-tb4-small-diagnostic":
+        assert receipt["upstream_failures"] == 0
     assert receipt["max_active_forwarded_requests"] == 1
     assert receipt["upstream_http_5xx"] == int(
         role == "kimi-direct-tb4-small-diagnostic"

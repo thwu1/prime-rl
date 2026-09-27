@@ -1776,7 +1776,6 @@ def certify_router(
         forwarded_capacity_profile = w2_profile or stock_single_profile
         profiled_capacity = c23_profile or c64_profile or forwarded_capacity_profile
         capacity_smoke = identity["role"] == "kimi-direct-capacity-smoke"
-        w2_required = capacity_smoke or identity["role"] == "kimi-direct-mobius"
         identity_source = identity.get("source")
         identity_execution = identity.get("execution")
         identity_environment = (
@@ -1793,19 +1792,36 @@ def certify_router(
         )
         w2_tb4 = (identity["role"] == "kimi-direct-tb4" or sealed_small_diagnostic) and w2_profile
         stock_tb4 = sealed_small_diagnostic and stock_single_profile
-        if allow_terminal_upstream_statuses and not sealed_small_diagnostic:
+        stock_small_production = (
+            identity["role"] == "kimi-direct-mobius"
+            and stock_single_profile
+            and isinstance(identity_source, dict)
+            and identity_source.get("sandbox_provider") == "sandoq"
+            and isinstance(identity_execution, dict)
+            and identity_execution.get("rollout_concurrency") == capacity
+            and isinstance(identity_environment, dict)
+            and identity_environment.get("environment") == "oci-runner-firecracker-small"
+        )
+        w2_required = capacity_smoke or (
+            identity["role"] == "kimi-direct-mobius" and not stock_small_production
+        )
+        terminal_status_receipt = allow_terminal_upstream_statuses and (
+            sealed_small_diagnostic or stock_small_production
+        )
+        if allow_terminal_upstream_statuses and not terminal_status_receipt:
             raise DirectKimiWorkerError("run_binding_invalid")
         w2_allowed = w2_required or identity["role"] == "kimi-direct-tb4" or sealed_small_diagnostic
         c23_role_allowed = identity["role"] in {"kimi-direct-smoke", "kimi-direct-tb4"}
         if (
             (w2_required and not w2_profile)
             or (w2_profile and not w2_allowed)
-            or (stock_single_profile and not stock_tb4)
+            or (stock_single_profile and not (stock_tb4 or stock_small_production))
             or (not w2_required and c23_profile and not c23_role_allowed)
             or (
                 not w2_required
                 and not w2_tb4
                 and not stock_tb4
+                and not stock_small_production
                 and not c23_profile
                 and capacity_profile != LEGACY_CAPACITY_PROFILE
             )
@@ -1981,8 +1997,11 @@ def certify_router(
             or (capacity_smoke and any(value != W2_PER_WORKER_CAPACITY for value in worker_max_active_counts))
         ):
             raise DirectKimiWorkerError("router_stats_invalid")
+        base_receipt_schema = (
+            6 if stock_single_profile else 5 if w2_profile else 4 if (c23_profile or c64_profile) else 2
+        )
         receipt = {
-            "schema_version": 6 if stock_single_profile else 5 if w2_profile else 4 if (c23_profile or c64_profile) else 2,
+            "schema_version": base_receipt_schema + (1 if terminal_status_receipt else 0),
             "kind": "direct-kimi-router-final",
             "state": "passed",
             "eval_run_identity_sha256": eval_run_identity_sha256,
@@ -2002,6 +2021,12 @@ def certify_router(
             "worker_request_counts_sha256": _sha256_bytes((json.dumps(counts, separators=(",", ":")) + "\n").encode()),
             "source_generation_revalidated": True,
         }
+        if terminal_status_receipt:
+            # The terminal-status receipt is a versioned, opt-in schema.  Its
+            # consumer reconciles upstream HTTP outcomes against the buffered
+            # exact-once proxy summaries, while transport exceptions remain
+            # forbidden and are therefore published explicitly as zero here.
+            receipt["upstream_failures"] = router_stats["upstream_failures"]
         if profiled_capacity:
             assert isinstance(worker_active_counts, list)
             assert isinstance(worker_session_counts, list)
