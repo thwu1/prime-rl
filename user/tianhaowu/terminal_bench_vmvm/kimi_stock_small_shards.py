@@ -1978,7 +1978,12 @@ def audit_results(results: Path, selector: Path) -> dict[str, Any]:
                 counts["traces"] += 1
                 if errors:
                     error_types = _error_types(errors)
-                    if row.get("rewards") != {} or row.get("metrics") != {}:
+                    if (
+                        len(error_types) != 1
+                        or row.get("stop_condition") != "error"
+                        or row.get("rewards") != {}
+                        or row.get("metrics") != {}
+                    ):
                         raise StockSmallError("trace_errors_invalid")
                     counts["error_traces"] += 1
                     nodes = row.get("nodes")
@@ -1986,20 +1991,17 @@ def audit_results(results: Path, selector: Path) -> dict[str, Any]:
                         if (
                             row.get("info") != {}
                             or row.get("is_completed") is not True
-                            or not isinstance(row.get("stop_condition"), str)
-                            or not row["stop_condition"].strip()
                         ):
                             raise StockSmallError("trace_errors_invalid")
                         counts["zero_model_error_traces"] += 1
                         continue
-                    model_error_types = set(error_types)
-                    if model_error_types not in ({"HarnessError"}, {"ProviderError"}):
+                    if error_types not in (("HarnessError",), ("ProviderError",)):
                         raise StockSmallError("model_bearing_error_type_invalid")
                     turns, sampled_tokens = audit_model_bearing_trace(row, clean_stop=False)
                     counts["model_bearing_error_traces"] += 1
                     counts[
                         "model_bearing_provider_error_traces"
-                        if model_error_types == {"ProviderError"}
+                        if error_types == ("ProviderError",)
                         else "model_bearing_harness_error_traces"
                     ] += 1
                     counts["audited_model_io_turns"] += turns
