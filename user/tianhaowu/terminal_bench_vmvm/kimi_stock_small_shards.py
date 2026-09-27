@@ -133,6 +133,18 @@ PROXY_SUMMARY_INTEGER_FIELDS = (
     "unknown_path_requests",
 )
 PROXY_SUMMARY_MAPPING_FIELDS = ("statuses", "protocols", "path_counts")
+ALLOWED_ERROR_TYPES = frozenset(
+    {
+        "HarnessError",
+        "InterceptionError",
+        "ProviderError",
+        "SandboxError",
+        "TasksetError",
+        "ToolsetError",
+        "TunnelError",
+        "UserError",
+    }
+)
 
 
 class StockSmallError(ValueError):
@@ -218,6 +230,10 @@ def _buffered_proxy_audit(body: bytes) -> dict[str, Any]:
 
     expected_keys = frozenset(PROXY_SUMMARY_INTEGER_FIELDS + PROXY_SUMMARY_MAPPING_FIELDS)
     records: list[dict[str, Any]] = []
+    terminal_failure_records = 0
+    terminal_non_2xx_upstream_responses = 0
+    terminal_exception_records = 0
+    terminal_exception_observations = 0
     for line in body.splitlines():
         marker_offset = line.find(PROXY_SUMMARY_MARKER)
         if marker_offset < 0:
@@ -255,6 +271,17 @@ def _buffered_proxy_audit(body: bytes) -> dict[str, Any]:
             + value["replayed_requests"]
         ):
             raise StockSmallError("buffered_proxy_exact_once_invalid")
+        non_2xx = sum(
+            count for status, count in value["statuses"].items() if not status.startswith("2")
+        )
+        has_exception = value["error_count"] > 0
+        if non_2xx > 1 or (non_2xx and has_exception):
+            raise StockSmallError("buffered_proxy_terminal_outcome_invalid")
+        if non_2xx or has_exception:
+            terminal_failure_records += 1
+            terminal_non_2xx_upstream_responses += non_2xx
+            terminal_exception_records += int(has_exception)
+            terminal_exception_observations += value["error_count"]
         records.append(value)
     if not records:
         raise StockSmallError("buffered_proxy_audit_invalid")
@@ -276,8 +303,68 @@ def _buffered_proxy_audit(body: bytes) -> dict[str, Any]:
         "exact_once_counters_required": True,
         "integer_totals": integer_totals,
         "mapping_totals": mapping_totals,
+        "terminal_outcomes": {
+            "failure_records": terminal_failure_records,
+            "non_2xx_upstream_responses": terminal_non_2xx_upstream_responses,
+            "exception_records": terminal_exception_records,
+            "exception_observations": terminal_exception_observations,
+        },
         "record_set_sha256": _sha256(_canonical(records)),
     }
+
+
+def _bind_proxy_audit_to_trace(
+    audit: Mapping[str, Any],
+    *,
+    audited_model_io_turns: int,
+    maximum_terminal_gap: int,
+) -> dict[str, Any]:
+    totals = audit.get("integer_totals")
+    terminal = audit.get("terminal_outcomes")
+    if (
+        not _plain_nonnegative_integer(audited_model_io_turns)
+        or not _plain_nonnegative_integer(maximum_terminal_gap)
+        or not isinstance(totals, dict)
+        or not isinstance(terminal, dict)
+        or not _plain_nonnegative_integer(totals.get("logical_requests"))
+        or not _plain_nonnegative_integer(totals.get("logical_upstream_attempts"))
+        or not _plain_nonnegative_integer(terminal.get("failure_records"))
+    ):
+        raise StockSmallError("buffered_proxy_trace_mismatch")
+    gap = totals["logical_requests"] - audited_model_io_turns
+    if (
+        totals["logical_upstream_attempts"] != totals["logical_requests"]
+        or gap < 0
+        or gap != terminal["failure_records"]
+        or gap > maximum_terminal_gap
+    ):
+        raise StockSmallError("buffered_proxy_trace_mismatch")
+    return {
+        **dict(audit),
+        "trace_binding": {
+            "audited_model_io_turns": audited_model_io_turns,
+            "logical_requests": totals["logical_requests"],
+            "terminal_attempt_gap": gap,
+            "maximum_terminal_gap": maximum_terminal_gap,
+            "gap_bound": "typed-error-rows-with-terminal-proxy-outcome",
+        },
+    }
+
+
+def _tb4_audited_model_io_turns(rows: Mapping[str, Mapping[str, Any]]) -> int:
+    turns = 0
+    for row in rows.values():
+        nodes = row.get("nodes")
+        if not isinstance(nodes, list):
+            continue
+        for node in nodes:
+            if not isinstance(node, dict) or node.get("sampled") is not True:
+                continue
+            model_io = node.get("model_io")
+            response = model_io.get("response") if isinstance(model_io, dict) else None
+            if isinstance(response, dict) and response.get("kind") == "exact_provider_json":
+                turns += 1
+    return turns
 
 
 def _json_line(body: bytes, *, code: str) -> dict[str, Any]:
@@ -914,7 +1001,11 @@ def _validate_tb4_gate(
     )
     if evaluator_log_path.parent.parent != Path(str(executed_record["path"])).parent:
         raise StockSmallError("tb4_gate_transport_invalid")
-    proxy_audit = _buffered_proxy_audit(evaluator_log_body)
+    proxy_audit = _bind_proxy_audit_to_trace(
+        _buffered_proxy_audit(evaluator_log_body),
+        audited_model_io_turns=_tb4_audited_model_io_turns(rows),
+        maximum_terminal_gap=int(trace_audit["execution_error_zeroes"]),
+    )
     if (
         result_artifact != executed_record
         or trace_audit != value.get("trace_audit")
@@ -1712,6 +1803,24 @@ def _task_slug(trace: Mapping[str, Any]) -> str:
         raise StockSmallError("trace_identity_invalid") from error
 
 
+def _error_types(errors: object) -> tuple[str, ...]:
+    if not isinstance(errors, list) or not errors:
+        raise StockSmallError("trace_errors_invalid")
+    types: list[str] = []
+    for error in errors:
+        if (
+            not isinstance(error, dict)
+            or set(error) != {"message", "traceback", "type"}
+            or error.get("type") not in ALLOWED_ERROR_TYPES
+            or not isinstance(error.get("message"), str)
+            or not error["message"]
+            or not isinstance(error.get("traceback"), str)
+        ):
+            raise StockSmallError("trace_errors_invalid")
+        types.append(error["type"])
+    return tuple(types)
+
+
 def audit_results(results: Path, selector: Path) -> dict[str, Any]:
     selector_body = _read(selector, code="selector_invalid", private=True, maximum_bytes=4 * 1024 * 1024)
     try:
@@ -1794,11 +1903,23 @@ def audit_results(results: Path, selector: Path) -> dict[str, Any]:
                     raise StockSmallError("trace_errors_invalid")
                 counts["traces"] += 1
                 if errors:
+                    error_types = _error_types(errors)
+                    if row.get("rewards") != {} or row.get("metrics") != {}:
+                        raise StockSmallError("trace_errors_invalid")
                     counts["error_traces"] += 1
                     nodes = row.get("nodes")
                     if nodes == []:
+                        if (
+                            row.get("info") != {}
+                            or row.get("is_completed") is not True
+                            or not isinstance(row.get("stop_condition"), str)
+                            or not row["stop_condition"].strip()
+                        ):
+                            raise StockSmallError("trace_errors_invalid")
                         counts["zero_model_error_traces"] += 1
                         continue
+                    if set(error_types) != {"HarnessError"}:
+                        raise StockSmallError("model_bearing_error_type_invalid")
                     turns, sampled_tokens = audit_model_bearing_trace(row, clean_stop=False)
                     counts["model_bearing_error_traces"] += 1
                     counts["audited_model_io_turns"] += turns
@@ -1931,13 +2052,16 @@ def _validate_run_evidence(
                 held=held,
                 maximum_bytes=512 * 1024 * 1024,
             )
-            transport = _buffered_proxy_audit(evaluator_log_body)
+            transport = _bind_proxy_audit_to_trace(
+                _buffered_proxy_audit(evaluator_log_body),
+                audited_model_io_turns=int(trace["audited_model_io_turns"]),
+                maximum_terminal_gap=int(trace["model_bearing_error_traces"]),
+            )
             transport_totals = transport["integer_totals"]
             if (
                 transport["summary_records"] != int(shard["count"])
-                or transport_totals["logical_requests"] != trace["audited_model_io_turns"]
                 or transport_totals["logical_upstream_attempts"]
-                != trace["audited_model_io_turns"]
+                != transport_totals["logical_requests"]
             ):
                 raise StockSmallError("buffered_proxy_trace_mismatch")
 
@@ -2198,9 +2322,25 @@ def _aggregate_transport_audits(values: Sequence[Mapping[str, Any]]) -> dict[str
         field: Counter() for field in PROXY_SUMMARY_MAPPING_FIELDS
     }
     summary_records = 0
+    terminal_totals: Counter[str] = Counter()
+    trace_totals: Counter[str] = Counter()
     for value in values:
+        terminal = value.get("terminal_outcomes")
+        trace_binding = value.get("trace_binding")
         if (
-            value.get("schema_version") != 1
+            set(value)
+            != {
+                "schema_version",
+                "source_schema",
+                "summary_records",
+                "exact_once_counters_required",
+                "integer_totals",
+                "mapping_totals",
+                "terminal_outcomes",
+                "trace_binding",
+                "record_set_sha256",
+            }
+            or value.get("schema_version") != 1
             or value.get("source_schema") != "logical-exact-once-v1"
             or value.get("exact_once_counters_required") is not True
             or not _plain_nonnegative_integer(value.get("summary_records"))
@@ -2216,6 +2356,40 @@ def _aggregate_transport_audits(values: Sequence[Mapping[str, Any]]) -> dict[str
                 not _counter_mapping(value["mapping_totals"].get(field))
                 for field in PROXY_SUMMARY_MAPPING_FIELDS
             )
+            or not isinstance(terminal, dict)
+            or set(terminal)
+            != {
+                "failure_records",
+                "non_2xx_upstream_responses",
+                "exception_records",
+                "exception_observations",
+            }
+            or any(not _plain_nonnegative_integer(item) for item in terminal.values())
+            or not isinstance(trace_binding, dict)
+            or set(trace_binding)
+            != {
+                "audited_model_io_turns",
+                "logical_requests",
+                "terminal_attempt_gap",
+                "maximum_terminal_gap",
+                "gap_bound",
+            }
+            or any(
+                not _plain_nonnegative_integer(trace_binding.get(field))
+                for field in (
+                    "audited_model_io_turns",
+                    "logical_requests",
+                    "terminal_attempt_gap",
+                    "maximum_terminal_gap",
+                )
+            )
+            or trace_binding.get("gap_bound")
+            != "typed-error-rows-with-terminal-proxy-outcome"
+            or trace_binding.get("logical_requests")
+            != value["integer_totals"].get("logical_requests")
+            or trace_binding.get("terminal_attempt_gap") != terminal.get("failure_records")
+            or trace_binding.get("terminal_attempt_gap", 0)
+            > trace_binding.get("maximum_terminal_gap", -1)
             or SHA256_RE.fullmatch(str(value.get("record_set_sha256", ""))) is None
         ):
             raise StockSmallError("buffered_proxy_audit_invalid")
@@ -2223,6 +2397,18 @@ def _aggregate_transport_audits(values: Sequence[Mapping[str, Any]]) -> dict[str
         integer_totals.update(value["integer_totals"])
         for field in PROXY_SUMMARY_MAPPING_FIELDS:
             mapping_totals[field].update(value["mapping_totals"][field])
+        terminal_totals.update(terminal)
+        trace_totals.update(
+            {
+                field: trace_binding[field]
+                for field in (
+                    "audited_model_io_turns",
+                    "logical_requests",
+                    "terminal_attempt_gap",
+                    "maximum_terminal_gap",
+                )
+            }
+        )
     return {
         "schema_version": 1,
         "source_schema": "logical-exact-once-v1",
@@ -2234,6 +2420,27 @@ def _aggregate_transport_audits(values: Sequence[Mapping[str, Any]]) -> dict[str
         "mapping_totals": {
             field: dict(sorted(mapping_totals[field].items()))
             for field in PROXY_SUMMARY_MAPPING_FIELDS
+        },
+        "terminal_outcomes": {
+            field: terminal_totals[field]
+            for field in (
+                "failure_records",
+                "non_2xx_upstream_responses",
+                "exception_records",
+                "exception_observations",
+            )
+        },
+        "trace_binding": {
+            **{
+                field: trace_totals[field]
+                for field in (
+                    "audited_model_io_turns",
+                    "logical_requests",
+                    "terminal_attempt_gap",
+                    "maximum_terminal_gap",
+                )
+            },
+            "gap_bound": "typed-error-rows-with-terminal-proxy-outcome",
         },
         "shard_audit_set_sha256": _sha256(_canonical(list(values))),
     }

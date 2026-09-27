@@ -94,6 +94,10 @@ def _trace(trace_id: str, task: str, *, response_kind: str = "exact_provider_jso
     }
 
 
+def _error(error_type: str = "HarnessError") -> dict[str, str]:
+    return {"message": "opaque", "traceback": "", "type": error_type}
+
+
 def test_shards_are_deterministic_balanced_and_exhaustive() -> None:
     members = tuple(f"opaque-{index:04d}" for index in range(shards.TOTAL_TASKS))
     first = shards._split_members(members)
@@ -211,6 +215,14 @@ def test_exact_provider_audit_accepts_reasoning_and_rejects_normalized(tmp_path:
     with pytest.raises(shards.StockSmallError, match="model_bearing_trace_invalid"):
         shards.audit_results(normalized, selector)
 
+    wrong_type = _trace("trace-c", "opaque-a")
+    wrong_type["errors"] = [_error("SandboxError")]
+    wrong_type["rewards"] = {}
+    wrong_type["metrics"] = {}
+    unsupported = _private_file(root / "wrong-error-type.jsonl", shards._canonical(wrong_type))
+    with pytest.raises(shards.StockSmallError, match="model_bearing_error_type_invalid"):
+        shards.audit_results(unsupported, selector)
+
 
 def test_error_rows_remain_covered_without_model_payload_inspection(tmp_path: Path) -> None:
     root = _private_dir(tmp_path / "private")
@@ -218,8 +230,12 @@ def test_error_rows_remain_covered_without_model_payload_inspection(tmp_path: Pa
     row = {
         "id": "trace-a",
         "task": {"slug": "opaque-a"},
-        "errors": [{"category": "aggregate"}],
+        "errors": [_error("SandboxError")],
         "rewards": {},
+        "metrics": {},
+        "info": {},
+        "is_completed": True,
+        "stop_condition": "error",
         "nodes": [],
     }
     results = _private_file(root / "results.jsonl", shards._canonical(row))
@@ -235,7 +251,9 @@ def test_model_bearing_error_trace_still_requires_lossless_reasoning(tmp_path: P
     root = _private_dir(tmp_path / "private")
     selector = _private_file(root / "selector.txt", b"opaque-a\n")
     exact_row = _trace("trace-a", "opaque-a")
-    exact_row["errors"] = [{"category": "aggregate"}]
+    exact_row["errors"] = [_error()]
+    exact_row["rewards"] = {}
+    exact_row["metrics"] = {}
     exact = _private_file(root / "exact-error.jsonl", shards._canonical(exact_row))
 
     audit = shards.audit_results(exact, selector)
@@ -245,7 +263,9 @@ def test_model_bearing_error_trace_still_requires_lossless_reasoning(tmp_path: P
     assert audit["zero_model_error_traces"] == 0
 
     normalized_row = _trace("trace-b", "opaque-a", response_kind="normalized_stream_response")
-    normalized_row["errors"] = [{"category": "aggregate"}]
+    normalized_row["errors"] = [_error()]
+    normalized_row["rewards"] = {}
+    normalized_row["metrics"] = {}
     normalized = _private_file(root / "normalized-error.jsonl", shards._canonical(normalized_row))
     with pytest.raises(shards.StockSmallError, match="model_bearing_trace_invalid"):
         shards.audit_results(normalized, selector)
@@ -348,9 +368,17 @@ def test_buffered_proxy_audit_rejects_non_exact_once_transport(
 
 
 def test_transport_aggregation_is_shard_order_bound() -> None:
-    first = shards._buffered_proxy_audit(_proxy_log(_proxy_summary()))
-    second = shards._buffered_proxy_audit(
-        _proxy_log(_proxy_summary(requests=2, coalesced_requests=1))
+    first = shards._bind_proxy_audit_to_trace(
+        shards._buffered_proxy_audit(_proxy_log(_proxy_summary())),
+        audited_model_io_turns=1,
+        maximum_terminal_gap=0,
+    )
+    second = shards._bind_proxy_audit_to_trace(
+        shards._buffered_proxy_audit(
+            _proxy_log(_proxy_summary(requests=2, coalesced_requests=1))
+        ),
+        audited_model_io_turns=1,
+        maximum_terminal_gap=0,
     )
     aggregate = shards._aggregate_transport_audits([first, second])
 
@@ -358,3 +386,27 @@ def test_transport_aggregation_is_shard_order_bound() -> None:
     assert aggregate["integer_totals"]["logical_requests"] == 2
     assert aggregate["integer_totals"]["coalesced_requests"] == 1
     assert len(aggregate["shard_audit_set_sha256"]) == 64
+
+
+def test_transport_trace_binding_accepts_one_typed_terminal_attempt_gap() -> None:
+    audit = shards._buffered_proxy_audit(
+        _proxy_log(_proxy_summary(statuses={"503": 1}))
+    )
+    bound = shards._bind_proxy_audit_to_trace(
+        audit,
+        audited_model_io_turns=0,
+        maximum_terminal_gap=1,
+    )
+
+    assert bound["terminal_outcomes"]["failure_records"] == 1
+    assert bound["trace_binding"]["terminal_attempt_gap"] == 1
+
+
+def test_transport_trace_binding_rejects_untyped_missing_model_io() -> None:
+    audit = shards._buffered_proxy_audit(_proxy_log(_proxy_summary()))
+    with pytest.raises(shards.StockSmallError, match="buffered_proxy_trace_mismatch"):
+        shards._bind_proxy_audit_to_trace(
+            audit,
+            audited_model_io_turns=0,
+            maximum_terminal_gap=1,
+        )
