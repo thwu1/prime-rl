@@ -708,11 +708,11 @@ def public_receipt(
 
 def _transport_audit_valid(value: Any, model_calls: Any) -> bool:
     summary = value.get("summary") if isinstance(value, dict) else None
-    artifact = value.get("execution_log") if isinstance(value, dict) else None
+    artifact = value.get("summary_record") if isinstance(value, dict) else None
     totals = summary.get("integer_totals") if isinstance(summary, dict) else None
     return (
         isinstance(value, dict)
-        and set(value) == {"schema_version", "kind", "execution_log", "summary"}
+        and set(value) == {"schema_version", "kind", "summary_record", "summary"}
         and value.get("schema_version") == 1
         and value.get("kind") == "sandoq-buffered-chat-logical-exact-once"
         and isinstance(artifact, dict)
@@ -741,44 +741,92 @@ def _transport_audit_valid(value: Any, model_calls: Any) -> bool:
     )
 
 
-def transport_attestation(path: Path) -> dict[str, Any]:
-    before = path.lstat()
+def transport_attestation(directory: Path) -> dict[str, Any]:
+    before = directory.lstat()
     if (
-        not stat.S_ISREG(before.st_mode)
-        or stat.S_IMODE(before.st_mode) != 0o600
+        not stat.S_ISDIR(before.st_mode)
+        or stat.S_IMODE(before.st_mode) != 0o700
         or before.st_uid != os.geteuid()
-        or before.st_nlink != 1
-        or before.st_size < 1
-        or before.st_size > shared.MAX_BODY_BYTES
+        or directory.is_symlink()
+        or directory.resolve(strict=True) != directory
+    ):
+        raise CanaryError("transport_log_invalid")
+    records = sorted(directory.iterdir())
+    if (
+        len(records) != 1
+        or re.fullmatch(r"summary-[0-9a-f]{32}\.json", records[0].name) is None
+        or records[0].is_symlink()
+    ):
+        raise CanaryError("transport_log_invalid")
+    path = records[0]
+    file_before = path.lstat()
+    if (
+        not stat.S_ISREG(file_before.st_mode)
+        or stat.S_IMODE(file_before.st_mode) != 0o600
+        or file_before.st_uid != os.geteuid()
+        or file_before.st_nlink != 1
+        or file_before.st_size < 1
+        or file_before.st_size > shared.MAX_BODY_BYTES
     ):
         raise CanaryError("transport_log_invalid")
     body = path.read_bytes()
-    after = path.lstat()
+    file_after = path.lstat()
+    after = directory.lstat()
     if (
+        file_before.st_dev,
+        file_before.st_ino,
+        file_before.st_size,
+        file_before.st_mtime_ns,
+        file_before.st_ctime_ns,
+    ) != (
+        file_after.st_dev,
+        file_after.st_ino,
+        file_after.st_size,
+        file_after.st_mtime_ns,
+        file_after.st_ctime_ns,
+    ) or len(body) != file_after.st_size or (
         before.st_dev,
         before.st_ino,
-        before.st_size,
-        before.st_mtime_ns,
-        before.st_ctime_ns,
+        before.st_uid,
+        stat.S_IMODE(before.st_mode),
     ) != (
         after.st_dev,
         after.st_ino,
-        after.st_size,
-        after.st_mtime_ns,
-        after.st_ctime_ns,
-    ) or len(body) != after.st_size:
+        after.st_uid,
+        stat.S_IMODE(after.st_mode),
+    ):
         raise CanaryError("transport_log_changed")
     try:
+        envelope = json.loads(body)
+        if (
+            not isinstance(envelope, dict)
+            or set(envelope) != {"schema_version", "kind", "counters"}
+            or envelope.get("schema_version") != 1
+            or envelope.get("kind") != "sandoq-buffered-model-proxy-summary"
+            or not isinstance(envelope.get("counters"), dict)
+            or shared.canonical_json(envelope) != body
+        ):
+            raise ValueError("buffered proxy summary envelope invalid")
+        audit_body = (
+            b"00:00:00 INFO "
+            + supersession.PROXY_SUMMARY_MARKER
+            + json.dumps(
+                envelope["counters"],
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+            + b"\n"
+        )
         summary = supersession._buffered_proxy_audit(
-            body,
+            audit_body,
             expected_schema="logical-exact-once-v1",
         )
-    except (RuntimeError, ValueError) as error:
+    except (RuntimeError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
         raise CanaryError("transport_audit_invalid") from error
     return {
         "schema_version": 1,
         "kind": "sandoq-buffered-chat-logical-exact-once",
-        "execution_log": {
+        "summary_record": {
             "bytes": len(body),
             "sha256": hashlib.sha256(body).hexdigest(),
         },
@@ -973,6 +1021,9 @@ def orchestrate_command(args: argparse.Namespace) -> int:
         output_dir = output_root / f"run-{job_id}"
         output_dir.mkdir(mode=0o700)
         (output_dir / "control").mkdir(mode=0o700)
+        buffered_stats_dir = output_dir / "control/buffered-proxy-stats"
+        if args.task_profile == "tb4":
+            buffered_stats_dir.mkdir(mode=0o700)
         log = output_dir / "execution.log"
         log.touch(mode=0o600, exist_ok=False)
         selector = output_dir / "selected-task.txt"
@@ -1017,6 +1068,11 @@ def orchestrate_command(args: argparse.Namespace) -> int:
                 "OCI_RUNNER_POOL_SOCKET": str(pool_socket),
                 "OCI_RUNNER_POOL_WAL": str(output_dir / "control/sandoq-pool.wal.jsonl"),
                 "OCI_RUNNER_POOL_EVENT_LOG": str(output_dir / "pool_events.jsonl"),
+                **(
+                    {"SANDOQ_BUFFERED_STATS_DIR": str(buffered_stats_dir)}
+                    if args.task_profile == "tb4"
+                    else {}
+                ),
             }
         )
         profile = (
@@ -1092,7 +1148,11 @@ def orchestrate_command(args: argparse.Namespace) -> int:
             expected_workers=args.expected_workers,
             expected_per_worker_capacity=args.expected_per_worker_capacity,
         )
-        transport = transport_attestation(log) if args.task_profile == "tb4" else None
+        transport = (
+            transport_attestation(buffered_stats_dir)
+            if args.task_profile == "tb4"
+            else None
+        )
         receipt = public_receipt(
             run_state,
             cleanup=cleanup,

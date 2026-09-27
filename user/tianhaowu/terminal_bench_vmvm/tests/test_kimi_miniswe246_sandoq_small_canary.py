@@ -89,18 +89,25 @@ def _transport(model_calls: int = 3) -> dict[str, object]:
             "/v1/responses": 0,
         },
     }
-    body = (
-        b"12:34:56    INFO "
-        + canary.supersession.PROXY_SUMMARY_MARKER
-        + json.dumps(summary, sort_keys=True, separators=(",", ":")).encode()
-        + b"\n"
+    body = shared.canonical_json(
+        {
+            "schema_version": 1,
+            "kind": "sandoq-buffered-model-proxy-summary",
+            "counters": summary,
+        }
     )
     return {
         "schema_version": 1,
         "kind": "sandoq-buffered-chat-logical-exact-once",
-        "execution_log": {"bytes": len(body), "sha256": "4" * 64},
+        "summary_record": {
+            "bytes": len(body),
+            "sha256": "4" * 64,
+        },
         "summary": canary.supersession._buffered_proxy_audit(
-            body,
+            b"00:00:00 INFO "
+            + canary.supersession.PROXY_SUMMARY_MARKER
+            + json.dumps(summary, sort_keys=True, separators=(",", ":")).encode()
+            + b"\n",
             expected_schema="logical-exact-once-v1",
         ),
     }
@@ -275,25 +282,33 @@ def test_transport_attestation_parses_only_exact_once_summary(tmp_path: Path) ->
             for key in canary.supersession.PROXY_SUMMARY_EXACT_ONCE_FIELDS
         },
     }
-    path = tmp_path / "execution.log"
+    directory = tmp_path / "buffered-proxy-stats"
+    directory.mkdir(mode=0o700)
+    path = directory / ("summary-" + "1" * 32 + ".json")
     path.write_bytes(
-        b"12:34:56    INFO "
-        + canary.supersession.PROXY_SUMMARY_MARKER
-        + json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
-        + b"\n"
+        shared.canonical_json(
+            {
+                "schema_version": 1,
+                "kind": "sandoq-buffered-model-proxy-summary",
+                "counters": record,
+            }
+        )
     )
     path.chmod(0o600)
-    attestation = canary.transport_attestation(path)
+    attestation = canary.transport_attestation(directory)
     assert canary._transport_audit_valid(attestation, 3)
     record["anonymous_upstream_attempts"] = 1
     path.write_bytes(
-        b"12:34:56    INFO "
-        + canary.supersession.PROXY_SUMMARY_MARKER
-        + json.dumps(record, sort_keys=True, separators=(",", ":")).encode()
-        + b"\n"
+        shared.canonical_json(
+            {
+                "schema_version": 1,
+                "kind": "sandoq-buffered-model-proxy-summary",
+                "counters": record,
+            }
+        )
     )
     with pytest.raises(canary.CanaryError, match="transport_audit_invalid"):
-        canary.transport_attestation(path)
+        canary.transport_attestation(directory)
 
 
 def test_smoke_binding_seals_stock_generation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -789,5 +804,6 @@ def test_tb4_small_scored_diagnostic_contract() -> None:
     assert '"kimi-tb4-long" if args.task_profile == "tb4" else "standard"' in runner
     assert 'runtime.interception_endpoint(relay.port, "sandoq-local-relay")' in runner
     assert '"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10" if tb4 else "1"' in runner
+    assert '"SANDOQ_BUFFERED_STATS_DIR": str(buffered_stats_dir)' in runner
     assert 'task_profile=${KIMI_SMALL_CANARY_TASK_PROFILE:-mobius}' in generic_launcher.read_text()
     assert stat.S_IMODE(wrapper.stat().st_mode) & 0o111
