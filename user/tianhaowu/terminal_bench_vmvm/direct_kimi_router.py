@@ -30,23 +30,27 @@ LEGACY_CAPACITY_PROFILE = "legacy-c24"
 C23_CAPACITY_PROFILE = "sandoq-c23-v1"
 C64_CAPACITY_PROFILE = "sandoq-c64-v1"
 C64_W2_CAPACITY_PROFILE = "sandoq-c64-w2-v1"
+STOCK_SINGLE_C64_CAPACITY_PROFILE = "sandoq-stock-single-c64-v1"
 CAPACITY_PROFILES = {
     LEGACY_CAPACITY_PROFILE: 24,
     C23_CAPACITY_PROFILE: 23,
     C64_CAPACITY_PROFILE: 64,
     C64_W2_CAPACITY_PROFILE: 64,
+    STOCK_SINGLE_C64_CAPACITY_PROFILE: 64,
 }
 PER_WORKER_CAPACITY_PROFILES = {
     LEGACY_CAPACITY_PROFILE: 1,
     C23_CAPACITY_PROFILE: 1,
     C64_CAPACITY_PROFILE: 1,
     C64_W2_CAPACITY_PROFILE: 2,
+    STOCK_SINGLE_C64_CAPACITY_PROFILE: 64,
 }
 WORKER_COUNT_PROFILES = {
     LEGACY_CAPACITY_PROFILE: EXPECTED_WORKERS,
     C23_CAPACITY_PROFILE: C23_EXPECTED_WORKERS,
     C64_CAPACITY_PROFILE: EXPECTED_WORKERS,
     C64_W2_CAPACITY_PROFILE: EXPECTED_WORKERS,
+    STOCK_SINGLE_C64_CAPACITY_PROFILE: 1,
 }
 DEFAULT_CAPACITY_PROFILE = LEGACY_CAPACITY_PROFILE
 MAX_CONCURRENT_REQUESTS = CAPACITY_PROFILES[DEFAULT_CAPACITY_PROFILE]
@@ -298,7 +302,12 @@ class RouterState:
                 self.capacity_rejections += 1
             return False
         with self.lock:
-            if self.capacity_profile in (C23_CAPACITY_PROFILE, C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE) and chat:
+            if self.capacity_profile in (
+                C23_CAPACITY_PROFILE,
+                C64_CAPACITY_PROFILE,
+                C64_W2_CAPACITY_PROFILE,
+                STOCK_SINGLE_C64_CAPACITY_PROFILE,
+            ) and chat:
                 if session_id is None or index is None:
                     self.capacity.release()
                     raise RouterError("route_tracking_invalid")
@@ -387,7 +396,12 @@ class RouterState:
                 "upstream_failures": self.upstream_failures,
                 "worker_request_counts": list(self.worker_requests),
             }
-            if self.capacity_profile in (C23_CAPACITY_PROFILE, C64_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE):
+            if self.capacity_profile in (
+                C23_CAPACITY_PROFILE,
+                C64_CAPACITY_PROFILE,
+                C64_W2_CAPACITY_PROFILE,
+                STOCK_SINGLE_C64_CAPACITY_PROFILE,
+            ):
                 snapshot.update(
                     {
                         "schema_version": 3,
@@ -409,7 +423,7 @@ class RouterState:
                         "worker_waiting_request_counts": list(self.worker_waiting_request_counts),
                     }
                 )
-            if self.capacity_profile == C64_W2_CAPACITY_PROFILE:
+            if self.capacity_profile in (C64_W2_CAPACITY_PROFILE, STOCK_SINGLE_C64_CAPACITY_PROFILE):
                 snapshot.update(
                     {
                         "schema_version": 4,

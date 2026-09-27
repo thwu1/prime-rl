@@ -17,7 +17,11 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
-from direct_kimi_router import C64_W2_CAPACITY_PROFILE
+from direct_kimi_router import (
+    C64_W2_CAPACITY_PROFILE,
+    STOCK_SINGLE_C64_CAPACITY_PROFILE,
+    worker_count_for_profile,
+)
 from direct_kimi_workers import (
     EXPECTED_ENDPOINT_IDENTIFIER,
     EXPECTED_ENDPOINTS,
@@ -26,6 +30,8 @@ from direct_kimi_workers import (
     GENERATION_MARKER_KIND,
     GENERATION_MARKER_NAME,
     GENERATION_URLS_NAME,
+    STOCK_SINGLE_ENDPOINT_IDENTIFIER,
+    STOCK_SINGLE_MANIFEST_SCHEMA_VERSION,
     W2_MANIFEST_SCHEMA_VERSION,
     _read_bound_file,
     _read_marked_bundle,
@@ -36,6 +42,7 @@ KIND = "kimi-endpoint-low-load-gate"
 SCHEMA_VERSION = 1
 MAX_PREEXISTING_RUNNING = 4
 MAX_PREEXISTING_RUNNING_PER_WORKER = 1
+STOCK_SINGLE_MAX_PREEXISTING_RUNNING_PER_WORKER = 4
 MAX_KV_CACHE_USAGE = 0.05
 DEFAULT_INTERVAL_SECONDS = 5.0
 DEFAULT_REQUEST_TIMEOUT_SECONDS = 10.0
@@ -135,14 +142,26 @@ def _load_bound_generation(
     router = manifest.get("router")
     workers = manifest.get("workers")
     backend_digests = [_sha256(f"{url}/v1".encode()) for url in urls]
+    capacity_profile = router.get("capacity_profile") if isinstance(router, dict) else None
+    expected_worker_count = worker_count_for_profile(capacity_profile)
+    expected_schema = (
+        STOCK_SINGLE_MANIFEST_SCHEMA_VERSION
+        if capacity_profile == STOCK_SINGLE_C64_CAPACITY_PROFILE
+        else W2_MANIFEST_SCHEMA_VERSION
+    )
+    expected_identifier = (
+        STOCK_SINGLE_ENDPOINT_IDENTIFIER
+        if capacity_profile == STOCK_SINGLE_C64_CAPACITY_PROFILE
+        else EXPECTED_ENDPOINT_IDENTIFIER
+    )
     if (
-        manifest.get("schema_version") != W2_MANIFEST_SCHEMA_VERSION
+        capacity_profile not in {C64_W2_CAPACITY_PROFILE, STOCK_SINGLE_C64_CAPACITY_PROFILE}
+        or manifest.get("schema_version") != expected_schema
         or not isinstance(router, dict)
-        or router.get("capacity_profile") != C64_W2_CAPACITY_PROFILE
-        or router.get("endpoint_identifier") != EXPECTED_ENDPOINT_IDENTIFIER
+        or router.get("endpoint_identifier") != expected_identifier
         or not isinstance(workers, list)
-        or len(urls) != EXPECTED_ENDPOINTS
-        or len(set(urls)) != EXPECTED_ENDPOINTS
+        or len(urls) != expected_worker_count
+        or len(set(urls)) != expected_worker_count
         or backend_digests != [worker.get("backend_sha256") for worker in workers]
         or manifest.get("endpoint_bundle_sha256")
         != _sha256("".join(f"{digest}\n" for digest in backend_digests).encode())
@@ -214,15 +233,16 @@ def _snapshot(
     *,
     timeout: float,
     fetcher: Fetcher,
+    maximum_running_per_worker: int = MAX_PREEXISTING_RUNNING_PER_WORKER,
 ) -> tuple[dict[str, Any], tuple[dict[str, float], ...]]:
     try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=EXPECTED_ENDPOINTS) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(urls)) as executor:
             samples = tuple(executor.map(lambda url: _probe_worker(url, timeout, fetcher), urls))
     except KimiEndpointLoadGateError:
         raise
     except Exception as error:
         raise KimiEndpointLoadGateError("worker_probe_failed") from error
-    if len(samples) != EXPECTED_ENDPOINTS:
+    if len(samples) != len(urls) or not samples:
         raise KimiEndpointLoadGateError("worker_probe_failed")
 
     def required(name: str) -> list[int]:
@@ -273,7 +293,7 @@ def _snapshot(
     }
     if (
         result["running"] > MAX_PREEXISTING_RUNNING
-        or result["running_per_worker_max"] > MAX_PREEXISTING_RUNNING_PER_WORKER
+        or result["running_per_worker_max"] > maximum_running_per_worker
         or result["waiting"] != 0
         or (cache_values and result["kv_cache_usage_max"] > MAX_KV_CACHE_USAGE)
     ):
@@ -296,10 +316,25 @@ def capture_load_gate(
     if not 1 <= interval_seconds <= 60 or not 1 <= request_timeout_seconds <= 30:
         raise KimiEndpointLoadGateError("timing_invalid")
     manifest, urls = _load_bound_generation(manifest_path, worker_urls_path, manifest_sha256)
-    first, first_workers = _snapshot(urls, timeout=request_timeout_seconds, fetcher=fetcher)
+    maximum_running_per_worker = (
+        STOCK_SINGLE_MAX_PREEXISTING_RUNNING_PER_WORKER
+        if len(urls) == 1
+        else MAX_PREEXISTING_RUNNING_PER_WORKER
+    )
+    first, first_workers = _snapshot(
+        urls,
+        timeout=request_timeout_seconds,
+        fetcher=fetcher,
+        maximum_running_per_worker=maximum_running_per_worker,
+    )
     started = time.monotonic()
     sleeper(interval_seconds)
-    second, second_workers = _snapshot(urls, timeout=request_timeout_seconds, fetcher=fetcher)
+    second, second_workers = _snapshot(
+        urls,
+        timeout=request_timeout_seconds,
+        fetcher=fetcher,
+        maximum_running_per_worker=maximum_running_per_worker,
+    )
     observed_interval = time.monotonic() - started
     for before, after in zip(first_workers, second_workers, strict=True):
         if any((metric in before) != (metric in after) for metric in (*KV_METRICS, *PREFIX_METRICS)):
@@ -321,12 +356,12 @@ def capture_load_gate(
         "captured_at_unix": int(clock()),
         "manifest_sha256": manifest_sha256,
         "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
-        "worker_count": EXPECTED_ENDPOINTS,
+        "worker_count": len(urls),
         "policy": {
             "snapshots": 2,
             "configured_interval_seconds": interval_seconds,
             "maximum_preexisting_running": MAX_PREEXISTING_RUNNING,
-            "maximum_preexisting_running_per_worker": MAX_PREEXISTING_RUNNING_PER_WORKER,
+            "maximum_preexisting_running_per_worker": maximum_running_per_worker,
             "maximum_kv_cache_usage": MAX_KV_CACHE_USAGE,
             "waiting_must_be_zero": True,
             "preemptions_must_be_stable": True,
@@ -397,6 +432,12 @@ def validate_load_gate(
         value = json.loads(body)
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, RuntimeError, ValueError) as error:
         raise KimiEndpointLoadGateError("load_gate_invalid") from error
+    worker_count = value.get("worker_count") if isinstance(value, dict) else None
+    maximum_running_per_worker = (
+        STOCK_SINGLE_MAX_PREEXISTING_RUNNING_PER_WORKER
+        if worker_count == 1
+        else MAX_PREEXISTING_RUNNING_PER_WORKER
+    )
     if (
         SHA256_RE.fullmatch(expected_sha256) is None
         or _sha256(body) != expected_sha256
@@ -422,7 +463,7 @@ def validate_load_gate(
         or value.get("state") != "passed"
         or value.get("manifest_sha256") != manifest_sha256
         or value.get("endpoint_bundle_sha256") != endpoint_bundle_sha256
-        or value.get("worker_count") != EXPECTED_ENDPOINTS
+        or worker_count not in {1, EXPECTED_ENDPOINTS}
         or value.get("source_generation_revalidated") is not True
         or value.get("membership_disclosed") is not False
         or value.get("policy")
@@ -432,7 +473,7 @@ def validate_load_gate(
             if isinstance(value.get("policy"), dict)
             else None,
             "maximum_preexisting_running": MAX_PREEXISTING_RUNNING,
-            "maximum_preexisting_running_per_worker": MAX_PREEXISTING_RUNNING_PER_WORKER,
+            "maximum_preexisting_running_per_worker": maximum_running_per_worker,
             "maximum_kv_cache_usage": MAX_KV_CACHE_USAGE,
             "waiting_must_be_zero": True,
             "preemptions_must_be_stable": True,
@@ -483,16 +524,21 @@ def validate_load_gate(
         if (
             not isinstance(snapshot, dict)
             or set(snapshot) != snapshot_keys
-            or snapshot.get("workers_healthy") != EXPECTED_ENDPOINTS
+            or snapshot.get("workers_healthy") != worker_count
             or type(snapshot.get("running")) is not int
             or not 0 <= snapshot["running"] <= MAX_PREEXISTING_RUNNING
             or type(snapshot.get("running_per_worker_max")) is not int
-            or not 0 <= snapshot["running_per_worker_max"] <= MAX_PREEXISTING_RUNNING_PER_WORKER
-            or snapshot["running_per_worker_max"] != int(snapshot["running"] > 0)
+            or not 0 <= snapshot["running_per_worker_max"] <= maximum_running_per_worker
+            or (
+                worker_count == EXPECTED_ENDPOINTS
+                and snapshot["running_per_worker_max"] != int(snapshot["running"] > 0)
+            )
             or type(snapshot.get("waiting")) is not int
             or snapshot.get("waiting") != 0
             or type(snapshot.get("workers_with_running")) is not int
-            or snapshot["workers_with_running"] != snapshot["running"]
+            or not 0 <= snapshot["workers_with_running"] <= worker_count
+            or (worker_count == EXPECTED_ENDPOINTS and snapshot["workers_with_running"] != snapshot["running"])
+            or (worker_count == 1 and snapshot["workers_with_running"] != int(snapshot["running"] > 0))
             or type(snapshot.get("preemptions")) is not int
             or snapshot["preemptions"] < 0
             or type(snapshot.get("generation_tokens")) is not int

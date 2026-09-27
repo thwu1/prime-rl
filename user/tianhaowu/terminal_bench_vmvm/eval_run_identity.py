@@ -120,6 +120,7 @@ KIMI_W2_CAPACITY_PROFILE = "sandoq-c64-w2-v1"
 KIMI_W2_PER_WORKER_CAPACITY = 2
 KIMI_TB4_W2_ROLLOUT_CONCURRENCY = 48
 KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS = 96 * 60 * 60
+KIMI_TB4_SMALL_MINIMUM_REMAINING_SECONDS = 132 * 60 * 60
 KIMI_MINISWE_VERSION = "2.4.6"
 KIMI_SANDOQ_PROVISIONING_RETRIES = 3
 KIMI_FIRECRACKER_TUNNEL_ENVIRONMENT = "oci-runner-firecracker"
@@ -128,9 +129,12 @@ KIMI_FIRECRACKER_RESOURCE_RECEIPT_SHA256 = "ce3fc3ed2ead1aaf8c71fc35e5dae324f1be
 KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256 = "39108c28f052f4689e863fedaa81430b479915797a4e6836ed090344c5ee3276"
 KIMI_MINISWE_COMPATIBILITY_SHA256 = "cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220"
 KIMI_NATIVE_MINISWE_SMOKE_SELECTOR_SHA256 = "c1f745d4a1d3861deefb3fba4daa23f52ff3d1d4952a9fe2ba0ccbdc4040af97"
-KIMI_SMALL_TB4_DIAGNOSTIC_ROLE = "kimi-direct-tb4-diagnostic"
+KIMI_SMALL_TB4_DIAGNOSTIC_ROLE = "kimi-direct-tb4-small-diagnostic"
 KIMI_SMALL_FIRECRACKER_ENVIRONMENT = "oci-runner-firecracker-small"
 KIMI_SMALL_FIRECRACKER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
+KIMI_STOCK_SINGLE_CAPACITY_PROFILE = "sandoq-stock-single-c64-v1"
+KIMI_STOCK_SINGLE_ENDPOINT_IDENTIFIER = "tianhaowu-kimi-k3-stock-eval-20260927"
+KIMI_STOCK_SINGLE_PER_WORKER_CAPACITY = 64
 KIMI_NATIVE_MINISWE_ROLES = frozenset(
     {"kimi-direct-smoke", KIMI_CAPACITY_SMOKE_ROLE, "kimi-direct-tb4", KIMI_PRODUCTION_ROLE}
 )
@@ -148,6 +152,7 @@ KIMI_SANDOQ_LONG_LEASE_ROLES = frozenset(
         "mobius",
         "kimi-direct-tb4",
         "kimi-direct-tb4-diagnostic",
+        KIMI_SMALL_TB4_DIAGNOSTIC_ROLE,
         KIMI_SANDOQ_FALLBACK_ROLE,
         KIMI_PRODUCTION_ROLE,
     }
@@ -158,6 +163,7 @@ DIRECT_KIMI_ROLES = frozenset(
         KIMI_CAPACITY_SMOKE_ROLE,
         "kimi-direct-tb4",
         "kimi-direct-tb4-diagnostic",
+        KIMI_SMALL_TB4_DIAGNOSTIC_ROLE,
         KIMI_SANDOQ_FALLBACK_ROLE,
         KIMI_PRODUCTION_ROLE,
     }
@@ -851,6 +857,7 @@ def _validate_direct_kimi_approved_config(
 ) -> None:
     hash_bound_roles = {
         "kimi-direct-tb4-diagnostic",
+        KIMI_SMALL_TB4_DIAGNOSTIC_ROLE,
         KIMI_SANDOQ_FALLBACK_ROLE,
         KIMI_CAPACITY_SMOKE_ROLE,
         KIMI_PRODUCTION_ROLE,
@@ -1720,6 +1727,7 @@ def _contract(
             "mobius",
             "kimi-direct-tb4",
             "kimi-direct-tb4-diagnostic",
+            KIMI_SMALL_TB4_DIAGNOSTIC_ROLE,
             KIMI_SANDOQ_FALLBACK_ROLE,
             KIMI_PRODUCTION_ROLE,
         }:
@@ -2830,9 +2838,14 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
         small_tb4_role = (
             role == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE
             and isinstance(candidate_router, dict)
-            and candidate_router.get("capacity_profile") == KIMI_W2_CAPACITY_PROFILE
+            and candidate_router.get("capacity_profile")
+            in {KIMI_W2_CAPACITY_PROFILE, KIMI_STOCK_SINGLE_CAPACITY_PROFILE}
             and isinstance(candidate_environment, dict)
             and candidate_environment.get("environment") == KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+        )
+        stock_single_role = (
+            small_tb4_role
+            and candidate_router.get("capacity_profile") == KIMI_STOCK_SINGLE_CAPACITY_PROFILE
         )
         load_gated_role = role == KIMI_CAPACITY_SMOKE_ROLE or w2_tb4_role or small_tb4_role
         expected_deployment_keys = {
@@ -2886,14 +2899,22 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             ),
             "request_timeout_seconds": direct_request_timeout,
             "retries": 0,
-            "worker_count": KIMI_C23_WORKER_COUNT if c23_role else 24,
+            "worker_count": 1 if stock_single_role else KIMI_C23_WORKER_COUNT if c23_role else 24,
         }
         if capacity_role or w2_tb4_role or small_tb4_role:
             expected_router.update(
                 {
-                    "capacity_profile": KIMI_W2_CAPACITY_PROFILE,
-                    "endpoint_identifier": "cpu-132-021_8103",
-                    "per_worker_capacity": KIMI_W2_PER_WORKER_CAPACITY,
+                    "capacity_profile": (
+                        KIMI_STOCK_SINGLE_CAPACITY_PROFILE if stock_single_role else KIMI_W2_CAPACITY_PROFILE
+                    ),
+                    "endpoint_identifier": (
+                        KIMI_STOCK_SINGLE_ENDPOINT_IDENTIFIER if stock_single_role else "cpu-132-021_8103"
+                    ),
+                    "per_worker_capacity": (
+                        KIMI_STOCK_SINGLE_PER_WORKER_CAPACITY
+                        if stock_single_role
+                        else KIMI_W2_PER_WORKER_CAPACITY
+                    ),
                 }
             )
         elif c23_role:
@@ -3927,18 +3948,36 @@ def load_eval_run_identity_bytes(
                 raise EvalIdentityError("direct_kimi_endpoint_load_gate_invalid") from error
         if "endpoint_walltime_gate" in deployment:
             try:
-                from kimi_endpoint_walltime_gate import VMVM_UNION_PROFILE, W2_PROFILE, load_receipt
+                from kimi_endpoint_walltime_gate import (
+                    SMALL_PROFILE,
+                    STOCK_SINGLE_PROFILE,
+                    VMVM_UNION_PROFILE,
+                    W2_PROFILE,
+                    load_receipt,
+                )
+
+                identity_router_profile = deployment.get("router", {}).get("capacity_profile")
+                small_diagnostic = identity["role"] == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE
+                walltime_profile = (
+                    STOCK_SINGLE_PROFILE
+                    if small_diagnostic and identity_router_profile == KIMI_STOCK_SINGLE_CAPACITY_PROFILE
+                    else SMALL_PROFILE
+                    if small_diagnostic
+                    else W2_PROFILE
+                    if identity["source"].get("sandbox_provider", "vmvm") == "sandoq"
+                    else VMVM_UNION_PROFILE
+                )
 
                 load_receipt(
                     Path(deployment["endpoint_walltime_gate"]["path"]),
                     manifest_sha256=deployment["worker_manifest"]["sha256"],
                     endpoint_bundle_sha256=deployment["endpoint_bundle_sha256"],
-                    profile=(
-                        W2_PROFILE
-                        if identity["source"].get("sandbox_provider", "vmvm") == "sandoq"
-                        else VMVM_UNION_PROFILE
+                    profile=walltime_profile,
+                    minimum_remaining_seconds=(
+                        KIMI_TB4_SMALL_MINIMUM_REMAINING_SECONDS
+                        if small_diagnostic
+                        else KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS
                     ),
-                    minimum_remaining_seconds=KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS,
                     task_count=identity["inputs"]["task_file"]["count"],
                 )
             except (OSError, RuntimeError, ValueError) as error:
@@ -4609,8 +4648,10 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
     small_tb4_role = (
         args.role == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE
         and args.sandoq_environment == KIMI_SMALL_FIRECRACKER_ENVIRONMENT
-        and router.get("capacity_profile") == KIMI_W2_CAPACITY_PROFILE
+        and router.get("capacity_profile")
+        in {KIMI_W2_CAPACITY_PROFILE, KIMI_STOCK_SINGLE_CAPACITY_PROFILE}
     )
+    stock_single_role = small_tb4_role and router.get("capacity_profile") == KIMI_STOCK_SINGLE_CAPACITY_PROFILE
     _validate_direct_kimi_tb4_w2_config(config, args.role, required=w2_tb4_role)
     if args.role in {KIMI_CAPACITY_SMOKE_ROLE, KIMI_PRODUCTION_ROLE} or w2_tb4_role or small_tb4_role:
         if _positive_int(direct_per_worker_capacity, "direct_per_worker_capacity") != router.get("per_worker_capacity"):
@@ -4653,10 +4694,18 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
             label="direct_kimi_endpoint_walltime_gate",
         )
         try:
-            from kimi_endpoint_walltime_gate import SMALL_PROFILE, VMVM_UNION_PROFILE, W2_PROFILE, load_receipt
+            from kimi_endpoint_walltime_gate import (
+                SMALL_PROFILE,
+                STOCK_SINGLE_PROFILE,
+                VMVM_UNION_PROFILE,
+                W2_PROFILE,
+                load_receipt,
+            )
 
             walltime_profile = (
-                SMALL_PROFILE
+                STOCK_SINGLE_PROFILE
+                if stock_single_role
+                else SMALL_PROFILE
                 if small_tb4_role
                 else W2_PROFILE
                 if source.get("sandbox_provider", "vmvm") == "sandoq"
@@ -4668,7 +4717,11 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
                 manifest_sha256=worker_manifest["sha256"],
                 endpoint_bundle_sha256=manifest["endpoint_bundle_sha256"],
                 profile=walltime_profile,
-                minimum_remaining_seconds=KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS,
+                minimum_remaining_seconds=(
+                    KIMI_TB4_SMALL_MINIMUM_REMAINING_SECONDS
+                    if small_tb4_role
+                    else KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS
+                ),
                 task_count=inputs["task_file"]["count"],
             )
         except (OSError, RuntimeError, ValueError) as error:
@@ -4681,6 +4734,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         "kimi-direct-smoke",
         KIMI_CAPACITY_SMOKE_ROLE,
         "kimi-direct-tb4-diagnostic",
+        KIMI_SMALL_TB4_DIAGNOSTIC_ROLE,
         KIMI_SANDOQ_FALLBACK_ROLE,
         KIMI_PRODUCTION_ROLE,
     }:
@@ -4994,6 +5048,7 @@ def _parser() -> argparse.ArgumentParser:
             KIMI_CAPACITY_SMOKE_ROLE,
             "kimi-direct-tb4",
             "kimi-direct-tb4-diagnostic",
+            KIMI_SMALL_TB4_DIAGNOSTIC_ROLE,
             KIMI_SANDOQ_FALLBACK_ROLE,
             KIMI_PRODUCTION_ROLE,
         ),

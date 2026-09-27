@@ -272,7 +272,7 @@ def test_small_profile_binds_52_tasks_to_three_c24_waves(
         manifest_sha256=manifest_sha256,
         output=output,
         profile=gate.SMALL_PROFILE,
-        minimum_remaining_seconds=96 * 60 * 60,
+        minimum_remaining_seconds=gate.SMALL_MINIMUM_REMAINING_SECONDS,
         task_count=52,
         serve_sh=serve_sh,
         runner=runner,
@@ -287,9 +287,11 @@ def test_small_profile_binds_52_tasks_to_three_c24_waves(
         manifest_sha256=manifest_sha256,
         endpoint_bundle_sha256=manifest["endpoint_bundle_sha256"],
         profile=gate.SMALL_PROFILE,
-        minimum_remaining_seconds=96 * 60 * 60,
+        minimum_remaining_seconds=gate.SMALL_MINIMUM_REMAINING_SECONDS,
         task_count=52,
     ) == receipt
+    with pytest.raises(gate.EndpointWalltimeGateError, match="minimum_remaining_seconds_invalid"):
+        gate._validate_profile(gate.SMALL_PROFILE, gate.SMALL_MINIMUM_REMAINING_SECONDS - 1)
 
 
 def test_vmvm_union_profile_accepts_exact_eleven_task_w2_generation(

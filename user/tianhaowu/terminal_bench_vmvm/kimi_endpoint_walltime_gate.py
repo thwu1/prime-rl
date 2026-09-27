@@ -20,19 +20,23 @@ from typing import Any
 from inference_route_generation import HOST_RE, SLURM_JOB_ID_RE, canonical_backend_identifier
 
 EXPECTED_DEPLOYMENT = "shared-kimi-k3"
+STOCK_SINGLE_DEPLOYMENT = "tianhaowu-kimi-k3-stock-eval-20260927"
 EXPECTED_CLUSTER = "fair-cw-use2-1"
 EXPECTED_ENDPOINTS = 24
 EXTENDED_PROFILE = "tb4-extended-c24-two-wave-v1"
 C23_PROFILE = "tb4-c23-v1"
 W2_PROFILE = "tb4-extended-c48-w2-two-wave-v1"
 SMALL_PROFILE = "tb4-extended-c24-small-three-wave-v1"
+STOCK_SINGLE_PROFILE = "tb4-extended-c24-stock-single-three-wave-v1"
 VMVM_UNION_PROFILE = "tb4-extended-vmvm-union11-c11-v1"
 C23_MANIFEST_CAPACITY_PROFILE = "sandoq-c23-v1"
 W2_MANIFEST_CAPACITY_PROFILE = "sandoq-c64-w2-v1"
+STOCK_SINGLE_MANIFEST_CAPACITY_PROFILE = "sandoq-stock-single-c64-v1"
 C23_MANIFEST_SELECTION_PROFILE = "exclude-one-from-c24-v1"
 C23_SELECTED_ENDPOINTS = 23
 EXTENDED_MINIMUM_REMAINING_SECONDS = 90 * 60 * 60
 VMVM_UNION_MINIMUM_REMAINING_SECONDS = 90 * 60 * 60
+SMALL_MINIMUM_REMAINING_SECONDS = 132 * 60 * 60
 EXTENDED_REQUEST_TIMEOUT_SECONDS = 144_000
 EXTENDED_ROUTER_CONCURRENCY = 24
 RECEIPT_KIND = "direct-kimi-endpoint-walltime-gate"
@@ -41,6 +45,7 @@ C23_RECEIPT_SCHEMA_VERSION = 2
 W2_RECEIPT_SCHEMA_VERSION = 3
 VMVM_UNION_RECEIPT_SCHEMA_VERSION = 4
 SMALL_RECEIPT_SCHEMA_VERSION = 5
+STOCK_SINGLE_RECEIPT_SCHEMA_VERSION = 6
 W2_ROLLOUT_CONCURRENCY = 48
 W2_ROUTER_ADMISSION = 64
 VMVM_UNION_TASK_COUNT = 11
@@ -157,7 +162,13 @@ def _scheduler_command(job_ids: Sequence[str], cluster: str) -> tuple[str, ...]:
     )
 
 
-def parse_status_snapshot(raw: bytes, expected_backend_sha256s: Sequence[str]) -> StatusSnapshot:
+def parse_status_snapshot(
+    raw: bytes,
+    expected_backend_sha256s: Sequence[str],
+    *,
+    expected_deployment: str = EXPECTED_DEPLOYMENT,
+    expected_endpoint_count: int = EXPECTED_ENDPOINTS,
+) -> StatusSnapshot:
     """Return only the endpoint/job binding from one status JSON snapshot."""
 
     if not raw or len(raw) > MAX_STATUS_BYTES:
@@ -171,15 +182,15 @@ def parse_status_snapshot(raw: bytes, expected_backend_sha256s: Sequence[str]) -
     if (
         not isinstance(payload, dict)
         or payload.get("schema_version") != 4
-        or payload.get("deployment_id") != EXPECTED_DEPLOYMENT
+        or payload.get("deployment_id") != expected_deployment
         or payload.get("phase") != "serving"
         or not isinstance(summary, dict)
-        or summary.get("desired") != EXPECTED_ENDPOINTS
-        or summary.get("ready") != EXPECTED_ENDPOINTS
+        or summary.get("desired") != expected_endpoint_count
+        or summary.get("ready") != expected_endpoint_count
         or summary.get("running_not_ready") != 0
         or summary.get("pending") != 0
         or not isinstance(endpoints, list)
-        or len(endpoints) != EXPECTED_ENDPOINTS
+        or len(endpoints) != expected_endpoint_count
     ):
         raise EndpointWalltimeGateError("deployment_status_not_exactly_ready")
 
@@ -211,10 +222,10 @@ def parse_status_snapshot(raw: bytes, expected_backend_sha256s: Sequence[str]) -
     expected = tuple(sorted(expected_backend_sha256s))
     observed = tuple(sorted(route.backend_sha256 for route in routes))
     if (
-        len(expected) != EXPECTED_ENDPOINTS
+        len(expected) != expected_endpoint_count
         or any(SHA256_RE.fullmatch(value) is None for value in expected)
-        or len({route.job_id for route in routes}) != EXPECTED_ENDPOINTS
-        or len({route.backend_sha256 for route in routes}) != EXPECTED_ENDPOINTS
+        or len({route.job_id for route in routes}) != expected_endpoint_count
+        or len({route.backend_sha256 for route in routes}) != expected_endpoint_count
         or observed != expected
     ):
         raise EndpointWalltimeGateError("deployment_endpoint_bundle_mismatch")
@@ -240,7 +251,7 @@ def parse_scheduler_output(
         raise EndpointWalltimeGateError("minimum_remaining_seconds_invalid")
     expected = tuple(sorted(expected_job_ids, key=int))
     if (
-        expected_endpoint_count not in (C23_SELECTED_ENDPOINTS, EXPECTED_ENDPOINTS)
+        expected_endpoint_count not in (1, C23_SELECTED_ENDPOINTS, EXPECTED_ENDPOINTS)
         or len(expected) != expected_endpoint_count
         or len(set(expected)) != expected_endpoint_count
         or any(SLURM_JOB_ID_RE.fullmatch(value) is None for value in expected)
@@ -297,13 +308,24 @@ def parse_scheduler_output(
 
 
 def _validate_profile(profile: str, minimum_remaining_seconds: int) -> None:
-    if profile not in (EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, SMALL_PROFILE, VMVM_UNION_PROFILE):
+    if profile not in (
+        EXTENDED_PROFILE,
+        C23_PROFILE,
+        W2_PROFILE,
+        SMALL_PROFILE,
+        STOCK_SINGLE_PROFILE,
+        VMVM_UNION_PROFILE,
+    ):
         raise EndpointWalltimeGateError("endpoint_walltime_profile_invalid")
     if (
         not isinstance(minimum_remaining_seconds, int)
         or isinstance(minimum_remaining_seconds, bool)
         or minimum_remaining_seconds < EXTENDED_MINIMUM_REMAINING_SECONDS
         or (profile == VMVM_UNION_PROFILE and minimum_remaining_seconds < VMVM_UNION_MINIMUM_REMAINING_SECONDS)
+        or (
+            profile in {SMALL_PROFILE, STOCK_SINGLE_PROFILE}
+            and minimum_remaining_seconds < SMALL_MINIMUM_REMAINING_SECONDS
+        )
     ):
         raise EndpointWalltimeGateError("minimum_remaining_seconds_invalid")
 
@@ -318,12 +340,13 @@ def _validate_task_count(task_count: int, *, profile: str = EXTENDED_PROFILE) ->
         upper_bound = 2 * C23_SELECTED_ENDPOINTS
     elif profile == W2_PROFILE:
         upper_bound = 2 * W2_ROLLOUT_CONCURRENCY
-    elif profile == SMALL_PROFILE:
+    elif profile in {SMALL_PROFILE, STOCK_SINGLE_PROFILE}:
         upper_bound = 3 * EXTENDED_ROUTER_CONCURRENCY
     else:
         upper_bound = 2 * EXTENDED_ROUTER_CONCURRENCY
     if (
-        profile not in (EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, SMALL_PROFILE, VMVM_UNION_PROFILE)
+        profile
+        not in (EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, SMALL_PROFILE, STOCK_SINGLE_PROFILE, VMVM_UNION_PROFILE)
         or not isinstance(task_count, int)
         or isinstance(task_count, bool)
         or not lower_bound < task_count <= upper_bound
@@ -413,6 +436,19 @@ def _load_manifest(
             or not isinstance(workers, list)
             or len(workers) != EXPECTED_ENDPOINTS
         )
+    elif profile == STOCK_SINGLE_PROFILE:
+        workers = manifest.get("workers")
+        invalid = (
+            manifest.get("schema_version") != 5
+            or common_router_invalid
+            or router.get("capacity_profile") != STOCK_SINGLE_MANIFEST_CAPACITY_PROFILE
+            or router.get("endpoint_identifier") != STOCK_SINGLE_DEPLOYMENT
+            or router.get("max_concurrent_requests") != W2_ROUTER_ADMISSION
+            or router.get("queue_size") != W2_ROUTER_ADMISSION
+            or router.get("per_worker_capacity") != W2_ROUTER_ADMISSION
+            or not isinstance(workers, list)
+            or len(workers) != 1
+        )
     else:
         raise EndpointWalltimeGateError("endpoint_walltime_profile_invalid")
     if invalid:
@@ -438,11 +474,18 @@ def capture_gate(
 
     _validate_profile(profile, minimum_remaining_seconds)
     _validate_task_count(task_count, profile=profile)
-    if deployment != EXPECTED_DEPLOYMENT or cluster != EXPECTED_CLUSTER:
+    expected_deployment = STOCK_SINGLE_DEPLOYMENT if profile == STOCK_SINGLE_PROFILE else EXPECTED_DEPLOYMENT
+    if deployment != expected_deployment or cluster != EXPECTED_CLUSTER:
         raise EndpointWalltimeGateError("deployment_or_cluster_invalid")
     manifest = _load_manifest(manifest_path, manifest_sha256, profile=profile)
     workers = manifest.get("workers") if isinstance(manifest, dict) else None
-    selected_endpoint_count = C23_SELECTED_ENDPOINTS if profile == C23_PROFILE else EXPECTED_ENDPOINTS
+    selected_endpoint_count = (
+        1
+        if profile == STOCK_SINGLE_PROFILE
+        else C23_SELECTED_ENDPOINTS
+        if profile == C23_PROFILE
+        else EXPECTED_ENDPOINTS
+    )
     if not isinstance(workers, list) or len(workers) != selected_endpoint_count:
         raise EndpointWalltimeGateError("direct_worker_manifest_invalid")
     selected_backend_sha256s = tuple(
@@ -464,7 +507,12 @@ def capture_gate(
     before_result = runner(status_argv, COMMAND_TIMEOUT_SECONDS)
     if before_result.returncode != 0 or before_result.stderr.strip():
         raise EndpointWalltimeGateError("deployment_status_command_failed")
-    before = parse_status_snapshot(before_result.stdout, source_backend_sha256s)
+    before = parse_status_snapshot(
+        before_result.stdout,
+        source_backend_sha256s,
+        expected_deployment=expected_deployment,
+        expected_endpoint_count=1 if profile == STOCK_SINGLE_PROFILE else EXPECTED_ENDPOINTS,
+    )
     selected_backend_set = set(selected_backend_sha256s)
     selected_routes = tuple(route for route in before.routes if route.backend_sha256 in selected_backend_set)
     excluded_routes = tuple(route for route in before.routes if route.backend_sha256 not in selected_backend_set)
@@ -490,7 +538,12 @@ def capture_gate(
     after_result = runner(status_argv, COMMAND_TIMEOUT_SECONDS)
     if after_result.returncode != 0 or after_result.stderr.strip():
         raise EndpointWalltimeGateError("deployment_status_command_failed")
-    after = parse_status_snapshot(after_result.stdout, source_backend_sha256s)
+    after = parse_status_snapshot(
+        after_result.stdout,
+        source_backend_sha256s,
+        expected_deployment=expected_deployment,
+        expected_endpoint_count=1 if profile == STOCK_SINGLE_PROFILE else EXPECTED_ENDPOINTS,
+    )
     if before.routes != after.routes:
         raise EndpointWalltimeGateError("deployment_endpoint_generation_changed")
 
@@ -504,6 +557,8 @@ def capture_gate(
             if profile == W2_PROFILE
             else SMALL_RECEIPT_SCHEMA_VERSION
             if profile == SMALL_PROFILE
+            else STOCK_SINGLE_RECEIPT_SCHEMA_VERSION
+            if profile == STOCK_SINGLE_PROFILE
             else VMVM_UNION_RECEIPT_SCHEMA_VERSION
             if profile == VMVM_UNION_PROFILE
             else RECEIPT_SCHEMA_VERSION
@@ -638,17 +693,26 @@ def validate_receipt(
         if profile == W2_PROFILE
         else SMALL_RECEIPT_SCHEMA_VERSION
         if profile == SMALL_PROFILE
+        else STOCK_SINGLE_RECEIPT_SCHEMA_VERSION
+        if profile == STOCK_SINGLE_PROFILE
         else VMVM_UNION_RECEIPT_SCHEMA_VERSION
         if profile == VMVM_UNION_PROFILE
         else RECEIPT_SCHEMA_VERSION
     )
-    expected_endpoint_count = C23_SELECTED_ENDPOINTS if profile == C23_PROFILE else EXPECTED_ENDPOINTS
+    expected_endpoint_count = (
+        1
+        if profile == STOCK_SINGLE_PROFILE
+        else C23_SELECTED_ENDPOINTS
+        if profile == C23_PROFILE
+        else EXPECTED_ENDPOINTS
+    )
+    expected_deployment = STOCK_SINGLE_DEPLOYMENT if profile == STOCK_SINGLE_PROFILE else EXPECTED_DEPLOYMENT
     if (
         value.get("schema_version") != expected_schema_version
         or value.get("kind") != RECEIPT_KIND
         or value.get("state") != "passed"
         or value.get("profile") != profile
-        or value.get("deployment") != EXPECTED_DEPLOYMENT
+        or value.get("deployment") != expected_deployment
         or value.get("cluster") != EXPECTED_CLUSTER
         or value.get("endpoint_count") != expected_endpoint_count
         or value.get("all_running") is not True
@@ -795,7 +859,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         command.add_argument("--manifest-sha256", required=True)
         command.add_argument(
             "--profile",
-            choices=(EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, SMALL_PROFILE, VMVM_UNION_PROFILE),
+            choices=(
+                EXTENDED_PROFILE,
+                C23_PROFILE,
+                W2_PROFILE,
+                SMALL_PROFILE,
+                STOCK_SINGLE_PROFILE,
+                VMVM_UNION_PROFILE,
+            ),
             required=True,
         )
         command.add_argument(

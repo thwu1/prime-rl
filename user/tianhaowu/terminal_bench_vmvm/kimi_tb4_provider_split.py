@@ -36,7 +36,7 @@ from audit_traces import (
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-from direct_kimi_router import C23_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE
+from direct_kimi_router import C23_CAPACITY_PROFILE, C64_W2_CAPACITY_PROFILE, STOCK_SINGLE_C64_CAPACITY_PROFILE
 from direct_kimi_workers import DirectKimiWorkerError, worker_generation_contract
 from eval_run_identity import load_eval_run_identity_bytes
 
@@ -1584,11 +1584,13 @@ def _validate_direct_router_receipt(
         raise KimiProviderSplitError("router_receipt_invalid")
     c23_profile = router.get("capacity_profile") == C23_CAPACITY_PROFILE
     w2_profile = router.get("capacity_profile") == C64_W2_CAPACITY_PROFILE
-    profiled_capacity = c23_profile or w2_profile
-    worker_count = 23 if c23_profile else 24
+    stock_single_profile = router.get("capacity_profile") == STOCK_SINGLE_C64_CAPACITY_PROFILE
+    forwarded_capacity_profile = w2_profile or stock_single_profile
+    profiled_capacity = c23_profile or forwarded_capacity_profile
+    worker_count = 1 if stock_single_profile else 23 if c23_profile else 24
     zero_worker_counts_sha256 = sha256_bytes((json.dumps([0] * worker_count, separators=(",", ":")) + "\n").encode())
     expected = {
-        "schema_version": 5 if w2_profile else 4 if c23_profile else 2,
+        "schema_version": 6 if stock_single_profile else 5 if w2_profile else 4 if c23_profile else 2,
         "kind": "direct-kimi-router-final",
         "state": "passed",
         "eval_run_identity_sha256": identity_sha256,
@@ -1609,10 +1611,16 @@ def _validate_direct_router_receipt(
     if profiled_capacity:
         expected.update(
             {
-                "capacity_profile": C64_W2_CAPACITY_PROFILE if w2_profile else C23_CAPACITY_PROFILE,
+                "capacity_profile": (
+                    STOCK_SINGLE_C64_CAPACITY_PROFILE
+                    if stock_single_profile
+                    else C64_W2_CAPACITY_PROFILE
+                    if w2_profile
+                    else C23_CAPACITY_PROFILE
+                ),
                 "endpoint_identifier": router.get("endpoint_identifier"),
                 "configured_capacity": router.get("provider_concurrency"),
-                "configured_per_worker_capacity": 2 if w2_profile else 1,
+                "configured_per_worker_capacity": 64 if stock_single_profile else 2 if w2_profile else 1,
                 "active_forwarded_requests": 0,
                 "worker_active_request_counts_sha256": zero_worker_counts_sha256,
                 "active_worker_waiters": 0,
@@ -1631,7 +1639,7 @@ def _validate_direct_router_receipt(
             }
         )
         digests.add("worker_session_counts_sha256")
-    if w2_profile:
+    if forwarded_capacity_profile:
         expected.update(
             {
                 "worker_queue_timeouts": 0,
@@ -1660,7 +1668,7 @@ def _validate_direct_router_receipt(
         )
         or not 1
         <= value["max_active_requests"]
-        <= (64 if w2_profile else int(identity["execution"]["rollout_concurrency"]))
+        <= (64 if forwarded_capacity_profile else int(identity["execution"]["rollout_concurrency"]))
         or value["total_requests"] < value["chat_requests"]
         or value["chat_requests"] < minimum_chat_requests
         or any(SHA256_RE.fullmatch(str(value.get(key, ""))) is None for key in digests)
@@ -1688,9 +1696,9 @@ def _validate_direct_router_receipt(
             )
         )
         or (
-            w2_profile
+            forwarded_capacity_profile
             and (
-                not 1 <= value["max_active_forwarded_requests"] <= 48
+                not 1 <= value["max_active_forwarded_requests"] <= (64 if stock_single_profile else 48)
                 or value["max_active_forwarded_requests"] > value["max_active_requests"]
             )
         )
@@ -1719,6 +1727,8 @@ def _audit_cpu_results(
     expected_members: Sequence[str],
     verifier_modes: Mapping[str, str],
     held: _HeldArtifactSet | None = None,
+    *,
+    require_exact_provider_json: bool = True,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]], dict[str, Any]]:
     body, artifact = _read_regular_evidence(
         results,
@@ -1751,7 +1761,7 @@ def _audit_cpu_results(
                 require_model_io=True,
                 model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
                 require_request_graph_match=True,
-                require_exact_provider_json=True,
+                require_exact_provider_json=require_exact_provider_json,
             )
         except Exception as error:
             raise KimiProviderSplitError("provider_trace_audit_failed") from error

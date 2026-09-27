@@ -287,10 +287,18 @@ elif [[ -n ${KIMI_PROVIDER_LAUNCH_PLAN:-} || -n ${KIMI_PROVIDER_LAUNCH_PLAN_SHA2
 fi
 
 if [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
-    identity_role=kimi-direct-tb4-diagnostic
+    identity_role=kimi-direct-tb4-small-diagnostic
     certificate_mode=small-firecracker-diagnostic
-    router_capacity_profile=sandoq-c64-w2-v1
-    endpoint_identifier=cpu-132-021_8103
+    if [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
+        endpoint_identifier=tianhaowu-kimi-k3-stock-eval-20260927
+    elif [[ "$router_capacity_profile" == legacy-c24 \
+        || "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+        router_capacity_profile=sandoq-c64-w2-v1
+        endpoint_identifier=cpu-132-021_8103
+    else
+        printf 'Firecracker-small diagnostic router profile is invalid\n' >&2
+        exit 2
+    fi
 elif [[ "$stage" == tb4-miniswe246-sandoq-union || "$stage" == tb4-miniswe246-vmvm-union ]]; then
     [[ "$execution_mode" == certified ]] || { printf 'MiniSWE union lanes require certified mode\n' >&2; exit 2; }
     union_launch_plan=${KIMI_TB4_MINISWE_UNION_PLAN:?Set KIMI_TB4_MINISWE_UNION_PLAN}
@@ -463,6 +471,15 @@ if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
         printf 'Direct Kimi c23 launch profile is invalid\n' >&2
         exit 2
     fi
+elif [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
+    if [[ "$stage" != tb4-miniswe246-sandoq-small-full \
+        || "$sandbox_provider" != sandoq \
+        || "$execution_mode" != small-firecracker-diagnostic \
+        || "$endpoint_identifier" != tianhaowu-kimi-k3-stock-eval-20260927 \
+        || "$stage_capacity" != 24 || "$task_count" != 52 ]]; then
+        printf 'Direct Kimi stock-single launch profile is invalid\n' >&2
+        exit 2
+    fi
 elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
     if [[ "$endpoint_identifier" != cpu-132-021_8103 \
         || ( "$stage" != capacity-smoke && "$stage" != tb4-miniswe246-sandoq-union \
@@ -546,7 +563,7 @@ timeout = tomllib.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))["client"]
 role = sys.argv[2]
 if type(timeout) is not int:
     raise SystemExit(2)
-if role in {"kimi-direct-tb4", "kimi-direct-tb4-diagnostic"} and timeout == 144_000:
+if role in {"kimi-direct-tb4", "kimi-direct-tb4-small-diagnostic"} and timeout == 144_000:
     print(144_000)
 elif timeout in {300, 900, 1_800, 10_800, 43_200}:
     print(43_200)
@@ -577,7 +594,8 @@ if [[ -n ${excluded_backend_sha256:-} ]]; then
 fi
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" snapshot-source \
-    --deployment-root "$deployment_root" --output-root "$deployment_snapshot" >/dev/null
+    --deployment-root "$deployment_root" --output-root "$deployment_snapshot" \
+    --capacity-profile "$router_capacity_profile" >/dev/null
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" prepare \
     --deployment-root "$deployment_snapshot" --output-root "$generation_dir" \
@@ -589,6 +607,8 @@ mapfile -t router_ports < "$ports_file"
 expected_worker_count=24
 if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
     expected_worker_count=23
+elif [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
+    expected_worker_count=1
 fi
 if [[ ${#worker_urls[@]} -ne "$expected_worker_count" || ${#router_ports[@]} -ne 2 ]]; then
     printf 'Direct Kimi generation materialization failed\n' >&2
@@ -690,7 +710,10 @@ if [[ "$router_request_timeout" == 144000 ]]; then
         endpoint_walltime_profile=tb4-c23-v1
     elif [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
         endpoint_walltime_profile=tb4-extended-c24-small-three-wave-v1
-        endpoint_minimum_remaining_seconds=345600
+        endpoint_minimum_remaining_seconds=475200
+        if [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
+            endpoint_walltime_profile=tb4-extended-c24-stock-single-three-wave-v1
+        fi
     elif [[ "$stage" == tb4-miniswe246-vmvm-union ]]; then
         endpoint_walltime_profile=tb4-extended-vmvm-union11-c11-v1
         endpoint_minimum_remaining_seconds=345600
@@ -769,7 +792,8 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         printf 'Direct Kimi c64-w2 Sandoq pool contract is invalid\n' >&2
         exit 2
     fi
-    if [[ "$router_capacity_profile" != sandoq-c64-w2-v1 ]] \
+    if [[ "$router_capacity_profile" != sandoq-c64-w2-v1 \
+        && "$router_capacity_profile" != sandoq-stock-single-c64-v1 ]] \
         && (( stage_capacity < 64 && sandoq_pool_capacity <= stage_capacity )); then
         printf 'Direct Kimi Sandoq pool has no separate-verifier reserve\n' >&2
         exit 2

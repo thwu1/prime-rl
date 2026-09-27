@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import copy
 import hashlib
 import importlib.metadata
 import json
@@ -349,7 +350,9 @@ class ModelRelay:
         except (UnicodeDecodeError, json.JSONDecodeError):
             response_body = {"error": {"type": "invalid_upstream_json"}}
             status = 502
-        self.responses.append(response_body)
+        # Retain the exact provider object before adding the canonical
+        # reasoning_content alias consumed by MiniSWE inside the sandbox.
+        self.responses.append(copy.deepcopy(response_body))
         choices = response_body.get("choices") if isinstance(response_body, dict) else None
         first = choices[0] if isinstance(choices, list) and choices and isinstance(choices[0], dict) else {}
         message = first.get("message") if isinstance(first.get("message"), dict) else {}

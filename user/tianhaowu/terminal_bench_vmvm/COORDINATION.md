@@ -5275,7 +5275,7 @@ replay passed 263/263. The aggregate decode/cleanup boundary is unchanged.
   cleanup evidence, and cannot publish while the evaluator or router locks are
   held.
 - Do not launch this lane against the September 23 custom-image deployment.
-  Its remaining lifetime is below the sealed 96-hour endpoint walltime gate,
+  Its remaining lifetime is below the sealed 132-hour endpoint walltime gate,
   and the direct-router snapshot cannot safely discover replacement workers.
   A newly frozen generation must pass the load and walltime gates before
   submission; do not relax either gate or claim cross-generation resume.

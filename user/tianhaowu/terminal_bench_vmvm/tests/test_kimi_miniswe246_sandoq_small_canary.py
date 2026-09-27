@@ -63,6 +63,33 @@ def test_router_audit_requires_w2_sticky_healthy_route() -> None:
     assert canary.router_audit(changed, 3)["router_healthy"] is False
 
 
+def test_router_audit_accepts_exact_stock_single_contract() -> None:
+    stats = _router_stats()
+    stats.update(
+        {
+            "capacity_profile": "sandoq-stock-single-c64-v1",
+            "endpoint_identifier": "tianhaowu-kimi-k3-stock-eval-20260927",
+            "worker_count": 1,
+            "active_workers": 1,
+            "configured_per_worker_capacity": 64,
+            "worker_session_counts": [1],
+        }
+    )
+
+    assert canary.router_audit(
+        stats,
+        3,
+        expected_profile="sandoq-stock-single-c64-v1",
+        expected_endpoint_identifier="tianhaowu-kimi-k3-stock-eval-20260927",
+        expected_workers=1,
+        expected_per_worker_capacity=64,
+    ) == {
+        "router_w2_profile_configured": True,
+        "sticky_routing": True,
+        "router_healthy": True,
+    }
+
+
 def test_public_receipt_is_aggregate_only() -> None:
     state = {
         "sandbox_lifecycle": True,
@@ -402,6 +429,9 @@ def test_kimi_model_relay_caps_tokens_and_preserves_reasoning() -> None:
         message = forwarded["choices"][0]["message"]
         assert message["reasoning"] == "retained"
         assert message["reasoning_content"] == "retained"
+        raw_message = relay.responses[0]["choices"][0]["message"]
+        assert raw_message["reasoning"] == "retained"
+        assert "reasoning_content" not in raw_message
         assert relay.reasoning == [True]
 
     asyncio.run(scenario())
@@ -532,7 +562,8 @@ def test_frozen_config_and_launcher_contract() -> None:
     assert "#SBATCH --time=00:20:00" in launcher
     assert "router_deadline=$((SECONDS + 90))" in launcher
     assert "[[ $router_ready == 1 ]] || blocked router_start_failed" in launcher
-    assert "--capacity-profile sandoq-c64-w2-v1" in launcher
+    assert '--capacity-profile "$router_profile"' in launcher
+    assert "sandoq-stock-single-c64-v1" in launcher
     assert "KIMI_SMALL_CANARY_EXPECTED_REVISION" in launcher
     assert '"--startup-timeout-seconds",\n            "3600",' in runner
     assert stat.S_IMODE(launcher_path.stat().st_mode) & 0o111

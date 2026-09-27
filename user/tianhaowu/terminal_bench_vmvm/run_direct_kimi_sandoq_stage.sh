@@ -56,6 +56,7 @@ fi
 if [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-capacity-smoke \
     && "$role" != kimi-direct-tb4 \
     && "$role" != kimi-direct-tb4-diagnostic \
+    && "$role" != kimi-direct-tb4-small-diagnostic \
     && "$role" != kimi-direct-tb4-sandoq-fallback-diagnostic ]]; then
     printf 'Invalid direct Kimi stage role\n' >&2
     exit 2
@@ -68,9 +69,18 @@ if [[ "$role" == kimi-direct-capacity-smoke ]]; then
         printf 'Direct Kimi capacity smoke requires the exact bounded c64-w2 profile\n' >&2
         exit 2
     fi
+elif [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
+    if [[ "$role" != kimi-direct-tb4-small-diagnostic \
+        || "$sandbox_provider" != sandoq \
+        || "$execution_mode" != small-firecracker-diagnostic \
+        || "$rollout_concurrency" != 24 \
+        || "$endpoint_identifier" != tianhaowu-kimi-k3-stock-eval-20260927 ]]; then
+        printf 'Direct Kimi stock-single profile requires the exact c24 diagnostic lane\n' >&2
+        exit 2
+    fi
 elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
     if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
-        [[ "$role" == kimi-direct-tb4-diagnostic \
+        [[ "$role" == kimi-direct-tb4-small-diagnostic \
             && "$sandbox_provider" == sandoq \
             && "$rollout_concurrency" == 24 ]] \
             || { printf 'Direct Kimi TB4 small diagnostic requires c24 Sandoq\n' >&2; exit 2; }
@@ -110,7 +120,7 @@ if [[ "$execution_mode" != certified && "$execution_mode" != diagnostic \
     exit 2
 fi
 if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
-    if [[ "$role" != kimi-direct-tb4-diagnostic || "$sandbox_provider" != sandoq ]]; then
+    if [[ "$role" != kimi-direct-tb4-small-diagnostic || "$sandbox_provider" != sandoq ]]; then
         printf 'Firecracker-small diagnostic requires its exact role and provider\n' >&2
         exit 2
     fi
@@ -262,6 +272,7 @@ expected_managed_shell_recovery=0
 managed_shell_recovery_policy=disabled
 if [[ "$role" == kimi-direct-smoke || "$role" == kimi-direct-tb4 \
     || "$role" == kimi-direct-tb4-diagnostic \
+    || "$role" == kimi-direct-tb4-small-diagnostic \
     || "$role" == kimi-direct-tb4-sandoq-fallback-diagnostic ]]; then
     expected_sandoq_lease_profile=kimi-tb4-long
     expected_sandoq_lease_duration=12h
@@ -277,7 +288,7 @@ fi
 if [[ "$native_miniswe" == 1 ]] \
     && [[ "$role" != kimi-direct-smoke && "$role" != kimi-direct-capacity-smoke \
         && "$role" != kimi-direct-tb4 \
-        && ! ( "$role" == kimi-direct-tb4-diagnostic \
+        && ! ( "$role" == kimi-direct-tb4-small-diagnostic \
             && "$execution_mode" == small-firecracker-diagnostic ) ]]; then
     printf 'Native MiniSWE Sandoq context is not approved for this stage role\n' >&2
     exit 2
@@ -473,6 +484,10 @@ if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
 elif [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
     expected_router_concurrency=64
     expected_per_worker_capacity=2
+elif [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
+    expected_router_concurrency=64
+    expected_per_worker_capacity=64
+    expected_worker_count=1
 fi
 if [[ ! "$direct_spec_sha256" =~ ^[0-9a-f]{64}$ \
     || ! "$direct_endpoint_bundle_sha256" =~ ^[0-9a-f]{64}$ \
@@ -492,6 +507,9 @@ if [[ "$direct_request_timeout" == 144000 ]]; then
     if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
         expected_walltime_profile=tb4-extended-c24-small-three-wave-v1
         maximum_two_wave_tasks=72
+        if [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
+            expected_walltime_profile=tb4-extended-c24-stock-single-three-wave-v1
+        fi
     elif [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
         expected_walltime_profile=tb4-c23-v1
         maximum_two_wave_tasks=46
@@ -504,7 +522,8 @@ if [[ "$direct_request_timeout" == 144000 ]]; then
         maximum_two_wave_tasks=96
     fi
     minimum_wave_concurrency=$expected_router_concurrency
-    if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+    if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 \
+        || "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
         minimum_wave_concurrency=$rollout_concurrency
     fi
     vmvm_union_walltime=0
@@ -513,7 +532,7 @@ if [[ "$direct_request_timeout" == 144000 ]]; then
     fi
     if [[ "$endpoint_walltime_profile" != "$expected_walltime_profile" \
         || ( "$role" != kimi-direct-tb4 \
-            && ! ( "$role" == kimi-direct-tb4-diagnostic \
+            && ! ( "$role" == kimi-direct-tb4-small-diagnostic \
                 && "$execution_mode" == small-firecracker-diagnostic ) ) \
         || ! "$approved_task_count" =~ ^[1-9][0-9]*$ \
         || ( "$vmvm_union_walltime" != 1 && "$approved_task_count" -le "$minimum_wave_concurrency" ) \
@@ -521,9 +540,12 @@ if [[ "$direct_request_timeout" == 144000 ]]; then
         || "$approved_task_count" -gt "$maximum_two_wave_tasks" \
         || ! "$endpoint_minimum_remaining_seconds" =~ ^[1-9][0-9]*$ \
         || "$endpoint_minimum_remaining_seconds" -lt 324000 \
+        || ( "$execution_mode" == small-firecracker-diagnostic \
+            && "$endpoint_minimum_remaining_seconds" -lt 475200 ) \
         || ( "$router_capacity_profile" == sandoq-c64-w2-v1 \
+            && "$execution_mode" != small-firecracker-diagnostic \
             && "$endpoint_minimum_remaining_seconds" -lt 345600 ) ]]; then
-        printf 'Extended direct Kimi TB4 requires its sealed 90-hour endpoint walltime profile\n' >&2
+        printf 'Extended direct Kimi TB4 requires its sealed endpoint walltime profile\n' >&2
         exit 2
     fi
     if [[ "$vmvm_union_walltime" == 1 ]]; then
@@ -570,6 +592,10 @@ if [[ "$direct_request_timeout" == 144000 ]]; then
             printf 'Direct Kimi endpoint walltime receipt namespace is not fresh\n' >&2
             exit 2
         fi
+        walltime_deployment_args=()
+        if [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
+            walltime_deployment_args=(--deployment tianhaowu-kimi-k3-stock-eval-20260927)
+        fi
         "$x86_uv" run --no-project --offline --python "$python_bin" \
             python3 "$workflow_dir/kimi_endpoint_walltime_gate.py" capture \
             --manifest "$worker_manifest" \
@@ -577,6 +603,7 @@ if [[ "$direct_request_timeout" == 144000 ]]; then
             --profile "$endpoint_walltime_profile" \
             --minimum-remaining-seconds "$endpoint_minimum_remaining_seconds" \
             --task-count "$approved_task_count" \
+            "${walltime_deployment_args[@]}" \
             --output "$endpoint_walltime_receipt"
         endpoint_walltime_receipt_file_sha256=$(sha256sum -- "$endpoint_walltime_receipt" | cut -d' ' -f1)
     fi
@@ -586,7 +613,8 @@ elif [[ "$endpoint_walltime_profile" != legacy \
     exit 2
 fi
 
-if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 \
+    || "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
     if [[ -n "$precaptured_endpoint_load_gate" ]]; then
         endpoint_load_gate_receipt=$precaptured_endpoint_load_gate
         endpoint_load_gate_receipt_sha256=$precaptured_endpoint_load_gate_sha256
@@ -660,7 +688,8 @@ identity_args=(
     --invocation-host "$(hostname)"
     --slurm-job-id "$SLURM_JOB_ID"
 )
-if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 ]]; then
+if [[ "$router_capacity_profile" == sandoq-c64-w2-v1 \
+    || "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
     identity_args+=(
         --direct-per-worker-capacity "$direct_per_worker_capacity"
         --direct-endpoint-load-gate "$endpoint_load_gate_receipt"

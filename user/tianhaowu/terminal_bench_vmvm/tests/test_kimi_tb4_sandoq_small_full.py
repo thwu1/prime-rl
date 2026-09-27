@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import tomllib
 from pathlib import Path
 
@@ -146,6 +147,25 @@ def test_materialized_small_plan_preserves_full_generation_contract(
     assert config["taskset"]["resource_cpu_cap"] == 1
     assert config["taskset"]["resource_memory_mb_cap"] == 2_048
     assert b"opaque-case" not in json.dumps(result, sort_keys=True).encode()
+    plan = json.loads((output / small.PLAN).read_bytes())
+    assert plan["contracts"]["model_io_response_kind"] == "normalized_stream_response"
+    assert plan["contracts"]["reasoning_message_parity_required"] is True
+    assert "exact_provider_json_required" not in plan["contracts"]
+
+    original_verify = small.verify
+    replacement = tmp_path / "replacement-plan.json"
+    replacement.write_bytes(b"{}\n")
+    replacement.chmod(0o600)
+
+    def verify_then_swap(path: Path, expected_sha256: str) -> dict[str, object]:
+        value = original_verify(path, expected_sha256)
+        os.replace(replacement, path)
+        return value
+
+    monkeypatch.setattr(finalize.plan_module, "verify", verify_then_swap)
+    loaded, reverified = finalize._verified_plan(output / small.PLAN, result["plan_sha256"])
+    assert loaded == plan
+    assert reverified == verified
 
 
 def test_unsupported_rows_are_deterministic_explicit_zeroes() -> None:
@@ -160,6 +180,8 @@ def test_unsupported_rows_are_deterministic_explicit_zeroes() -> None:
 
 def test_identity_validator_seals_small_full_contract() -> None:
     config, _body, _path = small._load_base()
+
+    assert eval_run_identity.KIMI_SMALL_TB4_DIAGNOSTIC_ROLE != "kimi-direct-tb4-diagnostic"
 
     assert (
         eval_run_identity._direct_kimi_expected_concurrency(

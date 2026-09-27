@@ -51,9 +51,9 @@ TB4_IMAGE_MANIFEST_SHA256 = "6dd632029af8da52f99f1d364e983a5da2e855afeb6a2ea5fc8
 TB4_TASK_TREE_SHA256 = "55ee806f7a9be4c270161863b27010f7b684d2acaf31eff7c490e57f84a0dc86"
 TB4_TASK_TREE_FILE_COUNT = 21
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
-SHARED_SMOKE_SHA256 = "41ddea1216187dead3eca7cd9e861cb23de5b12dbb989b463533aebe05341727"
-DIRECT_ROUTER_SHA256 = "217c7c64a93a5bc41fd2a5f4c5c530da67d50a2d3ff83f117f96926a353dd10c"
-DIRECT_WORKERS_SHA256 = "384b729a71cddbdc8771897dc19c95367e438d22cb3188583914274d3d699f5c"
+SHARED_SMOKE_SHA256 = "e71a805f62ae10470cf4e6e74ec9ac538a598ec4e0fc62d5da79bc263ddee5d1"
+DIRECT_ROUTER_SHA256 = "38398a48040879e242807dfa1f0272951aad0b9a0be371b42e7cabe61f3313db"
+DIRECT_WORKERS_SHA256 = "ec4d859e129bf02f02c943d784b4260ce5540e5514cc4a32f27fba6eb232652f"
 _REVISION_RE = re.compile(r"[0-9a-f]{40}")
 _SLUG_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
@@ -105,11 +105,19 @@ def read_router_stats(url: str) -> dict[str, Any]:
     return value
 
 
-def router_audit(stats: dict[str, Any], model_calls: int) -> dict[str, bool]:
+def router_audit(
+    stats: dict[str, Any],
+    model_calls: int,
+    *,
+    expected_profile: str = EXPECTED_ROUTER_PROFILE,
+    expected_endpoint_identifier: str = EXPECTED_ENDPOINT_IDENTIFIER,
+    expected_workers: int = EXPECTED_WORKERS,
+    expected_per_worker_capacity: int = 2,
+) -> dict[str, bool]:
     session_counts = stats.get("worker_session_counts")
     sticky = (
         isinstance(session_counts, list)
-        and len(session_counts) == EXPECTED_WORKERS
+        and len(session_counts) == expected_workers
         and all(type(value) is int and value >= 0 for value in session_counts)
         and sum(session_counts) == 1
         and max(session_counts, default=0) == 1
@@ -121,12 +129,12 @@ def router_audit(stats: dict[str, Any], model_calls: int) -> dict[str, bool]:
         and stats.get("implementation") == "direct-kimi-transparent-v2"
         and stats.get("policy") == "consistent_hash"
         and stats.get("request_id_headers") == ["x-session-id"]
-        and stats.get("capacity_profile") == EXPECTED_ROUTER_PROFILE
-        and stats.get("endpoint_identifier") == EXPECTED_ENDPOINT_IDENTIFIER
-        and stats.get("worker_count") == EXPECTED_WORKERS
-        and stats.get("active_workers") == EXPECTED_WORKERS
+        and stats.get("capacity_profile") == expected_profile
+        and stats.get("endpoint_identifier") == expected_endpoint_identifier
+        and stats.get("worker_count") == expected_workers
+        and stats.get("active_workers") == expected_workers
         and stats.get("configured_capacity") == 64
-        and stats.get("configured_per_worker_capacity") == 2
+        and stats.get("configured_per_worker_capacity") == expected_per_worker_capacity
     )
     healthy = (
         type(model_calls) is int
@@ -732,6 +740,22 @@ def orchestrate_command(args: argparse.Namespace) -> int:
         kind=receipt_kind,
     )
     try:
+        router_contract = (
+            args.expected_router_profile,
+            args.expected_endpoint_identifier,
+            args.expected_workers,
+            args.expected_per_worker_capacity,
+        )
+        if router_contract not in {
+            (EXPECTED_ROUTER_PROFILE, EXPECTED_ENDPOINT_IDENTIFIER, EXPECTED_WORKERS, 2),
+            (
+                "sandoq-stock-single-c64-v1",
+                "tianhaowu-kimi-k3-stock-eval-20260927",
+                1,
+                64,
+            ),
+        }:
+            raise CanaryError("router_contract_invalid")
         project_root = args.project_root.resolve(strict=True)
         workflow_dir = project_root / "user/tianhaowu/terminal_bench_vmvm"
         shared._clean_source(project_root, args.expected_revision)
@@ -898,7 +922,14 @@ def orchestrate_command(args: argparse.Namespace) -> int:
             output_dir / "control/direct-router-stats.private.json",
             router_stats,
         )
-        router = router_audit(router_stats, int(run_state.get("model_calls", 0)))
+        router = router_audit(
+            router_stats,
+            int(run_state.get("model_calls", 0)),
+            expected_profile=args.expected_router_profile,
+            expected_endpoint_identifier=args.expected_endpoint_identifier,
+            expected_workers=args.expected_workers,
+            expected_per_worker_capacity=args.expected_per_worker_capacity,
+        )
         receipt = public_receipt(run_state, cleanup=cleanup, router=router, kind=receipt_kind)
         if time.monotonic() - started > orchestrator_wall_seconds:
             receipt = public_receipt(
@@ -938,6 +969,10 @@ def parser() -> argparse.ArgumentParser:
     orchestrate.add_argument("--expected-revision", required=True)
     orchestrate.add_argument("--base-url", required=True)
     orchestrate.add_argument("--router-stats-url", required=True)
+    orchestrate.add_argument("--expected-router-profile", default=EXPECTED_ROUTER_PROFILE)
+    orchestrate.add_argument("--expected-endpoint-identifier", default=EXPECTED_ENDPOINT_IDENTIFIER)
+    orchestrate.add_argument("--expected-workers", type=int, default=EXPECTED_WORKERS)
+    orchestrate.add_argument("--expected-per-worker-capacity", type=int, default=2)
     orchestrate.add_argument("--task-profile", choices=("mobius", "tb4"), default="mobius")
     orchestrate.add_argument(
         "--output-root",

@@ -16,7 +16,7 @@ from typing import Any, Mapping, Sequence
 import kimi_tb4_provider_split as split
 import prepare_kimi_tb4_miniswe246_union as union
 import prepare_kimi_tb4_sandoq_small_full as plan_module
-from direct_kimi_router import C64_W2_CAPACITY_PROFILE
+from direct_kimi_router import C64_W2_CAPACITY_PROFILE, STOCK_SINGLE_C64_CAPACITY_PROFILE
 from eval_run_identity import load_eval_run_identity_bytes
 
 SCHEMA_VERSION = 1
@@ -121,7 +121,7 @@ def _identity_contract(
             evidence.files["eval_invocations.jsonl"].body,
             evidence.files["provenance.txt"].body,
             identity_sha256,
-            expected_role="kimi-direct-tb4-diagnostic",
+            expected_role="kimi-direct-tb4-small-diagnostic",
         )
     except Exception as error:
         _fail("run_identity_invalid", error)
@@ -133,11 +133,14 @@ def _identity_contract(
     environment = execution.get("sandoq_environment") if isinstance(execution, dict) else None
     deployment = identity.get("deployment")
     router = deployment.get("router") if isinstance(deployment, dict) else None
+    stock_single = (
+        isinstance(router, dict) and router.get("capacity_profile") == STOCK_SINGLE_C64_CAPACITY_PROFILE
+    )
     contract = identity.get("contract")
     harness = contract.get("harness") if isinstance(contract, dict) else None
     lane = plan["lane"]
     if (
-        identity.get("role") != "kimi-direct-tb4-diagnostic"
+        identity.get("role") != "kimi-direct-tb4-small-diagnostic"
         or not isinstance(source, dict)
         or source.get("sandbox_provider") != "sandoq"
         or source.get("prime_rl_commit") != expected_revision
@@ -167,12 +170,14 @@ def _identity_contract(
         or environment.get("pool_size") != plan_module.CONCURRENCY
         or not isinstance(deployment, dict)
         or not isinstance(router, dict)
-        or router.get("capacity_profile") != C64_W2_CAPACITY_PROFILE
-        or router.get("endpoint_identifier") != "cpu-132-021_8103"
+        or router.get("capacity_profile")
+        not in {C64_W2_CAPACITY_PROFILE, STOCK_SINGLE_C64_CAPACITY_PROFILE}
+        or router.get("endpoint_identifier")
+        != ("tianhaowu-kimi-k3-stock-eval-20260927" if stock_single else "cpu-132-021_8103")
         or router.get("policy") != "consistent_hash"
         or router.get("provider_concurrency") != 64
-        or router.get("per_worker_capacity") != 2
-        or router.get("worker_count") != 24
+        or router.get("per_worker_capacity") != (64 if stock_single else 2)
+        or router.get("worker_count") != (1 if stock_single else 24)
         or router.get("retries") != 0
         or not isinstance(contract, dict)
         or contract.get("model") != "Kimi-K3"
@@ -190,6 +195,20 @@ def _identity_contract(
     return identity, identity_sha256, invocation_sha256, slurm_job_id
 
 
+def _verified_plan(path: Path, expected_sha256: str) -> tuple[dict[str, Any], dict[str, Any]]:
+    body = split.read_regular(path, code="plan_invalid", private=True)
+    if _sha256(body) != expected_sha256:
+        _fail("plan_invalid")
+    try:
+        plan = json.loads(body)
+        verified = plan_module.verify(path, expected_sha256)
+    except Exception as error:
+        _fail("plan_invalid", error)
+    if not isinstance(plan, dict):
+        _fail("plan_invalid")
+    return plan, verified
+
+
 def finalize(
     *,
     plan_path: Path,
@@ -199,9 +218,7 @@ def finalize(
 ) -> dict[str, Any]:
     if REVISION_RE.fullmatch(expected_revision or "") is None:
         _fail("source_revision_invalid")
-    verified = plan_module.verify(plan_path, plan_sha256)
-    plan_body = split.read_regular(plan_path, code="plan_invalid", private=True)
-    plan = json.loads(plan_body)
+    plan, verified = _verified_plan(plan_path, plan_sha256)
     run_dir = split._absolute_path(run_dir)
     if str(run_dir) != verified["output_dir"]:
         _fail("run_directory_invalid")
@@ -249,7 +266,11 @@ def finalize(
         )
         try:
             trace_audit, rows, results_artifact = split._audit_cpu_results(
-                run_dir / "results.jsonl", supported, verifier_modes, held
+                run_dir / "results.jsonl",
+                supported,
+                verifier_modes,
+                held,
+                require_exact_provider_json=False,
             )
             cleanup, cleanup_artifacts = split._validate_sandoq_cleanup(
                 run_dir / "sandoq_cleanup_audit.json",

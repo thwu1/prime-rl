@@ -27,6 +27,18 @@ project_dir=$(realpath -e -- "${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}")
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
 expected_revision=${KIMI_SMALL_CANARY_EXPECTED_REVISION:?Set KIMI_SMALL_CANARY_EXPECTED_REVISION}
 deployment_root=${KIMI_SMALL_CANARY_DEPLOYMENT_ROOT:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/kimi-k3-deployment-shared-rollover-1591890-20260926-v1}
+router_profile=${KIMI_SMALL_CANARY_ROUTER_PROFILE:-sandoq-c64-w2-v1}
+if [[ "$router_profile" == sandoq-stock-single-c64-v1 ]]; then
+    endpoint_identifier=tianhaowu-kimi-k3-stock-eval-20260927
+    expected_workers=1
+    expected_per_worker_capacity=64
+elif [[ "$router_profile" == sandoq-c64-w2-v1 ]]; then
+    endpoint_identifier=cpu-132-021_8103
+    expected_workers=24
+    expected_per_worker_capacity=2
+else
+    blocked router_profile_invalid
+fi
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_sdk1_82068}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
@@ -35,7 +47,11 @@ eval_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals
 generation_dir="$eval_root/kimi_miniswe246_small_router_${SLURM_JOB_ID:?}"
 task_profile=${KIMI_SMALL_CANARY_TASK_PROFILE:-mobius}
 if [[ "$task_profile" == tb4 ]]; then
-    output_root="$eval_root/kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic"
+    if [[ "$router_profile" == sandoq-stock-single-c64-v1 ]]; then
+        output_root="$eval_root/kimi-tb4-miniswe246-sandoq-firecracker-small-stock-single-diagnostic"
+    else
+        output_root="$eval_root/kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic"
+    fi
     dataset_dir=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks
     image_manifest="$workflow_dir/configs/eval/servers/cpu-132-021_8103/tb4_images.sandoq.json"
 elif [[ "$task_profile" == mobius ]]; then
@@ -90,7 +106,8 @@ export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_d
 
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" snapshot-source \
-    --deployment-root "$deployment_root" --output-root "$deployment_snapshot" >/dev/null
+    --deployment-root "$deployment_root" --output-root "$deployment_snapshot" \
+    --capacity-profile "$router_profile" >/dev/null
 
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" prepare \
@@ -99,13 +116,13 @@ export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_d
     --manifest "$manifest" \
     --urls-output "$urls_file" \
     --ports-output "$ports_file" \
-    --capacity-profile sandoq-c64-w2-v1 \
-    --endpoint-identifier cpu-132-021_8103 \
+    --capacity-profile "$router_profile" \
+    --endpoint-identifier "$endpoint_identifier" \
     --probe
 
 mapfile -t worker_urls < "$urls_file"
 mapfile -t router_ports < "$ports_file"
-[[ ${#worker_urls[@]} -eq 24 && ${#router_ports[@]} -eq 2 ]] \
+[[ ${#worker_urls[@]} -eq "$expected_workers" && ${#router_ports[@]} -eq 2 ]] \
     || blocked router_generation_invalid
 router_port=${router_ports[0]}
 metrics_port=${router_ports[1]}
@@ -116,8 +133,8 @@ setsid "$x86_uv" run --no-project --offline --python "$python_bin" \
     --host 127.0.0.1 \
     --port "$router_port" \
     --metrics-port "$metrics_port" \
-    --capacity-profile sandoq-c64-w2-v1 \
-    --endpoint-identifier cpu-132-021_8103 >"$router_log" 2>&1 &
+    --capacity-profile "$router_profile" \
+    --endpoint-identifier "$endpoint_identifier" >"$router_log" 2>&1 &
 router_pid=$!
 
 router_ready=0
@@ -130,7 +147,7 @@ while (( SECONDS < router_deadline )); do
             | awk '$1 == "vllm_router_active_workers" {print $2}' \
             | tail -n 1
     ) || true
-    if [[ "$active_workers" == 24 ]] \
+    if [[ "$active_workers" == "$expected_workers" ]] \
         && curl --noproxy '*' --fail --silent --show-error --max-time 5 \
             "http://127.0.0.1:${router_port}/v1/models" >/dev/null; then
         router_ready=1
@@ -150,4 +167,8 @@ done
     --dataset-dir "$dataset_dir" \
     --image-manifest "$image_manifest" \
     --base-url "http://127.0.0.1:${router_port}/v1" \
-    --router-stats-url "http://127.0.0.1:${router_port}/stats"
+    --router-stats-url "http://127.0.0.1:${router_port}/stats" \
+    --expected-router-profile "$router_profile" \
+    --expected-endpoint-identifier "$endpoint_identifier" \
+    --expected-workers "$expected_workers" \
+    --expected-per-worker-capacity "$expected_per_worker_capacity"
