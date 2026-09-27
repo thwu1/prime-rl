@@ -208,10 +208,34 @@ def _derived_error_zero(row: Mapping[str, Any], *, zero_model: bool) -> dict[str
     return derived
 
 
+def _derived_trace_invalid_score(
+    row: Mapping[str, Any],
+    *,
+    problems: Sequence[str],
+) -> dict[str, Any]:
+    derived = copy.deepcopy(dict(row))
+    source_sha256 = _sha256(split.canonical_json(row))
+    info = derived.get("info")
+    if not isinstance(info, dict) or not problems:
+        _fail("provider_trace_audit_failed")
+    derived["info"] = {
+        **info,
+        "diagnostic_evaluation_disposition": {
+            "kind": "score-retained-trace-excluded",
+            "source_row_sha256": source_sha256,
+            "audit_problem_set_sha256": _sha256(split.canonical_json(sorted(set(problems)))),
+            "trainable": False,
+        },
+    }
+    return derived
+
+
 def _audit_supported_rows(
     body: bytes,
     expected_members: Sequence[str],
     verifier_modes: Mapping[str, str],
+    *,
+    allow_nontrainable_scored_rows: bool = False,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     try:
         rows = [json.loads(line) for line in body.splitlines() if line.strip()]
@@ -225,6 +249,8 @@ def _audit_supported_rows(
     trace_ids: set[str] = set()
     passes = 0
     clean_rows = 0
+    trace_invalid_scored_rows = 0
+    trace_invalid_passing_rows = 0
     clean_model_turns = 0
     clean_sampled_tokens = 0
     zero_model_errors = 0
@@ -232,6 +258,8 @@ def _audit_supported_rows(
     error_types: Counter[str] = Counter()
     zero_model_row_hashes: list[str] = []
     error_row_hashes: list[str] = []
+    trace_invalid_row_hashes: list[str] = []
+    trace_problem_counts: Counter[str] = Counter()
     observations: Counter[str] = Counter()
 
     for row in rows:
@@ -291,10 +319,20 @@ def _audit_supported_rows(
             require_exact_provider_json=True,
             require_clean_stop=True,
         )
-        if problems:
+        if problems and not allow_nontrainable_scored_rows:
             _fail("provider_trace_audit_failed")
         score = split._score(row)
         passes += score
+        if problems:
+            trace_invalid_scored_rows += 1
+            trace_invalid_passing_rows += score
+            source_sha256 = _sha256(split.canonical_json(row))
+            trace_invalid_row_hashes.append(source_sha256)
+            trace_problem_counts.update(
+                re.sub(r"^node_[0-9]+_", "node_*_", problem) for problem in problems
+            )
+            by_task[task_id] = _derived_trace_invalid_score(row, problems=problems)
+            continue
         clean_rows += 1
         nodes = row["nodes"]
         clean_model_turns += sum(
@@ -315,13 +353,24 @@ def _audit_supported_rows(
             clean_sampled_tokens += completion
         by_task[task_id] = row
 
-    if set(by_task) != expected or clean_rows + zero_model_errors + model_bearing_errors != len(rows):
+    if (
+        set(by_task) != expected
+        or clean_rows + trace_invalid_scored_rows + zero_model_errors + model_bearing_errors
+        != len(rows)
+    ):
         _fail("provider_results_invalid")
     summary = {
         "source_rows": len(rows),
         "clean_scored_rows": clean_rows,
         "passes": passes,
-        "scored_failures": clean_rows - passes,
+        "scored_rows": clean_rows + trace_invalid_scored_rows,
+        "scored_failures": clean_rows + trace_invalid_scored_rows - passes,
+        "trace_invalid_scored_rows": trace_invalid_scored_rows,
+        "trace_invalid_passing_rows": trace_invalid_passing_rows,
+        "trace_invalid_problem_counts": dict(sorted(trace_problem_counts.items())),
+        "trace_invalid_row_set_sha256": _sha256(
+            split.canonical_json(sorted(trace_invalid_row_hashes))
+        ),
         "execution_error_zeroes": zero_model_errors + model_bearing_errors,
         "zero_model_error_zeroes": zero_model_errors,
         "model_bearing_error_zeroes": model_bearing_errors,
