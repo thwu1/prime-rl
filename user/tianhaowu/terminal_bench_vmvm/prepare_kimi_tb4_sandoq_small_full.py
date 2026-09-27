@@ -30,7 +30,7 @@ MEMORY_MB_CAP = 2_048
 STORAGE_MB_CAP = 10_240
 VERIFIER_RUNTIME_RETRIES = 2
 SANDOQ_PROVISIONING_RETRIES = 8
-BASE_CONFIG_SHA256 = "07219f811f58892407c7e6e53d3c5e94d9e02c1c0cf9f72139e07fab6cfa22e1"
+BASE_CONFIG_SHA256 = "746117ed8b1cf24284dac1484b8e049bb794e4bd9a00714bb03534a7bd2167c2"
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
 VERIFIERS_COMMIT = "f11bf7cec1ca16ecadf7c88046f6a4a660af2031"
 SMOKE_RECEIPT_SHA256 = "b6e80f87f63ab471e732158299d5e19ed0224984cb8eda9ba22a9b64f17690b2"
@@ -181,7 +181,7 @@ def _load_base(
         or harness.get("id") != "mini-swe-agent"
         or harness.get("version") != union.MINISWE_VERSION
         or harness.get("config_file") != "mini"
-        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
         or harness.get("config_overrides")
         != [
             "agent.step_limit=200",
@@ -468,6 +468,8 @@ def _contracts() -> dict[str, Any]:
         "reasoning_message_parity_required": True,
         "request_graph_match_required": True,
         "model_retries": 0,
+        "guest_transport_retry_attempts": 10,
+        "logical_request_upstream_attempts": 1,
         "zero_model_resume_attempts": 1,
         "verifier_runtime_retries": VERIFIER_RUNTIME_RETRIES,
         "retry_shared_verifier_scoring": True,

@@ -18,6 +18,16 @@ WebSockets and requires the staged Sandoq client, a named `tunnel` port, nested
 host networking, and an explicit loopback guest URL. `host_tunnel = "prime"`
 remains available only as an explicit opt-in.
 
+Long agent-inside model calls use heartbeat-enabled parked WebSockets and SSE
+keepalive comments. MiniSWE assigns one private logical request ID outside its
+bounded retry loop. The buffered proxy must retain and replay both successful
+and failed terminal outcomes for that identity, and coalesce an in-flight
+reconnect, so a guest `server_disconnected` retry never creates a second
+upstream model sample. Enable MiniSWE transport retries only with that exact-once
+proxy contract pinned; keep the Verifiers model client and whole-rollout retry
+counts at zero. Receipts must distinguish guest transport retries from upstream
+model attempts and require one upstream attempt per accepted logical identity.
+
 DeepSWE model evaluation does not exercise that generic tunnel. Following the
 RAM Harbor Sandoq backend, the CPU eval driver registers its authenticated
 capture proxy with `ram-inference-gateway`, and MiniSWE calls the gateway's

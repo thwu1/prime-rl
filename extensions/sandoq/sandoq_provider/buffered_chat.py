@@ -39,8 +39,12 @@ _LOGICAL_REQUEST_ID = re.compile(r"[0-9a-f]{32}\Z")
 class BufferedChatStats:
     requests: int = 0
     upstream_attempts: int = 0
+    logical_requests: int = 0
+    logical_upstream_attempts: int = 0
+    anonymous_upstream_attempts: int = 0
     coalesced_requests: int = 0
     replayed_requests: int = 0
+    expired_logical_retries: int = 0
     downstream_disconnects: int = 0
     conflicting_requests: int = 0
     inflight: int = 0
@@ -55,8 +59,12 @@ class BufferedChatStats:
         return {
             "requests": self.requests,
             "upstream_attempts": self.upstream_attempts,
+            "logical_requests": self.logical_requests,
+            "logical_upstream_attempts": self.logical_upstream_attempts,
+            "anonymous_upstream_attempts": self.anonymous_upstream_attempts,
             "coalesced_requests": self.coalesced_requests,
             "replayed_requests": self.replayed_requests,
+            "expired_logical_retries": self.expired_logical_retries,
             "downstream_disconnects": self.downstream_disconnects,
             "conflicting_requests": self.conflicting_requests,
             "inflight": self.inflight,
@@ -114,6 +122,7 @@ class BufferedChatCompletionsProxy:
         self._session: ClientSession | None = None
         self._completion_lock = asyncio.Lock()
         self._completion: _BufferedCompletion | None = None
+        self._seen_logical_bodies: dict[bytes, bytes] = {}
         self._closing = False
         self.port = 0
         self.stats = BufferedChatStats()
@@ -201,10 +210,12 @@ class BufferedChatCompletionsProxy:
                 self.stats.conflicting_requests += 1
                 return None
             if completion is not None and completion.identity == identity and completion.body_digest == body_digest:
-                if completion.task.done() and not self._successful_task(completion.task):
-                    self._completion = completion = None
-                    self.stats.inflight = 0
-                elif completion.task.done():
+                # A logical request is an exact-once model boundary.  Retain
+                # terminal failures as well as successes so a guest transport
+                # reconnect can never turn one logical turn into a second
+                # upstream sample.  The retry receives the same response or
+                # exception; only a new logical identity may sample again.
+                if completion.task.done():
                     self.stats.replayed_requests += 1
                 else:
                     self.stats.coalesced_requests += 1
@@ -216,6 +227,14 @@ class BufferedChatCompletionsProxy:
                 self.stats.inflight = 0
 
             if completion is None:
+                if logical_request_id is not None:
+                    seen_body = self._seen_logical_bodies.get(identity)
+                    if seen_body is not None:
+                        if seen_body == body_digest:
+                            self.stats.expired_logical_retries += 1
+                        else:
+                            self.stats.conflicting_requests += 1
+                        return None
                 assert self._session is not None
                 completion = _BufferedCompletion(
                     identity=identity,
@@ -223,6 +242,12 @@ class BufferedChatCompletionsProxy:
                     task=asyncio.create_task(self._fetch_completion(upstream_body, headers)),
                     retain_after_delivery=logical_request_id is not None,
                 )
+                if logical_request_id is None:
+                    self.stats.anonymous_upstream_attempts += 1
+                else:
+                    self._seen_logical_bodies[identity] = body_digest
+                    self.stats.logical_requests += 1
+                    self.stats.logical_upstream_attempts += 1
                 completion.task.add_done_callback(
                     lambda _task, retained=completion: self._completion_finished(retained)
                 )
@@ -244,9 +269,11 @@ class BufferedChatCompletionsProxy:
             completion.delivered = completion.delivered or delivered
             if self._completion is not completion:
                 return
-            failed = completion.task.done() and not self._successful_task(completion.task)
             delivered_without_identity = completion.delivered and not completion.retain_after_delivery
-            if completion.consumers == 0 and (discard or failed or delivered_without_identity):
+            disposable_failure = (
+                discard or not self._successful_task(completion.task)
+            ) and not completion.retain_after_delivery
+            if completion.consumers == 0 and (disposable_failure or delivered_without_identity):
                 self._completion = None
                 self.stats.inflight = 0
 

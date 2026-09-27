@@ -79,17 +79,21 @@ class SandoqRelayTunnel:
         pool_size: int = 8,
         connect_timeout: float = 30,
         ready_timeout: float = 30,
+        heartbeat_interval: float = 15,
     ) -> None:
         if not 1 <= local_port <= 65535:
             raise ValueError(f"invalid local port: {local_port}")
         if pool_size < 1:
             raise ValueError("Sandoq tunnel pool size must be positive")
+        if heartbeat_interval <= 0:
+            raise ValueError("Sandoq tunnel heartbeat interval must be positive")
         self.ws_url = _websocket_url(tunnel_url)
         self.local_host = local_host
         self.local_port = local_port
         self.pool_size = pool_size
         self.connect_timeout = connect_timeout
         self.ready_timeout = ready_timeout
+        self.heartbeat_interval = heartbeat_interval
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -183,6 +187,7 @@ class SandoqRelayTunnel:
                     ssl=ssl_context,
                     autoclose=True,
                     autoping=True,
+                    heartbeat=self.heartbeat_interval,
                 ) as websocket:
                     ready.set()
                     first = await self._receive_data(websocket, aiohttp)

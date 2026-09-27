@@ -377,6 +377,9 @@ def test_disconnected_stream_retry_reuses_one_exact_upstream_completion() -> Non
             assert upstream_logical_ids == [None]
             stats = proxy.stats.snapshot()
             assert stats["upstream_attempts"] == 1
+            assert stats["logical_requests"] == 1
+            assert stats["logical_upstream_attempts"] == 1
+            assert stats["anonymous_upstream_attempts"] == 0
             assert stats["coalesced_requests"] == 1
             assert stats["downstream_disconnects"] == 1
             assert stats["inflight"] == 0
@@ -564,7 +567,9 @@ def test_completed_detached_request_is_replayed_without_second_upstream_call() -
                 assert retry.status == 200
             assert '"content": "replayed"' in payload
             assert upstream_calls == 1
-            assert proxy.stats.snapshot()["replayed_requests"] == 1
+            stats = proxy.stats.snapshot()
+            assert stats["replayed_requests"] == 1
+            assert stats["logical_requests"] == stats["logical_upstream_attempts"] == 1
         finally:
             release.set()
             await first_client.close()
@@ -629,10 +634,30 @@ def test_successfully_delivered_response_remains_available_for_exact_retry() -> 
                     json=body,
                 ) as retry:
                     retry_payload = await retry.read()
+                next_headers = {
+                    **headers,
+                    "X-VF-Logical-Request-ID": "1" * 32,
+                }
+                async with client.post(
+                    f"http://127.0.0.1:{proxy.port}/v1/chat/completions",
+                    headers=next_headers,
+                    json=body,
+                ) as next_turn:
+                    assert next_turn.status == 200
+                    await next_turn.read()
+                async with client.post(
+                    f"http://127.0.0.1:{proxy.port}/v1/chat/completions",
+                    headers=headers,
+                    json=body,
+                ) as expired_retry:
+                    assert expired_retry.status == 409
 
             assert first_payload.replace(b": keepalive\n\n", b"") == retry_payload.replace(b": keepalive\n\n", b"")
-            assert upstream_calls == 1
-            assert proxy.stats.snapshot()["replayed_requests"] == 1
+            assert upstream_calls == 2
+            stats = proxy.stats.snapshot()
+            assert stats["replayed_requests"] == 1
+            assert stats["logical_requests"] == stats["logical_upstream_attempts"] == 2
+            assert stats["expired_logical_retries"] == 1
         finally:
             await proxy.close()
             await runner.cleanup()
@@ -689,7 +714,10 @@ def test_sequential_identical_requests_without_logical_identity_resample() -> No
             assert upstream_calls == 2
             assert '"content": "1"' in payloads[0]
             assert '"content": "2"' in payloads[1]
-            assert proxy.stats.snapshot()["replayed_requests"] == 0
+            stats = proxy.stats.snapshot()
+            assert stats["replayed_requests"] == 0
+            assert stats["anonymous_upstream_attempts"] == 2
+            assert stats["logical_upstream_attempts"] == 0
         finally:
             await proxy.close()
             await runner.cleanup()
@@ -697,7 +725,7 @@ def test_sequential_identical_requests_without_logical_identity_resample() -> No
     asyncio.run(scenario())
 
 
-def test_failed_detached_request_is_not_replayed() -> None:
+def test_failed_detached_logical_request_is_replayed_without_resampling() -> None:
     async def scenario() -> None:
         entered = asyncio.Event()
         release = asyncio.Event()
@@ -771,11 +799,13 @@ def test_failed_detached_request_is_not_replayed() -> None:
             ) as retry:
                 payload = await retry.text()
                 assert retry.status == 200
-            assert '"content": "second attempt"' in payload
-            assert upstream_calls == 2
+            assert '"message":"retry"' in payload
+            assert '"content": "second attempt"' not in payload
+            assert upstream_calls == 1
             stats = proxy.stats.snapshot()
-            assert stats["upstream_attempts"] == 2
-            assert stats["replayed_requests"] == 0
+            assert stats["upstream_attempts"] == 1
+            assert stats["logical_requests"] == stats["logical_upstream_attempts"] == 1
+            assert stats["replayed_requests"] == 1
         finally:
             release.set()
             await first_client.close()

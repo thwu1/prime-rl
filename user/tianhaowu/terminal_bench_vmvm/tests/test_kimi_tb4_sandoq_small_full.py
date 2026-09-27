@@ -290,7 +290,7 @@ def test_materialized_small_plan_preserves_full_generation_contract(
     assert config["sampling"]["reasoning_effort"] == "max"
     assert config["max_total_tokens"] == 262_144
     assert config["client"]["max_retries"] == 0
-    assert config["harness"]["env"]["MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT"] == "1"
+    assert config["harness"]["env"]["MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT"] == "10"
     assert config["harness"]["runtime"]["expected_environment"] == "oci-runner-firecracker-small"
     assert config["taskset"]["resource_cpu_cap"] == 1
     assert config["taskset"]["resource_memory_mb_cap"] == 2_048
@@ -300,6 +300,9 @@ def test_materialized_small_plan_preserves_full_generation_contract(
     assert b"opaque-case" not in json.dumps(result, sort_keys=True).encode()
     plan = json.loads((output / small.PLAN).read_bytes())
     assert plan["contracts"]["model_io_response_kind"] == "exact_provider_json"
+    assert plan["contracts"]["model_retries"] == 0
+    assert plan["contracts"]["guest_transport_retry_attempts"] == 10
+    assert plan["contracts"]["logical_request_upstream_attempts"] == 1
     assert plan["contracts"]["verifier_runtime_retries"] == 2
     assert plan["contracts"]["retry_shared_verifier_scoring"] is True
     assert plan["contracts"]["provisioning_retries"] == 8
@@ -371,6 +374,15 @@ def test_identity_validator_seals_small_full_contract() -> None:
         config,
         eval_run_identity.KIMI_SMALL_TB4_DIAGNOSTIC_ROLE,
     )
+    contract, _execution = eval_run_identity._contract(
+        config,
+        "Kimi-K3",
+        role=eval_run_identity.KIMI_SMALL_TB4_DIAGNOSTIC_ROLE,
+        sandbox_provider="sandoq",
+    )
+    assert contract["harness"]["request_max_retries"] == 0
+    assert contract["harness"]["guest_transport_retry_attempts"] == 10
+    assert contract["harness"]["logical_request_upstream_attempts"] == 1
     invalid_cpu = copy.deepcopy(config)
     invalid_cpu["harness"]["runtime"]["cpu"] = 2.0
     with pytest.raises(eval_run_identity.EvalIdentityError, match="direct_kimi_tb4_small_config_invalid"):

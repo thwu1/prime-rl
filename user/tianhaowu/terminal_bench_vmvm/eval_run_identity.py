@@ -484,7 +484,7 @@ def _validate_direct_kimi_tb4_small_config(config: dict[str, Any], role: str) ->
             "model.model_kwargs.top_p=1.0",
             "model.model_kwargs.parallel_tool_calls=false",
         ]
-        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1"}
+        or harness.get("env") != {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
         or runtime
         != {
             "type": "sandoq",
@@ -1967,6 +1967,13 @@ def _contract(
             "request_timeout_seconds": harness_request_timeout,
             "request_max_retries": 0,
         }
+        if role == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE:
+            contract["harness"].update(
+                {
+                    "guest_transport_retry_attempts": 10,
+                    "logical_request_upstream_attempts": 1,
+                }
+            )
     identity_runtime = dict(runtime)
     if sandbox_provider == "sandoq" and not native_sandoq_miniswe:
         for inactive_field in (

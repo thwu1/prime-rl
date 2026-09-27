@@ -65,7 +65,9 @@ config_overrides = [
 ]
 
 [harness.env]
-MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "1"
+# These are guest-transport retries, not model resampling.  The logical request
+# ID and buffered proxy exact-once contract coalesce/replay one upstream result.
+MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "10"
 
 [harness.runtime]
 type = "sandoq"

@@ -152,3 +152,5 @@ def test_relay_tunnel_validates_pool_and_port() -> None:
         SandoqRelayTunnel(0, tunnel_url="wss://example.test/tunnel")
     with pytest.raises(ValueError, match="pool size"):
         SandoqRelayTunnel(8000, tunnel_url="wss://example.test/tunnel", pool_size=0)
+    with pytest.raises(ValueError, match="heartbeat interval"):
+        SandoqRelayTunnel(8000, tunnel_url="wss://example.test/tunnel", heartbeat_interval=0)
