@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Task-free, simultaneous c24 Sandoq Firecracker-small lifecycle soak."""
+"""Task-free, simultaneous Sandoq Firecracker-small lifecycle capacity soak."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
 
-CONCURRENCY = 24
+ALLOWED_CONCURRENCIES = (24, 64)
 ENVIRONMENT = "oci-runner-firecracker-small"
 LEASE_DURATION = "10m"
 CREATE_DEADLINE_SECONDS = 180.0
@@ -31,7 +31,6 @@ HARD_WALL_SECONDS = 690
 VERIFY_POLL_SECONDS = 0.5
 MAX_PROFILE_BYTES = 4096
 MAX_RECEIPT_BYTES = 16 * 1024
-KIND = "sandoq-firecracker-small-c24-soak"
 
 PROXY_ENVIRONMENT_NAMES = (
     "HTTP_PROXY",
@@ -94,6 +93,12 @@ _T = TypeVar("_T")
 
 class SoakError(RuntimeError):
     """The narrow soak contract or its launch environment is invalid."""
+
+
+def _kind_for_concurrency(concurrency: int) -> str:
+    if type(concurrency) is not int or concurrency not in ALLOWED_CONCURRENCIES:
+        raise SoakError("concurrency_invalid")
+    return f"sandoq-firecracker-small-c{concurrency}-soak"
 
 
 @dataclass(frozen=True)
@@ -174,7 +179,7 @@ def _validate_environment(environment: Mapping[str, str]) -> tuple[str, str]:
         or any(environment.get(name) for name in FORBIDDEN_CREDENTIAL_ENVIRONMENT_NAMES)
     ):
         raise SoakError("probe_environment_invalid")
-    return job_id, f"{owner}-firecracker-small-c24-soak"
+    return job_id, owner
 
 
 def _session_id(session: Any) -> str | None:
@@ -307,13 +312,16 @@ def _create_failure_counts(
 async def run_soak(
     *,
     profile: ProviderProfile,
+    concurrency: int,
     environment: Mapping[str, str] | None = None,
     bindings: SdkBindings | None = None,
     request_id_factory: Callable[[], object] = uuid.uuid4,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> tuple[dict[str, object], bool]:
     started = monotonic()
-    job_id, owner = _validate_environment(os.environ if environment is None else environment)
+    kind = _kind_for_concurrency(concurrency)
+    job_id, user = _validate_environment(os.environ if environment is None else environment)
+    owner = f"{user}-firecracker-small-c{concurrency}-soak"
     sdk = bindings or _load_sdk()
     client = sdk.client_factory(profile.base_url, owner)
     transport_mode = "proxy" if client.http.proxy_url else "direct"
@@ -327,7 +335,7 @@ async def run_soak(
 
     try:
         create_tasks = [
-            asyncio.create_task(_create_session(client, profile, str(request_id_factory()))) for _ in range(CONCURRENCY)
+            asyncio.create_task(_create_session(client, profile, str(request_id_factory()))) for _ in range(concurrency)
         ]
         try:
             await asyncio.gather(*create_tasks, return_exceptions=True)
@@ -364,24 +372,24 @@ async def run_soak(
     ready_count = sum(result is True for result in ready_results)
     cleanup_count = sum(result is True for result in cleanup_results)
     passed = (
-        len(create_tasks) == CONCURRENCY
-        and len(sessions) == CONCURRENCY
-        and ready_count == CONCURRENCY
+        len(create_tasks) == concurrency
+        and len(sessions) == concurrency
+        and ready_count == concurrency
         and not any(failure_counts.values())
-        and len(cleanup_results) == CONCURRENCY
-        and cleanup_count == CONCURRENCY
+        and len(cleanup_results) == concurrency
+        and cleanup_count == concurrency
         and close_verified
     )
     result: dict[str, object] = {
         "schema_version": 1,
-        "kind": KIND,
+        "kind": kind,
         "state": "passed" if passed else "unavailable",
         "environment": profile.environment,
         "profile_sha256": profile.sha256,
         "sdk_version": sdk.version,
         "transport_mode": transport_mode,
         "mtls_available": mtls_available,
-        "requested_concurrency": CONCURRENCY,
+        "requested_concurrency": concurrency,
         "create_attempts": len(create_tasks),
         "sessions_returned": len(sessions),
         "simultaneous_ready_verified": ready_count,
@@ -432,6 +440,7 @@ def _publish_private(path: Path, value: Mapping[str, object]) -> None:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--concurrency", type=int, choices=ALLOWED_CONCURRENCIES, required=True)
     parser.add_argument("--profile", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     return parser
@@ -440,24 +449,25 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     logging.disable(logging.CRITICAL)
     args = _parser().parse_args(argv)
+    kind = _kind_for_concurrency(args.concurrency)
     try:
         profile = _load_profile(args.profile)
 
         async def bounded_soak() -> tuple[dict[str, object], bool]:
             async with asyncio.timeout(HARD_WALL_SECONDS):
-                return await run_soak(profile=profile)
+                return await run_soak(profile=profile, concurrency=args.concurrency)
 
         result, passed = asyncio.run(bounded_soak())
         _publish_private(args.output, result)
     except (KeyboardInterrupt, SystemExit):
         raise
     except BaseException:
-        print(f'{{"kind":"{KIND}","state":"blocked"}}', file=sys.stderr)
+        print(f'{{"kind":"{kind}","state":"blocked"}}', file=sys.stderr)
         return 2
     print(
         json.dumps(
             {
-                "kind": KIND,
+                "kind": kind,
                 "receipt_sha256": hashlib.sha256(_canonical_json(result)).hexdigest(),
                 "state": result["state"],
             },

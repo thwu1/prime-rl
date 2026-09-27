@@ -1,5 +1,5 @@
 #!/usr/bin/bash -p
-#SBATCH --job-name=sandoq-small-c24-soak
+#SBATCH --job-name=sandoq-small-capacity-soak
 #SBATCH --partition=cpu_x86
 #SBATCH --account=ram
 #SBATCH --time=00:15:00
@@ -9,15 +9,16 @@
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=4G
 #SBATCH --no-requeue
-#SBATCH --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/sandoq_small_c24_soak_%j.log
-#SBATCH --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/sandoq_small_c24_soak_%j.log
+#SBATCH --output=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/sandoq_small_capacity_soak_%j.log
+#SBATCH --error=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/logs/sandoq_small_capacity_soak_%j.log
 
 set +x
 set -euo pipefail
 umask 077
 
+kind=sandoq-firecracker-small-capacity-soak
 blocked() {
-    printf '{"kind":"sandoq-firecracker-small-c24-soak","state":"blocked"}\n' >&2
+    printf '{"kind":"%s","state":"blocked"}\n' "$kind" >&2
     exit 2
 }
 
@@ -49,21 +50,24 @@ terminate_group() {
 }
 
 (( $# == 0 )) || blocked
+concurrency=${SANDOQ_SMALL_CAPACITY_CONCURRENCY:-}
+[[ "$concurrency" == 24 || "$concurrency" == 64 ]] || blocked
+kind="sandoq-firecracker-small-c${concurrency}-soak"
 project_dir=$(realpath -e -- "${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}")
 workflow_dir="$project_dir/user/tianhaowu/terminal_bench_vmvm"
-probe="$workflow_dir/probe_sandoq_firecracker_small_c24.py"
-launcher="$workflow_dir/run_sandoq_firecracker_small_c24_probe.sbatch"
+probe="$workflow_dir/probe_sandoq_firecracker_small_capacity.py"
+launcher="$workflow_dir/run_sandoq_firecracker_small_capacity_probe.sbatch"
 profile="$workflow_dir/configs/provider_context/use2/cpu-132-021_8103/kimi_sandoq_firecracker_small_host.json"
-expected_revision=${SANDOQ_SMALL_C24_EXPECTED_REVISION:?}
-expected_probe_sha256=${SANDOQ_SMALL_C24_PROBE_SHA256:?}
-expected_launcher_sha256=${SANDOQ_SMALL_C24_LAUNCHER_SHA256:?}
-expected_profile_sha256=${SANDOQ_SMALL_C24_PROFILE_SHA256:?}
+expected_revision=${SANDOQ_SMALL_CAPACITY_EXPECTED_REVISION:?}
+expected_probe_sha256=${SANDOQ_SMALL_CAPACITY_PROBE_SHA256:?}
+expected_launcher_sha256=${SANDOQ_SMALL_CAPACITY_LAUNCHER_SHA256:?}
+expected_profile_sha256=${SANDOQ_SMALL_CAPACITY_PROFILE_SHA256:?}
 x86_uv=/storage/home/tianhaowu/.local/x86_64/bin/uv
 x86_site=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64
 sandoq_site=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_sdk1_82068
 expected_site_sha256=df69cadb16edc799fcb62ea4fc144ee5d5572fe58fcd3e2bd6d165c607e02962
 expected_sdk_version=1.0.0.2026.9.23.82068.0+hg1a1d394e50c5
-output_root=/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/sandoq-firecracker-small-c24-soak-20260927
+output_root="/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/sandoq-firecracker-small-c${concurrency}-soak-20260927"
 output_dir="$output_root/run-${SLURM_JOB_ID:?}"
 receipt="$output_dir/receipt.json"
 
@@ -144,7 +148,7 @@ setsid env \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH="$project_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/extensions/sandoq:$sandoq_site:$x86_site" \
     "$x86_uv" run --no-project --offline --python python3 python "$probe" \
-    --profile "$profile" --output "$receipt" 2>/dev/null &
+    --concurrency "$concurrency" --profile "$profile" --output "$receipt" 2>/dev/null &
 probe_pid=$!
 wait "$probe_pid"
 probe_status=$?
@@ -160,7 +164,7 @@ trap - TERM INT HUP
     && "$(stat -c '%u:%a' -- "$receipt")" == "$(id -u):600" ]] || blocked
 
 env PYTHONDONTWRITEBYTECODE=1 "$x86_uv" run --no-project --offline --python python3 \
-    python - "$receipt" "$expected_sdk_version" "$expected_profile_sha256" "$probe_status" \
+    python - "$receipt" "$expected_sdk_version" "$expected_profile_sha256" "$probe_status" "$concurrency" \
     >/dev/null 2>&1 <<'PY' || blocked
 import json
 import sys
@@ -170,6 +174,8 @@ path = Path(sys.argv[1])
 expected_sdk_version = sys.argv[2]
 expected_profile_sha256 = sys.argv[3]
 probe_status = int(sys.argv[4])
+concurrency = int(sys.argv[5])
+kind = f"sandoq-firecracker-small-c{concurrency}-soak"
 raw = path.read_bytes()
 if not raw.endswith(b"\n") or raw.count(b"\n") != 1 or len(raw) > 16 * 1024:
     raise SystemExit(2)
@@ -206,14 +212,15 @@ if (
     not isinstance(value, dict)
     or set(value) != expected
     or value["schema_version"] != 1
-    or value["kind"] != "sandoq-firecracker-small-c24-soak"
+    or concurrency not in (24, 64)
+    or value["kind"] != kind
     or value["environment"] != "oci-runner-firecracker-small"
     or value["profile_sha256"] != expected_profile_sha256
     or value["sdk_version"] != expected_sdk_version
     or value["transport_mode"] != "proxy"
     or value["mtls_available"] is not True
-    or value["requested_concurrency"] != 24
-    or value["create_attempts"] != 24
+    or value["requested_concurrency"] != concurrency
+    or value["create_attempts"] != concurrency
     or not isinstance(value["create_failure_counts"], dict)
     or set(value["create_failure_counts"]) != failure_keys
     or any(type(count) is not int or count < 0 for count in value["create_failure_counts"].values())
@@ -223,11 +230,11 @@ if (
     raise SystemExit(2)
 passed = (
     value["state"] == "passed"
-    and value["sessions_returned"] == 24
-    and value["simultaneous_ready_verified"] == 24
+    and value["sessions_returned"] == concurrency
+    and value["simultaneous_ready_verified"] == concurrency
     and not any(value["create_failure_counts"].values())
-    and value["delete_attempts"] == 24
-    and value["typed_404_verified"] == 24
+    and value["delete_attempts"] == concurrency
+    and value["typed_404_verified"] == concurrency
     and value["cleanup_failures"] == 0
     and value["client_close_verified"] is True
 )
@@ -238,8 +245,8 @@ if probe_status not in (0, 2):
 PY
 
 if (( probe_status == 0 )); then
-    printf '{"kind":"sandoq-firecracker-small-c24-soak","state":"passed"}\n'
+    printf '{"kind":"%s","state":"passed"}\n' "$kind"
     exit 0
 fi
-printf '{"kind":"sandoq-firecracker-small-c24-soak","state":"unavailable"}\n'
+printf '{"kind":"%s","state":"unavailable"}\n' "$kind"
 exit 2

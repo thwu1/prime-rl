@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-import probe_sandoq_firecracker_small_c24 as probe
+import probe_sandoq_firecracker_small_capacity as probe
 import pytest
 
 
@@ -28,11 +28,13 @@ class _Client:
         failed_slots: set[int] | None = None,
         unready_slots: set[int] | None = None,
         never_missing: bool = False,
+        expected_concurrency: int = 24,
     ) -> None:
         self.http = SimpleNamespace(proxy_url="https://proxy.invalid", ssl_context=object())
         self.failed_slots = failed_slots or set()
         self.unready_slots = unready_slots or set()
         self.never_missing = never_missing
+        self.expected_concurrency = expected_concurrency
         self.started = 0
         self.live: set[str] = set()
         self.deleted: set[str] = set()
@@ -53,7 +55,7 @@ class _Client:
         assert ready_timeout_seconds == probe.CREATE_DEADLINE_SECONDS
         slot = int(request_id.removeprefix("request-"))
         self.started += 1
-        if self.started == probe.CONCURRENCY:
+        if self.started == self.expected_concurrency:
             self.create_release.set()
         await self.create_release.wait()
         if slot in self.failed_slots:
@@ -81,8 +83,8 @@ class _Client:
 
 
 class _CancellationClient(_Client):
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, expected_concurrency: int = 24) -> None:
+        super().__init__(expected_concurrency=expected_concurrency)
         self.blocked = 0
         self.all_blocked = asyncio.Event()
 
@@ -100,7 +102,7 @@ class _CancellationClient(_Client):
             self.live.add(session_id)
             return SimpleNamespace(session_id=session_id, status=None)
         self.blocked += 1
-        if self.blocked == probe.CONCURRENCY - 3:
+        if self.blocked == self.expected_concurrency - 3:
             self.all_blocked.set()
         await asyncio.Event().wait()
         raise AssertionError("unreachable")
@@ -138,12 +140,17 @@ def _request_ids() -> object:
     return next_id
 
 
-def test_c24_soak_holds_all_ready_sessions_then_verifies_every_404(tmp_path: Path) -> None:
-    client = _Client()
+@pytest.mark.parametrize("concurrency", probe.ALLOWED_CONCURRENCIES)
+def test_capacity_soak_holds_all_ready_sessions_then_verifies_every_404(
+    tmp_path: Path,
+    concurrency: int,
+) -> None:
+    client = _Client(expected_concurrency=concurrency)
 
     result, passed = asyncio.run(
         probe.run_soak(
             profile=_profile(tmp_path),
+            concurrency=concurrency,
             environment=_environment(),
             bindings=_bindings(client),
             request_id_factory=_request_ids(),
@@ -152,18 +159,19 @@ def test_c24_soak_holds_all_ready_sessions_then_verifies_every_404(tmp_path: Pat
 
     assert passed is True
     assert result["state"] == "passed"
-    assert result["requested_concurrency"] == 24
-    assert result["create_attempts"] == 24
-    assert result["sessions_returned"] == 24
-    assert result["simultaneous_ready_verified"] == 24
+    assert result["kind"] == f"sandoq-firecracker-small-c{concurrency}-soak"
+    assert result["requested_concurrency"] == concurrency
+    assert result["create_attempts"] == concurrency
+    assert result["sessions_returned"] == concurrency
+    assert result["simultaneous_ready_verified"] == concurrency
     assert result["create_failure_counts"] == dict.fromkeys(probe.CREATE_FAILURE_KEYS, 0)
-    assert result["delete_attempts"] == 24
-    assert result["typed_404_verified"] == 24
+    assert result["delete_attempts"] == concurrency
+    assert result["typed_404_verified"] == concurrency
     assert result["cleanup_failures"] == 0
     assert result["client_close_verified"] is True
-    assert client.started == 24
-    assert client.max_live == 24
-    assert len(client.deleted) == 24
+    assert client.started == concurrency
+    assert client.max_live == concurrency
+    assert len(client.deleted) == concurrency
     assert client.live == set()
     assert client.closed is True
     serialized = json.dumps(result, sort_keys=True)
@@ -177,6 +185,7 @@ def test_partial_create_failure_still_deletes_every_returned_session(tmp_path: P
     result, passed = asyncio.run(
         probe.run_soak(
             profile=_profile(tmp_path),
+            concurrency=24,
             environment=_environment(),
             bindings=_bindings(client),
             request_id_factory=_request_ids(),
@@ -206,6 +215,7 @@ def test_unready_get_or_missing_404_fails_closed_and_still_cleans(
     result, passed = asyncio.run(
         probe.run_soak(
             profile=_profile(tmp_path),
+            concurrency=24,
             environment=_environment(),
             bindings=_bindings(client),
             request_id_factory=_request_ids(),
@@ -228,6 +238,7 @@ def test_cancellation_deletes_every_returned_session_before_propagating(tmp_path
         task = asyncio.create_task(
             probe.run_soak(
                 profile=_profile(tmp_path),
+                concurrency=24,
                 environment=_environment(),
                 bindings=_bindings(client),
                 request_id_factory=_request_ids(),
@@ -261,7 +272,7 @@ def test_profile_is_exact_and_receipt_is_owner_only(tmp_path: Path) -> None:
     output_dir = tmp_path / "output"
     output_dir.mkdir(mode=0o700)
     output = (output_dir / "receipt.json").resolve()
-    probe._publish_private(output, {"kind": probe.KIND, "state": "fixture"})
+    probe._publish_private(output, {"kind": probe._kind_for_concurrency(24), "state": "fixture"})
     assert output.stat().st_mode & 0o777 == 0o600
 
 
@@ -283,18 +294,36 @@ def test_deadlines_fit_the_fifteen_minute_launcher() -> None:
     assert probe.LEASE_DURATION == "10m"
 
 
+def test_cli_and_runtime_accept_only_explicit_c24_or_c64(tmp_path: Path) -> None:
+    output = tmp_path / "receipt.json"
+    profile = tmp_path / "profile.json"
+    for concurrency in probe.ALLOWED_CONCURRENCIES:
+        args = probe._parser().parse_args(
+            ["--concurrency", str(concurrency), "--profile", str(profile), "--output", str(output)]
+        )
+        assert args.concurrency == concurrency
+        assert probe._kind_for_concurrency(concurrency) == f"sandoq-firecracker-small-c{concurrency}-soak"
+    for invalid in (0, 23, 25, 63, 65, True):
+        with pytest.raises(probe.SoakError, match="^concurrency_invalid$"):
+            probe._kind_for_concurrency(invalid)
+
+
 def test_launcher_pins_source_profile_sdk_and_private_bounded_execution() -> None:
-    launcher = Path(probe.__file__).with_name("run_sandoq_firecracker_small_c24_probe.sbatch").read_text()
+    launcher = Path(probe.__file__).with_name("run_sandoq_firecracker_small_capacity_probe.sbatch").read_text()
 
     assert "#SBATCH --time=00:15:00" in launcher
     assert "#SBATCH --signal=B:TERM@180" in launcher
-    assert "SANDOQ_SMALL_C24_EXPECTED_REVISION" in launcher
-    assert "SANDOQ_SMALL_C24_PROBE_SHA256" in launcher
-    assert "SANDOQ_SMALL_C24_LAUNCHER_SHA256" in launcher
-    assert "SANDOQ_SMALL_C24_PROFILE_SHA256" in launcher
+    assert "SANDOQ_SMALL_CAPACITY_CONCURRENCY" in launcher
+    assert '[[ "$concurrency" == 24 || "$concurrency" == 64 ]]' in launcher
+    assert "SANDOQ_SMALL_CAPACITY_EXPECTED_REVISION" in launcher
+    assert "SANDOQ_SMALL_CAPACITY_PROBE_SHA256" in launcher
+    assert "SANDOQ_SMALL_CAPACITY_LAUNCHER_SHA256" in launcher
+    assert "SANDOQ_SMALL_CAPACITY_PROFILE_SHA256" in launcher
     assert "kimi_sandoq_firecracker_small_host.json" in launcher
     assert "sandoq_x86_64_sdk1_82068" in launcher
     assert "setsid env" in launcher
+    assert '--concurrency "$concurrency"' in launcher
+    assert "sandoq-firecracker-small-c${concurrency}-soak-20260927" in launcher
     assert "terminate_group" in launcher
     assert 'chmod 600 -- "$receipt"' not in launcher
     assert '"$(stat -c \'%u:%a\' -- "$receipt")" == "$(id -u):600"' in launcher
