@@ -18,7 +18,9 @@ inputs must validate again:
 - an aggregate-only soak over all 2,499 distinct real task images in c64
   waves, with at least six days of endpoint walltime remaining at capture time;
 - a transport-qualified TB4 v7 certificate with at least 7/66 passes,
-  lossless `exact_provider_json` model I/O, and exact-once proxy counters.
+  lossless `exact_provider_json` model I/O on every eligible clean row, and
+  exact-once proxy counters; execution-error and trace-invalid rows remain
+  explicitly non-trainable.
 
 The task-image soak runs setup, a no-op command, and shared-verifier startup;
 it invokes neither MiniSWE nor the model and never publishes membership, raw
