@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any
 
 import direct_kimi_workers
+import finalize_kimi_tb4_sandoq_small_v6_supersession as supersession
 import qwen_miniswe246_sandoq_smoke as shared
 
 MODEL = "Kimi-K3"
@@ -46,13 +47,13 @@ EXPECTED_WORKERS = 24
 RECEIPT_KIND = "kimi-miniswe246-sandoq-firecracker-small-canary"
 TB4_RECEIPT_KIND = "kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic"
 EVAL_CONFIG_SHA256 = "517bdc47951cb798cf18332e88b5d4202ac643da4737301a203aeebb96d52ff0"
-TB4_EVAL_CONFIG_SHA256 = "8f75c7a74fd43f22c9a7c4b4c56f6ac2a5c436e6aecaa1f7d71366c8590cb1f5"
+TB4_EVAL_CONFIG_SHA256 = "5c8987eb2fbae751ae30dce3abdea7d15f878ec05ffdcc0d084f1b69876af002"
 TB4_SELECTOR_SHA256 = "c1f745d4a1d3861deefb3fba4daa23f52ff3d1d4952a9fe2ba0ccbdc4040af97"
 TB4_IMAGE_MANIFEST_SHA256 = "6dd632029af8da52f99f1d364e983a5da2e855afeb6a2ea5fc84fd00e1683513"
 TB4_TASK_TREE_SHA256 = "55ee806f7a9be4c270161863b27010f7b684d2acaf31eff7c490e57f84a0dc86"
 TB4_TASK_TREE_FILE_COUNT = 21
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
-SHARED_SMOKE_SHA256 = "f02582924e5039f50604b0a7c003068ab7a1467bf095ef01164474cd01aeac77"
+SHARED_SMOKE_SHA256 = "105c97e244bc1f5ab84f9577926bce437bbd113d72651c1876d9cfc1eea41992"
 DIRECT_ROUTER_SHA256 = "38398a48040879e242807dfa1f0272951aad0b9a0be371b42e7cabe61f3313db"
 DIRECT_WORKERS_SHA256 = "41d408eb6e7be4a77d4299077ed3479e300b762c96201ad0e6703ac2ff958652"
 _REVISION_RE = re.compile(r"[0-9a-f]{40}")
@@ -409,6 +410,7 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
             guest_tunnel_url="http://127.0.0.1:8485",
             tunnel_pool_size=4,
             tunnel_ready_timeout=30,
+            buffered_chat_completions=tb4,
             expected_environment="oci-runner-firecracker-small",
             ecr_token_file=Path("/storage/home/tianhaowu/.config/oci-runner/ecr-token"),
         ),
@@ -430,7 +432,12 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
             sandbox_started = True
             await taskset.setup(task, runtime)
             task_setup = True
-            async with runtime.host_endpoint(relay.port) as guest_endpoint:
+            endpoint_context = (
+                runtime.interception_endpoint(relay.port)
+                if tb4
+                else runtime.host_endpoint(relay.port)
+            )
+            async with endpoint_context as guest_endpoint:
                 dependency = (
                     'dependencies = ["mini-swe-agent=={version}", "litellm[proxy]==1.91.2"]'
                 )
@@ -489,7 +496,7 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
                     {
                         "MSWEA_CONFIGURED": "true",
                         "MSWEA_SILENT_STARTUP": "true",
-                        "MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "1",
+                        "MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10" if tb4 else "1",
                     },
                 )
                 trajectory_bytes = await runtime.read(trajectory_path)
@@ -645,6 +652,7 @@ def public_receipt(
     router: dict[str, bool],
     kind: str = RECEIPT_KIND,
     binding: dict[str, Any] | None = None,
+    transport: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     expected = set(shared.failed_run_state())
     if set(run_state) != expected:
@@ -653,6 +661,7 @@ def public_receipt(
         router = _failed_router_audit()
     model_calls = run_state["model_calls"]
     reward = run_state["reward"]
+    transport_valid = _transport_audit_valid(transport, model_calls)
     valid = (
         run_state["sandbox_lifecycle"] is True
         and type(model_calls) is int
@@ -666,6 +675,7 @@ def public_receipt(
         and not isinstance(reward, bool)
         and cleanup
         and all(router.values())
+        and (kind != TB4_RECEIPT_KIND or transport_valid)
     )
     strict = valid and run_state["exact_native_submission_marker"] is True and reward > 0
     if kind == TB4_RECEIPT_KIND:
@@ -673,7 +683,7 @@ def public_receipt(
     else:
         status = "strict_passed" if strict else "infrastructure_only" if valid else "failed"
     receipt = {
-        "schema_version": 2 if binding is not None else 1,
+        "schema_version": 3 if binding is not None and transport is not None else 2 if binding is not None else 1,
         "kind": kind,
         "task_count": 1,
         "max_model_calls": MAX_MODEL_CALLS,
@@ -691,7 +701,89 @@ def public_receipt(
     }
     if binding is not None:
         receipt["deployment"] = binding
+    if transport is not None:
+        receipt["transport"] = transport
     return receipt
+
+
+def _transport_audit_valid(value: Any, model_calls: Any) -> bool:
+    summary = value.get("summary") if isinstance(value, dict) else None
+    artifact = value.get("execution_log") if isinstance(value, dict) else None
+    totals = summary.get("integer_totals") if isinstance(summary, dict) else None
+    return (
+        isinstance(value, dict)
+        and set(value) == {"schema_version", "kind", "execution_log", "summary"}
+        and value.get("schema_version") == 1
+        and value.get("kind") == "sandoq-buffered-chat-logical-exact-once"
+        and isinstance(artifact, dict)
+        and set(artifact) == {"bytes", "sha256"}
+        and isinstance(artifact.get("bytes"), int)
+        and not isinstance(artifact.get("bytes"), bool)
+        and artifact["bytes"] > 0
+        and _SHA256_RE.fullmatch(str(artifact.get("sha256", ""))) is not None
+        and isinstance(summary, dict)
+        and summary.get("source_schema") == "logical-exact-once-v1"
+        and summary.get("summary_records") == 1
+        and summary.get("exact_once_counters_required") is True
+        and isinstance(totals, dict)
+        and type(model_calls) is int
+        and totals.get("logical_requests") == model_calls
+        and totals.get("logical_upstream_attempts") == model_calls
+        and totals.get("upstream_attempts") == model_calls
+        and totals.get("anonymous_upstream_attempts") == 0
+        and totals.get("conflicting_requests") == 0
+        and totals.get("expired_logical_retries") == 0
+        and totals.get("inflight") == 0
+        and totals.get("error_count") == 0
+        and totals.get("requests") == totals.get("streamed_requests")
+        and isinstance(totals.get("coalesced_requests"), int)
+        and isinstance(totals.get("replayed_requests"), int)
+    )
+
+
+def transport_attestation(path: Path) -> dict[str, Any]:
+    before = path.lstat()
+    if (
+        not stat.S_ISREG(before.st_mode)
+        or stat.S_IMODE(before.st_mode) != 0o600
+        or before.st_uid != os.geteuid()
+        or before.st_nlink != 1
+        or before.st_size < 1
+        or before.st_size > shared.MAX_BODY_BYTES
+    ):
+        raise CanaryError("transport_log_invalid")
+    body = path.read_bytes()
+    after = path.lstat()
+    if (
+        before.st_dev,
+        before.st_ino,
+        before.st_size,
+        before.st_mtime_ns,
+        before.st_ctime_ns,
+    ) != (
+        after.st_dev,
+        after.st_ino,
+        after.st_size,
+        after.st_mtime_ns,
+        after.st_ctime_ns,
+    ) or len(body) != after.st_size:
+        raise CanaryError("transport_log_changed")
+    try:
+        summary = supersession._buffered_proxy_audit(
+            body,
+            expected_schema="logical-exact-once-v1",
+        )
+    except (RuntimeError, ValueError) as error:
+        raise CanaryError("transport_audit_invalid") from error
+    return {
+        "schema_version": 1,
+        "kind": "sandoq-buffered-chat-logical-exact-once",
+        "execution_log": {
+            "bytes": len(body),
+            "sha256": hashlib.sha256(body).hexdigest(),
+        },
+        "summary": summary,
+    }
 
 
 def _failed_router_audit() -> dict[str, bool]:
@@ -1000,12 +1092,14 @@ def orchestrate_command(args: argparse.Namespace) -> int:
             expected_workers=args.expected_workers,
             expected_per_worker_capacity=args.expected_per_worker_capacity,
         )
+        transport = transport_attestation(log) if args.task_profile == "tb4" else None
         receipt = public_receipt(
             run_state,
             cleanup=cleanup,
             router=router,
             kind=receipt_kind,
             binding=binding,
+            transport=transport,
         )
         if time.monotonic() - started > orchestrator_wall_seconds:
             receipt = public_receipt(
@@ -1014,6 +1108,7 @@ def orchestrate_command(args: argparse.Namespace) -> int:
                 router=router,
                 kind=receipt_kind,
                 binding=binding,
+                transport=transport,
             )
         shared.publish_private(output_dir / "receipt.json", receipt)
     except Exception:
