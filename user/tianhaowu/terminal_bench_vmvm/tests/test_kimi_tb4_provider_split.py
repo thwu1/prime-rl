@@ -1063,6 +1063,36 @@ def test_small_router_receipt_allows_only_opted_in_terminal_upstream_status(
     )
     assert observed == body
 
+    stock_production = copy.deepcopy(identity)
+    stock_production["role"] = "kimi-direct-mobius"
+    stock_production["execution"]["rollout_concurrency"] = 64
+    observed, _artifact, _marker = split._validate_direct_router_receipt(
+        receipt,
+        stock_production,
+        minimum_chat_requests=1,
+        identity_sha256=identity_sha256,
+        invocation_identity_sha256=invocation_sha256,
+        allow_terminal_upstream_statuses=True,
+    )
+    assert observed == body
+    for mutation in ("environment", "concurrency", "profile"):
+        changed = copy.deepcopy(stock_production)
+        if mutation == "environment":
+            changed["execution"]["sandoq_environment"]["environment"] = "oci-runner"
+        elif mutation == "concurrency":
+            changed["execution"]["rollout_concurrency"] = 63
+        else:
+            changed["deployment"]["router"]["capacity_profile"] = split.C64_W2_CAPACITY_PROFILE
+        with pytest.raises(split.KimiProviderSplitError, match="router_receipt_unexpected"):
+            split._validate_direct_router_receipt(
+                receipt,
+                changed,
+                minimum_chat_requests=1,
+                identity_sha256=identity_sha256,
+                invocation_identity_sha256=invocation_sha256,
+                allow_terminal_upstream_statuses=True,
+            )
+
     missing_failure_counter = dict(value)
     missing_failure_counter.pop("upstream_failures")
     missing_failure_counter_body = split.canonical_json(missing_failure_counter)

@@ -113,6 +113,8 @@ def _binding_files(
     *,
     role: str = "kimi-direct-tb4",
     manifest_path: Path | None = None,
+    rollout_concurrency: int | None = None,
+    sandoq_environment: str | None = None,
 ) -> tuple[Path, Path, Path, str]:
     run_dir.mkdir(parents=True, exist_ok=True)
     run_dir.chmod(0o700)
@@ -162,8 +164,15 @@ def _binding_files(
     }
     if role == "kimi-direct-tb4-small-diagnostic":
         identity_value["execution"] = {
-            "rollout_concurrency": 24,
-            "sandoq_environment": {"environment": "oci-runner-firecracker-small"},
+            "rollout_concurrency": rollout_concurrency or 24,
+            "sandoq_environment": {
+                "environment": sandoq_environment or "oci-runner-firecracker-small"
+            },
+        }
+    elif rollout_concurrency is not None or sandoq_environment is not None:
+        identity_value["execution"] = {
+            "rollout_concurrency": rollout_concurrency,
+            "sandoq_environment": {"environment": sandoq_environment},
         }
     identity_sha256 = hashlib.sha256(
         json.dumps(
@@ -1023,6 +1032,139 @@ def test_direct_kimi_w2_scored_receipt_binds_observed_forwarding_peak_without_re
         receipt["worker_max_active_request_counts_sha256"]
         == hashlib.sha256((json.dumps([1, *([0] * 23)], separators=(",", ":")) + "\n").encode()).hexdigest()
     )
+
+    if role == "kimi-direct-mobius":
+        with pytest.raises(DirectKimiWorkerError, match="run_binding_invalid"):
+            certify_router(
+                manifest_path,
+                manifest_sha256,
+                24,
+                stats,
+                run_dir / "router-terminal-opt-in.json",
+                eval_run_identity=identity,
+                eval_invocations=invocations,
+                provenance=provenance,
+                allow_terminal_upstream_statuses=True,
+            )
+
+
+@pytest.mark.parametrize(
+    ("rollout_concurrency", "environment", "accepted"),
+    (
+        (64, "oci-runner-firecracker-small", True),
+        (63, "oci-runner-firecracker-small", False),
+        (64, "oci-runner", False),
+    ),
+)
+def test_stock_small_production_terminal_receipt_is_narrow_and_versioned(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    rollout_concurrency: int,
+    environment: str,
+    accepted: bool,
+) -> None:
+    root = _deployment(tmp_path, monkeypatch)
+    config = root / "proxy_litellm_config.yaml"
+    config_value = yaml.safe_load(config.read_text())
+    config_value["model_list"] = config_value["model_list"][:1]
+    config.write_text(yaml.safe_dump(config_value, sort_keys=True))
+    spec = root / "spec.yaml"
+    monkeypatch.setattr(
+        direct_kimi_workers,
+        "STOCK_SINGLE_SPEC_SHA256",
+        hashlib.sha256(spec.read_bytes()).hexdigest(),
+    )
+    monkeypatch.setattr(
+        direct_kimi_workers,
+        "STOCK_SINGLE_PROXY_CONFIG_SHA256",
+        hashlib.sha256(config.read_bytes()).hexdigest(),
+    )
+    generation = tmp_path / "generation"
+    manifest_path = generation / direct_kimi_workers.GENERATION_MANIFEST_NAME
+    prepare_generation(
+        root,
+        generation,
+        manifest_path,
+        generation / direct_kimi_workers.GENERATION_URLS_NAME,
+        generation / direct_kimi_workers.GENERATION_PORTS_NAME,
+        capacity_profile=direct_kimi_workers.STOCK_SINGLE_C64_CAPACITY_PROFILE,
+        endpoint_identifier=direct_kimi_workers.STOCK_SINGLE_ENDPOINT_IDENTIFIER,
+    )
+    manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    run_dir = tmp_path / f"run-{rollout_concurrency}-{environment}"
+    identity, invocations, provenance, _identity_sha256 = _binding_files(
+        run_dir,
+        role="kimi-direct-mobius",
+        manifest_path=manifest_path,
+        rollout_concurrency=rollout_concurrency,
+        sandoq_environment=environment,
+    )
+    stats = run_dir / "router-stats.json"
+    stats.write_text(
+        json.dumps(
+            {
+                "schema_version": 4,
+                "kind": "direct-kimi-transparent-router",
+                "implementation": "direct-kimi-transparent-v2",
+                "policy": "consistent_hash",
+                "request_id_headers": ["x-session-id"],
+                "request_timeout_seconds": 43_200,
+                "retries": 0,
+                "worker_count": 1,
+                "active_workers": 1,
+                "capacity_profile": direct_kimi_workers.STOCK_SINGLE_C64_CAPACITY_PROFILE,
+                "endpoint_identifier": direct_kimi_workers.STOCK_SINGLE_ENDPOINT_IDENTIFIER,
+                "configured_capacity": 64,
+                "configured_per_worker_capacity": 64,
+                "active_requests": 0,
+                "active_chat_requests": 0,
+                "active_forwarded_requests": 0,
+                "max_active_requests": 1,
+                "max_active_chat_requests": 1,
+                "max_active_forwarded_requests": 1,
+                "total_requests": 1,
+                "chat_requests": 1,
+                "missing_session_rejections": 0,
+                "capacity_rejections": 0,
+                "queue_overflow_rejections": 0,
+                "route_tracking_overflows": 0,
+                "cross_route_anomalies": 0,
+                "upstream_failures": 0,
+                "worker_queue_timeouts": 0,
+                "upstream_http_429": 0,
+                "upstream_http_5xx": 1,
+                "tracked_sessions": 1,
+                "worker_request_counts": [1],
+                "worker_active_request_counts": [0],
+                "worker_session_counts": [1],
+                "active_worker_waiters": 0,
+                "worker_waiting_request_counts": [0],
+                "worker_max_active_request_counts": [1],
+            }
+        )
+    )
+    stats.chmod(0o600)
+    arguments = (
+        manifest_path,
+        manifest_sha256,
+        1,
+        stats,
+        run_dir / "router.json",
+    )
+    keywords = {
+        "eval_run_identity": identity,
+        "eval_invocations": invocations,
+        "provenance": provenance,
+        "allow_terminal_upstream_statuses": True,
+    }
+    if not accepted:
+        with pytest.raises(DirectKimiWorkerError, match="run_binding_invalid"):
+            certify_router(*arguments, **keywords)
+        return
+    receipt = certify_router(*arguments, **keywords)
+    assert receipt["schema_version"] == 7
+    assert receipt["upstream_failures"] == 0
+    assert receipt["upstream_http_5xx"] == 1
 
 
 def test_existing_c64_profile_cannot_authorize_capacity_role(tmp_path: Path, monkeypatch) -> None:
