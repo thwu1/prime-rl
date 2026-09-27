@@ -236,6 +236,7 @@ def test_exact_provider_audit_accepts_reasoning_and_rejects_normalized(tmp_path:
     wrong_type["errors"] = [_error("SandboxError")]
     wrong_type["rewards"] = {}
     wrong_type["metrics"] = {}
+    wrong_type["stop_condition"] = "error"
     unsupported = _private_file(root / "wrong-error-type.jsonl", shards._canonical(wrong_type))
     with pytest.raises(shards.StockSmallError, match="model_bearing_error_type_invalid"):
         shards.audit_results(unsupported, selector)
@@ -263,6 +264,11 @@ def test_error_rows_remain_covered_without_model_payload_inspection(tmp_path: Pa
     assert audit["zero_model_error_traces"] == 1
     assert audit["model_bearing_error_traces"] == 0
 
+    row["stop_condition"] = "task_completed"
+    invalid_stop = _private_file(root / "invalid-stop.jsonl", shards._canonical(row))
+    with pytest.raises(shards.StockSmallError, match="trace_errors_invalid"):
+        shards.audit_results(invalid_stop, selector)
+
 
 def test_model_bearing_error_trace_still_requires_lossless_reasoning(tmp_path: Path) -> None:
     root = _private_dir(tmp_path / "private")
@@ -271,6 +277,7 @@ def test_model_bearing_error_trace_still_requires_lossless_reasoning(tmp_path: P
     exact_row["errors"] = [_error()]
     exact_row["rewards"] = {}
     exact_row["metrics"] = {}
+    exact_row["stop_condition"] = "error"
     exact = _private_file(root / "exact-error.jsonl", shards._canonical(exact_row))
 
     audit = shards.audit_results(exact, selector)
@@ -285,6 +292,7 @@ def test_model_bearing_error_trace_still_requires_lossless_reasoning(tmp_path: P
     normalized_row["errors"] = [_error()]
     normalized_row["rewards"] = {}
     normalized_row["metrics"] = {}
+    normalized_row["stop_condition"] = "error"
     normalized = _private_file(root / "normalized-error.jsonl", shards._canonical(normalized_row))
     with pytest.raises(shards.StockSmallError, match="model_bearing_trace_invalid"):
         shards.audit_results(normalized, selector)
@@ -309,6 +317,44 @@ def test_model_bearing_provider_error_requires_exact_on_disk_shape(tmp_path: Pat
     invalid = _private_file(root / "provider-error-null.jsonl", shards._canonical(row))
     with pytest.raises(shards.StockSmallError, match="trace_errors_invalid"):
         shards.audit_results(invalid, selector)
+
+
+@pytest.mark.parametrize("error_type", ("HarnessError", "ProviderError"))
+def test_model_bearing_error_rejects_duplicate_terminal_errors(
+    tmp_path: Path,
+    error_type: str,
+) -> None:
+    root = _private_dir(tmp_path / "private")
+    selector = _private_file(root / "selector.txt", b"opaque-a\n")
+    row = _trace("trace-a", "opaque-a")
+    row["errors"] = [_error(error_type), _error(error_type)]
+    row["rewards"] = {}
+    row["metrics"] = {}
+    row["stop_condition"] = "error"
+    results = _private_file(root / "duplicate-errors.jsonl", shards._canonical(row))
+
+    with pytest.raises(shards.StockSmallError, match="trace_errors_invalid"):
+        shards.audit_results(results, selector)
+
+
+def test_zero_model_provider_error_rejects_duplicate_terminal_errors(tmp_path: Path) -> None:
+    root = _private_dir(tmp_path / "private")
+    selector = _private_file(root / "selector.txt", b"opaque-a\n")
+    row = {
+        "id": "trace-a",
+        "task": {"slug": "opaque-a"},
+        "errors": [_error("ProviderError"), _error("ProviderError")],
+        "rewards": {},
+        "metrics": {},
+        "info": {},
+        "is_completed": True,
+        "stop_condition": "error",
+        "nodes": [],
+    }
+    results = _private_file(root / "duplicate-zero-model-errors.jsonl", shards._canonical(row))
+
+    with pytest.raises(shards.StockSmallError, match="trace_errors_invalid"):
+        shards.audit_results(results, selector)
 
 
 def test_zero_reward_infrastructure_stop_is_not_certifiable(tmp_path: Path) -> None:
