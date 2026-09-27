@@ -144,6 +144,7 @@ def _identity_contract(
         or not isinstance(source, dict)
         or source.get("sandbox_provider") != "sandoq"
         or source.get("prime_rl_commit") != expected_revision
+        or source.get("verifiers_commit") != plan_module.VERIFIERS_COMMIT
         or not isinstance(config, dict)
         or config.get("source", {}).get("sha256") != lane["config"]["sha256"]
         or not isinstance(inputs, dict)
@@ -195,13 +196,17 @@ def _identity_contract(
     return identity, identity_sha256, invocation_sha256, slurm_job_id
 
 
-def _verified_plan(path: Path, expected_sha256: str) -> tuple[dict[str, Any], dict[str, Any]]:
-    body = split.read_regular(path, code="plan_invalid", private=True)
+def _verified_plan(
+    path: Path,
+    expected_sha256: str,
+    held: split._HeldArtifactSet,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    body = split.read_regular(path, code="plan_invalid", private=True, held=held)
     if _sha256(body) != expected_sha256:
         _fail("plan_invalid")
     try:
         plan = json.loads(body)
-        verified = plan_module.verify(path, expected_sha256)
+        verified = plan_module.verify(path, expected_sha256, held=held, body=body)
     except Exception as error:
         _fail("plan_invalid", error)
     if not isinstance(plan, dict):
@@ -209,16 +214,17 @@ def _verified_plan(path: Path, expected_sha256: str) -> tuple[dict[str, Any], di
     return plan, verified
 
 
-def finalize(
+def _finalize_with_held(
     *,
     plan_path: Path,
     plan_sha256: str,
     run_dir: Path,
     expected_revision: str,
+    held: split._HeldArtifactSet,
 ) -> dict[str, Any]:
     if REVISION_RE.fullmatch(expected_revision or "") is None:
         _fail("source_revision_invalid")
-    plan, verified = _verified_plan(plan_path, plan_sha256)
+    plan, verified = _verified_plan(plan_path, plan_sha256, held)
     run_dir = split._absolute_path(run_dir)
     if str(run_dir) != verified["output_dir"]:
         _fail("run_directory_invalid")
@@ -227,7 +233,12 @@ def finalize(
         _fail("output_not_fresh")
     manifest_record = plan["source"]["manifest"]
     manifest_path = Path(manifest_record["path"])
-    manifest_body = split.read_regular(manifest_path, code="manifest_invalid", private=True)
+    manifest_body = split.read_regular(
+        manifest_path,
+        code="manifest_invalid",
+        private=True,
+        held=held,
+    )
     if _artifact_bytes(manifest_path, manifest_body) != manifest_record:
         _fail("manifest_invalid")
     try:
@@ -237,8 +248,6 @@ def finalize(
         _fail("manifest_invalid", error)
     verifier_modes = {entry.task_id: entry.verifier_mode for entry in entries}
     with ExitStack() as stack:
-        held = split._HeldArtifactSet.create()
-        stack.callback(held.close)
         evidence = split._open_held_run_evidence(run_dir)
         stack.callback(evidence.close)
         writer_lock = stack.enter_context(split._open_private_writer_lock_at(evidence.directory, ".writer.lock"))
@@ -271,6 +280,7 @@ def finalize(
                 verifier_modes,
                 held,
                 require_exact_provider_json=False,
+                required_response_kind="normalized_stream_response",
             )
             cleanup, cleanup_artifacts = split._validate_sandoq_cleanup(
                 run_dir / "sandoq_cleanup_audit.json",
@@ -356,6 +366,8 @@ def finalize(
         }
         files = {RESULTS: results_body, CERTIFICATE: split.canonical_json(certificate)}
         try:
+            evidence.revalidate()
+            held.revalidate()
             split._publish_private_bundle(output, files)
         except Exception as error:
             _fail("publication_failed", error)
@@ -371,6 +383,26 @@ def finalize(
         "certification_eligible": False,
         "results_sha256": _sha256(results_body),
     }
+
+
+def finalize(
+    *,
+    plan_path: Path,
+    plan_sha256: str,
+    run_dir: Path,
+    expected_revision: str,
+) -> dict[str, Any]:
+    held = split._HeldArtifactSet.create()
+    try:
+        return _finalize_with_held(
+            plan_path=plan_path,
+            plan_sha256=plan_sha256,
+            run_dir=run_dir,
+            expected_revision=expected_revision,
+            held=held,
+        )
+    finally:
+        held.close()
 
 
 def _artifact_bytes(path: Path, body: bytes) -> dict[str, Any]:

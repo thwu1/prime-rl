@@ -80,10 +80,24 @@ if [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
     provider_profile_sha256=247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084
 fi
 router_pid=
+provider_supervisor_pid=
 
 cleanup() {
     status=$?
     trap - EXIT INT TERM
+    if [[ -n "$provider_supervisor_pid" ]] \
+        && kill -0 -- "-$provider_supervisor_pid" 2>/dev/null; then
+        kill -TERM -- "-$provider_supervisor_pid" 2>/dev/null || true
+        supervisor_deadline=$(( $(date +%s) + 660 ))
+        while kill -0 -- "-$provider_supervisor_pid" 2>/dev/null \
+            && (( $(date +%s) < supervisor_deadline )); do
+            sleep 1
+        done
+        if kill -0 -- "-$provider_supervisor_pid" 2>/dev/null; then
+            kill -KILL -- "-$provider_supervisor_pid" 2>/dev/null || true
+        fi
+        wait "$provider_supervisor_pid" 2>/dev/null || true
+    fi
     if [[ -n "$router_pid" ]] && kill -0 "$router_pid" 2>/dev/null; then
         kill -TERM -- "-$router_pid" 2>/dev/null || true
         wait "$router_pid" 2>/dev/null || true
@@ -807,7 +821,9 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         || "$stage" == sandoq-fallback-memory-16g ]]; then
         sandoq_lease_profile=kimi-tb4-long
     fi
-    env "${stage_env[@]}" \
+    set +e
+    setsid env "${stage_env[@]}" \
+        SANDOQ_PROVIDER_TERMINATION_GRACE_SECONDS=600 \
         "$x86_uv" run --no-project --offline --python "$python_bin" \
         python3 "$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py" supervise \
         --profile "$provider_profile" \
@@ -819,7 +835,15 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         --ecr-token-file "$ecr_token_file" \
         --ecr-token-metadata "$ecr_token_metadata" \
         --project-root "$project_dir" --sandoq-site "$sandoq_site" \
-        -- bash "$workflow_dir/run_direct_kimi_sandoq_stage.sh"
+        -- bash "$workflow_dir/run_direct_kimi_sandoq_stage.sh" &
+    provider_supervisor_pid=$!
+    wait "$provider_supervisor_pid"
+    stage_status=$?
+    provider_supervisor_pid=
+    set -e
+    if [[ "$stage_status" -ne 0 ]]; then
+        exit "$stage_status"
+    fi
 else
     capacity_private_key=/storage/home/tianhaowu/.config/vmvm-capacity-attestor/kimi-tb4-use2-1-ed25519.pem
     capacity_public_key="$server_dir/vmvm_capacity_attestor_ed25519.pub.pem"

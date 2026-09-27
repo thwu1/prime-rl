@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -76,7 +77,7 @@ def test_materialized_small_plan_preserves_full_generation_contract(
     # the repository image-manifest digest for the rest of the test.
     sealed_base = small._load_base()
     manifest_body, image_body = _manifest(monkeypatch)
-    monkeypatch.setattr(small, "_load_base", lambda: sealed_base)
+    monkeypatch.setattr(small, "_load_base", lambda held=None: sealed_base)
     manifest = tmp_path / "manifest.json"
     manifest.write_bytes(manifest_body)
     manifest.chmod(0o600)
@@ -91,13 +92,30 @@ def test_materialized_small_plan_preserves_full_generation_contract(
         split.canonical_json(
             {
                 "cleanup": True,
+                "deployment": {
+                    "endpoint_bundle_sha256": small.STOCK_ENDPOINT_BUNDLE_SHA256,
+                    "kind": "direct-kimi-smoke-binding",
+                    "router": {
+                        "capacity_profile": "sandoq-stock-single-c64-v1",
+                        "endpoint_identifier": small.STOCK_ENDPOINT_IDENTIFIER,
+                        "per_worker_capacity": 64,
+                        "worker_count": 1,
+                    },
+                    "slurm_job_id": "1595198",
+                    "source_proxy_config_sha256": small.STOCK_SOURCE_PROXY_SHA256,
+                    "source_revision": small.STOCK_SOURCE_REVISION,
+                    "source_spec_sha256": small.STOCK_SOURCE_SPEC_SHA256,
+                    "worker_manifest_sha256": "b" * 64,
+                },
                 "harness_version": "2.4.6",
                 "kind": "kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic",
                 "model_calls": 3,
                 "reasoning_content_retained": True,
                 "router_healthy": True,
+                "router_w2_profile_configured": True,
                 "sandbox_environment": "oci-runner-firecracker-small",
                 "sandbox_lifecycle": True,
+                "schema_version": 2,
                 "shell_execution": True,
                 "status": "diagnostic_passed",
                 "sticky_routing": True,
@@ -108,6 +126,88 @@ def test_materialized_small_plan_preserves_full_generation_contract(
     smoke.chmod(0o600)
     smoke_sha256 = hashlib.sha256(smoke.read_bytes()).hexdigest()
     monkeypatch.setattr(small, "SMOKE_RECEIPT_SHA256", smoke_sha256)
+    capacity = tmp_path / "capacity.json"
+    capacity.write_bytes(
+        split.canonical_json(
+            {
+                "artifacts": {
+                    "endpoint_file": {"path": "/private/endpoint.json", "sha256": "3daa2941e88bee4d0435d50687c6f0f95104df119cff1c361263d2053e2a61ae"},
+                    "proxy_config": {"path": "/private/proxy.yaml", "sha256": small.STOCK_SOURCE_PROXY_SHA256},
+                    "spec": {"path": "/private/spec.yaml", "sha256": small.STOCK_SOURCE_SPEC_SHA256},
+                },
+                "completions": {
+                    "attempted": 64,
+                    "http_200": 64,
+                    "model_matches": 64,
+                    "raw_reasoning_present": 64,
+                    "reasoning_content_present": 0,
+                    "reasoning_present": 64,
+                    "requested": 64,
+                    "response_digests_sha256": "c" * 64,
+                    "response_errors": 0,
+                    "successful": 64,
+                    "tool_call_responses": 64,
+                    "tool_calls_total": 64,
+                    "transport_errors": 0,
+                },
+                "concurrency": {"client_peak_in_flight": 64, "configured": 64},
+                "deployment": {
+                    "endpoint_authority_sha256": "510d02d82e3d16f34d69241845275af0b21a48875bc6a0e8ea92129ee88aeb43",
+                    "endpoint_job_id": "1593665",
+                    "id": small.STOCK_ENDPOINT_IDENTIFIER,
+                    "model": "Kimi-K3",
+                },
+                "endpoint_unchanged": True,
+                "kind": "kimi-stock-capacity-probe",
+                "metrics": {
+                    "in_flight": {
+                        "maximum_running": 64,
+                        "maximum_waiting": 0,
+                        "response_errors": 0,
+                        "transport_errors": 0,
+                    }
+                },
+                "model_identity": {
+                    "backend_model": "openai/Kimi-K3",
+                    "confirmed": True,
+                    "response_errors": 0,
+                    "served_model": "Kimi-K3",
+                    "transport_errors": 0,
+                },
+                "schema_version": 1,
+                "state": "passed",
+            }
+        )
+    )
+    capacity.chmod(0o600)
+    capacity_sha256 = hashlib.sha256(capacity.read_bytes()).hexdigest()
+    monkeypatch.setattr(small, "CAPACITY_RECEIPT_SHA256", capacity_sha256)
+    soak = tmp_path / "soak.json"
+    soak.write_bytes(
+        split.canonical_json(
+            {
+                "cleanup_failures": 0,
+                "client_close_verified": True,
+                "create_attempts": 24,
+                "create_failure_counts": {"connection_failure": 0, "session_failure": 0},
+                "delete_attempts": 24,
+                "environment": "oci-runner-firecracker-small",
+                "kind": "sandoq-firecracker-small-c24-soak",
+                "mtls_available": True,
+                "profile_sha256": small.PROVIDER_PROFILE_SHA256,
+                "requested_concurrency": 24,
+                "schema_version": 1,
+                "sessions_returned": 24,
+                "simultaneous_ready_verified": 24,
+                "state": "passed",
+                "transport_mode": "proxy",
+                "typed_404_verified": 24,
+            }
+        )
+    )
+    soak.chmod(0o600)
+    soak_sha256 = hashlib.sha256(soak.read_bytes()).hexdigest()
+    monkeypatch.setattr(small, "SANDOQ_SOAK_RECEIPT_SHA256", soak_sha256)
     output = tmp_path / "plan"
     args = argparse.Namespace(
         manifest=manifest,
@@ -119,6 +219,10 @@ def test_materialized_small_plan_preserves_full_generation_contract(
         run_label="test",
         smoke_receipt=smoke,
         smoke_receipt_sha256=smoke_sha256,
+        capacity_receipt=capacity,
+        capacity_receipt_sha256=capacity_sha256,
+        sandoq_soak_receipt=soak,
+        sandoq_soak_receipt_sha256=soak_sha256,
     )
 
     result = small.materialize(args)
@@ -157,15 +261,25 @@ def test_materialized_small_plan_preserves_full_generation_contract(
     replacement.write_bytes(b"{}\n")
     replacement.chmod(0o600)
 
-    def verify_then_swap(path: Path, expected_sha256: str) -> dict[str, object]:
-        value = original_verify(path, expected_sha256)
+    def verify_then_swap(path: Path, expected_sha256: str, **kwargs) -> dict[str, object]:
+        value = original_verify(path, expected_sha256, **kwargs)
         os.replace(replacement, path)
         return value
 
     monkeypatch.setattr(finalize.plan_module, "verify", verify_then_swap)
-    loaded, reverified = finalize._verified_plan(output / small.PLAN, result["plan_sha256"])
-    assert loaded == plan
-    assert reverified == verified
+    held = split._HeldArtifactSet.create()
+    try:
+        loaded, reverified = finalize._verified_plan(
+            output / small.PLAN,
+            result["plan_sha256"],
+            held,
+        )
+        assert loaded == plan
+        assert reverified == verified
+        with pytest.raises(split.KimiProviderSplitError, match="provider_artifact_changed"):
+            held.revalidate()
+    finally:
+        held.close()
 
 
 def test_unsupported_rows_are_deterministic_explicit_zeroes() -> None:
@@ -228,9 +342,14 @@ def test_launchers_bind_small_diagnostic_and_zero_model_only_resume() -> None:
         "run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch"
     ).read_text()
     stage = (workflow / "run_direct_kimi_sandoq_stage.sh").read_text()
+    stock_wrapper = (workflow / "run_kimi_tb4_miniswe246_sandoq_stock_single_full.sbatch").read_text()
 
     assert "tb4-miniswe246-sandoq-small-full" in wrapper
     assert "small-firecracker-diagnostic" in wrapper
+    assert "#SBATCH --time=6-00:00:00" in wrapper
+    assert "minimum_job_remaining_seconds=475200" in wrapper
+    assert "job_end_epoch" in wrapper
+    assert "#SBATCH --time=6-00:00:00" in stock_wrapper
     assert "DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=1" in launcher
     assert "prepare_kimi_tb4_sandoq_small_full.py" in launcher
     assert "finalize_kimi_tb4_sandoq_small_full.py" in launcher
@@ -239,3 +358,35 @@ def test_launchers_bind_small_diagnostic_and_zero_model_only_resume() -> None:
         "finalize_kimi_tb4_sandoq_small_full.py"
     )
     assert "prepare_kimi_tb4_sandoq_small_full.py" in stage
+
+
+def test_small_full_wrapper_reports_insufficient_walltime(tmp_path: Path) -> None:
+    workflow = Path(small.__file__).resolve().parent
+    wrapper = workflow / "run_kimi_tb4_miniswe246_sandoq_small_full.sbatch"
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    squeue = fake_bin / "squeue"
+    squeue.write_text("#!/bin/sh\nprintf '%s\\n' '01:00:00|6-00:00:00|2099-01-01T00:00:00'\n")
+    squeue.chmod(0o755)
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "KIMI_SANDOQ_EXPECTED_PRIME_RL_REVISION": "1" * 40,
+            "KIMI_TB4_SANDOQ_SMALL_PLAN": "/private/plan.json",
+            "KIMI_TB4_SANDOQ_SMALL_PLAN_SHA256": "2" * 64,
+            "KIMI_SMALL_DEPLOYMENT_ROOT": "/private/deployment",
+            "PATH": f"{fake_bin}:/usr/bin:/bin",
+            "PROJECT_DIR": str(workflow.parents[2]),
+            "SLURM_JOB_ID": "123",
+        }
+    )
+    result = subprocess.run(
+        ["/usr/bin/bash", "-p", str(wrapper)],
+        check=False,
+        capture_output=True,
+        env=environment,
+        text=True,
+    )
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert json.loads(result.stderr) == {"code": "job_walltime_insufficient", "state": "blocked"}

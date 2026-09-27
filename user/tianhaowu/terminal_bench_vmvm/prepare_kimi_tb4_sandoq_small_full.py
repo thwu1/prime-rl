@@ -30,11 +30,28 @@ MEMORY_MB_CAP = 2_048
 STORAGE_MB_CAP = 10_240
 BASE_CONFIG_SHA256 = "aa5737800031e79d560127cc025f5b379396767f46e81eaa0eb4f1dde02a7b08"
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
-SMOKE_RECEIPT_SHA256 = "d62cde918a7f153269054d1670ad8af6b77976e20a2b9e2aecb07dd389307029"
+VERIFIERS_COMMIT = "d5e8b77ce20ce79b0b9ae0e5b416fffb74969b08"
+SMOKE_RECEIPT_SHA256 = "b6e80f87f63ab471e732158299d5e19ed0224984cb8eda9ba22a9b64f17690b2"
 DEFAULT_SMOKE_RECEIPT = Path(
     "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/"
-    "kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic/run-1592194/receipt.json"
+    "kimi-tb4-miniswe246-sandoq-firecracker-small-stock-single-diagnostic/"
+    "run-1595198/receipt.json"
 )
+CAPACITY_RECEIPT_SHA256 = "244dc901a555b4b73649c6185692c8a9d497319e0f8bcdcdb7373f6604c6f946"
+DEFAULT_CAPACITY_RECEIPT = Path(
+    "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/"
+    "kimi-stock-capacity-probes-20260927-v1/c64-fcedd7c6b.json"
+)
+SANDOQ_SOAK_RECEIPT_SHA256 = "54e882d378c92d0dfa811d41954f94a789d7333076695dcff9862aa248b9f1c8"
+DEFAULT_SANDOQ_SOAK_RECEIPT = Path(
+    "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/diagnostics/"
+    "sandoq-firecracker-small-c24-soak-20260927/run-1596000/receipt.json"
+)
+STOCK_ENDPOINT_IDENTIFIER = "tianhaowu-kimi-k3-stock-eval-20260927"
+STOCK_SOURCE_REVISION = "84b0b8330f6b73d4004b19d8a04625fed2de9479"
+STOCK_SOURCE_SPEC_SHA256 = "3b9d7b9e72767b9f65894ea024a08713ed10330c7d55c70cd99b2717056a9b39"
+STOCK_SOURCE_PROXY_SHA256 = "7894cd7205d0197620fa77edc747377e15c4e311769a0060be760659f5b29595"
+STOCK_ENDPOINT_BUNDLE_SHA256 = "7ee38ee5d10c9cc7b04c2ddf9ff5b7813df148b2f7d425c1a4ff192f8fc4d581"
 SUPPORTED_SELECTOR = "sandoq-small-supported.tasks.txt"
 COMPOSE_SELECTOR = "compose-unsupported.tasks.txt"
 GPU_SELECTOR = "gpu-unsupported.tasks.txt"
@@ -68,9 +85,15 @@ def _provider_profile_path() -> Path:
     )
 
 
-def _read(path: Path, *, code: str, private: bool = False) -> bytes:
+def _read(
+    path: Path,
+    *,
+    code: str,
+    private: bool = False,
+    held: split._HeldArtifactSet | None = None,
+) -> bytes:
     try:
-        return split.read_regular(path, code=code, private=private)
+        return split.read_regular(path, code=code, private=private, held=held)
     except (OSError, ValueError) as error:
         raise SmallDiagnosticError(code) from error
 
@@ -93,9 +116,11 @@ def _json(body: bytes, *, code: str) -> dict[str, Any]:
     return value
 
 
-def _load_base() -> tuple[dict[str, Any], bytes, Path]:
+def _load_base(
+    held: split._HeldArtifactSet | None = None,
+) -> tuple[dict[str, Any], bytes, Path]:
     path = _base_config_path().resolve(strict=True)
-    body = _read(path, code="base_config_invalid")
+    body = _read(path, code="base_config_invalid", held=held)
     if _sha256(body) != BASE_CONFIG_SHA256:
         raise SmallDiagnosticError("base_config_invalid")
     try:
@@ -181,9 +206,9 @@ def _load_base() -> tuple[dict[str, Any], bytes, Path]:
     return value, body, path
 
 
-def _provider_profile() -> tuple[bytes, Path]:
+def _provider_profile(held: split._HeldArtifactSet | None = None) -> tuple[bytes, Path]:
     path = _provider_profile_path().resolve(strict=True)
-    body = _read(path, code="provider_profile_invalid")
+    body = _read(path, code="provider_profile_invalid", held=held)
     if _sha256(body) != PROVIDER_PROFILE_SHA256:
         raise SmallDiagnosticError("provider_profile_invalid")
     value = _json(body, code="provider_profile_invalid")
@@ -197,14 +222,21 @@ def _provider_profile() -> tuple[bytes, Path]:
     return body, path
 
 
-def _smoke_receipt(path: Path, expected_sha256: str) -> tuple[bytes, Path]:
+def _smoke_receipt(
+    path: Path,
+    expected_sha256: str,
+    held: split._HeldArtifactSet | None = None,
+) -> tuple[bytes, Path]:
     canonical = path.resolve(strict=True)
-    body = _read(canonical, code="smoke_receipt_invalid", private=True)
+    body = _read(canonical, code="smoke_receipt_invalid", private=True, held=held)
     if expected_sha256 != SMOKE_RECEIPT_SHA256 or _sha256(body) != expected_sha256:
         raise SmallDiagnosticError("smoke_receipt_invalid")
     value = _json(body, code="smoke_receipt_invalid")
+    deployment = value.get("deployment")
+    router = deployment.get("router") if isinstance(deployment, dict) else None
     if (
-        value.get("kind") != "kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic"
+        value.get("schema_version") != 2
+        or value.get("kind") != "kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic"
         or value.get("status") != "diagnostic_passed"
         or value.get("sandbox_environment") != "oci-runner-firecracker-small"
         or value.get("harness_version") != union.MINISWE_VERSION
@@ -216,8 +248,133 @@ def _smoke_receipt(path: Path, expected_sha256: str) -> tuple[bytes, Path]:
         or value.get("cleanup") is not True
         or value.get("sticky_routing") is not True
         or value.get("router_healthy") is not True
+        or value.get("router_w2_profile_configured") is not True
+        or not isinstance(deployment, dict)
+        or deployment.get("kind") != "direct-kimi-smoke-binding"
+        or deployment.get("source_revision") != STOCK_SOURCE_REVISION
+        or deployment.get("slurm_job_id") != "1595198"
+        or deployment.get("source_spec_sha256") != STOCK_SOURCE_SPEC_SHA256
+        or deployment.get("source_proxy_config_sha256") != STOCK_SOURCE_PROXY_SHA256
+        or deployment.get("endpoint_bundle_sha256") != STOCK_ENDPOINT_BUNDLE_SHA256
+        or not isinstance(deployment.get("worker_manifest_sha256"), str)
+        or SHA256_RE.fullmatch(deployment["worker_manifest_sha256"]) is None
+        or router
+        != {
+            "capacity_profile": "sandoq-stock-single-c64-v1",
+            "endpoint_identifier": STOCK_ENDPOINT_IDENTIFIER,
+            "per_worker_capacity": 64,
+            "worker_count": 1,
+        }
     ):
         raise SmallDiagnosticError("smoke_receipt_invalid")
+    return body, canonical
+
+
+def _capacity_receipt(
+    path: Path,
+    expected_sha256: str,
+    held: split._HeldArtifactSet | None = None,
+) -> tuple[bytes, Path]:
+    canonical = path.resolve(strict=True)
+    body = _read(canonical, code="capacity_receipt_invalid", private=True, held=held)
+    if expected_sha256 != CAPACITY_RECEIPT_SHA256 or _sha256(body) != expected_sha256:
+        raise SmallDiagnosticError("capacity_receipt_invalid")
+    value = _json(body, code="capacity_receipt_invalid")
+    deployment = value.get("deployment")
+    concurrency = value.get("concurrency")
+    completions = value.get("completions")
+    model_identity = value.get("model_identity")
+    artifacts = value.get("artifacts")
+    spec = artifacts.get("spec") if isinstance(artifacts, dict) else None
+    proxy = artifacts.get("proxy_config") if isinstance(artifacts, dict) else None
+    endpoint = artifacts.get("endpoint_file") if isinstance(artifacts, dict) else None
+    metrics = value.get("metrics")
+    in_flight = metrics.get("in_flight") if isinstance(metrics, dict) else None
+    if (
+        value.get("schema_version") != 1
+        or value.get("kind") != "kimi-stock-capacity-probe"
+        or value.get("state") != "passed"
+        or value.get("endpoint_unchanged") is not True
+        or deployment
+        != {
+            "endpoint_authority_sha256": "510d02d82e3d16f34d69241845275af0b21a48875bc6a0e8ea92129ee88aeb43",
+            "endpoint_job_id": "1593665",
+            "id": STOCK_ENDPOINT_IDENTIFIER,
+            "model": "Kimi-K3",
+        }
+        or concurrency != {"client_peak_in_flight": 64, "configured": 64}
+        or not isinstance(completions, dict)
+        or any(completions.get(key) != 64 for key in (
+            "attempted",
+            "http_200",
+            "model_matches",
+            "raw_reasoning_present",
+            "reasoning_present",
+            "requested",
+            "successful",
+            "tool_call_responses",
+            "tool_calls_total",
+        ))
+        or completions.get("reasoning_content_present") != 0
+        or completions.get("response_errors") != 0
+        or completions.get("transport_errors") != 0
+        or not isinstance(completions.get("response_digests_sha256"), str)
+        or SHA256_RE.fullmatch(completions["response_digests_sha256"]) is None
+        or model_identity
+        != {
+            "backend_model": "openai/Kimi-K3",
+            "confirmed": True,
+            "response_errors": 0,
+            "served_model": "Kimi-K3",
+            "transport_errors": 0,
+        }
+        or not isinstance(spec, dict)
+        or spec.get("sha256") != STOCK_SOURCE_SPEC_SHA256
+        or not isinstance(proxy, dict)
+        or proxy.get("sha256") != STOCK_SOURCE_PROXY_SHA256
+        or not isinstance(endpoint, dict)
+        or endpoint.get("sha256") != "3daa2941e88bee4d0435d50687c6f0f95104df119cff1c361263d2053e2a61ae"
+        or not isinstance(in_flight, dict)
+        or in_flight.get("maximum_running", 0) < 64
+        or in_flight.get("maximum_waiting") != 0
+        or in_flight.get("response_errors") != 0
+        or in_flight.get("transport_errors") != 0
+    ):
+        raise SmallDiagnosticError("capacity_receipt_invalid")
+    return body, canonical
+
+
+def _sandoq_soak_receipt(
+    path: Path,
+    expected_sha256: str,
+    held: split._HeldArtifactSet | None = None,
+) -> tuple[bytes, Path]:
+    canonical = path.resolve(strict=True)
+    body = _read(canonical, code="sandoq_soak_receipt_invalid", private=True, held=held)
+    if expected_sha256 != SANDOQ_SOAK_RECEIPT_SHA256 or _sha256(body) != expected_sha256:
+        raise SmallDiagnosticError("sandoq_soak_receipt_invalid")
+    value = _json(body, code="sandoq_soak_receipt_invalid")
+    if (
+        value.get("schema_version") != 1
+        or value.get("kind") != "sandoq-firecracker-small-c24-soak"
+        or value.get("state") != "passed"
+        or value.get("environment") != "oci-runner-firecracker-small"
+        or value.get("profile_sha256") != PROVIDER_PROFILE_SHA256
+        or value.get("requested_concurrency") != CONCURRENCY
+        or value.get("create_attempts") != CONCURRENCY
+        or value.get("sessions_returned") != CONCURRENCY
+        or value.get("simultaneous_ready_verified") != CONCURRENCY
+        or value.get("delete_attempts") != CONCURRENCY
+        or value.get("typed_404_verified") != CONCURRENCY
+        or value.get("cleanup_failures") != 0
+        or value.get("client_close_verified") is not True
+        or value.get("mtls_available") is not True
+        or value.get("transport_mode") != "proxy"
+    ):
+        raise SmallDiagnosticError("sandoq_soak_receipt_invalid")
+    failure_counts = value.get("create_failure_counts")
+    if not isinstance(failure_counts, dict) or any(item != 0 for item in failure_counts.values()):
+        raise SmallDiagnosticError("sandoq_soak_receipt_invalid")
     return body, canonical
 
 
@@ -238,6 +395,31 @@ def _render_config(
     return union._render_toml(value)
 
 
+def _contracts() -> dict[str, Any]:
+    return {
+        "model": "Kimi-K3",
+        "harness": {"id": "mini-swe-agent", "version": union.MINISWE_VERSION},
+        "verifiers_commit": VERIFIERS_COMMIT,
+        "context_tokens": split.MAX_SEQUENCE_TOKENS,
+        "generation_tokens": split.SAMPLING_MAX_TOKENS,
+        "max_turns": 200,
+        "reasoning_required": True,
+        "model_io_response_kind": "normalized_stream_response",
+        "reasoning_message_parity_required": True,
+        "request_graph_match_required": True,
+        "model_retries": 0,
+        "zero_model_resume_attempts": 1,
+        "timeouts": dict(union.TIMEOUT_CONTRACT),
+        "resource_caps": {
+            "cpu": CPU_CAP,
+            "memory_mb": MEMORY_MB_CAP,
+            "storage_mb": STORAGE_MB_CAP,
+        },
+        "measured_router_capacity": 64,
+        "evaluation_concurrency": CONCURRENCY,
+    }
+
+
 def _expected_plan(
     *,
     directory: Path,
@@ -253,6 +435,10 @@ def _expected_plan(
     profile_body: bytes,
     smoke_path: Path,
     smoke_body: bytes,
+    capacity_path: Path,
+    capacity_body: bytes,
+    soak_path: Path,
+    soak_body: bytes,
     supported_body: bytes,
     compose_body: bytes,
     gpu_body: bytes,
@@ -272,27 +458,15 @@ def _expected_plan(
             "official_comparable": False,
             "result_label": "resource-clamped-firecracker-small-diagnostic",
         },
-        "contracts": {
-            "model": "Kimi-K3",
-            "harness": {"id": "mini-swe-agent", "version": union.MINISWE_VERSION},
-            "context_tokens": split.MAX_SEQUENCE_TOKENS,
-            "generation_tokens": split.SAMPLING_MAX_TOKENS,
-            "max_turns": 200,
-            "reasoning_required": True,
-            "model_io_response_kind": "normalized_stream_response",
-            "reasoning_message_parity_required": True,
-            "request_graph_match_required": True,
-            "model_retries": 0,
-            "zero_model_resume_attempts": 1,
-            "timeouts": dict(union.TIMEOUT_CONTRACT),
-            "resource_caps": {"cpu": CPU_CAP, "memory_mb": MEMORY_MB_CAP, "storage_mb": STORAGE_MB_CAP},
-        },
+        "contracts": _contracts(),
         "source": {
             "manifest": _artifact(manifest, manifest_body),
             "image_manifest": _artifact(image_manifest, image_body),
             "base_config": _artifact(base_path, base_body),
             "provider_profile": _artifact(profile_path, profile_body),
             "smoke_receipt": _artifact(smoke_path, smoke_body),
+            "capacity_receipt": _artifact(capacity_path, capacity_body),
+            "sandoq_c24_soak_receipt": _artifact(soak_path, soak_body),
         },
         "lane": {
             "stage": STAGE,
@@ -336,6 +510,14 @@ def materialize(args: argparse.Namespace) -> dict[str, Any]:
     base, base_body, base_path = _load_base()
     profile_body, profile_path = _provider_profile()
     smoke_body, smoke_path = _smoke_receipt(args.smoke_receipt, args.smoke_receipt_sha256)
+    capacity_body, capacity_path = _capacity_receipt(
+        args.capacity_receipt,
+        args.capacity_receipt_sha256,
+    )
+    soak_body, soak_path = _sandoq_soak_receipt(
+        args.sandoq_soak_receipt,
+        args.sandoq_soak_receipt_sha256,
+    )
     directory = Path(os.path.abspath(args.output))
     run_output = eval_root / f"tb4-kimi-{args.run_label}-miniswe246-sandoq-firecracker-small"
     # Publish the denominator-complete view beneath the private run directory.
@@ -373,6 +555,10 @@ def materialize(args: argparse.Namespace) -> dict[str, Any]:
         profile_body=profile_body,
         smoke_path=smoke_path,
         smoke_body=smoke_body,
+        capacity_path=capacity_path,
+        capacity_body=capacity_body,
+        soak_path=soak_path,
+        soak_body=soak_body,
         supported_body=supported_body,
         compose_body=compose_body,
         gpu_body=gpu_body,
@@ -400,8 +586,17 @@ def materialize(args: argparse.Namespace) -> dict[str, Any]:
     }
 
 
-def verify(path: Path, expected_sha256: str) -> dict[str, Any]:
-    body = _read(path, code="plan_invalid", private=True)
+def verify(
+    path: Path,
+    expected_sha256: str,
+    *,
+    held: split._HeldArtifactSet | None = None,
+    body: bytes | None = None,
+) -> dict[str, Any]:
+    captured = _read(path, code="plan_invalid", private=True, held=held)
+    if body is not None and body != captured:
+        raise SmallDiagnosticError("plan_invalid")
+    body = captured
     if path.name != PLAN or SHA256_RE.fullmatch(expected_sha256 or "") is None or _sha256(body) != expected_sha256:
         raise SmallDiagnosticError("plan_invalid")
     plan = _json(body, code="plan_invalid")
@@ -410,6 +605,7 @@ def verify(path: Path, expected_sha256: str) -> dict[str, Any]:
         or plan.get("kind") != KIND
         or plan.get("state") != "materialized"
         or plan.get("required_adapter") != ADAPTER
+        or plan.get("contracts") != _contracts()
         or plan.get("evaluation")
         != {
             "denominator": split.TOTAL_TASKS,
@@ -430,7 +626,11 @@ def verify(path: Path, expected_sha256: str) -> dict[str, Any]:
         raise SmallDiagnosticError("plan_invalid")
     records: dict[str, tuple[Path, bytes]] = {}
     for section, names, private in (
-        (source, ("manifest", "smoke_receipt"), True),
+        (
+            source,
+            ("manifest", "smoke_receipt", "capacity_receipt", "sandoq_c24_soak_receipt"),
+            True,
+        ),
         (source, ("image_manifest", "base_config", "provider_profile"), False),
         (lane, ("selector", "config"), True),
         (unsupported, ("compose", "gpu"), True),
@@ -440,7 +640,12 @@ def verify(path: Path, expected_sha256: str) -> dict[str, Any]:
             if not isinstance(record, dict) or set(record) != {"path", "bytes", "sha256"}:
                 raise SmallDiagnosticError("plan_invalid")
             artifact_path = Path(str(record["path"]))
-            artifact_body = _read(artifact_path, code="plan_artifact_invalid", private=private)
+            artifact_body = _read(
+                artifact_path,
+                code="plan_artifact_invalid",
+                private=private,
+                held=held,
+            )
             if _artifact(artifact_path, artifact_body) != record:
                 raise SmallDiagnosticError("plan_artifact_invalid")
             records[name] = (artifact_path, artifact_body)
@@ -455,14 +660,30 @@ def verify(path: Path, expected_sha256: str) -> dict[str, Any]:
     gpu_body = union._selector_payload(partition.gpu_unsupported)
     if records["selector"][1] != supported_body or records["compose"][1] != compose_body or records["gpu"][1] != gpu_body:
         raise SmallDiagnosticError("partition_invalid")
-    base, base_body, base_path = _load_base()
-    profile_body, profile_path = _provider_profile()
-    smoke_body, smoke_path = _smoke_receipt(records["smoke_receipt"][0], SMOKE_RECEIPT_SHA256)
+    base, base_body, base_path = _load_base(held)
+    profile_body, profile_path = _provider_profile(held)
+    smoke_body, smoke_path = _smoke_receipt(
+        records["smoke_receipt"][0],
+        SMOKE_RECEIPT_SHA256,
+        held,
+    )
+    capacity_body, capacity_path = _capacity_receipt(
+        records["capacity_receipt"][0],
+        CAPACITY_RECEIPT_SHA256,
+        held,
+    )
+    soak_body, soak_path = _sandoq_soak_receipt(
+        records["sandoq_c24_soak_receipt"][0],
+        SANDOQ_SOAK_RECEIPT_SHA256,
+        held,
+    )
     image_path, image_body = records["image_manifest"]
     if (
         records["base_config"] != (base_path, base_body)
         or records["provider_profile"] != (profile_path, profile_body)
         or records["smoke_receipt"] != (smoke_path, smoke_body)
+        or records["capacity_receipt"] != (capacity_path, capacity_body)
+        or records["sandoq_c24_soak_receipt"] != (soak_path, soak_body)
         or _sha256(image_body) != split.CANONICAL_IMAGE_MANIFEST_SHA256
     ):
         raise SmallDiagnosticError("plan_source_invalid")
@@ -536,6 +757,10 @@ def _parser() -> argparse.ArgumentParser:
     make.add_argument("--run-label", required=True)
     make.add_argument("--smoke-receipt", type=Path, default=DEFAULT_SMOKE_RECEIPT)
     make.add_argument("--smoke-receipt-sha256", default=SMOKE_RECEIPT_SHA256)
+    make.add_argument("--capacity-receipt", type=Path, default=DEFAULT_CAPACITY_RECEIPT)
+    make.add_argument("--capacity-receipt-sha256", default=CAPACITY_RECEIPT_SHA256)
+    make.add_argument("--sandoq-soak-receipt", type=Path, default=DEFAULT_SANDOQ_SOAK_RECEIPT)
+    make.add_argument("--sandoq-soak-receipt-sha256", default=SANDOQ_SOAK_RECEIPT_SHA256)
     check = commands.add_parser("verify")
     check.add_argument("--plan", type=Path, required=True)
     check.add_argument("--plan-sha256", required=True)

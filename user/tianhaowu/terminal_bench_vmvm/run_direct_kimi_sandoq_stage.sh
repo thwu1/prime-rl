@@ -331,8 +331,12 @@ if [[ "$(git -C "$project_dir" rev-parse HEAD)" != "$expected_revision" \
     printf 'Direct Kimi stage requires the exact clean source closure\n' >&2
     exit 2
 fi
+approved_verifiers_revision=3df6efa9e9f6bdc8a013df7759a03074aec79111
+if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
+    approved_verifiers_revision=d5e8b77ce20ce79b0b9ae0e5b416fffb74969b08
+fi
 if [[ "$(git -C "$project_dir/deps/verifiers" rev-parse HEAD)" \
-    != 3df6efa9e9f6bdc8a013df7759a03074aec79111 ]]; then
+    != "$approved_verifiers_revision" ]]; then
     printf 'Direct Kimi stage requires the approved Verifiers revision\n' >&2
     exit 2
 fi

@@ -431,11 +431,12 @@ async def execute_canary(args: argparse.Namespace) -> dict[str, Any]:
             await taskset.setup(task, runtime)
             task_setup = True
             async with runtime.host_endpoint(relay.port) as guest_endpoint:
-                dependency = 'dependencies = ["mini-swe-agent=={version}"]'
-                replacement = 'dependencies = ["mini-swe-agent=={version}", "litellm[proxy]==1.91.2"]'
+                dependency = (
+                    'dependencies = ["mini-swe-agent=={version}", "litellm[proxy]==1.91.2"]'
+                )
                 if shared.PROGRAM_SOURCE.count(dependency) != 1:
                     raise CanaryError("mini_swe_program_contract_changed")
-                source = shared.PROGRAM_SOURCE.replace(dependency, replacement).replace("{version}", "2.4.6")
+                source = shared.PROGRAM_SOURCE.replace("{version}", "2.4.6")
                 program = await runtime.prepare_uv_script(source, {})
                 trajectory_path = "/tmp/kimi-miniswe246-small-canary.traj.json"
                 argv = [

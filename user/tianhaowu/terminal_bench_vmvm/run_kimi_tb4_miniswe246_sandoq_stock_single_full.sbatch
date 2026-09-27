@@ -3,7 +3,7 @@
 #SBATCH --partition=cpu_x86
 #SBATCH --qos=cpu_x86_lowest
 #SBATCH --account=ram
-#SBATCH --time=5-00:00:00
+#SBATCH --time=6-00:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=32

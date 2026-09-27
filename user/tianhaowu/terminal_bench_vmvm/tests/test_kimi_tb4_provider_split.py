@@ -1178,6 +1178,66 @@ def test_cpu_trace_audit_rejects_duplicate_missing_or_reasoning_loss(tmp_path: P
         split._audit_cpu_results(results, members, modes)
 
 
+def test_cpu_trace_audit_can_require_normalized_stream_responses(tmp_path: Path) -> None:
+    results = tmp_path / "results.jsonl"
+    row = _valid_trace("trace-a", "opaque-a")
+    node = row["nodes"][0]
+    exact = node["model_io"]["response"]["body"]
+    choice = exact["choices"][0]
+    normalized = {
+        "id": exact["id"],
+        "created": exact["created"],
+        "model": exact["model"],
+        "message": {
+            "role": "assistant",
+            "content": None,
+            "reasoning_content": "reasoning",
+            "tool_calls": None,
+            "provider_state": None,
+        },
+        "finish_reason": choice["finish_reason"],
+        "usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 2,
+            "cached_input_tokens": None,
+            "reasoning_tokens": None,
+            "cost": None,
+        },
+        "tokens": None,
+    }
+    node["model_io"]["response"] = {
+        "kind": "normalized_stream_response",
+        "sha256": _json_digest(normalized),
+        "body": normalized,
+    }
+    _private_file(results, split.canonical_json(row))
+
+    summary, observed, _artifact = split._audit_cpu_results(
+        results,
+        ("opaque-a",),
+        {"opaque-a": "shared"},
+        require_exact_provider_json=False,
+        required_response_kind="normalized_stream_response",
+    )
+    assert summary["model_io_turns"] == 1
+    assert set(observed) == {"opaque-a"}
+
+    row["nodes"][0]["model_io"]["response"] = {
+        "kind": "exact_provider_json",
+        "sha256": _json_digest(exact),
+        "body": exact,
+    }
+    _private_file(results, split.canonical_json(row))
+    with pytest.raises(split.KimiProviderSplitError, match="^provider_trace_audit_failed$"):
+        split._audit_cpu_results(
+            results,
+            ("opaque-a",),
+            {"opaque-a": "shared"},
+            require_exact_provider_json=False,
+            required_response_kind="normalized_stream_response",
+        )
+
+
 def test_cpu_trace_audit_is_bound_to_one_held_snapshot(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     tmp_path.chmod(0o700)
     results = tmp_path / "results.jsonl"

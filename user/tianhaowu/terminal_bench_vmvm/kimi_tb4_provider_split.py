@@ -1729,7 +1729,12 @@ def _audit_cpu_results(
     held: _HeldArtifactSet | None = None,
     *,
     require_exact_provider_json: bool = True,
+    required_response_kind: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]], dict[str, Any]]:
+    if required_response_kind not in {None, "exact_provider_json", "normalized_stream_response"}:
+        raise KimiProviderSplitError("provider_response_kind_invalid")
+    if require_exact_provider_json and required_response_kind not in {None, "exact_provider_json"}:
+        raise KimiProviderSplitError("provider_response_kind_invalid")
     body, artifact = _read_regular_evidence(
         results,
         code="provider_results_invalid",
@@ -1791,8 +1796,13 @@ def _audit_cpu_results(
             for node in nodes:
                 if not isinstance(node, dict) or node.get("sampled") is not True:
                     continue
-                if node.get("model_io") is not None:
+                model_io = node.get("model_io")
+                if model_io is not None:
                     model_io_turns += 1
+                if required_response_kind is not None:
+                    response = model_io.get("response") if isinstance(model_io, dict) else None
+                    if not isinstance(response, dict) or response.get("kind") != required_response_kind:
+                        raise KimiProviderSplitError("provider_trace_audit_failed")
                 usage = node.get("usage")
                 completion_tokens = usage.get("completion_tokens") if isinstance(usage, dict) else None
                 if (

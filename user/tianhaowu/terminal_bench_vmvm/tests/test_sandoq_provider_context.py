@@ -508,6 +508,7 @@ def test_process_group_cleanup_reaches_descendants(tmp_path: Path) -> None:
 
 def test_supervisor_sigterm_extinguishes_child_group(tmp_path: Path) -> None:
     marker = tmp_path / "descendant-pid"
+    cleanup_marker = tmp_path / "cleanup-complete"
     profile = tmp_path / "profile.json"
     profile_body = context._canonical_json(
         {
@@ -549,6 +550,7 @@ def test_supervisor_sigterm_extinguishes_child_group(tmp_path: Path) -> None:
             "--",
             "/bin/sh",
             "-c",
+            f"trap 'printf cleaned > {cleanup_marker}; exit 0' TERM; "
             f"sleep 300 & printf '%s' $! > {marker}; wait",
         ],
         env=environment,
@@ -560,6 +562,7 @@ def test_supervisor_sigterm_extinguishes_child_group(tmp_path: Path) -> None:
     descendant = int(marker.read_text())
     process.terminate()
     assert process.wait(timeout=5) == 128 + signal.SIGTERM
+    assert cleanup_marker.read_text() == "cleaned"
     with pytest.raises(ProcessLookupError):
         os.kill(descendant, 0)
     assert not list(tmp_path.glob("sandoq-provider-context-*"))
