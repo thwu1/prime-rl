@@ -1909,7 +1909,17 @@ def _validate_sandoq_cleanup(
     expected_count: int,
     expected_concurrency: int,
     held: _HeldArtifactSet | None = None,
+    *,
+    expected_pool_size: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    pool_size = expected_concurrency if expected_pool_size is None else expected_pool_size
+    if (
+        not _nonnegative_integer(expected_concurrency)
+        or not _nonnegative_integer(pool_size)
+        or expected_concurrency < 1
+        or pool_size < expected_concurrency
+    ):
+        raise KimiProviderSplitError("sandoq_cleanup_invalid")
     body, cleanup_artifact = _read_regular_evidence(
         path,
         code="sandoq_cleanup_invalid",
@@ -1951,7 +1961,7 @@ def _validate_sandoq_cleanup(
         or value["recorded_outer_sessions"] != value["outer_sessions_created"]
         or value["recorded_outer_sessions"] != value["outer_sessions_deleted"]
         or value["assignment_measured_high_water"] != expected_concurrency
-        or not value["assignment_measured_high_water"] <= value["outer_session_high_water"] <= expected_concurrency
+        or not value["assignment_measured_high_water"] <= value["outer_session_high_water"] <= pool_size
         or value["assignments_acquired"] < expected_count
         or value["assignments_cleanup_verified"] != value["assignments_acquired"]
         or value["assignment_release_rows"] + value["assignment_cancellation_rows"] != value["assignments_acquired"]

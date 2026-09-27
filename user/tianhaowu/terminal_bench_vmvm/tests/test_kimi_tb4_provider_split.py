@@ -1577,6 +1577,29 @@ def test_sandoq_cleanup_must_account_for_every_session_and_assignment(tmp_path: 
         )
 
 
+def test_sandoq_cleanup_can_bind_a_larger_pool_than_the_task_high_water(tmp_path: Path) -> None:
+    run_dir = tmp_path / "run"
+    path, value, identity = _sandoq_cleanup(run_dir)
+    value["assignment_event_order_high_water"] = 23
+    value["assignment_measured_high_water"] = 23
+    value["outer_session_high_water"] = 23
+    _private_file(path, split.canonical_json(value))
+
+    summary, _artifacts = split._validate_sandoq_cleanup(
+        path,
+        run_dir,
+        identity,
+        "a" * 64,
+        "b" * 64,
+        "123",
+        split.LEGACY_SANDOQ_TASKS,
+        23,
+        expected_pool_size=64,
+    )
+
+    assert summary["assignment_measured_high_water"] == 23
+
+
 def test_sandoq_cleanup_rejects_replay_from_another_invocation(tmp_path: Path) -> None:
     run_dir = tmp_path / "run"
     path, _value, identity = _sandoq_cleanup(run_dir, slurm_job_id="123")

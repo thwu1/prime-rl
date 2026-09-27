@@ -108,6 +108,46 @@ def _deployment(tmp_path: Path, monkeypatch) -> Path:
     return root
 
 
+def _stock_deployment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    root = tmp_path / "stock-kimi-k3"
+    root.mkdir(parents=True)
+    spec = root / "spec.yaml"
+    spec.write_text("spec: {}\n")
+    config = root / "proxy_litellm_config.yaml"
+    config.write_text(
+        yaml.safe_dump(
+            {
+                "litellm_settings": {"request_timeout": 600, "num_retries": 2},
+                "model_list": [
+                    {
+                        "model_name": "Kimi-K3",
+                        "model_info": {"mode": "chat"},
+                        "litellm_params": {
+                            "api_base": "http://stock-worker:8000/v1",
+                            "api_key": "EMPTY",
+                            "model": "backend-model",
+                        },
+                    }
+                ],
+                "router_settings": {},
+                "general_settings": {},
+            },
+            sort_keys=True,
+        )
+    )
+    monkeypatch.setattr(
+        direct_kimi_workers,
+        "STOCK_SINGLE_SPEC_SHA256",
+        hashlib.sha256(spec.read_bytes()).hexdigest(),
+    )
+    monkeypatch.setattr(
+        direct_kimi_workers,
+        "STOCK_SINGLE_PROXY_CONFIG_SHA256",
+        hashlib.sha256(config.read_bytes()).hexdigest(),
+    )
+    return root
+
+
 def _binding_files(
     run_dir: Path,
     *,
@@ -173,6 +213,15 @@ def _binding_files(
         identity_value["execution"] = {
             "rollout_concurrency": rollout_concurrency,
             "sandoq_environment": {"environment": sandoq_environment},
+        }
+    elif (
+        manifest_path is not None
+        and manifest["router"].get("capacity_profile")
+        == direct_kimi_workers.STOCK_SINGLE_C64_CAPACITY_PROFILE
+    ):
+        identity_value["execution"] = {
+            "rollout_concurrency": 64,
+            "sandoq_environment": {"environment": "oci-runner-firecracker-small"},
         }
     identity_sha256 = hashlib.sha256(
         json.dumps(
@@ -1165,6 +1214,90 @@ def test_stock_small_production_terminal_receipt_is_narrow_and_versioned(
     assert receipt["schema_version"] == 7
     assert receipt["upstream_failures"] == 0
     assert receipt["upstream_http_5xx"] == 1
+
+
+def test_direct_kimi_stock_small_production_receipt_is_allowed(tmp_path: Path, monkeypatch) -> None:
+    root = _stock_deployment(tmp_path, monkeypatch)
+    generation = tmp_path / "generation"
+    manifest_path = generation / direct_kimi_workers.GENERATION_MANIFEST_NAME
+    prepare_generation(
+        root,
+        generation,
+        manifest_path,
+        generation / direct_kimi_workers.GENERATION_URLS_NAME,
+        generation / direct_kimi_workers.GENERATION_PORTS_NAME,
+        capacity_profile=direct_kimi_workers.STOCK_SINGLE_C64_CAPACITY_PROFILE,
+        endpoint_identifier=direct_kimi_workers.STOCK_SINGLE_ENDPOINT_IDENTIFIER,
+        request_timeout_seconds=144_000,
+    )
+    manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    run_dir = tmp_path / "run"
+    identity, invocations, provenance, _identity_sha256 = _binding_files(
+        run_dir,
+        role="kimi-direct-mobius",
+        manifest_path=manifest_path,
+    )
+    stats = run_dir / "router-stats.json"
+    stats.write_text(
+        json.dumps(
+            {
+                "schema_version": 4,
+                "kind": "direct-kimi-transparent-router",
+                "implementation": "direct-kimi-transparent-v2",
+                "policy": "consistent_hash",
+                "request_id_headers": ["x-session-id"],
+                "request_timeout_seconds": 144_000,
+                "retries": 0,
+                "worker_count": 1,
+                "active_workers": 1,
+                "capacity_profile": direct_kimi_workers.STOCK_SINGLE_C64_CAPACITY_PROFILE,
+                "endpoint_identifier": direct_kimi_workers.STOCK_SINGLE_ENDPOINT_IDENTIFIER,
+                "configured_capacity": 64,
+                "configured_per_worker_capacity": 64,
+                "active_requests": 0,
+                "active_chat_requests": 0,
+                "active_forwarded_requests": 0,
+                "max_active_requests": 1,
+                "max_active_chat_requests": 1,
+                "max_active_forwarded_requests": 1,
+                "total_requests": 1,
+                "chat_requests": 1,
+                "missing_session_rejections": 0,
+                "capacity_rejections": 0,
+                "queue_overflow_rejections": 0,
+                "route_tracking_overflows": 0,
+                "cross_route_anomalies": 0,
+                "upstream_failures": 0,
+                "worker_queue_timeouts": 0,
+                "upstream_http_429": 0,
+                "upstream_http_5xx": 0,
+                "tracked_sessions": 1,
+                "worker_request_counts": [1],
+                "worker_active_request_counts": [0],
+                "worker_session_counts": [1],
+                "active_worker_waiters": 0,
+                "worker_waiting_request_counts": [0],
+                "worker_max_active_request_counts": [1],
+            }
+        )
+    )
+    stats.chmod(0o600)
+
+    receipt = certify_router(
+        manifest_path,
+        manifest_sha256,
+        1,
+        stats,
+        run_dir / "router.json",
+        eval_run_identity=identity,
+        eval_invocations=invocations,
+        provenance=provenance,
+    )
+
+    assert receipt["schema_version"] == 6
+    assert receipt["capacity_profile"] == direct_kimi_workers.STOCK_SINGLE_C64_CAPACITY_PROFILE
+    assert receipt["configured_capacity"] == 64
+    assert receipt["configured_per_worker_capacity"] == 64
 
 
 def test_existing_c64_profile_cannot_authorize_capacity_role(tmp_path: Path, monkeypatch) -> None:

@@ -132,6 +132,23 @@ def _w2_manifest() -> dict[str, object]:
     }
 
 
+def test_stock_single_profile_accepts_48h_without_weakening_other_profiles() -> None:
+    gate._validate_profile(
+        gate.STOCK_SINGLE_PROFILE,
+        gate.STOCK_SINGLE_MINIMUM_REMAINING_SECONDS,
+    )
+    with pytest.raises(gate.EndpointWalltimeGateError, match="minimum_remaining_seconds_invalid"):
+        gate._validate_profile(
+            gate.STOCK_SINGLE_PROFILE,
+            gate.STOCK_SINGLE_MINIMUM_REMAINING_SECONDS - 1,
+        )
+    with pytest.raises(gate.EndpointWalltimeGateError, match="minimum_remaining_seconds_invalid"):
+        gate._validate_profile(
+            gate.SMALL_PROFILE,
+            gate.STOCK_SINGLE_MINIMUM_REMAINING_SECONDS,
+        )
+
+
 def test_capture_gate_accepts_exact_stable_24_job_generation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
