@@ -1872,16 +1872,22 @@ def _error_types(errors: object) -> tuple[str, ...]:
         raise StockSmallError("trace_errors_invalid")
     types: list[str] = []
     for error in errors:
+        error_type = error.get("type") if isinstance(error, dict) else None
+        expected_keys = (
+            {"message", "type"}
+            if error_type == "ProviderError"
+            else {"message", "traceback", "type"}
+        )
         if (
             not isinstance(error, dict)
-            or set(error) != {"message", "traceback", "type"}
-            or error.get("type") not in ALLOWED_ERROR_TYPES
+            or set(error) != expected_keys
+            or error_type not in ALLOWED_ERROR_TYPES
             or not isinstance(error.get("message"), str)
             or not error["message"]
-            or not isinstance(error.get("traceback"), str)
+            or (error_type != "ProviderError" and not isinstance(error.get("traceback"), str))
         ):
             raise StockSmallError("trace_errors_invalid")
-        types.append(error["type"])
+        types.append(error_type)
     return tuple(types)
 
 
@@ -1982,10 +1988,16 @@ def audit_results(results: Path, selector: Path) -> dict[str, Any]:
                             raise StockSmallError("trace_errors_invalid")
                         counts["zero_model_error_traces"] += 1
                         continue
-                    if set(error_types) != {"HarnessError"}:
+                    model_error_types = set(error_types)
+                    if model_error_types not in ({"HarnessError"}, {"ProviderError"}):
                         raise StockSmallError("model_bearing_error_type_invalid")
                     turns, sampled_tokens = audit_model_bearing_trace(row, clean_stop=False)
                     counts["model_bearing_error_traces"] += 1
+                    counts[
+                        "model_bearing_provider_error_traces"
+                        if model_error_types == {"ProviderError"}
+                        else "model_bearing_harness_error_traces"
+                    ] += 1
                     counts["audited_model_io_turns"] += turns
                     counts["audited_sampled_tokens"] += sampled_tokens
                     continue
@@ -2056,6 +2068,8 @@ def audit_results(results: Path, selector: Path) -> dict[str, Any]:
             "error_traces",
             "zero_model_error_traces",
             "model_bearing_error_traces",
+            "model_bearing_harness_error_traces",
+            "model_bearing_provider_error_traces",
             "zero_reward_traces",
             "positive_traces",
             "clean_model_io_turns",
@@ -2333,6 +2347,8 @@ def _validate_completion_value(
                 "error_traces",
                 "zero_model_error_traces",
                 "model_bearing_error_traces",
+                "model_bearing_harness_error_traces",
+                "model_bearing_provider_error_traces",
                 "zero_reward_traces",
                 "positive_traces",
             )
@@ -2343,6 +2359,9 @@ def _validate_completion_value(
         or not all(map(_plain_nonnegative_integer, outcome_counts))
         or trace.get("zero_model_error_traces") != 0
         or trace.get("error_traces") != trace.get("model_bearing_error_traces")
+        or trace.get("model_bearing_error_traces")
+        != trace.get("model_bearing_harness_error_traces", -1)
+        + trace.get("model_bearing_provider_error_traces", -1)
         or trace.get("error_traces", -1) + trace.get("zero_reward_traces", -1) + trace.get("positive_traces", -1)
         != shard["count"]
         or value.get("training")
@@ -2612,6 +2631,8 @@ def status(plan_path: Path, plan_sha256: str) -> dict[str, Any]:
             "error_traces",
             "zero_model_error_traces",
             "model_bearing_error_traces",
+            "model_bearing_harness_error_traces",
+            "model_bearing_provider_error_traces",
         ):
             counts[key] += value["trace"][key]
         transport_audits.append(value["transport"])
@@ -2658,6 +2679,8 @@ def finalize(plan_path: Path, plan_sha256: str, output: Path) -> dict[str, Any]:
             "error_traces",
             "zero_model_error_traces",
             "model_bearing_error_traces",
+            "model_bearing_harness_error_traces",
+            "model_bearing_provider_error_traces",
         ):
             counts[key] += completion["trace"][key]
         completions.append(_artifact(path, body))

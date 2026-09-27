@@ -95,7 +95,10 @@ def _trace(trace_id: str, task: str, *, response_kind: str = "exact_provider_jso
 
 
 def _error(error_type: str = "HarnessError") -> dict[str, str]:
-    return {"message": "opaque", "traceback": "", "type": error_type}
+    value = {"message": "opaque", "type": error_type}
+    if error_type != "ProviderError":
+        value["traceback"] = ""
+    return value
 
 
 def test_shards_are_deterministic_balanced_and_exhaustive() -> None:
@@ -269,6 +272,8 @@ def test_model_bearing_error_trace_still_requires_lossless_reasoning(tmp_path: P
     audit = shards.audit_results(exact, selector)
     assert audit["error_traces"] == 1
     assert audit["model_bearing_error_traces"] == 1
+    assert audit["model_bearing_harness_error_traces"] == 1
+    assert audit["model_bearing_provider_error_traces"] == 0
     assert audit["audited_model_io_turns"] == 1
     assert audit["zero_model_error_traces"] == 0
 
@@ -279,6 +284,27 @@ def test_model_bearing_error_trace_still_requires_lossless_reasoning(tmp_path: P
     normalized = _private_file(root / "normalized-error.jsonl", shards._canonical(normalized_row))
     with pytest.raises(shards.StockSmallError, match="model_bearing_trace_invalid"):
         shards.audit_results(normalized, selector)
+
+
+def test_model_bearing_provider_error_requires_exact_on_disk_shape(tmp_path: Path) -> None:
+    root = _private_dir(tmp_path / "private")
+    selector = _private_file(root / "selector.txt", b"opaque-a\n")
+    row = _trace("trace-a", "opaque-a")
+    row["errors"] = [_error("ProviderError")]
+    row["rewards"] = {}
+    row["metrics"] = {}
+    row["stop_condition"] = "error"
+    exact = _private_file(root / "provider-error.jsonl", shards._canonical(row))
+
+    audit = shards.audit_results(exact, selector)
+    assert audit["model_bearing_error_traces"] == 1
+    assert audit["model_bearing_harness_error_traces"] == 0
+    assert audit["model_bearing_provider_error_traces"] == 1
+
+    row["errors"][0]["traceback"] = None
+    invalid = _private_file(root / "provider-error-null.jsonl", shards._canonical(row))
+    with pytest.raises(shards.StockSmallError, match="trace_errors_invalid"):
+        shards.audit_results(invalid, selector)
 
 
 def test_zero_reward_infrastructure_stop_is_not_certifiable(tmp_path: Path) -> None:
