@@ -19,6 +19,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+import direct_kimi_workers
 import qwen_miniswe246_sandoq_smoke as shared
 
 MODEL = "Kimi-K3"
@@ -55,6 +56,7 @@ SHARED_SMOKE_SHA256 = "f02582924e5039f50604b0a7c003068ab7a1467bf095ef01164474cd0
 DIRECT_ROUTER_SHA256 = "38398a48040879e242807dfa1f0272951aad0b9a0be371b42e7cabe61f3313db"
 DIRECT_WORKERS_SHA256 = "ec4d859e129bf02f02c943d784b4260ce5540e5514cc4a32f27fba6eb232652f"
 _REVISION_RE = re.compile(r"[0-9a-f]{40}")
+_SHA256_RE = re.compile(r"[0-9a-f]{64}")
 _SLUG_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 
 
@@ -641,6 +643,7 @@ def public_receipt(
     cleanup: bool,
     router: dict[str, bool],
     kind: str = RECEIPT_KIND,
+    binding: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     expected = set(shared.failed_run_state())
     if set(run_state) != expected:
@@ -668,8 +671,8 @@ def public_receipt(
         status = "diagnostic_passed" if valid else "failed"
     else:
         status = "strict_passed" if strict else "infrastructure_only" if valid else "failed"
-    return {
-        "schema_version": 1,
+    receipt = {
+        "schema_version": 2 if binding is not None else 1,
         "kind": kind,
         "task_count": 1,
         "max_model_calls": MAX_MODEL_CALLS,
@@ -685,6 +688,9 @@ def public_receipt(
         **router,
         "status": status,
     }
+    if binding is not None:
+        receipt["deployment"] = binding
+    return receipt
 
 
 def _failed_router_audit() -> dict[str, bool]:
@@ -727,6 +733,55 @@ def receipt_exit_code(status: object, task_profile: str) -> int:
     return 0 if status == accepted else 2
 
 
+def smoke_binding(
+    manifest_path: Path,
+    *,
+    expected_revision: str,
+    expected_profile: str,
+    expected_endpoint_identifier: str,
+    expected_workers: int,
+    expected_per_worker_capacity: int,
+    slurm_job_id: str,
+) -> dict[str, Any]:
+    if _REVISION_RE.fullmatch(expected_revision) is None or re.fullmatch(r"[1-9][0-9]*", slurm_job_id) is None:
+        raise CanaryError("smoke_binding_invalid")
+    try:
+        manifest = direct_kimi_workers.validate_saved_manifest(manifest_path)
+        manifest_sha256 = shared.sha256_file(manifest_path)
+    except (OSError, RuntimeError, ValueError) as error:
+        raise CanaryError("smoke_binding_invalid") from error
+    router = manifest.get("router") if isinstance(manifest, dict) else None
+    workers = manifest.get("workers") if isinstance(manifest, dict) else None
+    if (
+        not isinstance(router, dict)
+        or not isinstance(workers, list)
+        or router.get("capacity_profile") != expected_profile
+        or router.get("endpoint_identifier") != expected_endpoint_identifier
+        or router.get("per_worker_capacity") != expected_per_worker_capacity
+        or len(workers) != expected_workers
+        or any(
+            _SHA256_RE.fullmatch(str(manifest.get(key, ""))) is None
+            for key in ("source_spec_sha256", "source_proxy_config_sha256", "endpoint_bundle_sha256")
+        )
+    ):
+        raise CanaryError("smoke_binding_invalid")
+    return {
+        "kind": "direct-kimi-smoke-binding",
+        "source_revision": expected_revision,
+        "slurm_job_id": slurm_job_id,
+        "worker_manifest_sha256": manifest_sha256,
+        "source_spec_sha256": manifest["source_spec_sha256"],
+        "source_proxy_config_sha256": manifest["source_proxy_config_sha256"],
+        "endpoint_bundle_sha256": manifest["endpoint_bundle_sha256"],
+        "router": {
+            "capacity_profile": expected_profile,
+            "endpoint_identifier": expected_endpoint_identifier,
+            "worker_count": expected_workers,
+            "per_worker_capacity": expected_per_worker_capacity,
+        },
+    }
+
+
 def orchestrate_command(args: argparse.Namespace) -> int:
     started = time.monotonic()
     supervisor_wall_seconds = (
@@ -736,6 +791,7 @@ def orchestrate_command(args: argparse.Namespace) -> int:
         TB4_ORCHESTRATOR_WALL_SECONDS if args.task_profile == "tb4" else ORCHESTRATOR_WALL_SECONDS
     )
     output_dir: Path | None = None
+    binding: dict[str, Any] | None = None
     receipt_kind = TB4_RECEIPT_KIND if args.task_profile == "tb4" else RECEIPT_KIND
     receipt = public_receipt(
         shared.failed_run_state(),
@@ -799,6 +855,15 @@ def orchestrate_command(args: argparse.Namespace) -> int:
         job_id = os.environ.get("SLURM_JOB_ID", "")
         if re.fullmatch(r"[1-9][0-9]*", job_id) is None:
             raise CanaryError("slurm_job_invalid")
+        binding = smoke_binding(
+            args.worker_manifest,
+            expected_revision=args.expected_revision,
+            expected_profile=args.expected_router_profile,
+            expected_endpoint_identifier=args.expected_endpoint_identifier,
+            expected_workers=args.expected_workers,
+            expected_per_worker_capacity=args.expected_per_worker_capacity,
+            slurm_job_id=job_id,
+        )
         if not args.output_root.is_absolute() or args.output_root != Path(os.path.normpath(args.output_root)):
             raise CanaryError("output_root_invalid")
         args.output_root.mkdir(mode=0o700, exist_ok=True)
@@ -934,13 +999,20 @@ def orchestrate_command(args: argparse.Namespace) -> int:
             expected_workers=args.expected_workers,
             expected_per_worker_capacity=args.expected_per_worker_capacity,
         )
-        receipt = public_receipt(run_state, cleanup=cleanup, router=router, kind=receipt_kind)
+        receipt = public_receipt(
+            run_state,
+            cleanup=cleanup,
+            router=router,
+            kind=receipt_kind,
+            binding=binding,
+        )
         if time.monotonic() - started > orchestrator_wall_seconds:
             receipt = public_receipt(
                 shared.failed_run_state(),
                 cleanup=cleanup,
                 router=router,
                 kind=receipt_kind,
+                binding=binding,
             )
         shared.publish_private(output_dir / "receipt.json", receipt)
     except Exception:
@@ -977,6 +1049,7 @@ def parser() -> argparse.ArgumentParser:
     orchestrate.add_argument("--expected-endpoint-identifier", default=EXPECTED_ENDPOINT_IDENTIFIER)
     orchestrate.add_argument("--expected-workers", type=int, default=EXPECTED_WORKERS)
     orchestrate.add_argument("--expected-per-worker-capacity", type=int, default=2)
+    orchestrate.add_argument("--worker-manifest", type=Path, required=True)
     orchestrate.add_argument("--task-profile", choices=("mobius", "tb4"), default="mobius")
     orchestrate.add_argument(
         "--output-root",

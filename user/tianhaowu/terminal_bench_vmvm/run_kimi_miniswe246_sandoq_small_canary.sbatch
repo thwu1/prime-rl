@@ -171,4 +171,5 @@ done
     --expected-router-profile "$router_profile" \
     --expected-endpoint-identifier "$endpoint_identifier" \
     --expected-workers "$expected_workers" \
-    --expected-per-worker-capacity "$expected_per_worker_capacity"
+    --expected-per-worker-capacity "$expected_per_worker_capacity" \
+    --worker-manifest "$manifest"

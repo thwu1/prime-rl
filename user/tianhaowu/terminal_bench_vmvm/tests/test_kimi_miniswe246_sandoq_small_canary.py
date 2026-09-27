@@ -46,6 +46,24 @@ def _router_stats(*, model_calls: int = 3) -> dict[str, object]:
     }
 
 
+def _stock_binding() -> dict[str, object]:
+    return {
+        "kind": "direct-kimi-smoke-binding",
+        "source_revision": "1" * 40,
+        "slurm_job_id": "123",
+        "worker_manifest_sha256": "2" * 64,
+        "source_spec_sha256": canary.direct_kimi_workers.STOCK_SINGLE_SPEC_SHA256,
+        "source_proxy_config_sha256": canary.direct_kimi_workers.STOCK_SINGLE_PROXY_CONFIG_SHA256,
+        "endpoint_bundle_sha256": "3" * 64,
+        "router": {
+            "capacity_profile": "sandoq-stock-single-c64-v1",
+            "endpoint_identifier": "tianhaowu-kimi-k3-stock-eval-20260927",
+            "worker_count": 1,
+            "per_worker_capacity": 64,
+        },
+    }
+
+
 def test_router_audit_requires_w2_sticky_healthy_route() -> None:
     assert canary.router_audit(_router_stats(), 3) == {
         "router_w2_profile_configured": True,
@@ -153,7 +171,10 @@ def test_tb4_receipt_requires_numeric_reward_and_cleanup() -> None:
         cleanup=True,
         router=router,
         kind=canary.TB4_RECEIPT_KIND,
+        binding=_stock_binding(),
     )
+    assert receipt["schema_version"] == 2
+    assert receipt["deployment"] == _stock_binding()
     assert receipt["kind"] == canary.TB4_RECEIPT_KIND
     assert receipt["status"] == "diagnostic_passed"
     assert receipt["reward"] == 0.0
@@ -167,6 +188,7 @@ def test_tb4_receipt_requires_numeric_reward_and_cleanup() -> None:
             cleanup=True,
             router=router,
             kind=canary.TB4_RECEIPT_KIND,
+            binding=_stock_binding(),
         )["status"]
         == "failed"
     )
@@ -176,9 +198,42 @@ def test_tb4_receipt_requires_numeric_reward_and_cleanup() -> None:
             cleanup=False,
             router=router,
             kind=canary.TB4_RECEIPT_KIND,
+            binding=_stock_binding(),
         )["status"]
         == "failed"
     )
+
+
+def test_smoke_binding_seals_stock_generation(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    manifest_path = tmp_path / "direct_kimi_workers.json"
+    manifest_path.write_text("sealed\n")
+    manifest = {
+        "source_spec_sha256": canary.direct_kimi_workers.STOCK_SINGLE_SPEC_SHA256,
+        "source_proxy_config_sha256": canary.direct_kimi_workers.STOCK_SINGLE_PROXY_CONFIG_SHA256,
+        "endpoint_bundle_sha256": "3" * 64,
+        "workers": [{"backend_sha256": "4" * 64}],
+        "router": {
+            "capacity_profile": "sandoq-stock-single-c64-v1",
+            "endpoint_identifier": "tianhaowu-kimi-k3-stock-eval-20260927",
+            "per_worker_capacity": 64,
+        },
+    }
+    monkeypatch.setattr(canary.direct_kimi_workers, "validate_saved_manifest", lambda _path: manifest)
+
+    binding = canary.smoke_binding(
+        manifest_path,
+        expected_revision="1" * 40,
+        expected_profile="sandoq-stock-single-c64-v1",
+        expected_endpoint_identifier="tianhaowu-kimi-k3-stock-eval-20260927",
+        expected_workers=1,
+        expected_per_worker_capacity=64,
+        slurm_job_id="123",
+    )
+
+    assert binding == {
+        **_stock_binding(),
+        "worker_manifest_sha256": shared.sha256_file(manifest_path),
+    }
 
 
 def test_cleanup_contract_counts_both_tb4_assignments(tmp_path: Path) -> None:
