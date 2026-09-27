@@ -732,7 +732,7 @@ def validate_plan(path: Path, expected_sha256: str) -> dict[str, Any]:
         or tool_path != Path(__file__).resolve(strict=True)
         or launcher_path != _launcher_path().resolve(strict=True)
         or project_root != Path(str(source["project_root"]))
-        or image_path != Path(str(source["image_manifest"]))
+        or image_path != Path(str(source["image_manifest"]["path"]))
         or dataset_path != Path(str(dataset_record["path"]))
     ):
         raise TaskImageSoakError("plan_binding_invalid")

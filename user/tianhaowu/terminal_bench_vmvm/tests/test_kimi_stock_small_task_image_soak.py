@@ -182,6 +182,110 @@ def test_fixed_capacity_receipts_and_endpoint_epoch_are_valid() -> None:
     assert len(endpoint_jobs_sha256) == 64
 
 
+def test_validate_plan_reopens_image_manifest_artifact_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    root = tmp_path / "source"
+    root.mkdir()
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
+    approved = tmp_path / "approved.txt"
+    approved_body = b"opaque\n"
+    approved.write_bytes(approved_body)
+    image = tmp_path / "images.json"
+    image_body = b"{}\n"
+    image.write_bytes(image_body)
+    profile = tmp_path / "profile.json"
+    profile_body = b"{}\n"
+    profile.write_bytes(profile_body)
+    lifecycle = tmp_path / "lifecycle.json"
+    lifecycle_body = b"{}\n"
+    lifecycle.write_bytes(lifecycle_body)
+    lifecycle.chmod(0o600)
+    stock = tmp_path / "stock.json"
+    stock_body = b"{}\n"
+    stock.write_bytes(stock_body)
+    stock.chmod(0o600)
+
+    members = ("opaque-member",)
+    coverage = {"opaque": True}
+    selector_body = soak.legacy._task_payload(members)
+    output = tmp_path / "plan"
+    output.mkdir()
+    selector = output / "selector.tasks.txt"
+    selector.write_bytes(selector_body)
+    selector.chmod(0o600)
+    selector_receipt = output / "selector.receipt.json"
+    selector_receipt_body = soak._canonical(soak._selector_receipt(selector_body, coverage))
+    selector_receipt.write_bytes(selector_receipt_body)
+    selector_receipt.chmod(0o600)
+
+    tool = Path(soak.__file__).resolve(strict=True)
+    launcher = soak._launcher_path().resolve(strict=True)
+    endpoint_jobs_sha256 = "e" * 64
+    revision = "a" * 40
+    monkeypatch.setattr(soak, "_validate_source", lambda project, expected: project)
+    monkeypatch.setattr(soak.legacy, "_canonical_source_path", lambda: approved)
+    monkeypatch.setattr(soak.legacy, "CANONICAL_SOURCE_SHA256", soak._sha256(approved_body))
+    monkeypatch.setattr(soak, "IMAGE_MANIFEST_SHA256", soak._sha256(image_body))
+    monkeypatch.setattr(
+        soak,
+        "_derive_selection",
+        lambda requested: (approved, approved_body, dataset, members, coverage),
+    )
+    monkeypatch.setattr(
+        soak,
+        "_validate_provider_profile",
+        lambda: (soak._artifact(profile, profile_body), profile_body),
+    )
+    monkeypatch.setattr(
+        soak,
+        "_validate_lifecycle_soak",
+        lambda: (soak._artifact(lifecycle, lifecycle_body), lifecycle_body),
+    )
+    monkeypatch.setattr(
+        soak,
+        "_validate_stock_capacity",
+        lambda: (soak._artifact(stock, stock_body), stock_body, endpoint_jobs_sha256),
+    )
+
+    unsigned = {
+        "schema_version": soak.SCHEMA_VERSION,
+        "kind": soak.PLAN_KIND,
+        "state": "authorized",
+        "source_revision": revision,
+        "source": {
+            "project_root": str(root),
+            "approved_selector_source": soak._artifact(approved, approved_body),
+            "dataset": {
+                "path": str(dataset),
+                "revision": soak.legacy.CANONICAL_DATASET_REVISION,
+                "tree": soak.legacy.CANONICAL_DATASET_TREE,
+            },
+            "image_manifest": soak._artifact(image, image_body),
+            "provider_profile": soak._artifact(profile, profile_body),
+            "lifecycle_c64_soak": soak._artifact(lifecycle, lifecycle_body),
+            "stock_model_c64": soak._artifact(stock, stock_body),
+            "tool": soak._artifact(tool, tool.read_bytes()),
+            "launcher": soak._artifact(launcher, launcher.read_bytes()),
+        },
+        "selection": {
+            "count": soak.SELECTED_TASKS,
+            "selector": soak._artifact(selector, selector_body),
+            "receipt": soak._artifact(selector_receipt, selector_receipt_body),
+        },
+        "endpoint_epoch": {"endpoint_jobs_sha256": endpoint_jobs_sha256},
+        "contracts": soak._contracts(),
+    }
+    plan_value = {**unsigned, "plan_sha256": soak._sha256(soak._canonical(unsigned))}
+    plan = output / "plan.json"
+    plan_body = soak._canonical(plan_value)
+    plan.write_bytes(plan_body)
+    plan.chmod(0o600)
+
+    assert soak.validate_plan(plan, soak._sha256(plan_body)) == plan_value
+
+
 def test_run_result_validator_rejects_less_than_c64_high_water(tmp_path: Path) -> None:
     plan = tmp_path / "plan.json"
     plan_sha256 = "a" * 64
