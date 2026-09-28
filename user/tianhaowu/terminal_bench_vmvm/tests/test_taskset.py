@@ -1809,7 +1809,7 @@ def test_run_verifier_installs_online_for_public_sandoq_override(
 
     async def run_program(argv: list[str], env: dict[str, str]) -> ProgramResult:
         assert argv[:2] == ["sh", "-c"]
-        assert "timeout --signal=TERM --kill-after=30s 60s" in argv[2]
+        assert "timeout --signal=TERM --kill-after=30s 600s" in argv[2]
         assert env == {}
         events.append("background-program")
         return ProgramResult(exit_code=0, stdout="", stderr="")
@@ -1832,7 +1832,7 @@ def test_run_verifier_installs_online_for_public_sandoq_override(
         task_dir=str(tmp_path),
         verifier_network_mode="no-network",
         verifier_workdir="/app",
-        verifier_timeout_sec=60.0,
+        verifier_timeout_sec=600.0,
         verifier_env={},
     )
 
