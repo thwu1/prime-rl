@@ -815,7 +815,7 @@ def test_tb4_provider_context_reopens_private_snapshot_and_binds_run_dir(
         )
 
 
-def test_tb4_gate_variant_keeps_v7_closed_and_enables_only_v8_supersession() -> None:
+def test_tb4_gate_variant_keeps_v7_v8_closed_and_enables_exact_v12_supersession() -> None:
     v7 = shards._tb4_gate_variant(
         {
             "schema_version": 1,
@@ -825,6 +825,7 @@ def test_tb4_gate_variant_keeps_v7_closed_and_enables_only_v8_supersession() -> 
     assert v7["allow_post_agent_verifier_sandbox_errors"] is False
     assert v7["extra_certificate_keys"] == frozenset()
     assert v7["supersession_source_paths"] == shards.tb4_transport.SUPERSESSION_SOURCE_FILES
+    assert "execution_contract" not in v7
 
     v8 = shards._tb4_gate_variant(
         {
@@ -849,10 +850,72 @@ def test_tb4_gate_variant_keeps_v7_closed_and_enables_only_v8_supersession() -> 
     )
     assert v8["audit_pre_model_sandoq_provisioning_errors"] is True
     assert v8["supersession_source_paths"] == shards.tb4_v8.SUPERSESSION_SOURCE_FILES
+    assert "execution_contract" not in v8
+
+    v12 = shards._tb4_gate_variant(
+        {
+            "schema_version": 2,
+            "supersession": {"reason": shards.tb4_v12.SUPERSESSION_REASON},
+        }
+    )
+    assert v12["execution_contract"] == shards.tb4_v12.execution_contract(shards.tb4_v12.EXECUTION_SLURM_JOB_ID)
+    assert v12["execution_contract"].source_revision == shards.tb4_v12.EXECUTION_SOURCE_REVISION
+    assert v12["execution_contract"].plan_sha256 == shards.tb4_v12.EXECUTION_PLAN_SHA256
+    assert v12["execution_contract"].stock_endpoint_identifier == shards.tb4_v12.STOCK_ENDPOINT_IDENTIFIER
+    assert v12["execution_contract"].stock_source_spec_sha256 == shards.tb4_v12.STOCK_SOURCE_SPEC_SHA256
+    assert v12["execution_contract"].stock_endpoint_bundle_sha256 == shards.tb4_v12.STOCK_ENDPOINT_BUNDLE_SHA256
+    assert v12["extra_certificate_keys"] == frozenset(
+        {
+            "exact_length_benchmark_policy",
+            "execution_completion",
+            "persisted_verifier_artifacts",
+            "post_agent_verifier_error_policy",
+            "pre_model_sandoq_provisioning_error_policy",
+            "sandoq_assignment_lifecycle",
+        }
+    )
+    assert v12["extra_artifact_keys"] == frozenset({"execution_completion"})
+    assert v12["extra_count_keys"] == frozenset(
+        {
+            "benchmark_scored_failures",
+            "benchmark_scored_rows",
+            "benchmark_valid_nontrainable_passes",
+            "infrastructure_zeroes",
+            "post_agent_verifier_artifact_write_transport_zeroes",
+            "post_agent_verifier_exec_transport_zeroes",
+            "post_agent_verifier_sandbox_error_zeroes",
+            "pre_model_sandoq_provisioning_error_zeroes",
+            "provider_scored_passes",
+            "trainable_passes",
+        }
+    )
+    assert v12["extra_training_keys"] == frozenset(
+        {
+            "eligible_clean_passes",
+            "excluded_post_agent_verifier_artifact_write_transport_rows",
+            "excluded_post_agent_verifier_sandbox_error_rows",
+            "excluded_pre_model_sandoq_provisioning_error_rows",
+            "post_agent_verifier_artifact_write_transport_rows_are_trainable",
+            "post_agent_verifier_sandbox_error_rows_are_trainable",
+            "pre_model_sandoq_provisioning_error_rows_are_trainable",
+        }
+    )
+    assert v12["allow_exact_length_benchmark_rows"] is True
+    assert v12["allow_post_agent_exec_transport_errors"] is True
+    assert v12["allow_post_agent_artifact_write_transport_errors"] is True
+    assert v12["require_persisted_verifier_artifacts"] is True
+    assert v12["supersession_source_paths"] == shards.tb4_v12.SUPERSESSION_SOURCE_FILES
+    assert v12["expected_supersession_source_revision"] == "aa3ebebec140261a437f538ffcb8b9b913974057"
+    assert v12["expected_supersession_source_revision"] == shards.TB4_V12_SUPERSESSION_SOURCE_REVISION
 
     for value in (
         {"schema_version": 1, "supersession": {"reason": shards.tb4_v8.SUPERSESSION_REASON}},
         {"schema_version": 2, "supersession": {"reason": "fixed-denominator-exact-transport-v7"}},
+        {"schema_version": 1, "supersession": {"reason": shards.tb4_v12.SUPERSESSION_REASON}},
+        {
+            "schema_version": 2,
+            "supersession": {"reason": "fresh-epoch-c16-persisted-verifier-artifacts-v11"},
+        },
         {"schema_version": 2, "supersession": {"reason": "unknown"}},
     ):
         with pytest.raises(shards.StockSmallError, match="tb4_gate_invalid"):
@@ -887,6 +950,136 @@ def test_tb4_production_variant_pair_exactly_binds_shared_verifier_resilience() 
     changed = copy.deepcopy(pairs)
     changed[next(iter(shared_paths))]["production"] = "0" * 64
     assert shards._sha256(shards._canonical(changed)) != shards.TB4_PRODUCTION_VARIANT_PAIR_SHA256
+
+
+def test_tb4_v12_production_variant_pair_exactly_binds_reviewed_source_delta() -> None:
+    root = Path(shards.__file__).resolve().parents[3]
+    production_revision = shards._git(root, "rev-parse", "HEAD")
+    assert shards.tb4_v12.EXECUTION_SOURCE_REVISION == "307c569f376429cdbf8b7233e5999a3c28df577a"
+    assert shards.TB4_V12_SUPERSESSION_SOURCE_REVISION == "aa3ebebec140261a437f538ffcb8b9b913974057"
+    assert len(
+        {
+            shards.tb4_v12.EXECUTION_SOURCE_REVISION,
+            shards.TB4_V12_SUPERSESSION_SOURCE_REVISION,
+            production_revision,
+        }
+    ) == 3
+    shared_paths = shards.TB4_V12_PRODUCTION_SHARED_VARIANT_FILES
+    lane_paths = shards.TB4_V12_PRODUCTION_LANE_VARIANT_FILES
+    sandoq_paths = shards.TB4_V12_PRODUCTION_SANDOQ_VARIANT_FILES
+    assert shared_paths == {
+        "user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm/taskset.py",
+    }
+    assert lane_paths == {
+        "user/tianhaowu/terminal_bench_vmvm/eval_run_identity.py",
+    }
+    assert sandoq_paths == {
+        "extensions/sandoq/sandoq_provider/oci_client.py",
+        "extensions/sandoq/sandoq_provider/tests/test_oci_client_security.py",
+    }
+    execution_revision = shards.tb4_v12.EXECUTION_SOURCE_REVISION
+    pairs = {
+        **{
+            path: {
+                "production": shards._git_file_hashes(root, production_revision, (path,))[path],
+                "tb4": shards._git_file_hashes(root, execution_revision, (path,))[path],
+            }
+            for path in sorted(shared_paths | lane_paths | sandoq_paths)
+        },
+    }
+    assert shards._sha256(shards._canonical(pairs)) == shards.TB4_V12_PRODUCTION_VARIANT_PAIR_SHA256
+    changed = copy.deepcopy(pairs)
+    changed[next(iter(shared_paths))]["production"] = "0" * 64
+    assert shards._sha256(shards._canonical(changed)) != shards.TB4_V12_PRODUCTION_VARIANT_PAIR_SHA256
+
+
+def test_tb4_v12_supersession_source_binds_submitted_aa3_certifier() -> None:
+    root = Path(shards.__file__).resolve().parents[3]
+    source_revision = shards.TB4_V12_SUPERSESSION_SOURCE_REVISION
+    source_paths = shards.tb4_v12.SUPERSESSION_SOURCE_FILES
+    source_files = shards._git_file_hashes(root, source_revision, source_paths)
+    production_revision = shards._git(root, "rev-parse", "HEAD")
+    assert source_files == shards._git_file_hashes(root, production_revision, source_paths)
+    value = {
+        "project_root": "/storage/home/tianhaowu/prime-kimi-tb4-v12-certifier-1612350",
+        "revision": source_revision,
+        "hash_kind": "raw-file-sha256",
+        "files": source_files,
+        "file_set_sha256": shards._sha256(shards._canonical(source_files)),
+    }
+    assert shards._validate_tb4_supersession_source(
+        value,
+        tb4_root=root,
+        production_root=root,
+        certificate_revision=shards.tb4_v12.EXECUTION_SOURCE_REVISION,
+        source_paths=source_paths,
+        distinct_source_revision=True,
+        expected_source_revision=source_revision,
+    )["source_revision"] == source_revision
+
+    changed = {**value, "revision": "eee438556236abb5e186621bdda15e6141763590"}
+    with pytest.raises(shards.StockSmallError, match="tb4_supersession_source_invalid"):
+        shards._validate_tb4_supersession_source(
+            changed,
+            tb4_root=root,
+            production_root=root,
+            certificate_revision=shards.tb4_v12.EXECUTION_SOURCE_REVISION,
+            source_paths=source_paths,
+            distinct_source_revision=True,
+            expected_source_revision=source_revision,
+        )
+
+
+def test_tb4_v12_execution_semantics_accept_exact_pair_and_reject_tamper_or_unknown_revision() -> None:
+    root = Path(shards.__file__).resolve().parents[3]
+    contract = shards.tb4_v12.execution_contract(shards.tb4_v12.EXECUTION_SLURM_JOB_ID)
+    semantics = shards.tb4_transport._execution_semantics_manifest(
+        contract.source_revision,
+        contract.verifiers_commit,
+    )
+    variant = shards._tb4_gate_variant(
+        {
+            "schema_version": 2,
+            "supersession": {"reason": shards.tb4_v12.SUPERSESSION_REASON},
+        }
+    )
+    result = shards._validate_tb4_execution_semantics(
+        semantics,
+        tb4_root=root,
+        production_root=root,
+        certificate_revision=contract.source_revision,
+        verifiers_revision=contract.verifiers_commit,
+        production_shared_variant_files=variant["production_shared_variant_files"],
+        production_lane_variant_files=variant["production_lane_variant_files"],
+        production_sandoq_variant_files=variant["production_sandoq_variant_files"],
+        production_variant_pair_sha256=variant["production_variant_pair_sha256"],
+    )
+    assert result["production_variant_pair_sha256"] == shards.TB4_V12_PRODUCTION_VARIANT_PAIR_SHA256
+
+    with pytest.raises(shards.StockSmallError, match="tb4_lane_specific_semantics_changed"):
+        shards._validate_tb4_execution_semantics(
+            semantics,
+            tb4_root=root,
+            production_root=root,
+            certificate_revision=contract.source_revision,
+            verifiers_revision=contract.verifiers_commit,
+            production_shared_variant_files=variant["production_shared_variant_files"],
+            production_lane_variant_files=variant["production_lane_variant_files"],
+            production_sandoq_variant_files=variant["production_sandoq_variant_files"],
+            production_variant_pair_sha256="0" * 64,
+        )
+    with pytest.raises(shards.StockSmallError, match="tb4_execution_semantics_invalid"):
+        shards._validate_tb4_execution_semantics(
+            semantics,
+            tb4_root=root,
+            production_root=root,
+            certificate_revision="f" * 40,
+            verifiers_revision=contract.verifiers_commit,
+            production_shared_variant_files=variant["production_shared_variant_files"],
+            production_lane_variant_files=variant["production_lane_variant_files"],
+            production_sandoq_variant_files=variant["production_sandoq_variant_files"],
+            production_variant_pair_sha256=variant["production_variant_pair_sha256"],
+        )
 
 
 def test_tb4_v8_supersession_source_can_be_distinct_but_is_file_exact(
@@ -926,6 +1119,17 @@ def test_tb4_v8_supersession_source_can_be_distinct_but_is_file_exact(
     )
     assert result["source_revision"] == source_revision
 
+    with pytest.raises(shards.StockSmallError, match="tb4_supersession_source_invalid"):
+        shards._validate_tb4_supersession_source(
+            value,
+            tb4_root=tmp_path / "execution",
+            production_root=production,
+            certificate_revision=certificate_revision,
+            source_paths=paths,
+            distinct_source_revision=True,
+            expected_source_revision="d" * 40,
+        )
+
     changed = copy.deepcopy(value)
     changed["files"]["one.py"] = "3" * 64
     with pytest.raises(shards.StockSmallError, match="tb4_supersession_source_invalid"):
@@ -954,3 +1158,165 @@ def test_tb4_gate_reaudits_v8_error_policy_lifecycle_and_training_exclusion() ->
     assert '"excluded_post_agent_verifier_sandbox_error_rows"' in source
     assert '"excluded_pre_model_sandoq_provisioning_error_rows"' in source
     assert '"post_agent_verifier_sandbox_error_rows_are_trainable": False' in source
+
+
+def test_tb4_gate_reaudits_v12_artifact_write_and_sft_eligibility() -> None:
+    source = inspect.getsource(shards._validate_tb4_gate_locked)
+    artifact_source = inspect.getsource(shards._validate_tb4_v12_artifact_claims)
+    claim_source = inspect.getsource(shards._validate_tb4_v12_trace_claims)
+    assert "tb4_v8._verified_execution_plan(" in source
+    assert "tb4_v8._execution_identity_contract(" in source
+    assert '"allow_exact_length_benchmark_rows"' in source
+    assert '"allow_post_agent_exec_transport_errors"' in source
+    assert '"allow_post_agent_artifact_write_transport_errors"' in source
+    assert '"require_persisted_verifier_artifacts"' in source
+    assert "_validate_tb4_v12_artifact_claims(" in source
+    assert "_validate_tb4_v12_trace_claims(" in source
+    assert "tb4_v8._execution_completion_audit(" in artifact_source
+    assert "tb4_v8._persisted_verifier_artifact_audit(" in artifact_source
+    assert "tb4_v8._exact_length_benchmark_policy(trace_audit)" in claim_source
+    assert '"post_agent_verifier_artifact_write_transport_zeroes"' in claim_source
+    assert '"excluded_post_agent_verifier_artifact_write_transport_rows"' in claim_source
+    assert '"post_agent_verifier_artifact_write_transport_rows_are_trainable": False' in claim_source
+    assert 'trace_audit.get("benchmark_valid_passes")' in claim_source
+    assert 'trace_audit.get("benchmark_invalid_passing_rows")' in claim_source
+
+
+def test_tb4_v12_trace_claims_are_exact_and_tamper_closed() -> None:
+    trace_audit = {
+        "passes": 9,
+        "benchmark_valid_passes": 9,
+        "trainable_passes": 8,
+        "benchmark_invalid_passing_rows": 0,
+        "scored_rows": 50,
+        "scored_failures": 41,
+        "trace_invalid_scored_rows": 1,
+        "trace_invalid_passing_rows": 1,
+        "model_bearing_error_zeroes": 1,
+        "execution_error_zeroes": 2,
+        "exact_length_nontrainable_scored_rows": 1,
+        "exact_length_nontrainable_passing_rows": 1,
+        "exact_length_nontrainable_nodes": 1,
+        "exact_length_nontrainable_row_set_sha256": "a" * 64,
+        "exact_length_error_zero_rows": 1,
+        "exact_length_error_zero_nodes": 1,
+        "exact_length_error_zero_row_set_sha256": "b" * 64,
+        "post_agent_verifier_exec_transport_error_zeroes": 1,
+        "post_agent_verifier_artifact_write_transport_error_zeroes": 1,
+    }
+    base_training = {
+        "eligible_clean_scored_rows": 49,
+        "excluded_error_rows": 2,
+        "excluded_post_agent_verifier_sandbox_error_rows": 2,
+        "excluded_pre_model_sandoq_provisioning_error_rows": 0,
+        "excluded_trace_invalid_scored_rows": 1,
+        "excluded_unsupported_rows": 14,
+        "error_rows_are_trainable": False,
+        "post_agent_verifier_sandbox_error_rows_are_trainable": False,
+        "pre_model_sandoq_provisioning_error_rows_are_trainable": False,
+        "trace_invalid_scored_rows_are_trainable": False,
+    }
+    expected_training = {
+        **base_training,
+        "eligible_clean_passes": 8,
+        "excluded_post_agent_verifier_artifact_write_transport_rows": 1,
+        "post_agent_verifier_artifact_write_transport_rows_are_trainable": False,
+    }
+    counts = {
+        "provider_scored_passes": 9,
+        "benchmark_scored_rows": 50,
+        "benchmark_scored_failures": 41,
+        "trainable_passes": 8,
+        "benchmark_valid_nontrainable_passes": 1,
+        "infrastructure_zeroes": 2,
+        "post_agent_verifier_exec_transport_zeroes": 1,
+        "post_agent_verifier_artifact_write_transport_zeroes": 1,
+    }
+    value = {"exact_length_benchmark_policy": shards.tb4_v8._exact_length_benchmark_policy(trace_audit)}
+
+    assert shards._validate_tb4_v12_trace_claims(
+        value,
+        counts,
+        expected_training,
+        trace_audit,
+        base_training,
+    ) == (expected_training, 9, 0)
+
+    tampered_counts = {**counts, "post_agent_verifier_artifact_write_transport_zeroes": 2}
+    with pytest.raises(shards.StockSmallError, match="tb4_gate_v12_claims_invalid"):
+        shards._validate_tb4_v12_trace_claims(
+            value,
+            tampered_counts,
+            expected_training,
+            trace_audit,
+            base_training,
+        )
+    tampered_training = {
+        **expected_training,
+        "post_agent_verifier_artifact_write_transport_rows_are_trainable": True,
+    }
+    with pytest.raises(shards.StockSmallError, match="tb4_gate_v12_claims_invalid"):
+        shards._validate_tb4_v12_trace_claims(
+            value,
+            counts,
+            tampered_training,
+            trace_audit,
+            base_training,
+        )
+    tampered_policy = copy.deepcopy(value)
+    tampered_policy["exact_length_benchmark_policy"]["trainable"] = True
+    with pytest.raises(shards.StockSmallError, match="tb4_gate_v12_claims_invalid"):
+        shards._validate_tb4_v12_trace_claims(
+            tampered_policy,
+            counts,
+            expected_training,
+            trace_audit,
+            base_training,
+        )
+
+
+def test_tb4_v12_completion_and_persisted_artifact_claims_are_tamper_closed(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    completion = {"state": "completed-awaiting-v11-certification"}
+    completion_artifact = {"path": "/private/completion.json", "bytes": 1, "sha256": "a" * 64}
+    persisted = {"state": "reopened-and-verified", "rows": 52}
+    monkeypatch.setattr(
+        shards.tb4_v8,
+        "_execution_completion_audit",
+        lambda *_args, **_kwargs: (completion, completion_artifact),
+    )
+    monkeypatch.setattr(
+        shards.tb4_v8,
+        "_persisted_verifier_artifact_audit",
+        lambda *_args, **_kwargs: persisted,
+    )
+    value = {
+        "execution_completion": completion,
+        "persisted_verifier_artifacts": persisted,
+    }
+    artifacts = {"execution_completion": completion_artifact}
+    contract = shards.tb4_v12.execution_contract(shards.tb4_v12.EXECUTION_SLURM_JOB_ID)
+    shards._validate_tb4_v12_artifact_claims(
+        value,
+        artifacts,
+        results_body=b"",
+        run_dir=tmp_path,
+        execution_contract=contract,
+        held=None,
+    )
+    for changed_value, changed_artifacts in (
+        ({**value, "execution_completion": {"state": "changed"}}, artifacts),
+        ({**value, "persisted_verifier_artifacts": {"state": "changed"}}, artifacts),
+        (value, {"execution_completion": {**completion_artifact, "sha256": "b" * 64}}),
+    ):
+        with pytest.raises(shards.StockSmallError, match="tb4_gate_v12_artifacts_invalid"):
+            shards._validate_tb4_v12_artifact_claims(
+                changed_value,
+                changed_artifacts,
+                results_body=b"",
+                run_dir=tmp_path,
+                execution_contract=contract,
+                held=None,
+            )

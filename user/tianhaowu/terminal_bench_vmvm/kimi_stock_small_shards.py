@@ -29,6 +29,7 @@ import finalize_kimi_tb4_sandoq_small_full as tb4_full
 import finalize_kimi_tb4_sandoq_small_v4_recovery as tb4_recovery
 import finalize_kimi_tb4_sandoq_small_v6_supersession as tb4_transport
 import finalize_kimi_tb4_sandoq_small_v8_supersession as tb4_v8
+import finalize_kimi_tb4_sandoq_small_v12 as tb4_v12
 import kimi_sandoq_production as legacy
 import kimi_stock_small_task_image_soak as task_image_soak
 import kimi_tb4_provider_split as split
@@ -131,6 +132,26 @@ TB4_VERIFIERS_EXECUTION_FILES = (
 # Exact old/new content pairs for the immutable v8 execution and the reviewed
 # production-only variants.  Any later edit to one of these files closes the gate.
 TB4_PRODUCTION_VARIANT_PAIR_SHA256 = "1dceb059f96eaaeaa638bcf8dea22d432e83109fc4cea0a21dafd023d3530a21"
+TB4_V12_PRODUCTION_SHARED_VARIANT_FILES = frozenset(
+    {
+        "user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm/taskset.py",
+    }
+)
+TB4_V12_PRODUCTION_LANE_VARIANT_FILES = frozenset(
+    {
+        "user/tianhaowu/terminal_bench_vmvm/eval_run_identity.py",
+    }
+)
+TB4_V12_PRODUCTION_SANDOQ_VARIANT_FILES = frozenset(
+    {
+        "extensions/sandoq/sandoq_provider/oci_client.py",
+        "extensions/sandoq/sandoq_provider/tests/test_oci_client_security.py",
+    }
+)
+# The pending v12 certifier is source-bound to aa3; this is deliberately
+# distinct from the post-certifier production revision audited by the pair hash.
+TB4_V12_SUPERSESSION_SOURCE_REVISION = "aa3ebebec140261a437f538ffcb8b9b913974057"
+TB4_V12_PRODUCTION_VARIANT_PAIR_SHA256 = "065b880a58c3be9d6fbbcf6cf7caa4be4a1e6ad9f9b5fb8b127d960bcc682866"
 
 PROXY_SUMMARY_MARKER = b"sandoq: buffered model proxy summary "
 PROXY_SUMMARY_PREFIX_RE = re.compile(rb"[0-9]{2}:[0-9]{2}:[0-9]{2} +INFO \Z")
@@ -700,6 +721,10 @@ def _validate_tb4_execution_semantics(
     production_root: Path,
     certificate_revision: str,
     verifiers_revision: str,
+    production_shared_variant_files: frozenset[str] = TB4_PRODUCTION_SHARED_VARIANT_FILES,
+    production_lane_variant_files: frozenset[str] = TB4_PRODUCTION_LANE_VARIANT_FILES,
+    production_sandoq_variant_files: frozenset[str] = frozenset(),
+    production_variant_pair_sha256: str = TB4_PRODUCTION_VARIANT_PAIR_SHA256,
 ) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != {
         "schema_version",
@@ -748,6 +773,13 @@ def _validate_tb4_execution_semantics(
     )
     if not extension_paths or any(not path.startswith(TB4_SANDOQ_EXTENSION_PREFIX + "/") for path in extension_paths):
         raise StockSmallError("tb4_execution_semantics_invalid")
+    if (
+        not production_shared_variant_files <= set(TB4_SHARED_PRIME_FILES)
+        or not production_lane_variant_files <= set(TB4_LANE_PRIME_FILES)
+        or not production_sandoq_variant_files <= set(extension_paths)
+        or SHA256_RE.fullmatch(production_variant_pair_sha256) is None
+    ):
+        raise StockSmallError("tb4_execution_semantics_invalid")
     extension_files = _validated_hash_map(extension.get("files"), extension_paths)
     verifier_files = _validated_hash_map(verifiers.get("files"), TB4_VERIFIERS_EXECUTION_FILES)
     observed_tb4_shared = _git_file_hashes(
@@ -786,7 +818,7 @@ def _validate_tb4_execution_semantics(
     )
     if any(
         production_shared[path] != shared_files[path]
-        for path in set(TB4_SHARED_PRIME_FILES) - TB4_PRODUCTION_SHARED_VARIANT_FILES
+        for path in set(TB4_SHARED_PRIME_FILES) - production_shared_variant_files
     ):
         raise StockSmallError("tb4_shared_execution_semantics_changed")
     production_lane = _git_file_hashes(
@@ -795,22 +827,19 @@ def _validate_tb4_execution_semantics(
         TB4_LANE_PRIME_FILES,
     )
     if any(
-        production_lane[path] != lane_files[path]
-        for path in set(TB4_LANE_PRIME_FILES) - TB4_PRODUCTION_LANE_VARIANT_FILES
+        production_lane[path] != lane_files[path] for path in set(TB4_LANE_PRIME_FILES) - production_lane_variant_files
     ):
         raise StockSmallError("tb4_lane_execution_semantics_changed")
     variant_pairs = {
         **{
             path: {"production": production_shared[path], "tb4": shared_files[path]}
-            for path in sorted(TB4_PRODUCTION_SHARED_VARIANT_FILES)
+            for path in sorted(production_shared_variant_files)
         },
         **{
             path: {"production": production_lane[path], "tb4": lane_files[path]}
-            for path in sorted(TB4_PRODUCTION_LANE_VARIANT_FILES)
+            for path in sorted(production_lane_variant_files)
         },
     }
-    if _sha256(_canonical(variant_pairs)) != TB4_PRODUCTION_VARIANT_PAIR_SHA256:
-        raise StockSmallError("tb4_lane_specific_semantics_changed")
 
     production_extension_paths = tuple(
         line.decode("utf-8")
@@ -830,6 +859,15 @@ def _validate_tb4_execution_semantics(
         production_revision,
         production_extension_paths,
     )
+    if production_extension_paths == extension_paths:
+        variant_pairs.update(
+            {
+                path: {"production": production_extension[path], "tb4": extension_files[path]}
+                for path in sorted(production_sandoq_variant_files)
+            }
+        )
+    if _sha256(_canonical(variant_pairs)) != production_variant_pair_sha256:
+        raise StockSmallError("tb4_lane_specific_semantics_changed")
     production_verifiers_revision = _git(production_root / "deps/verifiers", "rev-parse", "HEAD")
     production_verifiers = _git_file_hashes(
         production_root / "deps/verifiers",
@@ -838,7 +876,10 @@ def _validate_tb4_execution_semantics(
     )
     if (
         production_extension_paths != extension_paths
-        or production_extension != extension_files
+        or any(
+            production_extension[path] != extension_files[path]
+            for path in set(extension_paths) - production_sandoq_variant_files
+        )
         or production_verifiers_revision != verifiers_revision
         or production_verifiers != verifier_files
     ):
@@ -849,7 +890,7 @@ def _validate_tb4_execution_semantics(
         "production_source_revision": production_revision,
         "shared_prime_file_set_sha256": value["prime_rl_shared_file_set_sha256"],
         "tb4_lane_file_set_sha256": value["tb4_lane_file_set_sha256"],
-        "production_variant_pair_sha256": TB4_PRODUCTION_VARIANT_PAIR_SHA256,
+        "production_variant_pair_sha256": production_variant_pair_sha256,
         "sandoq_extension_file_set_sha256": extension["file_set_sha256"],
         "verifiers_commit": verifiers_revision,
         "verifiers_file_set_sha256": verifiers["file_set_sha256"],
@@ -864,6 +905,7 @@ def _validate_tb4_supersession_source(
     certificate_revision: str,
     source_paths: Sequence[str] = tb4_transport.SUPERSESSION_SOURCE_FILES,
     distinct_source_revision: bool = False,
+    expected_source_revision: str | None = None,
 ) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != {
         "project_root",
@@ -883,6 +925,7 @@ def _validate_tb4_supersession_source(
         or not source_root_value
         or not source_root.is_absolute()
         or value.get("hash_kind") != "raw-file-sha256"
+        or (expected_source_revision is not None and source_revision != expected_source_revision)
         or (not distinct_source_revision and source_revision != certificate_revision)
         or (not distinct_source_revision and source_root != tb4_root)
     ):
@@ -1000,7 +1043,135 @@ def _tb4_gate_variant(value: Mapping[str, Any]) -> dict[str, Any]:
             "supersession_source_paths": tb4_v8.SUPERSESSION_SOURCE_FILES,
             "distinct_supersession_source_revision": True,
         }
+    if value.get("schema_version") == 2 and reason == tb4_v12.SUPERSESSION_REASON:
+        return {
+            "schema_version": 2,
+            "reason": reason,
+            "extra_certificate_keys": frozenset(
+                {
+                    "exact_length_benchmark_policy",
+                    "execution_completion",
+                    "persisted_verifier_artifacts",
+                    "post_agent_verifier_error_policy",
+                    "pre_model_sandoq_provisioning_error_policy",
+                    "sandoq_assignment_lifecycle",
+                }
+            ),
+            "extra_artifact_keys": frozenset({"execution_completion"}),
+            "extra_count_keys": frozenset(
+                {
+                    "benchmark_scored_failures",
+                    "benchmark_scored_rows",
+                    "benchmark_valid_nontrainable_passes",
+                    "infrastructure_zeroes",
+                    "post_agent_verifier_artifact_write_transport_zeroes",
+                    "post_agent_verifier_exec_transport_zeroes",
+                    "post_agent_verifier_sandbox_error_zeroes",
+                    "pre_model_sandoq_provisioning_error_zeroes",
+                    "provider_scored_passes",
+                    "trainable_passes",
+                }
+            ),
+            "extra_training_keys": frozenset(
+                {
+                    "eligible_clean_passes",
+                    "excluded_post_agent_verifier_artifact_write_transport_rows",
+                    "excluded_post_agent_verifier_sandbox_error_rows",
+                    "excluded_pre_model_sandoq_provisioning_error_rows",
+                    "post_agent_verifier_artifact_write_transport_rows_are_trainable",
+                    "post_agent_verifier_sandbox_error_rows_are_trainable",
+                    "pre_model_sandoq_provisioning_error_rows_are_trainable",
+                }
+            ),
+            "allow_post_agent_verifier_sandbox_errors": True,
+            "audit_pre_model_sandoq_provisioning_errors": True,
+            "allow_exact_length_benchmark_rows": True,
+            "allow_post_agent_exec_transport_errors": True,
+            "allow_post_agent_artifact_write_transport_errors": True,
+            "require_persisted_verifier_artifacts": True,
+            "execution_contract": tb4_v12.execution_contract(tb4_v12.EXECUTION_SLURM_JOB_ID),
+            "supersession_source_paths": tb4_v12.SUPERSESSION_SOURCE_FILES,
+            "distinct_supersession_source_revision": True,
+            "expected_supersession_source_revision": TB4_V12_SUPERSESSION_SOURCE_REVISION,
+            "production_shared_variant_files": TB4_V12_PRODUCTION_SHARED_VARIANT_FILES,
+            "production_lane_variant_files": TB4_V12_PRODUCTION_LANE_VARIANT_FILES,
+            "production_sandoq_variant_files": TB4_V12_PRODUCTION_SANDOQ_VARIANT_FILES,
+            "production_variant_pair_sha256": TB4_V12_PRODUCTION_VARIANT_PAIR_SHA256,
+        }
     raise StockSmallError("tb4_gate_invalid")
+
+
+def _validate_tb4_v12_trace_claims(
+    value: Mapping[str, Any],
+    counts: Mapping[str, Any],
+    training: object,
+    trace_audit: Mapping[str, Any],
+    base_training: Mapping[str, Any],
+) -> tuple[dict[str, Any], object, object]:
+    artifact_write_zeroes = trace_audit.get("post_agent_verifier_artifact_write_transport_error_zeroes")
+    expected_training = {
+        **base_training,
+        "eligible_clean_passes": trace_audit.get("trainable_passes"),
+        "excluded_post_agent_verifier_artifact_write_transport_rows": artifact_write_zeroes,
+        "post_agent_verifier_artifact_write_transport_rows_are_trainable": False,
+    }
+    expected_counts = {
+        "provider_scored_passes": trace_audit.get("passes"),
+        "benchmark_scored_rows": trace_audit.get("scored_rows"),
+        "benchmark_scored_failures": trace_audit.get("scored_failures"),
+        "trainable_passes": trace_audit.get("trainable_passes"),
+        "benchmark_valid_nontrainable_passes": trace_audit.get("exact_length_nontrainable_passing_rows"),
+        "infrastructure_zeroes": trace_audit.get("execution_error_zeroes"),
+        "post_agent_verifier_exec_transport_zeroes": trace_audit.get("post_agent_verifier_exec_transport_error_zeroes"),
+        "post_agent_verifier_artifact_write_transport_zeroes": artifact_write_zeroes,
+    }
+    try:
+        expected_policy = tb4_v8._exact_length_benchmark_policy(trace_audit)
+    except (OSError, RuntimeError, ValueError) as error:
+        raise StockSmallError("tb4_gate_v12_claims_invalid") from error
+    if (
+        value.get("exact_length_benchmark_policy") != expected_policy
+        or any(counts.get(key) != expected for key, expected in expected_counts.items())
+        or training != expected_training
+    ):
+        raise StockSmallError("tb4_gate_v12_claims_invalid")
+    return (
+        expected_training,
+        trace_audit.get("benchmark_valid_passes"),
+        trace_audit.get("benchmark_invalid_passing_rows"),
+    )
+
+
+def _validate_tb4_v12_artifact_claims(
+    value: Mapping[str, Any],
+    artifacts: Mapping[str, Any],
+    *,
+    results_body: bytes,
+    run_dir: Path,
+    execution_contract: tb4_v8.ExecutionContract,
+    held: split._HeldArtifactSet | None,
+) -> None:
+    try:
+        execution_completion = tb4_v8._execution_completion_audit(
+            run_dir,
+            execution_contract,
+            held,
+        )
+        persisted_verifier_artifacts = tb4_v8._persisted_verifier_artifact_audit(
+            results_body,
+            run_dir,
+        )
+    except (OSError, RuntimeError, ValueError) as error:
+        raise StockSmallError("tb4_gate_v12_artifacts_invalid") from error
+    if execution_completion is None:
+        raise StockSmallError("tb4_gate_v12_artifacts_invalid")
+    execution_completion_value, execution_completion_artifact = execution_completion
+    if (
+        value.get("execution_completion") != execution_completion_value
+        or artifacts.get("execution_completion") != execution_completion_artifact
+        or value.get("persisted_verifier_artifacts") != persisted_verifier_artifacts
+    ):
+        raise StockSmallError("tb4_gate_v12_artifacts_invalid")
 
 
 def _validate_tb4_gate_locked(
@@ -1035,6 +1206,9 @@ def _validate_tb4_gate_locked(
     recovery = value.get("zero_model_recovery")
     certificate_revision = value.get("source_revision")
     variant = _tb4_gate_variant(value)
+    execution_contract = variant.get("execution_contract")
+    if execution_contract is not None and not isinstance(execution_contract, tb4_v8.ExecutionContract):
+        raise StockSmallError("tb4_gate_invalid")
     policy_timeouts = policy.get("timeouts") if isinstance(policy, dict) else None
     expected_certificate_keys = {
         "schema_version",
@@ -1167,6 +1341,7 @@ def _validate_tb4_gate_locked(
             "cleanup_event_log",
             "cleanup_wal",
         }
+        | set(variant.get("extra_artifact_keys", frozenset()))
         or not isinstance(executed_record, dict)
         or set(executed_record) != {"path", "bytes", "sha256"}
         or not isinstance(proxy_records, list)
@@ -1202,6 +1377,14 @@ def _validate_tb4_gate_locked(
         or re.fullmatch(r"[1-9][0-9]*", source_run["slurm_job_id"]) is None
         or source_run.get("results") != artifacts.get("executed_results")
         or value.get("launch_plan_sha256") != (launch_record.get("sha256") if isinstance(launch_record, dict) else None)
+        or (
+            execution_contract is not None
+            and (
+                source_run.get("slurm_job_id") != execution_contract.slurm_job_id
+                or certificate_revision != execution_contract.source_revision
+                or value.get("launch_plan_sha256") != execution_contract.plan_sha256
+            )
+        )
     ):
         raise StockSmallError("tb4_gate_invalid")
     launch_path, launch_body = _record_body(
@@ -1211,18 +1394,25 @@ def _validate_tb4_gate_locked(
         held=held,
     )
     try:
-        verified_plan = tb4_small.verify(
-            launch_path,
-            _sha256(launch_body),
-            held=held,
-            body=launch_body,
-        )
+        if execution_contract is None:
+            verified_plan = tb4_small.verify(
+                launch_path,
+                _sha256(launch_body),
+                held=held,
+                body=launch_body,
+            )
+            decoded_launch_plan = _json(launch_body, code="tb4_gate_plan_invalid")
+        else:
+            decoded_launch_plan, verified_plan, verified_launch_record = tb4_v8._verified_execution_plan(
+                launch_path,
+                _sha256(launch_body),
+                held,
+                execution_contract,
+            )
+            if launch_path != tb4_v12.EXECUTION_PLAN or verified_launch_record != launch_record:
+                raise StockSmallError("tb4_gate_plan_invalid")
     except (OSError, RuntimeError, ValueError) as error:
         raise StockSmallError("tb4_gate_plan_invalid") from error
-    try:
-        decoded_launch_plan = _json(launch_body, code="tb4_gate_plan_invalid")
-    except StockSmallError:
-        raise
     if (
         policy != decoded_launch_plan.get("contracts")
         or value.get("manifest_sha256") != verified_plan.get("manifest_sha256")
@@ -1235,17 +1425,28 @@ def _validate_tb4_gate_locked(
         held=held,
     )
     run_dir = Path(str(executed_record["path"])).parent
-    if identity_path != run_dir / "eval_run_identity.json":
+    if identity_path != run_dir / "eval_run_identity.json" or (
+        execution_contract is not None and run_dir != tb4_v12.EXECUTION_RUN_DIR
+    ):
         raise StockSmallError("tb4_gate_identity_invalid")
     try:
-        identity, identity_sha256, invocation_sha256, invocation_job_id = tb4_full._identity_contract(
-            run_dir=run_dir,
-            evidence=evidence,
-            plan=decoded_launch_plan,
-            expected_revision=certificate_revision,
-            expected_verifiers_commit=tb4_small.VERIFIERS_COMMIT,
-            held=held,
-        )
+        if execution_contract is None:
+            identity, identity_sha256, invocation_sha256, invocation_job_id = tb4_full._identity_contract(
+                run_dir=run_dir,
+                evidence=evidence,
+                plan=decoded_launch_plan,
+                expected_revision=certificate_revision,
+                expected_verifiers_commit=tb4_small.VERIFIERS_COMMIT,
+                held=held,
+            )
+        else:
+            identity, identity_sha256, invocation_sha256, invocation_job_id = tb4_v8._execution_identity_contract(
+                run_dir=run_dir,
+                evidence=evidence,
+                plan=decoded_launch_plan,
+                execution=execution_contract,
+                held=held,
+            )
     except (OSError, RuntimeError, ValueError) as error:
         raise StockSmallError("tb4_gate_identity_invalid") from error
     router = identity.get("deployment", {}).get("router") if isinstance(identity, dict) else None
@@ -1255,28 +1456,54 @@ def _validate_tb4_gate_locked(
         or identity.get("source", {}).get("prime_rl_commit") != certificate_revision
         or not isinstance(router, dict)
         or router.get("capacity_profile") != CAPACITY_PROFILE
-        or router.get("endpoint_identifier") != ENDPOINT_IDENTIFIER
+        or router.get("endpoint_identifier")
+        != (execution_contract.stock_endpoint_identifier if execution_contract is not None else ENDPOINT_IDENTIFIER)
         or router.get("worker_count") != 1
         or router.get("provider_concurrency") != CONCURRENCY
-        or identity.get("deployment", {}).get("spec_sha256") != SOURCE_SPEC_SHA256
-        or identity.get("deployment", {}).get("endpoint_bundle_sha256") != ENDPOINT_BUNDLE_SHA256
+        or identity.get("deployment", {}).get("spec_sha256")
+        != (execution_contract.stock_source_spec_sha256 if execution_contract is not None else SOURCE_SPEC_SHA256)
+        or identity.get("deployment", {}).get("endpoint_bundle_sha256")
+        != (
+            execution_contract.stock_endpoint_bundle_sha256
+            if execution_contract is not None
+            else ENDPOINT_BUNDLE_SHA256
+        )
         or identity_sha256 != value.get("eval_run_identity_sha256")
         or invocation_sha256 != value.get("invocation_identity_sha256")
         or invocation_job_id != source_run.get("slurm_job_id")
     ):
         raise StockSmallError("tb4_gate_identity_invalid")
     identity_source = identity.get("source")
-    if not isinstance(identity_source, dict):
+    if not isinstance(identity_source, dict) or (
+        execution_contract is not None
+        and (
+            identity_source.get("project_root") != execution_contract.execution_project_root
+            or identity_source.get("verifiers_commit") != execution_contract.verifiers_commit
+        )
+    ):
         raise StockSmallError("tb4_gate_identity_invalid")
     tb4_root = Path(str(identity_source.get("project_root", "")))
     verifiers_revision = str(identity_source.get("verifiers_commit", ""))
-    semantics_binding = _validate_tb4_execution_semantics(
-        value.get("execution_semantics"),
-        tb4_root=tb4_root,
-        production_root=production_root,
-        certificate_revision=certificate_revision,
-        verifiers_revision=verifiers_revision,
-    )
+    if execution_contract is None:
+        semantics_binding = _validate_tb4_execution_semantics(
+            value.get("execution_semantics"),
+            tb4_root=tb4_root,
+            production_root=production_root,
+            certificate_revision=certificate_revision,
+            verifiers_revision=verifiers_revision,
+        )
+    else:
+        semantics_binding = _validate_tb4_execution_semantics(
+            value.get("execution_semantics"),
+            tb4_root=tb4_root,
+            production_root=production_root,
+            certificate_revision=certificate_revision,
+            verifiers_revision=verifiers_revision,
+            production_shared_variant_files=variant["production_shared_variant_files"],
+            production_lane_variant_files=variant["production_lane_variant_files"],
+            production_sandoq_variant_files=variant["production_sandoq_variant_files"],
+            production_variant_pair_sha256=variant["production_variant_pair_sha256"],
+        )
     semantics_binding = {
         **semantics_binding,
         "supersession_source": _validate_tb4_supersession_source(
@@ -1286,6 +1513,7 @@ def _validate_tb4_gate_locked(
             certificate_revision=certificate_revision,
             source_paths=variant["supersession_source_paths"],
             distinct_source_revision=variant["distinct_supersession_source_revision"],
+            expected_source_revision=variant.get("expected_supersession_source_revision"),
         ),
     }
     task_record = identity.get("inputs", {}).get("task_file")
@@ -1351,6 +1579,25 @@ def _validate_tb4_gate_locked(
                 if variant.get("audit_pre_model_sandoq_provisioning_errors", False)
                 else None
             ),
+            allow_exact_length_benchmark_rows=variant.get(
+                "allow_exact_length_benchmark_rows",
+                False,
+            ),
+            allow_post_agent_exec_transport_errors=variant.get(
+                "allow_post_agent_exec_transport_errors",
+                False,
+            ),
+            allow_post_agent_artifact_write_transport_errors=variant.get(
+                "allow_post_agent_artifact_write_transport_errors",
+                False,
+            ),
+            require_persisted_verifier_artifacts=variant.get(
+                "require_persisted_verifier_artifacts",
+                False,
+            ),
+            execution_project_root=(
+                execution_contract.execution_project_root if execution_contract is not None else None
+            ),
         )
         finalized_results = tb4_transport._merge_rows(
             entries,
@@ -1386,7 +1633,7 @@ def _validate_tb4_gate_locked(
             invocation_sha256,
             invocation_job_id,
             52,
-            24,
+            execution_contract.concurrency if execution_contract is not None else 24,
             held,
         )
         router_body, router_artifact, router_marker = split._validate_direct_router_receipt(
@@ -1414,6 +1661,15 @@ def _validate_tb4_gate_locked(
         proxy_audit,
         provider_error_rows=int(trace_audit["provider_error_zeroes"]),
     )
+    if execution_contract is not None:
+        _validate_tb4_v12_artifact_claims(
+            value,
+            artifacts,
+            results_body=results_body,
+            run_dir=run_dir,
+            execution_contract=execution_contract,
+            held=held,
+        )
     post_agent_zeroes = trace_audit.get("post_agent_verifier_sandbox_error_zeroes", 0)
     pre_model_provisioning_zeroes = trace_audit.get("pre_model_sandoq_provisioning_error_zeroes", 0)
     expected_training = {
@@ -1460,15 +1716,26 @@ def _validate_tb4_gate_locked(
             or counts.get("pre_model_sandoq_provisioning_error_zeroes") != pre_model_provisioning_zeroes
         ):
             raise StockSmallError("tb4_gate_lifecycle_invalid")
+    if execution_contract is not None:
+        expected_training, expected_passes, invalid_passing_rows = _validate_tb4_v12_trace_claims(
+            value,
+            counts,
+            training,
+            trace_audit,
+            expected_training,
+        )
+    else:
+        expected_passes = trace_audit.get("passes")
+        invalid_passing_rows = trace_audit.get("trace_invalid_passing_rows")
     if (
         result_artifact != executed_record
         or _sha256(finalized_results) != value.get("results_sha256")
         or trace_audit != value.get("trace_audit")
         or proxy_audit != proxy_claim
         or router_transport != router_transport_claim
-        or trace_audit.get("passes") != counts["passes"]
+        or expected_passes != counts["passes"]
         or trace_audit.get("clean_trace_failures") != 0
-        or trace_audit.get("trace_invalid_passing_rows") != 0
+        or invalid_passing_rows != 0
         or not _plain_nonnegative_integer(trace_audit.get("clean_scored_rows"))
         or not _plain_nonnegative_integer(trace_audit.get("execution_error_zeroes"))
         or trace_audit.get("clean_scored_rows")
