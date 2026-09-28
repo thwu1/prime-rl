@@ -130,6 +130,7 @@ def _evidence(tmp_path: Path) -> tuple[finalizer.FinalEvidence, Path]:
         "model_bearing_error_traces": 1,
         "model_bearing_harness_error_traces": 1,
         "model_bearing_provider_error_traces": 0,
+        "model_bearing_shared_verifier_transport_error_traces": 0,
     }
     capture_counts = {
         "clean_model_io_turns": 1,
@@ -186,6 +187,7 @@ def test_final_certificate_is_rebuilt_and_every_completion_is_bound(
                 "model_bearing_error_traces": 0,
                 "model_bearing_harness_error_traces": 0,
                 "model_bearing_provider_error_traces": 0,
+                "model_bearing_shared_verifier_transport_error_traces": 0,
                 "clean_model_io_turns": count,
                 "clean_sampled_tokens": count * 8,
                 "audited_model_io_turns": count,
@@ -219,11 +221,13 @@ def test_final_certificate_is_rebuilt_and_every_completion_is_bound(
             "model_bearing_error_traces": 0,
             "model_bearing_harness_error_traces": 0,
             "model_bearing_provider_error_traces": 0,
+            "model_bearing_shared_verifier_transport_error_traces": 0,
         },
         "training": {
             "trainable_traces": 2499,
             "non_trainable_traces": 0,
             "model_bearing_errors_retained": True,
+            "shared_verifier_terminal_transport_traces": 0,
         },
         "capture": {
             "response_kind": "exact_provider_json",

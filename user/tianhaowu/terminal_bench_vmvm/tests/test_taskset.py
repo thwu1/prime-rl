@@ -51,6 +51,7 @@ from terminal_bench_vmvm.source_wheels import (
     wheel_semantic_sha256,
 )
 from terminal_bench_vmvm.taskset import (
+    SHARED_VERIFIER_TERMINAL_TRANSPORT_DISPOSITION,
     RuntimeWheelFingerprints,
     TerminalBenchVMVMConfig,
     TerminalBenchVMVMTaskset,
@@ -1802,16 +1803,16 @@ def test_run_verifier_installs_online_for_public_sandoq_override(
     async def install_prefetched(*args: object, **kwargs: object) -> None:
         pytest.fail("public Sandoq verifier must not require an offline wheelhouse")
 
-    responses = iter(
-        (
-            ProgramResult(exit_code=0, stdout="", stderr=""),
-            ProgramResult(exit_code=0, stdout="text", stderr=""),
-        )
-    )
-
     async def run(*args: object, **kwargs: object) -> ProgramResult:
         events.append("runtime-command")
-        return next(responses)
+        return ProgramResult(exit_code=0, stdout="text", stderr="")
+
+    async def run_program(argv: list[str], env: dict[str, str]) -> ProgramResult:
+        assert argv[:2] == ["sh", "-c"]
+        assert "timeout --signal=TERM --kill-after=30s 60s" in argv[2]
+        assert env == {}
+        events.append("background-program")
+        return ProgramResult(exit_code=0, stdout="", stderr="")
 
     async def read(path: str) -> bytes:
         assert path == "/logs/verifier/reward.txt"
@@ -1824,6 +1825,7 @@ def test_run_verifier_installs_online_for_public_sandoq_override(
     monkeypatch.setattr(taskset, "_ensure_test_dependencies", install_online)
     monkeypatch.setattr(taskset, "_install_prefetched_test_dependencies", install_prefetched)
     monkeypatch.setattr(runtime, "run", run)
+    monkeypatch.setattr(runtime, "run_program", run_program)
     monkeypatch.setattr(runtime, "read", read)
     task = SimpleNamespace(
         name="opaque-task",
@@ -1845,7 +1847,7 @@ def test_run_verifier_installs_online_for_public_sandoq_override(
         "tests-staged",
         "verifier-paths-prepared",
         "online-dependencies-installed",
-        "runtime-command",
+        "background-program",
         "runtime-command",
         "reward-read",
     ]
@@ -2107,6 +2109,71 @@ def test_shared_verifier_retry_exhaustion_remains_infrastructure_error(
     with pytest.raises(SandboxError, match="2 scoring-only attempts"):
         asyncio.run(taskset._score_shared(SimpleNamespace(name="test"), runtime))
     assert attempts == 2
+
+
+def test_sandoq_shared_verifier_never_replays_an_uncertain_scoring_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            verifier_runtime_retries=8,
+            retry_shared_verifier_scoring=True,
+        )
+    )
+    runtime = SandoqRuntime(
+        SandoqConfig(
+            image="registry.invalid/task@sha256:" + "a" * 64,
+            network_access=True,
+            mode="oci-runner",
+            host_tunnel="none",
+            expected_environment="oci-runner",
+            ecr_token_file=Path("/run/secrets/ecr-token"),
+        ),
+        name="shared-verifier",
+    )
+    attempts = 0
+
+    async def run_verifier(*args: object, **kwargs: object):
+        nonlocal attempts
+        attempts += 1
+        raise SandboxError("uncertain scoring transport")
+
+    monkeypatch.setattr(taskset, "_run_verifier", run_verifier)
+
+    with pytest.raises(SandboxError, match="1 scoring-only attempts"):
+        asyncio.run(taskset._score_shared(SimpleNamespace(name="test"), runtime))
+    assert attempts == 1
+
+
+def test_sandoq_shared_verifier_error_records_nonreward_disposition(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    taskset = TerminalBenchVMVMTaskset(TerminalBenchVMVMConfig(id="terminal-bench-vmvm", dataset_dir=tmp_path))
+    runtime = SandoqRuntime(
+        SandoqConfig(
+            image="registry.invalid/task@sha256:" + "a" * 64,
+            network_access=True,
+            mode="oci-runner",
+            host_tunnel="none",
+            expected_environment="oci-runner",
+            ecr_token_file=Path("/run/secrets/ecr-token"),
+        ),
+        name="shared-verifier",
+    )
+    trace = SimpleNamespace(id="trace", info={})
+
+    async def score_shared(*args: object, **kwargs: object):
+        raise SandboxError("uncertain scoring transport")
+
+    monkeypatch.setattr(taskset, "_score_shared", score_shared)
+
+    with pytest.raises(SandboxError, match="uncertain scoring transport"):
+        asyncio.run(taskset.solved(SimpleNamespace(verifier_mode="shared"), trace, runtime))
+    assert trace.info == {"terminal_bench_verifier": SHARED_VERIFIER_TERMINAL_TRANSPORT_DISPOSITION}
 
 
 def test_shared_verifier_scoring_retry_is_opt_in(

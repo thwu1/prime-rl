@@ -103,6 +103,16 @@ def _error(error_type: str = "HarnessError") -> dict[str, str]:
     return value
 
 
+def _shared_verifier_transport_error(trace_id: str, task: str) -> dict:
+    row = _trace(trace_id, task)
+    row["errors"] = [_error("SandboxError")]
+    row["rewards"] = {}
+    row["metrics"] = {}
+    row["stop_condition"] = "agent_completed"
+    row["info"] = {"terminal_bench_verifier": dict(shards.SHARED_VERIFIER_TERMINAL_TRANSPORT_DISPOSITION)}
+    return row
+
+
 def test_shards_are_deterministic_balanced_and_exhaustive() -> None:
     members = tuple(f"opaque-{index:04d}" for index in range(shards.TOTAL_TASKS))
     first = shards._split_members(members)
@@ -142,7 +152,7 @@ def test_base_config_is_exact_stock_small_c64_contract(tmp_path: Path) -> None:
     assert config["timeout"]["rollout"] == 129_600
     assert config["harness"]["env"] == {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
     assert config["taskset"]["verifier_runtime_retries"] == 2
-    assert config["taskset"]["retry_shared_verifier_scoring"] is True
+    assert config["taskset"]["retry_shared_verifier_scoring"] is False
     assert config["taskset"]["resource_cpu_cap"] == 1
     assert config["taskset"]["resource_memory_mb_cap"] == 2_048
     identity._validate_direct_kimi_production_config(config, identity.KIMI_PRODUCTION_ROLE)
@@ -165,7 +175,11 @@ def test_base_config_is_exact_stock_small_c64_contract(tmp_path: Path) -> None:
     assert contracts["model_bearing_error_schemas"] == {
         "HarnessError": ["message", "traceback", "type"],
         "ProviderError": ["message", "type"],
+        "SandboxError": ["message", "traceback", "type"],
     }
+    assert contracts["shared_verifier_terminal_transport_disposition"] == (
+        shards.SHARED_VERIFIER_TERMINAL_TRANSPORT_DISPOSITION
+    )
     assert contracts["timeouts"]["shell_action_seconds"] == 3_600
     assert contracts["resume"]["model_bearing_retry"] is False
     assert contracts["resume"]["zero_model_rows"] == "uncertifiable-manual-recovery"
@@ -179,11 +193,12 @@ def test_base_config_is_exact_stock_small_c64_contract(tmp_path: Path) -> None:
         "harness_invocations": 0,
     }
     assert contracts["verifier_recovery"] == {
-        "mode": "same-post-agent-runtime-scoring-only",
-        "retries": 2,
-        "maximum_attempts": 3,
+        "mode": "same-post-agent-runtime-background-single-attempt",
+        "retries": 0,
+        "maximum_attempts": 1,
         "model_calls": 0,
         "infrastructure_errors_remain_errors": True,
+        "posthoc_recovery": False,
     }
     assert shards.TB4_LANE_PRIME_FILES == (
         shards.tb4_transport.TB4_LANE_EXECUTION_FILES + shards.tb4_transport.V7_TB4_LANE_EXECUTION_FILES
@@ -332,6 +347,67 @@ def test_model_bearing_provider_error_requires_exact_on_disk_shape(tmp_path: Pat
     invalid = _private_file(root / "provider-error-null.jsonl", shards._canonical(row))
     with pytest.raises(shards.StockSmallError, match="trace_errors_invalid"):
         shards.audit_results(invalid, selector)
+
+
+@pytest.mark.parametrize("stop_condition", ("agent_completed", "max_total_tokens"))
+def test_shared_verifier_transport_error_is_retained_but_nontrainable(
+    tmp_path: Path,
+    stop_condition: str,
+) -> None:
+    root = _private_dir(tmp_path / "private")
+    selector = _private_file(root / "selector.txt", b"opaque-a\n")
+    row = _shared_verifier_transport_error("trace-a", "opaque-a")
+    row["stop_condition"] = stop_condition
+    results = _private_file(root / "results.jsonl", shards._canonical(row))
+
+    audit = shards.audit_results(results, selector)
+
+    assert audit["traces"] == 1
+    assert audit["error_traces"] == 1
+    assert audit["model_bearing_error_traces"] == 1
+    assert audit["model_bearing_shared_verifier_transport_error_traces"] == 1
+    assert audit["model_bearing_harness_error_traces"] == 0
+    assert audit["model_bearing_provider_error_traces"] == 0
+    assert audit["zero_reward_traces"] == 0
+    assert audit["positive_traces"] == 0
+
+
+def test_shared_verifier_transport_error_requires_exact_host_disposition(tmp_path: Path) -> None:
+    root = _private_dir(tmp_path / "private")
+    selector = _private_file(root / "selector.txt", b"opaque-a\n")
+    missing = _shared_verifier_transport_error("trace-a", "opaque-a")
+    missing["info"] = {}
+    missing_results = _private_file(root / "missing.jsonl", shards._canonical(missing))
+    with pytest.raises(shards.StockSmallError, match="trace_errors_invalid"):
+        shards.audit_results(missing_results, selector)
+
+    spoofed = _shared_verifier_transport_error("trace-b", "opaque-a")
+    spoofed["info"]["terminal_bench_verifier"]["posthoc_recovery"] = True
+    spoofed_results = _private_file(root / "spoofed.jsonl", shards._canonical(spoofed))
+    with pytest.raises(shards.StockSmallError, match="trace_errors_invalid"):
+        shards.audit_results(spoofed_results, selector)
+
+    wrong_stop = _shared_verifier_transport_error("trace-stop", "opaque-a")
+    wrong_stop["stop_condition"] = "error"
+    wrong_stop_results = _private_file(root / "wrong-stop.jsonl", shards._canonical(wrong_stop))
+    with pytest.raises(shards.StockSmallError, match="model_bearing_error_type_invalid"):
+        shards.audit_results(wrong_stop_results, selector)
+
+    fabricated_reward = _shared_verifier_transport_error("trace-c", "opaque-a")
+    fabricated_reward["rewards"] = {"solved": 0}
+    reward_results = _private_file(root / "reward.jsonl", shards._canonical(fabricated_reward))
+    with pytest.raises(shards.StockSmallError, match="trace_errors_invalid"):
+        shards.audit_results(reward_results, selector)
+
+
+def test_shared_verifier_transport_row_cannot_complete_partial_shard(tmp_path: Path) -> None:
+    root = _private_dir(tmp_path / "private")
+    selector = _private_file(root / "selector.txt", b"opaque-a\nopaque-b\n")
+    row = _shared_verifier_transport_error("trace-a", "opaque-a")
+    results = _private_file(root / "partial.jsonl", shards._canonical(row))
+
+    with pytest.raises(shards.StockSmallError, match="trace_coverage_invalid"):
+        shards.audit_results(results, selector)
 
 
 @pytest.mark.parametrize("error_type", ("HarnessError", "ProviderError"))

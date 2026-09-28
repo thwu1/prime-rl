@@ -42,10 +42,10 @@ image_manifest_sha256 = "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157ed
 ignore_dockerfile = true
 use_declared_images = true
 enable_compose = false
-# Shared-mode retries re-run only scoring in the unchanged post-agent sandbox;
-# they never re-enter MiniSWE or issue another model request.
+# Shared verifier execution is single-attempt. Sandoq owns only retries proven
+# not sent and observes the long-running verifier through its background job.
 verifier_runtime_retries = 2
-retry_shared_verifier_scoring = true
+retry_shared_verifier_scoring = false
 timeout_multiplier = 2.0
 resource_multiplier = 1.0
 resource_cpu_cap = 1

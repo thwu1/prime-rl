@@ -199,6 +199,9 @@ def test_contract_is_no_model_c64_firecracker_small() -> None:
     }
     assert value["execution"]["taskset_setup"] is True
     assert value["execution"]["shared_verifier"] is True
+    assert value["execution"]["verifier_execution"] == "background-program"
+    assert value["execution"]["shared_verifier_taskset_retries"] == 0
+    assert value["execution"]["maximum_shared_verifier_attempts"] == 1
     assert value["execution"]["model_calls"] == 0
     assert value["execution"]["harness_invocations"] == 0
     assert value["privacy"]["receipt"] == "aggregate-only"
@@ -354,6 +357,9 @@ def test_run_result_validator_rejects_less_than_c64_high_water(tmp_path: Path) -
             "resource_caps": {"cpu": 1, "memory_mb": 2048, "storage_mb": 10240},
             "model_calls": 0,
             "harness_invocations": 0,
+            "verifier_execution": "background-program",
+            "shared_verifier_taskset_retries": 0,
+            "maximum_shared_verifier_attempts": 1,
             "raw_output_retained": False,
         },
         "live_runtime_high_water": 64,

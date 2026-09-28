@@ -3,10 +3,10 @@
 The repository-root Mobius corpus uses Harbor's shared verifier mode.  The
 same adapter also supports Terminal-Bench 4's separate verifier containers by
 capturing the declared artifacts once and replaying those exact bytes into a
-fresh verifier VMVM.  Infrastructure failures are never converted into reward
-zero: configured shared-mode retries re-run only scoring in the unchanged
-post-agent runtime, while separate verifier failures retry only a fresh
-verifier against the captured artifacts.  Exhausted failures propagate.
+fresh verifier VMVM. Infrastructure failures are never converted into reward
+zero. Sandoq shared verification is single-attempt in the unchanged post-agent
+runtime, while separate verifier failures may retry only a fresh verifier
+against persisted artifacts. Exhausted failures propagate.
 """
 
 from __future__ import annotations
@@ -105,6 +105,19 @@ VERIFIER_TIMEOUT_MARKER = "__TERMINAL_BENCH_VERIFIER_TIMEOUT__"
 TEST_DEPENDENCY_MARKER = "Test dependencies prebaked so the verifier runs offline"
 PYTEST_COMPATIBILITY_REQUIREMENT = "pytest==8.3.4"
 _VERIFIER_SITE_ENV = "TERMINAL_BENCH_VERIFIER_SITE"
+SHARED_VERIFIER_TERMINAL_TRANSPORT_DISPOSITION = {
+    "schema_version": 1,
+    "kind": "terminal-bench-shared-verifier-terminal-transport",
+    "mode": "shared",
+    "sandbox_provider": "sandoq",
+    "execution": "background-program",
+    "same_post_agent_runtime": True,
+    "scoring_attempts": 1,
+    "taskset_retries": 0,
+    "model_calls": 0,
+    "reward_recorded": False,
+    "posthoc_recovery": False,
+}
 
 
 def offline_requirements_extractor_sha256() -> str:
@@ -4636,7 +4649,13 @@ for requirement in sys.argv[1:]:
                 # bypass them for all verifier traffic in these offline images.
                 verifier_env.setdefault("no_proxy", "*")
                 verifier_env.setdefault("NO_PROXY", "*")
-            result = await runtime.run(["sh", "-c", command], verifier_env)
+            if isinstance(runtime, SandoqRuntime):
+                # A direct managed-shell request has a gateway deadline below the
+                # verifier budget. The background protocol launches once and uses
+                # idempotent status polling; an ambiguous launch is never replayed.
+                result = await runtime.run_program(["sh", "-c", command], verifier_env)
+            else:
+                result = await runtime.run(["sh", "-c", command], verifier_env)
         except BaseException:
             verifier_failed = True
             raise
@@ -4782,18 +4801,21 @@ for requirement in sys.argv[1:]:
         task: TerminalBenchTask,
         runtime: Runtime,
     ) -> tuple[ProgramResult, bool, float, dict[str, float], str | None, int, list[str]]:
-        """Retry only scoring in the original post-agent runtime.
+        """Score only in the original post-agent runtime.
 
-        This method never invokes the harness or model. Keeping it below the
-        reward boundary preserves the one model attempt and its exact captured
-        trajectory when scoring encounters a transient sandbox failure.
+        This method never invokes the harness or model. Sandoq is deliberately
+        single-attempt because an uncertain shared-verifier command may already
+        have mutated the sandbox; other runtimes retain the opt-in legacy retry.
         """
 
         failures: list[str] = []
+        # Re-entering a shared verifier after an uncertain Sandoq command can
+        # duplicate non-idempotent test side effects. The provider owns retries
+        # that are proven not sent and definitive managed-shell replacement.
         attempts = (
-            self.config.verifier_runtime_retries + 1
-            if self.config.retry_shared_verifier_scoring
-            else 1
+            1
+            if isinstance(runtime, SandoqRuntime)
+            else (self.config.verifier_runtime_retries + 1 if self.config.retry_shared_verifier_scoring else 1)
         )
         for attempt in range(1, attempts + 1):
             try:
@@ -4820,22 +4842,30 @@ for requirement in sys.argv[1:]:
 
     @reward(weight=1.0)
     async def solved(self, task: TerminalBenchTask, trace: vf.Trace, runtime: Runtime) -> float:
-        if task.verifier_mode == "shared":
-            result, timed_out, score, rewards, descriptor, attempts, failures = await self._score_shared(
-                task,
-                runtime,
-            )
-        else:
-            try:
-                payloads = self._artifact_payloads.pop(trace.id)
-            except KeyError as error:
-                raise RuntimeError(f"{task.name}: captured verifier artifacts are missing") from error
-            result, timed_out, score, rewards, descriptor, attempts, failures = await self._score_separate(
-                task,
-                runtime,
-                payloads,
-                trace.id,
-            )
+        try:
+            if task.verifier_mode == "shared":
+                result, timed_out, score, rewards, descriptor, attempts, failures = await self._score_shared(
+                    task,
+                    runtime,
+                )
+            else:
+                try:
+                    payloads = self._artifact_payloads.pop(trace.id)
+                except KeyError as error:
+                    raise RuntimeError(f"{task.name}: captured verifier artifacts are missing") from error
+                result, timed_out, score, rewards, descriptor, attempts, failures = await self._score_separate(
+                    task,
+                    runtime,
+                    payloads,
+                    trace.id,
+                )
+        except SandboxError:
+            if task.verifier_mode == "shared" and isinstance(runtime, SandoqRuntime):
+                # This host-authored marker lets the stock-lane auditor retain a
+                # model-bearing trace without inventing a benchmark reward. It is
+                # deliberately not a recovery claim.
+                trace.info["terminal_bench_verifier"] = dict(SHARED_VERIFIER_TERMINAL_TRANSPORT_DISPOSITION)
+            raise
         trace.info["terminal_bench_verifier"] = {
             "mode": task.verifier_mode,
             "runtime": descriptor,

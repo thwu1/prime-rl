@@ -39,6 +39,7 @@ from kimi_stock_endpoint_binding import (
     StockEndpointBindingError,
     load_capacity_binding,
 )
+from terminal_bench_vmvm.taskset import SHARED_VERIFIER_TERMINAL_TRANSPORT_DISPOSITION
 
 SCHEMA_VERSION = 1
 DYNAMIC_SCHEMA_VERSION = 2
@@ -80,7 +81,7 @@ SANDOQ_CAPACITY = Path(
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
 PROVIDER_TOKEN_PATH_SHA256 = "19f886485a27dd272af667283ebeb57293a08723782af6c4bc83a05dca6dedc0"
 IMAGE_MANIFEST_SHA256 = "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
-BASE_CONFIG_SHA256 = "6b2607348bfb536af6f6bbc787a9b5db4adb7b3091d956a2fd8f2ad9c6a1c630"
+BASE_CONFIG_SHA256 = "45250a001522c0c0b7123e42f3ab951f671631527b1ccdb27517e68a8efb8327"
 SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
 MAX_RESULTS_ROW_BYTES = 128 * 1024 * 1024
@@ -539,7 +540,7 @@ def _load_base(held: split._HeldArtifactSet | None = None) -> tuple[dict[str, An
         or taskset.get("resource_memory_mb_cap") != MEMORY_MB_CAP
         or taskset.get("resource_storage_mb_cap") != STORAGE_MB_CAP
         or taskset.get("verifier_runtime_retries") != 2
-        or taskset.get("retry_shared_verifier_scoring") is not True
+        or taskset.get("retry_shared_verifier_scoring") is not False
         or not isinstance(harness, dict)
         or harness.get("id") != "mini-swe-agent"
         or harness.get("version") != "2.4.6"
@@ -1604,13 +1605,16 @@ def _contracts(binding: StockEndpointBinding | None = None) -> dict[str, Any]:
         "model_bearing_error_schemas": {
             "HarnessError": ["message", "traceback", "type"],
             "ProviderError": ["message", "type"],
+            "SandboxError": ["message", "traceback", "type"],
         },
+        "shared_verifier_terminal_transport_disposition": dict(SHARED_VERIFIER_TERMINAL_TRANSPORT_DISPOSITION),
         "verifier_recovery": {
-            "mode": "same-post-agent-runtime-scoring-only",
-            "retries": 2,
-            "maximum_attempts": 3,
+            "mode": "same-post-agent-runtime-background-single-attempt",
+            "retries": 0,
+            "maximum_attempts": 1,
             "model_calls": 0,
             "infrastructure_errors_remain_errors": True,
+            "posthoc_recovery": False,
         },
         "timeouts": {
             "request_seconds": REQUEST_TIMEOUT_SECONDS,
@@ -2263,7 +2267,7 @@ def create_launch(
             "logical_request_upstream_attempts": 1,
             "zero_model_resume_attempts": 0,
             "verifier_runtime_retries": 2,
-            "verifier_retry_mode": "same-post-agent-runtime-scoring-only",
+            "verifier_retry_mode": "same-post-agent-runtime-background-single-attempt",
         },
         "capture": {
             "response_kind": "exact_provider_json",
@@ -2384,7 +2388,7 @@ def validate_launch(
             "logical_request_upstream_attempts": 1,
             "zero_model_resume_attempts": 0,
             "verifier_runtime_retries": 2,
-            "verifier_retry_mode": "same-post-agent-runtime-scoring-only",
+            "verifier_retry_mode": "same-post-agent-runtime-background-single-attempt",
         }
         or not run_dir.is_absolute()
         or Path(os.path.normpath(run_dir)) != run_dir
@@ -2445,6 +2449,16 @@ def _error_types(errors: object) -> tuple[str, ...]:
             raise StockSmallError("trace_errors_invalid")
         types.append(error_type)
     return tuple(types)
+
+
+def _is_shared_verifier_terminal_transport(row: Mapping[str, Any]) -> bool:
+    info = row.get("info")
+    verifier = info.get("terminal_bench_verifier") if isinstance(info, dict) else None
+    return (
+        row.get("is_completed") is True
+        and row.get("stop_condition") in {"agent_completed", "max_total_tokens"}
+        and verifier == SHARED_VERIFIER_TERMINAL_TRANSPORT_DISPOSITION
+    )
 
 
 def audit_results(results: Path, selector: Path) -> dict[str, Any]:
@@ -2536,9 +2550,12 @@ def audit_results(results: Path, selector: Path) -> dict[str, Any]:
                 counts["traces"] += 1
                 if errors:
                     error_types = _error_types(errors)
+                    shared_verifier_transport = error_types == (
+                        "SandboxError",
+                    ) and _is_shared_verifier_terminal_transport(row)
                     if (
                         len(error_types) != 1
-                        or row.get("stop_condition") != "error"
+                        or (not shared_verifier_transport and row.get("stop_condition") != "error")
                         or row.get("rewards") != {}
                         or row.get("metrics") != {}
                     ):
@@ -2550,15 +2567,18 @@ def audit_results(results: Path, selector: Path) -> dict[str, Any]:
                             raise StockSmallError("trace_errors_invalid")
                         counts["zero_model_error_traces"] += 1
                         continue
-                    if error_types not in (("HarnessError",), ("ProviderError",)):
+                    if error_types not in (("HarnessError",), ("ProviderError",)) and not shared_verifier_transport:
                         raise StockSmallError("model_bearing_error_type_invalid")
                     turns, sampled_tokens = audit_model_bearing_trace(row, clean_stop=False)
                     counts["model_bearing_error_traces"] += 1
-                    counts[
-                        "model_bearing_provider_error_traces"
-                        if error_types == ("ProviderError",)
-                        else "model_bearing_harness_error_traces"
-                    ] += 1
+                    if shared_verifier_transport:
+                        counts["model_bearing_shared_verifier_transport_error_traces"] += 1
+                    else:
+                        counts[
+                            "model_bearing_provider_error_traces"
+                            if error_types == ("ProviderError",)
+                            else "model_bearing_harness_error_traces"
+                        ] += 1
                     counts["audited_model_io_turns"] += turns
                     counts["audited_sampled_tokens"] += sampled_tokens
                     continue
@@ -2619,6 +2639,10 @@ def audit_results(results: Path, selector: Path) -> dict[str, Any]:
         or counts["traces"] != len(expected)
         or counts["error_traces"] + counts["zero_reward_traces"] + counts["positive_traces"] != len(expected)
         or counts["zero_model_error_traces"] + counts["model_bearing_error_traces"] != counts["error_traces"]
+        or counts["model_bearing_error_traces"]
+        != counts["model_bearing_harness_error_traces"]
+        + counts["model_bearing_provider_error_traces"]
+        + counts["model_bearing_shared_verifier_transport_error_traces"]
     ):
         raise StockSmallError("trace_coverage_invalid")
     return {
@@ -2632,6 +2656,7 @@ def audit_results(results: Path, selector: Path) -> dict[str, Any]:
                 "model_bearing_error_traces",
                 "model_bearing_harness_error_traces",
                 "model_bearing_provider_error_traces",
+                "model_bearing_shared_verifier_transport_error_traces",
                 "zero_reward_traces",
                 "positive_traces",
                 "clean_model_io_turns",
@@ -2690,6 +2715,7 @@ def _shard_completion_value(
             "trainable_traces": trace["zero_reward_traces"] + trace["positive_traces"],
             "non_trainable_traces": trace["model_bearing_error_traces"],
             "model_bearing_errors_retained": True,
+            "shared_verifier_terminal_transport_traces": trace["model_bearing_shared_verifier_transport_error_traces"],
         },
         "artifacts": dict(artifacts),
     }
@@ -2999,6 +3025,7 @@ def _validate_completion_value(
                 "model_bearing_error_traces",
                 "model_bearing_harness_error_traces",
                 "model_bearing_provider_error_traces",
+                "model_bearing_shared_verifier_transport_error_traces",
                 "zero_reward_traces",
                 "positive_traces",
             )
@@ -3010,7 +3037,9 @@ def _validate_completion_value(
         or trace.get("zero_model_error_traces") != 0
         or trace.get("error_traces") != trace.get("model_bearing_error_traces")
         or trace.get("model_bearing_error_traces")
-        != trace.get("model_bearing_harness_error_traces", -1) + trace.get("model_bearing_provider_error_traces", -1)
+        != trace.get("model_bearing_harness_error_traces", -1)
+        + trace.get("model_bearing_provider_error_traces", -1)
+        + trace.get("model_bearing_shared_verifier_transport_error_traces", -1)
         or trace.get("error_traces", -1) + trace.get("zero_reward_traces", -1) + trace.get("positive_traces", -1)
         != shard["count"]
         or value.get("training")
@@ -3018,6 +3047,10 @@ def _validate_completion_value(
             "trainable_traces": trace.get("zero_reward_traces", -1) + trace.get("positive_traces", -1),
             "non_trainable_traces": trace.get("model_bearing_error_traces", -1),
             "model_bearing_errors_retained": True,
+            "shared_verifier_terminal_transport_traces": trace.get(
+                "model_bearing_shared_verifier_transport_error_traces",
+                -1,
+            ),
         }
     ):
         raise StockSmallError("completion_invalid")
@@ -3290,6 +3323,7 @@ def status(plan_path: Path, plan_sha256: str) -> dict[str, Any]:
             "model_bearing_error_traces",
             "model_bearing_harness_error_traces",
             "model_bearing_provider_error_traces",
+            "model_bearing_shared_verifier_transport_error_traces",
         ):
             counts[key] += value["trace"][key]
         transport_audits.append(value["transport"])
@@ -3318,6 +3352,9 @@ def status(plan_path: Path, plan_sha256: str) -> dict[str, Any]:
         "model_bearing_error_traces": counts["model_bearing_error_traces"],
         "model_bearing_harness_error_traces": counts["model_bearing_harness_error_traces"],
         "model_bearing_provider_error_traces": counts["model_bearing_provider_error_traces"],
+        "model_bearing_shared_verifier_transport_error_traces": counts[
+            "model_bearing_shared_verifier_transport_error_traces"
+        ],
         "logical_model_requests": transport["integer_totals"]["logical_requests"],
         "logical_upstream_attempts": transport["integer_totals"]["logical_upstream_attempts"],
         "guest_replayed_requests": transport["integer_totals"]["replayed_requests"],
@@ -3352,6 +3389,7 @@ def finalize(plan_path: Path, plan_sha256: str, output: Path) -> dict[str, Any]:
             "model_bearing_error_traces",
             "model_bearing_harness_error_traces",
             "model_bearing_provider_error_traces",
+            "model_bearing_shared_verifier_transport_error_traces",
         ):
             counts[key] += completion["trace"][key]
         completions.append(_artifact(path, body))
@@ -3375,6 +3413,9 @@ def finalize(plan_path: Path, plan_sha256: str, output: Path) -> dict[str, Any]:
         "model_bearing_error_traces": counts["model_bearing_error_traces"],
         "model_bearing_harness_error_traces": counts["model_bearing_harness_error_traces"],
         "model_bearing_provider_error_traces": counts["model_bearing_provider_error_traces"],
+        "model_bearing_shared_verifier_transport_error_traces": counts[
+            "model_bearing_shared_verifier_transport_error_traces"
+        ],
         "pending_indexes": [],
     }
     transport = _aggregate_transport_audits(transport_audits)
@@ -3417,12 +3458,16 @@ def finalize(plan_path: Path, plan_sha256: str, output: Path) -> dict[str, Any]:
                 "model_bearing_error_traces",
                 "model_bearing_harness_error_traces",
                 "model_bearing_provider_error_traces",
+                "model_bearing_shared_verifier_transport_error_traces",
             )
         },
         "training": {
             "trainable_traces": summary["positive_traces"] + summary["zero_reward_traces"],
             "non_trainable_traces": summary["model_bearing_error_traces"],
             "model_bearing_errors_retained": True,
+            "shared_verifier_terminal_transport_traces": summary[
+                "model_bearing_shared_verifier_transport_error_traces"
+            ],
         },
         "capture": {
             "response_kind": "exact_provider_json",

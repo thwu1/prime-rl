@@ -536,7 +536,9 @@ def _contracts(binding: StockEndpointBinding | None = None) -> dict[str, Any]:
             "taskset_setup": True,
             "benign_command": "posix-shell-noop-v1",
             "shared_verifier": True,
-            "verifier_runtime_retries": 2,
+            "verifier_execution": "background-program",
+            "shared_verifier_taskset_retries": 0,
+            "maximum_shared_verifier_attempts": 1,
             "model_calls": 0,
             "harness_invocations": 0,
         },
@@ -887,7 +889,7 @@ def _load_taskset(plan: Mapping[str, Any]) -> tuple[Any, list[Any]]:
             use_declared_images=True,
             enable_compose=False,
             verifier_runtime_retries=2,
-            retry_shared_verifier_scoring=True,
+            retry_shared_verifier_scoring=False,
             timeout_multiplier=2.0,
             resource_multiplier=1.0,
             resource_cpu_cap=CPU_CAP,
@@ -1025,9 +1027,8 @@ async def _exercise_one(taskset: Any, task: Any, runtime: Any) -> dict[str, int]
                 or not 0 <= float(score) <= 1
                 or not isinstance(rewards, dict)
                 or not rewards
-                or not _plain_int(attempts, minimum=1, maximum=3)
-                or not isinstance(failures, list)
-                or len(failures) != attempts - 1
+                or attempts != 1
+                or failures != []
             ):
                 counts["shared_verifier_failures"] += 1
                 return dict(counts)
@@ -1184,6 +1185,7 @@ async def execute_soak(
         and counts["benign_exec_succeeded"] == SELECTED_TASKS
         and counts["shared_verifier_executed"] == SELECTED_TASKS
         and counts["shared_verifier_zero_reward"] + counts["shared_verifier_positive_reward"] == SELECTED_TASKS
+        and counts["shared_verifier_retry_attempts"] == 0
         and counts["setup_failures"] == 0
         and counts["benign_exec_failures"] == 0
         and counts["shared_verifier_failures"] == 0
@@ -1388,6 +1390,9 @@ def _validate_run_value(
             },
             "model_calls": 0,
             "harness_invocations": 0,
+            "verifier_execution": "background-program",
+            "shared_verifier_taskset_retries": 0,
+            "maximum_shared_verifier_attempts": 1,
             "raw_output_retained": False,
         }
         or value.get("live_runtime_high_water") != CONCURRENCY
@@ -1421,7 +1426,7 @@ def _validate_run_value(
             )
         )
         or counts["shared_verifier_zero_reward"] + counts["shared_verifier_positive_reward"] != SELECTED_TASKS
-        or counts["shared_verifier_retry_attempts"] > SELECTED_TASKS * 2
+        or counts["shared_verifier_retry_attempts"] != 0
         or counts["taskset_close_succeeded"] != 1
         or isinstance(elapsed, bool)
         or not isinstance(elapsed, (int, float))
@@ -1498,6 +1503,9 @@ def run(
             },
             "model_calls": 0,
             "harness_invocations": 0,
+            "verifier_execution": "background-program",
+            "shared_verifier_taskset_retries": 0,
+            "maximum_shared_verifier_attempts": 1,
             "raw_output_retained": False,
         },
         "live_runtime_high_water": outcome["live_runtime_high_water"],

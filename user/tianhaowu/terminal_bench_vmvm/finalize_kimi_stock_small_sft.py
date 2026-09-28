@@ -343,6 +343,7 @@ def validate_final_certificate(path: Path, expected_sha256: str) -> FinalEvidenc
             "model_bearing_error_traces",
             "model_bearing_harness_error_traces",
             "model_bearing_provider_error_traces",
+            "model_bearing_shared_verifier_transport_error_traces",
         )
     }
     capture_counts = {
@@ -395,6 +396,9 @@ def validate_final_certificate(path: Path, expected_sha256: str) -> FinalEvidenc
             "trainable_traces": outcome_counts["positive_traces"] + outcome_counts["zero_reward_traces"],
             "non_trainable_traces": outcome_counts["model_bearing_error_traces"],
             "model_bearing_errors_retained": True,
+            "shared_verifier_terminal_transport_traces": outcome_counts[
+                "model_bearing_shared_verifier_transport_error_traces"
+            ],
         }
         or value.get("capture")
         != {
