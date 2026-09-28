@@ -2451,12 +2451,11 @@ def _error_types(errors: object) -> tuple[str, ...]:
     return tuple(types)
 
 
-def _is_shared_verifier_terminal_transport(row: Mapping[str, Any]) -> bool:
+def _is_shared_verifier_terminal_transport(row: dict[str, Any]) -> bool:
     info = row.get("info")
     verifier = info.get("terminal_bench_verifier") if isinstance(info, dict) else None
     return (
-        row.get("is_completed") is True
-        and row.get("stop_condition") in {"agent_completed", "max_total_tokens"}
+        audit_traces._clean_stop_problem(row) is None
         and verifier == SHARED_VERIFIER_TERMINAL_TRANSPORT_DISPOSITION
     )
 

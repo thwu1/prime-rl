@@ -349,7 +349,7 @@ def test_model_bearing_provider_error_requires_exact_on_disk_shape(tmp_path: Pat
         shards.audit_results(invalid, selector)
 
 
-@pytest.mark.parametrize("stop_condition", ("agent_completed", "max_total_tokens"))
+@pytest.mark.parametrize("stop_condition", ("agent_completed", "max_total_tokens", "max_turns"))
 def test_shared_verifier_transport_error_is_retained_but_nontrainable(
     tmp_path: Path,
     stop_condition: str,
