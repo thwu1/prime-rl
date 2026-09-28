@@ -81,7 +81,7 @@ SANDOQ_CAPACITY = Path(
 PROVIDER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
 PROVIDER_TOKEN_PATH_SHA256 = "19f886485a27dd272af667283ebeb57293a08723782af6c4bc83a05dca6dedc0"
 IMAGE_MANIFEST_SHA256 = "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
-BASE_CONFIG_SHA256 = "45250a001522c0c0b7123e42f3ab951f671631527b1ccdb27517e68a8efb8327"
+BASE_CONFIG_SHA256 = "9d84617bf05fa19355e7c80f40a1f845841e35b800b90fe3998d679f2fc6cd4b"
 SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
 MAX_RESULTS_ROW_BYTES = 128 * 1024 * 1024
@@ -539,7 +539,7 @@ def _load_base(held: split._HeldArtifactSet | None = None) -> tuple[dict[str, An
         or taskset.get("resource_cpu_cap") != CPU_CAP
         or taskset.get("resource_memory_mb_cap") != MEMORY_MB_CAP
         or taskset.get("resource_storage_mb_cap") != STORAGE_MB_CAP
-        or taskset.get("verifier_runtime_retries") != 2
+        or taskset.get("verifier_runtime_retries") != 0
         or taskset.get("retry_shared_verifier_scoring") is not False
         or not isinstance(harness, dict)
         or harness.get("id") != "mini-swe-agent"
@@ -2266,7 +2266,7 @@ def create_launch(
             "guest_transport_retry_attempts": 10,
             "logical_request_upstream_attempts": 1,
             "zero_model_resume_attempts": 0,
-            "verifier_runtime_retries": 2,
+            "verifier_runtime_retries": 0,
             "verifier_retry_mode": "same-post-agent-runtime-background-single-attempt",
         },
         "capture": {
@@ -2387,7 +2387,7 @@ def validate_launch(
             "guest_transport_retry_attempts": 10,
             "logical_request_upstream_attempts": 1,
             "zero_model_resume_attempts": 0,
-            "verifier_runtime_retries": 2,
+            "verifier_runtime_retries": 0,
             "verifier_retry_mode": "same-post-agent-runtime-background-single-attempt",
         }
         or not run_dir.is_absolute()

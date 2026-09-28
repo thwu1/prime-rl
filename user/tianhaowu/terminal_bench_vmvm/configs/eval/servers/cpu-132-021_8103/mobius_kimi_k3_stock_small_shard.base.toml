@@ -44,7 +44,7 @@ use_declared_images = true
 enable_compose = false
 # Shared verifier execution is single-attempt. Sandoq owns only retries proven
 # not sent and observes the long-running verifier through its background job.
-verifier_runtime_retries = 2
+verifier_runtime_retries = 0
 retry_shared_verifier_scoring = false
 timeout_multiplier = 2.0
 resource_multiplier = 1.0

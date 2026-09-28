@@ -753,7 +753,7 @@ def _validate_direct_kimi_production_config(config: dict[str, Any], role: str) -
             or not isinstance(taskset, dict)
             or taskset.get("dataset_revision") != MOBIUS_DATASET_REVISION
             or taskset.get("enable_compose") is not False
-            or taskset.get("verifier_runtime_retries") != 2
+            or taskset.get("verifier_runtime_retries") != 0
             or taskset.get("retry_shared_verifier_scoring") is not False
             or taskset.get("resource_multiplier") != 1.0
             or taskset.get("resource_cpu_cap") != 1

@@ -888,7 +888,7 @@ def _load_taskset(plan: Mapping[str, Any]) -> tuple[Any, list[Any]]:
             ignore_dockerfile=True,
             use_declared_images=True,
             enable_compose=False,
-            verifier_runtime_retries=2,
+            verifier_runtime_retries=0,
             retry_shared_verifier_scoring=False,
             timeout_multiplier=2.0,
             resource_multiplier=1.0,

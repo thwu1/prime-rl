@@ -151,7 +151,7 @@ def test_base_config_is_exact_stock_small_c64_contract(tmp_path: Path) -> None:
     assert config["harness"]["runtime"]["provisioning_retries"] == 8
     assert config["timeout"]["rollout"] == 129_600
     assert config["harness"]["env"] == {"MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT": "10"}
-    assert config["taskset"]["verifier_runtime_retries"] == 2
+    assert config["taskset"]["verifier_runtime_retries"] == 0
     assert config["taskset"]["retry_shared_verifier_scoring"] is False
     assert config["taskset"]["resource_cpu_cap"] == 1
     assert config["taskset"]["resource_memory_mb_cap"] == 2_048
