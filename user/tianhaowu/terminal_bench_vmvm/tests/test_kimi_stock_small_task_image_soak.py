@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import re
 from pathlib import Path
@@ -318,6 +319,111 @@ def test_validate_plan_reopens_image_manifest_artifact_path(
     plan.chmod(0o600)
 
     assert soak.validate_plan(plan, soak._sha256(plan_body)) == plan_value
+
+
+@pytest.mark.parametrize("schema_version", [soak.SCHEMA_VERSION, soak.DYNAMIC_SCHEMA_VERSION])
+def test_validate_receipt_accepts_only_an_exact_rebuild(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    schema_version: int,
+) -> None:
+    run_root = tmp_path / f"run-v{schema_version}"
+    run_root.mkdir(mode=0o700)
+    plan_path = tmp_path / f"plan-v{schema_version}.json"
+    plan_sha256 = "a" * 64
+    expected = {
+        "schema_version": schema_version,
+        "kind": soak.RECEIPT_KIND,
+        "state": "passed",
+        "source_revision": "b" * 40,
+        "plan": {"path": str(plan_path), "sha256": plan_sha256},
+    }
+    if schema_version == soak.DYNAMIC_SCHEMA_VERSION:
+        expected["endpoint_binding"] = {
+            "capacity_profile": soak.STOCK_CAPACITY_PROFILE,
+            "capacity_receipt_sha256": "c" * 64,
+            "deployment_id": "fresh-endpoint",
+            "endpoint_jobs_sha256": "d" * 64,
+        }
+    expected["certificate_sha256"] = soak._sha256(soak._canonical(expected))
+    receipt = run_root / "receipt.json"
+    body = soak._canonical(expected)
+    receipt.write_bytes(body)
+    receipt.chmod(0o600)
+    observed: list[tuple[Path, str, Path]] = []
+
+    def rebuild(*, plan_path: Path, plan_sha256: str, run_root: Path) -> dict[str, object]:
+        observed.append((plan_path, plan_sha256, run_root))
+        return copy.deepcopy(expected)
+
+    monkeypatch.setattr(soak, "_build_receipt", rebuild)
+
+    assert soak.validate_task_image_soak_receipt(
+        receipt,
+        soak._sha256(body),
+        expected_revision="b" * 40,
+    ) == (receipt, body)
+    assert observed == [(plan_path, plan_sha256, run_root)]
+
+    if schema_version == soak.SCHEMA_VERSION:
+        changed = copy.deepcopy(expected)
+        changed["endpoint_binding"] = {"unexpected": True}
+        unsigned = dict(changed)
+        unsigned.pop("certificate_sha256")
+        changed["certificate_sha256"] = soak._sha256(soak._canonical(unsigned))
+        changed_body = soak._canonical(changed)
+        receipt.write_bytes(changed_body)
+        with pytest.raises(soak.TaskImageSoakError, match="receipt_invalid"):
+            soak.validate_task_image_soak_receipt(receipt, soak._sha256(changed_body))
+
+
+def test_validate_dynamic_receipt_rejects_binding_tamper_shape_and_unknown_schema(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_root = tmp_path / "run"
+    run_root.mkdir(mode=0o700)
+    plan_path = tmp_path / "plan.json"
+    expected = {
+        "schema_version": soak.DYNAMIC_SCHEMA_VERSION,
+        "kind": soak.RECEIPT_KIND,
+        "state": "passed",
+        "source_revision": "b" * 40,
+        "plan": {"path": str(plan_path), "sha256": "a" * 64},
+        "endpoint_binding": {
+            "capacity_profile": soak.STOCK_CAPACITY_PROFILE,
+            "capacity_receipt_sha256": "c" * 64,
+            "deployment_id": "fresh-endpoint",
+            "endpoint_jobs_sha256": "d" * 64,
+        },
+    }
+    expected["certificate_sha256"] = soak._sha256(soak._canonical(expected))
+    monkeypatch.setattr(soak, "_build_receipt", lambda **_kwargs: copy.deepcopy(expected))
+    receipt = run_root / "receipt.json"
+
+    candidates = []
+    missing = copy.deepcopy(expected)
+    missing.pop("endpoint_binding")
+    candidates.append(missing)
+    extra = copy.deepcopy(expected)
+    extra["unexpected"] = True
+    candidates.append(extra)
+    tampered = copy.deepcopy(expected)
+    tampered["endpoint_binding"]["endpoint_jobs_sha256"] = "e" * 64
+    candidates.append(tampered)
+    unknown = copy.deepcopy(expected)
+    unknown["schema_version"] = soak.DYNAMIC_SCHEMA_VERSION + 1
+    candidates.append(unknown)
+
+    for candidate in candidates:
+        unsigned = dict(candidate)
+        unsigned.pop("certificate_sha256", None)
+        candidate["certificate_sha256"] = soak._sha256(soak._canonical(unsigned))
+        body = soak._canonical(candidate)
+        receipt.write_bytes(body)
+        receipt.chmod(0o600)
+        with pytest.raises(soak.TaskImageSoakError, match="receipt_invalid"):
+            soak.validate_task_image_soak_receipt(receipt, soak._sha256(body))
 
 
 def test_run_result_validator_rejects_less_than_c64_high_water(tmp_path: Path) -> None:

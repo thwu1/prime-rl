@@ -1750,7 +1750,7 @@ def validate_task_image_soak_receipt(
     if (
         canonical_path != path
         or record["sha256"] != expected_sha256
-        or value.get("schema_version") != SCHEMA_VERSION
+        or value.get("schema_version") not in {SCHEMA_VERSION, DYNAMIC_SCHEMA_VERSION}
         or value.get("kind") != RECEIPT_KIND
         or value.get("state") != "passed"
         or not isinstance(plan_record, dict)
@@ -1764,6 +1764,19 @@ def validate_task_image_soak_receipt(
         plan_sha256=str(plan_record["sha256"]),
         run_root=run_root,
     )
+    schema_version = value["schema_version"]
+    if (
+        schema_version == DYNAMIC_SCHEMA_VERSION
+        and (
+            not isinstance(value.get("endpoint_binding"), dict)
+            or expected.get("schema_version") != DYNAMIC_SCHEMA_VERSION
+            or value.get("endpoint_binding") != expected.get("endpoint_binding")
+        )
+    ) or (
+        schema_version == SCHEMA_VERSION
+        and ("endpoint_binding" in value or "endpoint_binding" in expected)
+    ):
+        raise TaskImageSoakError("receipt_invalid")
     unsigned = dict(value)
     claimed = unsigned.pop("certificate_sha256", None)
     if (
