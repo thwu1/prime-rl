@@ -122,6 +122,7 @@ KIMI_W2_PER_WORKER_CAPACITY = 2
 KIMI_TB4_W2_ROLLOUT_CONCURRENCY = 48
 KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS = 96 * 60 * 60
 KIMI_TB4_SMALL_MINIMUM_REMAINING_SECONDS = 132 * 60 * 60
+KIMI_TB4_SMALL_V10_MINIMUM_REMAINING_SECONDS = 162 * 60 * 60
 KIMI_STOCK_SMALL_PRODUCTION_MINIMUM_REMAINING_SECONDS = 48 * 60 * 60
 KIMI_STOCK_SMALL_SHELL_ACTION_TIMEOUT_SECONDS = 3_600
 KIMI_MINISWE_VERSION = "2.4.6"
@@ -135,6 +136,7 @@ KIMI_FIRECRACKER_TUNNEL_RECEIPT_SHA256 = "39108c28f052f4689e863fedaa81430b479915
 KIMI_MINISWE_COMPATIBILITY_SHA256 = "cee344d3c9bc3c18f602a0ad217ade7395db263d50cd8d4c428507a21de86220"
 KIMI_NATIVE_MINISWE_SMOKE_SELECTOR_SHA256 = "c1f745d4a1d3861deefb3fba4daa23f52ff3d1d4952a9fe2ba0ccbdc4040af97"
 KIMI_SMALL_TB4_DIAGNOSTIC_ROLE = "kimi-direct-tb4-small-diagnostic"
+KIMI_SMALL_TB4_V10_CONCURRENCY = 16
 KIMI_SMALL_FIRECRACKER_ENVIRONMENT = "oci-runner-firecracker-small"
 KIMI_SMALL_FIRECRACKER_PROFILE_SHA256 = "247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084"
 KIMI_STOCK_SINGLE_CAPACITY_PROFILE = "sandoq-stock-single-c64-v1"
@@ -218,9 +220,13 @@ def _direct_kimi_expected_concurrency(
             raise EvalIdentityError("direct_kimi_production_scope_invalid")
         return int(configured_concurrency)
     if role == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE:
-        if sandbox_provider != "sandoq" or task_count != 52 or configured_concurrency != 24:
+        if (
+            sandbox_provider != "sandoq"
+            or task_count != 52
+            or configured_concurrency not in {KIMI_SMALL_TB4_V10_CONCURRENCY, 24}
+        ):
             raise EvalIdentityError("direct_kimi_tb4_small_scope_invalid")
-        return 24
+        return int(configured_concurrency)
     if role == "kimi-direct-tb4" and sandbox_provider == "sandoq":
         # TB4 union plans bind their own Sandoq lane concurrency.  Keep the
         # transparent router at its independently certified 24-request
@@ -448,14 +454,18 @@ def _validate_direct_kimi_tb4_small_config(config: dict[str, Any], role: str) ->
     taskset = config.get("taskset")
     timeouts = config.get("timeout")
     rollout_retries = config.get("retries", {}).get("rollout")
+    persistent_verifier_artifacts = (
+        isinstance(taskset, dict) and taskset.get("persist_verifier_artifacts") is True
+    )
+    expected_concurrency = KIMI_SMALL_TB4_V10_CONCURRENCY if persistent_verifier_artifacts else 24
     if (
         not isinstance(runtime, dict)
         or runtime.get("expected_environment") != KIMI_SMALL_FIRECRACKER_ENVIRONMENT
         or config.get("model") != "Kimi-K3"
         or config.get("num_tasks") != 52
         or config.get("num_rollouts") != 1
-        or config.get("max_concurrent") != 24
-        or config.get("multiplex") != 24
+        or config.get("max_concurrent") != expected_concurrency
+        or config.get("multiplex") != expected_concurrency
         or config.get("max_turns") != 200
         or any(config.get(key) != 262_144 for key in ("max_input_tokens", "max_output_tokens", "max_total_tokens"))
         or config.get("rich") is not False
@@ -466,8 +476,8 @@ def _validate_direct_kimi_tb4_small_config(config: dict[str, Any], role: str) ->
         or client.get("outbound_body_denylist") != ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]
         or client.get("timeout") != KIMI_TB4_EXTENDED_REQUEST_TIMEOUT_SECONDS
         or client.get("connect_timeout") != KIMI_CONNECT_TIMEOUT_SECONDS
-        or client.get("max_connections") != 24
-        or client.get("max_keepalive_connections") != 24
+        or client.get("max_connections") != expected_concurrency
+        or client.get("max_keepalive_connections") != expected_concurrency
         or client.get("max_retries") != 0
         or not isinstance(sampling, dict)
         or sampling.get("max_tokens") != 32_768
@@ -479,6 +489,8 @@ def _validate_direct_kimi_tb4_small_config(config: dict[str, Any], role: str) ->
         or taskset.get("use_declared_images") is not True
         or taskset.get("verifier_runtime_retries") != KIMI_SMALL_VERIFIER_RUNTIME_RETRIES
         or taskset.get("retry_shared_verifier_scoring") is not True
+        or taskset.get("persist_verifier_artifacts", False)
+        is not persistent_verifier_artifacts
         or taskset.get("resource_multiplier") != 1.0
         or taskset.get("resource_cpu_cap") != 1
         or taskset.get("resource_memory_mb_cap") != 2_048
@@ -4161,6 +4173,7 @@ def load_eval_run_identity_bytes(
             try:
                 from kimi_endpoint_walltime_gate import (
                     SMALL_PROFILE,
+                    STOCK_SINGLE_C16_PROFILE,
                     STOCK_SINGLE_PROFILE,
                     VMVM_UNION_PROFILE,
                     W2_PROFILE,
@@ -4170,8 +4183,16 @@ def load_eval_run_identity_bytes(
                 identity_router_profile = deployment.get("router", {}).get("capacity_profile")
                 small_diagnostic = identity["role"] == KIMI_SMALL_TB4_DIAGNOSTIC_ROLE
                 small_production = identity["role"] == KIMI_PRODUCTION_ROLE
+                small_v10 = (
+                    small_diagnostic
+                    and identity.get("execution", {}).get("rollout_concurrency")
+                    == KIMI_SMALL_TB4_V10_CONCURRENCY
+                )
                 walltime_profile = (
-                    STOCK_SINGLE_PROFILE
+                    STOCK_SINGLE_C16_PROFILE
+                    if small_v10
+                    and identity_router_profile == KIMI_STOCK_SINGLE_CAPACITY_PROFILE
+                    else STOCK_SINGLE_PROFILE
                     if (small_diagnostic or small_production)
                     and identity_router_profile == KIMI_STOCK_SINGLE_CAPACITY_PROFILE
                     else SMALL_PROFILE
@@ -4189,6 +4210,8 @@ def load_eval_run_identity_bytes(
                     minimum_remaining_seconds=(
                         KIMI_STOCK_SMALL_PRODUCTION_MINIMUM_REMAINING_SECONDS
                         if small_production
+                        else KIMI_TB4_SMALL_V10_MINIMUM_REMAINING_SECONDS
+                        if small_v10
                         else KIMI_TB4_SMALL_MINIMUM_REMAINING_SECONDS
                         if small_diagnostic
                         else KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS
@@ -4196,7 +4219,8 @@ def load_eval_run_identity_bytes(
                     task_count=identity["inputs"]["task_file"]["count"],
                     deployment=(
                         deployment.get("router", {}).get("endpoint_identifier")
-                        if walltime_profile == STOCK_SINGLE_PROFILE
+                        if walltime_profile
+                        in {STOCK_SINGLE_PROFILE, STOCK_SINGLE_C16_PROFILE}
                         else None
                     ),
                 )
@@ -4944,14 +4968,23 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
         try:
             from kimi_endpoint_walltime_gate import (
                 SMALL_PROFILE,
+                STOCK_SINGLE_C16_PROFILE,
                 STOCK_SINGLE_PROFILE,
                 VMVM_UNION_PROFILE,
                 W2_PROFILE,
                 load_receipt,
             )
 
+            small_v10 = (
+                small_tb4_role
+                and execution.get("rollout_concurrency") == KIMI_SMALL_TB4_V10_CONCURRENCY
+                and isinstance(config.get("taskset"), dict)
+                and config["taskset"].get("persist_verifier_artifacts") is True
+            )
             walltime_profile = (
-                STOCK_SINGLE_PROFILE
+                STOCK_SINGLE_C16_PROFILE
+                if small_v10 and stock_single_role
+                else STOCK_SINGLE_PROFILE
                 if stock_single_role
                 else SMALL_PROFILE
                 if small_tb4_role
@@ -4968,6 +5001,8 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
                 minimum_remaining_seconds=(
                     KIMI_STOCK_SMALL_PRODUCTION_MINIMUM_REMAINING_SECONDS
                     if small_production_role
+                    else KIMI_TB4_SMALL_V10_MINIMUM_REMAINING_SECONDS
+                    if small_v10
                     else KIMI_TB4_SMALL_MINIMUM_REMAINING_SECONDS
                     if small_tb4_role
                     else KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS
@@ -4975,7 +5010,7 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
                 task_count=inputs["task_file"]["count"],
                 deployment=(
                     router.get("endpoint_identifier")
-                    if walltime_profile == STOCK_SINGLE_PROFILE
+                    if walltime_profile in {STOCK_SINGLE_PROFILE, STOCK_SINGLE_C16_PROFILE}
                     else None
                 ),
             )

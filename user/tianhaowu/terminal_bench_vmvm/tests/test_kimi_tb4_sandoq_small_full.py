@@ -13,6 +13,7 @@ import eval_run_identity
 import finalize_kimi_tb4_sandoq_small_full as finalize
 import kimi_tb4_provider_split as split
 import prepare_kimi_tb4_sandoq_small_full as small
+import prepare_kimi_tb4_sandoq_small_v10_run as v10
 import pytest
 
 
@@ -515,3 +516,40 @@ def test_small_full_wrapper_reports_insufficient_walltime(tmp_path: Path) -> Non
     assert result.returncode == 2
     assert result.stdout == ""
     assert json.loads(result.stderr) == {"code": "job_walltime_insufficient", "state": "blocked"}
+
+
+def test_v10_c16_config_and_launch_path_are_separate_and_fail_closed() -> None:
+    config, _body, _path = v10._load_base()
+    workflow = Path(v10.__file__).resolve().parent
+    wrapper = (workflow / "run_kimi_tb4_miniswe246_sandoq_small_v10_c16.sbatch").read_text()
+    launcher = (
+        workflow
+        / "configs/eval/servers/cpu-132-021_8103/"
+        "run_tb4_kimi_k3_direct_sandoq_cpu-132-021_8103.sbatch"
+    ).read_text()
+    stage = (workflow / "run_direct_kimi_sandoq_stage.sh").read_text()
+
+    assert config["max_concurrent"] == 16
+    assert config["multiplex"] == 16
+    assert config["client"]["max_connections"] == 16
+    assert config["client"]["max_keepalive_connections"] == 16
+    assert config["taskset"]["persist_verifier_artifacts"] is True
+    assert config["harness"]["version"] == "2.4.6"
+    assert config["sampling"]["reasoning_effort"] == "max"
+    assert config["max_total_tokens"] == 262_144
+    assert "#SBATCH --time=6-12:00:00" in wrapper
+    assert "terminal-bench-sandoq-campaign.lock" in wrapper
+    assert "sandoq_activity_check_unavailable" in wrapper
+    assert "'%A|%j|%o'" in wrapper
+    assert 'case "${active_job_name}|${active_command}"' in wrapper
+    assert "KIMI_TB4_V10_NO_CONCURRENT_SANDOQ_LOAD" in wrapper
+    assert "--stock-capacity-receipt" in launcher
+    assert "--stock-capacity-receipt-sha256" in launcher
+    assert "endpoint_minimum_remaining_seconds=583200" in launcher
+    assert "prepare_kimi_tb4_sandoq_small_v10_run.py" in launcher
+    assert "tb4-extended-c16-stock-single-four-wave-v1" in stage
+    assert "small-firecracker-v10" in stage
+    certify = launcher.index('python3 "$workflow_dir/direct_kimi_workers.py" certify-router')
+    completion = launcher.index("completed-awaiting-v11-certification")
+    legacy_finalize = launcher.index("finalize_kimi_tb4_sandoq_small_v7.py")
+    assert certify < completion < legacy_finalize

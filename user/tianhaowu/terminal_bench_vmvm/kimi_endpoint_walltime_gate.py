@@ -28,6 +28,7 @@ C23_PROFILE = "tb4-c23-v1"
 W2_PROFILE = "tb4-extended-c48-w2-two-wave-v1"
 SMALL_PROFILE = "tb4-extended-c24-small-three-wave-v1"
 STOCK_SINGLE_PROFILE = "tb4-extended-c24-stock-single-three-wave-v1"
+STOCK_SINGLE_C16_PROFILE = "tb4-extended-c16-stock-single-four-wave-v1"
 VMVM_UNION_PROFILE = "tb4-extended-vmvm-union11-c11-v1"
 C23_MANIFEST_CAPACITY_PROFILE = "sandoq-c23-v1"
 W2_MANIFEST_CAPACITY_PROFILE = "sandoq-c64-w2-v1"
@@ -38,6 +39,7 @@ EXTENDED_MINIMUM_REMAINING_SECONDS = 90 * 60 * 60
 VMVM_UNION_MINIMUM_REMAINING_SECONDS = 90 * 60 * 60
 SMALL_MINIMUM_REMAINING_SECONDS = 132 * 60 * 60
 STOCK_SINGLE_MINIMUM_REMAINING_SECONDS = 48 * 60 * 60
+STOCK_SINGLE_C16_MINIMUM_REMAINING_SECONDS = 162 * 60 * 60
 EXTENDED_REQUEST_TIMEOUT_SECONDS = 144_000
 EXTENDED_ROUTER_CONCURRENCY = 24
 RECEIPT_KIND = "direct-kimi-endpoint-walltime-gate"
@@ -47,8 +49,10 @@ W2_RECEIPT_SCHEMA_VERSION = 3
 VMVM_UNION_RECEIPT_SCHEMA_VERSION = 4
 SMALL_RECEIPT_SCHEMA_VERSION = 5
 STOCK_SINGLE_RECEIPT_SCHEMA_VERSION = 6
+STOCK_SINGLE_C16_RECEIPT_SCHEMA_VERSION = 7
 W2_ROLLOUT_CONCURRENCY = 48
 W2_ROUTER_ADMISSION = 64
+STOCK_SINGLE_C16_ROLLOUT_CONCURRENCY = 16
 VMVM_UNION_TASK_COUNT = 11
 MAX_STATUS_BYTES = 8 * 1024 * 1024
 MAX_SCHEDULER_BYTES = 1 * 1024 * 1024
@@ -319,6 +323,7 @@ def _validate_profile(profile: str, minimum_remaining_seconds: int) -> None:
         W2_PROFILE,
         SMALL_PROFILE,
         STOCK_SINGLE_PROFILE,
+        STOCK_SINGLE_C16_PROFILE,
         VMVM_UNION_PROFILE,
     ):
         raise EndpointWalltimeGateError("endpoint_walltime_profile_invalid")
@@ -326,7 +331,7 @@ def _validate_profile(profile: str, minimum_remaining_seconds: int) -> None:
         not isinstance(minimum_remaining_seconds, int)
         or isinstance(minimum_remaining_seconds, bool)
         or (
-            profile != STOCK_SINGLE_PROFILE
+            profile not in {STOCK_SINGLE_PROFILE, STOCK_SINGLE_C16_PROFILE}
             and minimum_remaining_seconds < EXTENDED_MINIMUM_REMAINING_SECONDS
         )
         or (profile == VMVM_UNION_PROFILE and minimum_remaining_seconds < VMVM_UNION_MINIMUM_REMAINING_SECONDS)
@@ -335,12 +340,22 @@ def _validate_profile(profile: str, minimum_remaining_seconds: int) -> None:
             profile == STOCK_SINGLE_PROFILE
             and minimum_remaining_seconds < STOCK_SINGLE_MINIMUM_REMAINING_SECONDS
         )
+        or (
+            profile == STOCK_SINGLE_C16_PROFILE
+            and minimum_remaining_seconds < STOCK_SINGLE_C16_MINIMUM_REMAINING_SECONDS
+        )
     ):
         raise EndpointWalltimeGateError("minimum_remaining_seconds_invalid")
 
 
 def _validate_task_count(task_count: int, *, profile: str = EXTENDED_PROFILE) -> None:
-    lower_bound = W2_ROLLOUT_CONCURRENCY if profile == W2_PROFILE else EXTENDED_ROUTER_CONCURRENCY
+    lower_bound = (
+        STOCK_SINGLE_C16_ROLLOUT_CONCURRENCY
+        if profile == STOCK_SINGLE_C16_PROFILE
+        else W2_ROLLOUT_CONCURRENCY
+        if profile == W2_PROFILE
+        else EXTENDED_ROUTER_CONCURRENCY
+    )
     if profile == VMVM_UNION_PROFILE:
         if type(task_count) is not int or task_count != VMVM_UNION_TASK_COUNT:
             raise EndpointWalltimeGateError("extended_two_wave_task_count_invalid")
@@ -349,13 +364,23 @@ def _validate_task_count(task_count: int, *, profile: str = EXTENDED_PROFILE) ->
         upper_bound = 2 * C23_SELECTED_ENDPOINTS
     elif profile == W2_PROFILE:
         upper_bound = 2 * W2_ROLLOUT_CONCURRENCY
+    elif profile == STOCK_SINGLE_C16_PROFILE:
+        upper_bound = 4 * STOCK_SINGLE_C16_ROLLOUT_CONCURRENCY
     elif profile in {SMALL_PROFILE, STOCK_SINGLE_PROFILE}:
         upper_bound = 3 * EXTENDED_ROUTER_CONCURRENCY
     else:
         upper_bound = 2 * EXTENDED_ROUTER_CONCURRENCY
     if (
         profile
-        not in (EXTENDED_PROFILE, C23_PROFILE, W2_PROFILE, SMALL_PROFILE, STOCK_SINGLE_PROFILE, VMVM_UNION_PROFILE)
+        not in (
+            EXTENDED_PROFILE,
+            C23_PROFILE,
+            W2_PROFILE,
+            SMALL_PROFILE,
+            STOCK_SINGLE_PROFILE,
+            STOCK_SINGLE_C16_PROFILE,
+            VMVM_UNION_PROFILE,
+        )
         or not isinstance(task_count, int)
         or isinstance(task_count, bool)
         or not lower_bound < task_count <= upper_bound
@@ -445,7 +470,7 @@ def _load_manifest(
             or not isinstance(workers, list)
             or len(workers) != EXPECTED_ENDPOINTS
         )
-    elif profile == STOCK_SINGLE_PROFILE:
+    elif profile in {STOCK_SINGLE_PROFILE, STOCK_SINGLE_C16_PROFILE}:
         workers = manifest.get("workers")
         invalid = (
             manifest.get("schema_version") not in {5, 6}
@@ -490,7 +515,8 @@ def capture_gate(
     router = manifest.get("router")
     expected_deployment = (
         router.get("endpoint_identifier")
-        if profile == STOCK_SINGLE_PROFILE and isinstance(router, dict)
+        if profile in {STOCK_SINGLE_PROFILE, STOCK_SINGLE_C16_PROFILE}
+        and isinstance(router, dict)
         else EXPECTED_DEPLOYMENT
     )
     if deployment != expected_deployment or cluster != EXPECTED_CLUSTER:
@@ -498,7 +524,7 @@ def capture_gate(
     workers = manifest.get("workers") if isinstance(manifest, dict) else None
     selected_endpoint_count = (
         1
-        if profile == STOCK_SINGLE_PROFILE
+        if profile in {STOCK_SINGLE_PROFILE, STOCK_SINGLE_C16_PROFILE}
         else C23_SELECTED_ENDPOINTS
         if profile == C23_PROFILE
         else EXPECTED_ENDPOINTS
@@ -528,7 +554,11 @@ def capture_gate(
         before_result.stdout,
         source_backend_sha256s,
         expected_deployment=expected_deployment,
-        expected_endpoint_count=1 if profile == STOCK_SINGLE_PROFILE else EXPECTED_ENDPOINTS,
+        expected_endpoint_count=(
+            1
+            if profile in {STOCK_SINGLE_PROFILE, STOCK_SINGLE_C16_PROFILE}
+            else EXPECTED_ENDPOINTS
+        ),
     )
     selected_backend_set = set(selected_backend_sha256s)
     selected_routes = tuple(route for route in before.routes if route.backend_sha256 in selected_backend_set)
@@ -551,8 +581,12 @@ def capture_gate(
         minimum_remaining_seconds,
         expected_endpoint_count=selected_endpoint_count,
         minimum_floor_seconds=(
-            STOCK_SINGLE_MINIMUM_REMAINING_SECONDS
-            if profile == STOCK_SINGLE_PROFILE
+            (
+                STOCK_SINGLE_C16_MINIMUM_REMAINING_SECONDS
+                if profile == STOCK_SINGLE_C16_PROFILE
+                else STOCK_SINGLE_MINIMUM_REMAINING_SECONDS
+            )
+            if profile in {STOCK_SINGLE_PROFILE, STOCK_SINGLE_C16_PROFILE}
             else EXTENDED_MINIMUM_REMAINING_SECONDS
         ),
     )
@@ -564,7 +598,11 @@ def capture_gate(
         after_result.stdout,
         source_backend_sha256s,
         expected_deployment=expected_deployment,
-        expected_endpoint_count=1 if profile == STOCK_SINGLE_PROFILE else EXPECTED_ENDPOINTS,
+        expected_endpoint_count=(
+            1
+            if profile in {STOCK_SINGLE_PROFILE, STOCK_SINGLE_C16_PROFILE}
+            else EXPECTED_ENDPOINTS
+        ),
     )
     if before.routes != after.routes:
         raise EndpointWalltimeGateError("deployment_endpoint_generation_changed")
@@ -581,6 +619,8 @@ def capture_gate(
             if profile == SMALL_PROFILE
             else STOCK_SINGLE_RECEIPT_SCHEMA_VERSION
             if profile == STOCK_SINGLE_PROFILE
+            else STOCK_SINGLE_C16_RECEIPT_SCHEMA_VERSION
+            if profile == STOCK_SINGLE_C16_PROFILE
             else VMVM_UNION_RECEIPT_SCHEMA_VERSION
             if profile == VMVM_UNION_PROFILE
             else RECEIPT_SCHEMA_VERSION
@@ -718,20 +758,22 @@ def validate_receipt(
         if profile == SMALL_PROFILE
         else STOCK_SINGLE_RECEIPT_SCHEMA_VERSION
         if profile == STOCK_SINGLE_PROFILE
+        else STOCK_SINGLE_C16_RECEIPT_SCHEMA_VERSION
+        if profile == STOCK_SINGLE_C16_PROFILE
         else VMVM_UNION_RECEIPT_SCHEMA_VERSION
         if profile == VMVM_UNION_PROFILE
         else RECEIPT_SCHEMA_VERSION
     )
     expected_endpoint_count = (
         1
-        if profile == STOCK_SINGLE_PROFILE
+        if profile in {STOCK_SINGLE_PROFILE, STOCK_SINGLE_C16_PROFILE}
         else C23_SELECTED_ENDPOINTS
         if profile == C23_PROFILE
         else EXPECTED_ENDPOINTS
     )
     expected_deployment = (
         deployment or STOCK_SINGLE_DEPLOYMENT
-        if profile == STOCK_SINGLE_PROFILE
+        if profile in {STOCK_SINGLE_PROFILE, STOCK_SINGLE_C16_PROFILE}
         else EXPECTED_DEPLOYMENT
     )
     if (
@@ -894,6 +936,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 W2_PROFILE,
                 SMALL_PROFILE,
                 STOCK_SINGLE_PROFILE,
+                STOCK_SINGLE_C16_PROFILE,
                 VMVM_UNION_PROFILE,
             ),
             required=True,
@@ -939,7 +982,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 excluded_backend_sha256=(excluded.get("backend_sha256") if isinstance(excluded, dict) else None),
                 deployment=(
                     manifest.get("router", {}).get("endpoint_identifier")
-                    if args.profile == STOCK_SINGLE_PROFILE
+                    if args.profile in {STOCK_SINGLE_PROFILE, STOCK_SINGLE_C16_PROFILE}
                     else None
                 ),
             )

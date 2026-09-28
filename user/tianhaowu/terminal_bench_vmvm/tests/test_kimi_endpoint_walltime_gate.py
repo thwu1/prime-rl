@@ -149,6 +149,21 @@ def test_stock_single_profile_accepts_48h_without_weakening_other_profiles() -> 
         )
 
 
+def test_stock_single_c16_profile_requires_four_wave_margin() -> None:
+    gate._validate_profile(
+        gate.STOCK_SINGLE_C16_PROFILE,
+        gate.STOCK_SINGLE_C16_MINIMUM_REMAINING_SECONDS,
+    )
+    gate._validate_task_count(52, profile=gate.STOCK_SINGLE_C16_PROFILE)
+    with pytest.raises(gate.EndpointWalltimeGateError, match="minimum_remaining_seconds_invalid"):
+        gate._validate_profile(
+            gate.STOCK_SINGLE_C16_PROFILE,
+            gate.STOCK_SINGLE_C16_MINIMUM_REMAINING_SECONDS - 1,
+        )
+    with pytest.raises(gate.EndpointWalltimeGateError, match="extended_two_wave_task_count_invalid"):
+        gate._validate_task_count(16, profile=gate.STOCK_SINGLE_C16_PROFILE)
+
+
 def test_capture_gate_accepts_exact_stable_24_job_generation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

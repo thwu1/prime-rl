@@ -50,6 +50,8 @@ elif [[ "$stage" == sandoq-fallback-memory-8g || "$stage" == sandoq-fallback-mem
     output_dir="$eval_root/tb4_kimi_k3_direct_cpu-132-021_8103_${SLURM_JOB_ID}_${stage}_diagnostic"
 elif [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
     output_dir="$eval_root/tb4_kimi_k3_direct_sandoq_small_${SLURM_JOB_ID}_diagnostic"
+elif [[ "$stage" == tb4-miniswe246-sandoq-small-v10-c16 ]]; then
+    output_dir="$eval_root/tb4_kimi_k3_direct_sandoq_small_v10_c16_${SLURM_JOB_ID}"
 else
     output_dir="$eval_root/tb4_kimi_k3_direct_sandoq_cpu-132-021_8103_${SLURM_JOB_ID}_${stage}"
 fi
@@ -70,12 +72,14 @@ endpoint_identifier=
 if [[ "$stage" == miniswe-smoke || "$stage" == tb4-miniswe || "$stage" == capacity-smoke \
     || "$stage" == tb4-miniswe246-sandoq-union \
     || "$stage" == tb4-miniswe246-sandoq-clamped-recovery \
-    || "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
+    || "$stage" == tb4-miniswe246-sandoq-small-full \
+    || "$stage" == tb4-miniswe246-sandoq-small-v10-c16 ]]; then
     native_miniswe_stage=1
     provider_profile="$workflow_dir/configs/provider_context/use2/kimi_sandoq_firecracker_host.json"
     provider_profile_sha256=7dd88ca6c6cde5ed5b22bf8f621462a46425f939478f79469e31da2e582b27df
 fi
-if [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
+if [[ "$stage" == tb4-miniswe246-sandoq-small-full \
+    || "$stage" == tb4-miniswe246-sandoq-small-v10-c16 ]]; then
     provider_profile="$workflow_dir/configs/provider_context/use2/cpu-132-021_8103/kimi_sandoq_firecracker_small_host.json"
     provider_profile_sha256=247d04de8dd4d5efcb00ebb4d507c20d90420369459aa9ba1e1e37758e2d5084
 fi
@@ -112,6 +116,7 @@ if [[ "$stage" != smoke && "$stage" != miniswe-smoke && "$stage" != mobius-smoke
     && "$stage" != tb4-miniswe246-sandoq-union \
     && "$stage" != tb4-miniswe246-sandoq-clamped-recovery \
     && "$stage" != tb4-miniswe246-sandoq-small-full \
+    && "$stage" != tb4-miniswe246-sandoq-small-v10-c16 \
     && "$stage" != tb4-miniswe246-vmvm-union \
     && "$stage" != provider-split-legacy \
     && "$stage" != provider-split-large \
@@ -179,7 +184,9 @@ if [[ "$sandbox_provider" == sandoq ]] \
     printf 'Direct Kimi provider profile digest mismatch\n' >&2
     exit 2
 fi
-if [[ "$native_miniswe_stage" == 1 && "$stage" != tb4-miniswe246-sandoq-small-full ]] && {
+if [[ "$native_miniswe_stage" == 1 \
+    && "$stage" != tb4-miniswe246-sandoq-small-full \
+    && "$stage" != tb4-miniswe246-sandoq-small-v10-c16 ]] && {
     [[ ! -f "$miniswe_compatibility_receipt" || -L "$miniswe_compatibility_receipt" ]] \
         || [[ "$(stat -c '%a:%h:%u' -- "$miniswe_compatibility_receipt")" != "600:1:$(id -u)" ]] \
         || [[ "$(sha256sum -- "$miniswe_compatibility_receipt" | cut -d' ' -f1)" != "$miniswe_compatibility_sha256" ]];
@@ -190,7 +197,8 @@ fi
 
 if [[ "$execution_mode" != certified && "$execution_mode" != diagnostic \
     && "$execution_mode" != sandoq-fallback-diagnostic \
-    && "$execution_mode" != small-firecracker-diagnostic ]]; then
+    && "$execution_mode" != small-firecracker-diagnostic \
+    && "$execution_mode" != small-firecracker-v10 ]]; then
     printf 'KIMI_EXECUTION_MODE is invalid\n' >&2
     exit 2
 fi
@@ -199,7 +207,40 @@ if [[ ( "$stage" == sandoq-fallback-memory-8g || "$stage" == sandoq-fallback-mem
     printf 'Fallback stages cannot run as certified output\n' >&2
     exit 2
 fi
-if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
+if [[ "$execution_mode" == small-firecracker-v10 ]]; then
+    [[ "$stage" == tb4-miniswe246-sandoq-small-v10-c16 \
+        && "$sandbox_provider" == sandoq \
+        && "${KIMI_TB4_V10_NO_CONCURRENT_SANDOQ_LOAD:-}" == 1 ]] \
+        || { printf 'Firecracker-small v10 stage is invalid\n' >&2; exit 2; }
+    small_plan=${KIMI_TB4_V10_PLAN:?Set KIMI_TB4_V10_PLAN}
+    small_plan_sha256=${KIMI_TB4_V10_PLAN_SHA256:?Set KIMI_TB4_V10_PLAN_SHA256}
+    verified_launch=$(
+        PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_dir/deps/verifiers:$project_dir/deps/renderers:$project_dir/deps/pydantic-config/src:$project_dir/extensions/sandoq:$sandoq_site:$x86_site" \
+        "$x86_uv" run --no-project --offline --python "$python_bin" \
+            python3 "$workflow_dir/prepare_kimi_tb4_sandoq_small_v10_run.py" verify \
+            --plan "$small_plan" --plan-sha256 "$small_plan_sha256" --format tsv
+    )
+    IFS=$'\t' read -r verified_stage verified_provider eval_config eval_config_sha256 task_file \
+        task_sha256 verified_count verified_concurrency output_dir full_output_dir resource_manifest \
+        resource_manifest_sha256 verified_adapter verified_deployment_root verified_deployment_id \
+        verified_capacity_receipt verified_capacity_receipt_sha256 verified_ready_receipt \
+        verified_ready_receipt_sha256 verified_source_spec_sha256 \
+        verified_source_proxy_config_sha256 verified_endpoint_bundle_sha256 \
+        verified_endpoint_authority_sha256 verified_endpoint_jobs_sha256 \
+        verified_endpoint_file_sha256 verified_source_revision verified_extra <<< "$verified_launch"
+    if [[ -n "$verified_extra" || "$verified_launch" == *$'\n'* \
+        || "$verified_stage" != "$stage" || "$verified_provider" != sandoq \
+        || "$verified_count" != 52 || "$verified_concurrency" != 16 \
+        || "$verified_adapter" != kimi-tb4-miniswe246-sandoq-small-v10-c16-v1 \
+        || "$verified_source_revision" != "$expected_revision" ]]; then
+        printf 'Firecracker-small v10 launch plan binding failed\n' >&2
+        exit 2
+    fi
+    task_count=$verified_count
+    stage_capacity=$verified_concurrency
+    deployment_root=$verified_deployment_root
+    endpoint_identifier=$verified_deployment_id
+elif [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
     [[ "$stage" == tb4-miniswe246-sandoq-small-full && "$sandbox_provider" == sandoq ]] \
         || { printf 'Firecracker-small diagnostic stage is invalid\n' >&2; exit 2; }
     small_plan=${KIMI_TB4_SANDOQ_SMALL_PLAN:?Set KIMI_TB4_SANDOQ_SMALL_PLAN}
@@ -300,7 +341,15 @@ elif [[ -n ${KIMI_PROVIDER_LAUNCH_PLAN:-} || -n ${KIMI_PROVIDER_LAUNCH_PLAN_SHA2
     exit 2
 fi
 
-if [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
+if [[ "$stage" == tb4-miniswe246-sandoq-small-v10-c16 ]]; then
+    identity_role=kimi-direct-tb4-small-diagnostic
+    certificate_mode=small-firecracker-v10
+    if [[ "$router_capacity_profile" != sandoq-stock-single-c64-v1 \
+        || -z "$endpoint_identifier" ]]; then
+        printf 'Firecracker-small v10 router profile is invalid\n' >&2
+        exit 2
+    fi
+elif [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
     identity_role=kimi-direct-tb4-small-diagnostic
     certificate_mode=small-firecracker-diagnostic
     if [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
@@ -486,11 +535,22 @@ if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
         exit 2
     fi
 elif [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
-    if [[ "$stage" != tb4-miniswe246-sandoq-small-full \
-        || "$sandbox_provider" != sandoq \
-        || "$execution_mode" != small-firecracker-diagnostic \
-        || "$endpoint_identifier" != tianhaowu-kimi-k3-stock-eval-20260927 \
-        || "$stage_capacity" != 24 || "$task_count" != 52 ]]; then
+    legacy_small=0
+    v10_small=0
+    if [[ "$stage" == tb4-miniswe246-sandoq-small-full \
+        && "$execution_mode" == small-firecracker-diagnostic \
+        && "$endpoint_identifier" == tianhaowu-kimi-k3-stock-eval-20260927 \
+        && "$stage_capacity" == 24 ]]; then
+        legacy_small=1
+    elif [[ "$stage" == tb4-miniswe246-sandoq-small-v10-c16 \
+        && "$execution_mode" == small-firecracker-v10 \
+        && "$stage_capacity" == 16 \
+        && "$verified_deployment_id" == "$endpoint_identifier" \
+        && "$verified_deployment_root" == "$deployment_root" ]]; then
+        v10_small=1
+    fi
+    if [[ "$sandbox_provider" != sandoq || "$task_count" != 52 \
+        || ( "$legacy_small" != 1 && "$v10_small" != 1 ) ]]; then
         printf 'Direct Kimi stock-single launch profile is invalid\n' >&2
         exit 2
     fi
@@ -603,13 +663,24 @@ if [[ -n ${endpoint_identifier:-} ]]; then
     router_profile_args+=(--endpoint-identifier "$endpoint_identifier")
 fi
 worker_profile_args=("${router_profile_args[@]}")
+snapshot_profile_args=(--capacity-profile "$router_capacity_profile")
+if [[ "$execution_mode" == small-firecracker-v10 ]]; then
+    snapshot_profile_args+=(
+        --stock-capacity-receipt "$verified_capacity_receipt"
+        --stock-capacity-receipt-sha256 "$verified_capacity_receipt_sha256"
+    )
+    worker_profile_args+=(
+        --stock-capacity-receipt "$verified_capacity_receipt"
+        --stock-capacity-receipt-sha256 "$verified_capacity_receipt_sha256"
+    )
+fi
 if [[ -n ${excluded_backend_sha256:-} ]]; then
     worker_profile_args+=(--excluded-backend-sha256 "$excluded_backend_sha256")
 fi
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" snapshot-source \
     --deployment-root "$deployment_root" --output-root "$deployment_snapshot" \
-    --capacity-profile "$router_capacity_profile" >/dev/null
+    "${snapshot_profile_args[@]}" >/dev/null
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" prepare \
     --deployment-root "$deployment_snapshot" --output-root "$generation_dir" \
@@ -710,7 +781,8 @@ stage_env=(
     DIRECT_KIMI_ENDPOINT_IDENTIFIER="${endpoint_identifier:-}"
     DIRECT_KIMI_EXCLUDED_BACKEND_SHA256="${excluded_backend_sha256:-}"
 )
-if [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
+if [[ "$stage" == tb4-miniswe246-sandoq-small-full \
+    || "$stage" == tb4-miniswe246-sandoq-small-v10-c16 ]]; then
     stage_env+=(DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=0)
 elif [[ "$stage" == miniswe-smoke || "$stage" == capacity-smoke \
     || "$stage" == tb4-miniswe246-sandoq-union \
@@ -722,11 +794,16 @@ if [[ "$router_request_timeout" == 144000 ]]; then
     endpoint_minimum_remaining_seconds=324000
     if [[ "$router_capacity_profile" == sandoq-c23-v1 ]]; then
         endpoint_walltime_profile=tb4-c23-v1
-    elif [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
+    elif [[ "$stage" == tb4-miniswe246-sandoq-small-full \
+        || "$stage" == tb4-miniswe246-sandoq-small-v10-c16 ]]; then
         endpoint_walltime_profile=tb4-extended-c24-small-three-wave-v1
         endpoint_minimum_remaining_seconds=475200
         if [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
             endpoint_walltime_profile=tb4-extended-c24-stock-single-three-wave-v1
+            if [[ "$stage" == tb4-miniswe246-sandoq-small-v10-c16 ]]; then
+                endpoint_walltime_profile=tb4-extended-c16-stock-single-four-wave-v1
+                endpoint_minimum_remaining_seconds=583200
+            fi
         fi
     elif [[ "$stage" == tb4-miniswe246-vmvm-union ]]; then
         endpoint_walltime_profile=tb4-extended-vmvm-union11-c11-v1
@@ -740,7 +817,9 @@ if [[ "$router_request_timeout" == 144000 ]]; then
         KIMI_ENDPOINT_MINIMUM_REMAINING_SECONDS="$endpoint_minimum_remaining_seconds"
     )
 fi
-if [[ "$native_miniswe_stage" == 1 && "$stage" != tb4-miniswe246-sandoq-small-full ]]; then
+if [[ "$native_miniswe_stage" == 1 \
+    && "$stage" != tb4-miniswe246-sandoq-small-full \
+    && "$stage" != tb4-miniswe246-sandoq-small-v10-c16 ]]; then
     stage_env+=(
         DIRECT_KIMI_MINISWE_COMPATIBILITY_RECEIPT_SHA256="$miniswe_compatibility_sha256"
     )
@@ -762,7 +841,25 @@ if [[ "$stage" == tb4-miniswe246-sandoq-union || "$stage" == tb4-miniswe246-vmvm
         DIRECT_KIMI_CAPACITY_GATE_RECEIPT_SHA256="$capacity_gate_receipt_sha256"
     )
 fi
-if [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
+if [[ "$execution_mode" == small-firecracker-v10 ]]; then
+    stage_env+=(
+        DIRECT_KIMI_SMALL_V10_PLAN="$small_plan"
+        DIRECT_KIMI_SMALL_V10_PLAN_SHA256="$small_plan_sha256"
+        DIRECT_KIMI_SMALL_FULL_OUTPUT="$full_output_dir"
+        DIRECT_KIMI_RESOURCE_MANIFEST="$resource_manifest"
+        DIRECT_KIMI_RESOURCE_MANIFEST_SHA256="$resource_manifest_sha256"
+        DIRECT_KIMI_CAPACITY_RECEIPT="$verified_capacity_receipt"
+        DIRECT_KIMI_CAPACITY_RECEIPT_SHA256="$verified_capacity_receipt_sha256"
+        DIRECT_KIMI_READY_RECEIPT="$verified_ready_receipt"
+        DIRECT_KIMI_READY_RECEIPT_SHA256="$verified_ready_receipt_sha256"
+        DIRECT_KIMI_EXPECTED_SOURCE_SPEC_SHA256="$verified_source_spec_sha256"
+        DIRECT_KIMI_EXPECTED_SOURCE_PROXY_CONFIG_SHA256="$verified_source_proxy_config_sha256"
+        DIRECT_KIMI_EXPECTED_ENDPOINT_BUNDLE_SHA256="$verified_endpoint_bundle_sha256"
+        DIRECT_KIMI_EXPECTED_ENDPOINT_AUTHORITY_SHA256="$verified_endpoint_authority_sha256"
+        DIRECT_KIMI_EXPECTED_ENDPOINT_JOBS_SHA256="$verified_endpoint_jobs_sha256"
+        DIRECT_KIMI_EXPECTED_ENDPOINT_FILE_SHA256="$verified_endpoint_file_sha256"
+    )
+elif [[ "$execution_mode" == small-firecracker-diagnostic ]]; then
     stage_env+=(
         DIRECT_KIMI_SMALL_PLAN="$small_plan"
         DIRECT_KIMI_SMALL_PLAN_SHA256="$small_plan_sha256"
@@ -794,7 +891,8 @@ if [[ "$sandbox_provider" == sandoq ]]; then
     # finalizer releases each agent runtime before any separate verifier is
     # acquired; capacity-smoke's selector is entirely shared-verifier tasks.
     sandoq_pool_capacity=$(( stage_capacity * 2 ))
-    if [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
+    if [[ "$stage" == tb4-miniswe246-sandoq-small-full \
+        || "$stage" == tb4-miniswe246-sandoq-small-v10-c16 ]]; then
         sandoq_pool_capacity=$stage_capacity
     fi
     if (( sandoq_pool_capacity > 64 )); then
@@ -817,6 +915,7 @@ if [[ "$sandbox_provider" == sandoq ]]; then
         || "$stage" == tb4-miniswe246-sandoq-union || "$stage" == provider-split-legacy \
         || "$stage" == tb4-miniswe246-sandoq-clamped-recovery \
         || "$stage" == tb4-miniswe246-sandoq-small-full \
+        || "$stage" == tb4-miniswe246-sandoq-small-v10-c16 \
         || "$stage" == sandoq-fallback-memory-8g \
         || "$stage" == sandoq-fallback-memory-16g ]]; then
         sandoq_lease_profile=kimi-tb4-long
@@ -888,7 +987,8 @@ curl --noproxy '*' --fail --silent --show-error --max-time 10 \
     "http://127.0.0.1:${router_port}/stats" --output "$router_stats"
 chmod 0600 "$router_stats"
 router_certify_args=()
-if [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
+if [[ "$stage" == tb4-miniswe246-sandoq-small-full \
+    || "$stage" == tb4-miniswe246-sandoq-small-v10-c16 ]]; then
     router_certify_args+=(--allow-terminal-upstream-statuses)
 fi
 "$x86_uv" run --no-project --offline --python "$python_bin" \
@@ -901,7 +1001,16 @@ fi
     "${router_certify_args[@]}" \
     --output "$output_dir/direct_kimi_router_final.json"
 
-if [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
+if [[ "$stage" == tb4-miniswe246-sandoq-small-v10-c16 ]]; then
+    kill -TERM -- "-$router_pid"
+    wait "$router_pid" 2>/dev/null || true
+    router_pid=
+    flock -u 8
+    printf '{"execution_revision":"%s","job_id":"%s","plan_sha256":"%s","stage":"%s","state":"completed-awaiting-v11-certification"}\n' \
+        "$expected_revision" "$SLURM_JOB_ID" "$small_plan_sha256" "$stage" \
+        >"$output_dir/v10_execution_completion.json"
+    chmod 0600 "$output_dir/v10_execution_completion.json"
+elif [[ "$stage" == tb4-miniswe246-sandoq-small-full ]]; then
     kill -TERM -- "-$router_pid"
     wait "$router_pid" 2>/dev/null || true
     router_pid=
