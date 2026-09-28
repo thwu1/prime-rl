@@ -17,7 +17,8 @@ inputs must validate again:
 - the task-free Sandoq c64 lifecycle receipt;
 - an aggregate-only soak over all 2,499 distinct real task images in c64
   waves, with at least six days of endpoint walltime remaining at capture time;
-- a transport-qualified TB4 v7 certificate with at least 7/66 passes,
+- a transport-qualified TB4 v8 supersession certificate with at least 7/66
+  passes,
   lossless `exact_provider_json` model I/O on every eligible clean row, and
   exact-once proxy counters; execution-error and trace-invalid rows remain
   explicitly non-trainable.
@@ -38,6 +39,12 @@ python user/tianhaowu/terminal_bench_vmvm/kimi_stock_small_task_image_soak.py \
 tmux send-keys -t swebench_vmvm:Launcher.0 \
   "cd $PWD && env KIMI_TASK_IMAGE_SOAK_EXPECTED_REVISION=REVISION KIMI_TASK_IMAGE_SOAK_PLAN=/path/to/private/task-image-soak-plan/plan.json KIMI_TASK_IMAGE_SOAK_PLAN_SHA256=PLAN_SHA256 sbatch user/tianhaowu/terminal_bench_vmvm/run_kimi_stock_small_task_image_soak.sbatch" C-m
 ```
+
+If a full soak has exactly one opaque provisioning failure, the sealed
+`kimi_stock_small_single_image_probe.py` c1 probe can distinguish a transient
+failure from a repeatable image failure without disclosing the task or image.
+That probe is diagnostic only: production still requires a subsequent full
+2,499/2,499 c64 soak receipt.
 
 After that soak and the TB4 gate pass, materialize the production plan with
 their exact receipt hashes:
@@ -87,6 +94,57 @@ plan.  Never reuse a partial attempt directory.  A shard is skipped only when
 its `complete.json` and every referenced artifact revalidate exactly.
 
 No production job is launched by either materializer.
+
+Submit the materialized 40-shard plan only through the launcher pane.  The
+array is internally limited to one shard at a time; each shard runs its 62 or
+63 tasks at c64 and becomes an independently certified resume boundary:
+
+```bash
+tmux send-keys -t swebench_vmvm:Launcher.0 \
+  "cd /path/to/clean/execution-worktree && env PROJECT_DIR=\$PWD KIMI_STOCK_SMALL_EXPECTED_PRIME_RL_REVISION=EXECUTION_REVISION KIMI_STOCK_SMALL_PLAN=/path/to/private/production-plan/plan.json KIMI_STOCK_SMALL_PLAN_SHA256=PLAN_SHA256 KIMI_STOCK_SMALL_DEPLOYMENT_ROOT=/path/to/pinned/deployment sbatch --parsable user/tianhaowu/terminal_bench_vmvm/run_kimi_2499_stock_small_shard.sbatch" C-m
+```
+
+After all 40 shard receipts validate, create the aggregate trace certificate:
+
+```bash
+python user/tianhaowu/terminal_bench_vmvm/kimi_stock_small_shards.py finalize \
+  --plan /path/to/private/production-plan/plan.json \
+  --plan-sha256 PLAN_SHA256 \
+  --output /path/to/fresh/private/trace-certificate
+```
+
+The stock-small postprocessor keeps the unfiltered trajectories authoritative
+and creates SFT data as a separate derivative.  `package` concatenates the 40
+source JSONL files byte-for-byte into one 2,499-row trajectory corpus; it does
+not expand trajectories into assistant-turn rows and it retains pass, fail,
+and model-bearing error metadata.  Its manifest reopens the aggregate trace
+certificate and records the measured exact-provider/reasoning audit totals.
+
+```bash
+python user/tianhaowu/terminal_bench_vmvm/finalize_kimi_stock_small_sft.py package \
+  --project-root "$PWD" --expected-revision POSTPROCESSOR_REVISION \
+  --trace-certificate /path/to/trace-certificate/certificate.json \
+  --trace-certificate-sha256 TRACE_CERTIFICATE_SHA256 \
+  --output-root /path/to/private/postprocess \
+  --output-dir /path/to/private/postprocess/unfiltered
+
+python user/tianhaowu/terminal_bench_vmvm/finalize_kimi_stock_small_sft.py export \
+  --project-root "$PWD" --expected-revision POSTPROCESSOR_REVISION \
+  --corpus-manifest /path/to/private/postprocess/unfiltered/corpus-manifest.json \
+  --corpus-manifest-sha256 CORPUS_MANIFEST_SHA256 \
+  --output-root /path/to/private/postprocess \
+  --output-dir /path/to/private/postprocess/pass-only-sft \
+  --validation-permyriad 500 --split-salt PRIVATE_SPLIT_SALT \
+  --receipt /path/to/private/postprocess/pass-only-export.json
+
+python user/tianhaowu/terminal_bench_vmvm/finalize_kimi_stock_small_sft.py preflight \
+  --project-root "$PWD" --expected-revision POSTPROCESSOR_REVISION \
+  --export-receipt /path/to/private/postprocess/pass-only-export.json \
+  --export-receipt-sha256 EXPORT_RECEIPT_SHA256 \
+  --tokenizer-snapshot-path /path/to/pinned/tokenizer \
+  --tokenizer-snapshot-sha256 TOKENIZER_SNAPSHOT_SHA256 \
+  --output /path/to/private/postprocess/pass-only-preflight.json
+```
 
 This is the server-scoped, pass@1 trace-generation lane for
 `cpu-132-021_8103`. It selects the 2,499 non-Compose members of the approved
