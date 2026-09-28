@@ -815,7 +815,7 @@ def test_tb4_provider_context_reopens_private_snapshot_and_binds_run_dir(
         )
 
 
-def test_tb4_gate_variant_keeps_v7_v8_closed_and_enables_exact_v12_v13_supersession() -> None:
+def test_tb4_gate_variant_keeps_v7_v8_closed_and_enables_exact_v12_v13_v14_supersession() -> None:
     v7 = shards._tb4_gate_variant(
         {
             "schema_version": 1,
@@ -928,6 +928,11 @@ def test_tb4_gate_variant_keeps_v7_v8_closed_and_enables_exact_v12_v13_supersess
     assert v13["supersession_source_paths"] == shards.tb4_v13.SUPERSESSION_SOURCE_FILES
     assert v13["expected_supersession_source_revision"] == "eecb29f549e94984722806bc72bc02ea9d06db63"
     assert v13["expected_supersession_source_revision"] == shards.TB4_V13_SUPERSESSION_SOURCE_REVISION
+    assert v13["production_supersession_source_variant_files"] == shards.TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_FILES
+    assert (
+        v13["production_supersession_source_variant_pair_sha256"]
+        == shards.TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_PAIR_SHA256
+    )
     policy_binding_keys = set(v12) - {
         "reason",
         "execution_contract",
@@ -940,11 +945,43 @@ def test_tb4_gate_variant_keeps_v7_v8_closed_and_enables_exact_v12_v13_supersess
     }
     assert {key: v13[key] for key in policy_binding_keys} == {key: v12[key] for key in policy_binding_keys}
 
+    v14 = shards._tb4_gate_variant(
+        {
+            "schema_version": 2,
+            "supersession": {"reason": shards.tb4_v14.SUPERSESSION_REASON},
+        }
+    )
+    assert v14["execution_contract"] == shards.tb4_v14.execution_contract(shards.tb4_v14.EXECUTION_SLURM_JOB_ID)
+    assert v14["execution_contract"].source_revision == "3a39b16535d4f77ba16336086441373756e29eda"
+    assert v14["execution_contract"].slurm_job_id == "1618064"
+    assert v14["execution_contract"].plan_sha256 == shards.tb4_v14.EXECUTION_PLAN_SHA256
+    assert v14["execution_contract"].allow_pre_ready_managed_shell_provisioning_failures is True
+    assert v14["execution_plan"] == shards.tb4_v14.EXECUTION_PLAN
+    assert v14["execution_run_dir"] == shards.tb4_v14.EXECUTION_RUN_DIR
+    assert v14["supersession_source_paths"] == shards.tb4_v14.SUPERSESSION_SOURCE_FILES
+    assert v14["expected_supersession_source_revision"] == "5d78c4ee12f8350637956b3d683e557db465fd49"
+    assert v14["expected_supersession_source_revision"] == shards.TB4_V14_SUPERSESSION_SOURCE_REVISION
+    assert v14["allow_pre_ready_managed_shell_provisioning_failures"] is True
+    assert v13.get("allow_pre_ready_managed_shell_provisioning_failures", False) is False
+    v14_policy_binding_keys = set(v14) - {
+        "reason",
+        "execution_contract",
+        "supersession_source_paths",
+        "expected_supersession_source_revision",
+        "production_shared_variant_files",
+        "production_lane_variant_files",
+        "production_sandoq_variant_files",
+        "production_variant_pair_sha256",
+        "allow_pre_ready_managed_shell_provisioning_failures",
+    }
+    assert {key: v14[key] for key in v14_policy_binding_keys} == {key: v13[key] for key in v14_policy_binding_keys}
+
     for value in (
         {"schema_version": 1, "supersession": {"reason": shards.tb4_v8.SUPERSESSION_REASON}},
         {"schema_version": 2, "supersession": {"reason": "fixed-denominator-exact-transport-v7"}},
         {"schema_version": 1, "supersession": {"reason": shards.tb4_v12.SUPERSESSION_REASON}},
         {"schema_version": 1, "supersession": {"reason": shards.tb4_v13.SUPERSESSION_REASON}},
+        {"schema_version": 1, "supersession": {"reason": shards.tb4_v14.SUPERSESSION_REASON}},
         {
             "schema_version": 2,
             "supersession": {"reason": "fresh-epoch-c16-persisted-verifier-artifacts-v11"},
@@ -1032,7 +1069,11 @@ def test_tb4_v12_supersession_source_binds_submitted_aa3_certifier() -> None:
     source_paths = shards.tb4_v12.SUPERSESSION_SOURCE_FILES
     source_files = shards._git_file_hashes(root, source_revision, source_paths)
     production_revision = shards._git(root, "rev-parse", "HEAD")
-    assert source_files == shards._git_file_hashes(root, production_revision, source_paths)
+    production_files = shards._git_file_hashes(root, production_revision, source_paths)
+    variant_files = shards.TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_FILES
+    assert {path for path in source_paths if source_files[path] != production_files[path]} == variant_files
+    pairs = {path: {"production": production_files[path], "tb4": source_files[path]} for path in sorted(variant_files)}
+    assert shards._sha256(shards._canonical(pairs)) == shards.TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_PAIR_SHA256
     value = {
         "project_root": "/storage/home/tianhaowu/prime-kimi-tb4-v12-certifier-1612350",
         "revision": source_revision,
@@ -1040,7 +1081,7 @@ def test_tb4_v12_supersession_source_binds_submitted_aa3_certifier() -> None:
         "files": source_files,
         "file_set_sha256": shards._sha256(shards._canonical(source_files)),
     }
-    assert shards._validate_tb4_supersession_source(
+    result = shards._validate_tb4_supersession_source(
         value,
         tb4_root=root,
         production_root=root,
@@ -1048,7 +1089,11 @@ def test_tb4_v12_supersession_source_binds_submitted_aa3_certifier() -> None:
         source_paths=source_paths,
         distinct_source_revision=True,
         expected_source_revision=source_revision,
-    )["source_revision"] == source_revision
+        production_variant_files=variant_files,
+        production_variant_pair_sha256=shards.TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_PAIR_SHA256,
+    )
+    assert result["source_revision"] == source_revision
+    assert result["production_variant_pair_sha256"] == shards.TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_PAIR_SHA256
 
     changed = {**value, "revision": "eee438556236abb5e186621bdda15e6141763590"}
     with pytest.raises(shards.StockSmallError, match="tb4_supersession_source_invalid"):
@@ -1060,6 +1105,20 @@ def test_tb4_v12_supersession_source_binds_submitted_aa3_certifier() -> None:
             source_paths=source_paths,
             distinct_source_revision=True,
             expected_source_revision=source_revision,
+            production_variant_files=variant_files,
+            production_variant_pair_sha256=shards.TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_PAIR_SHA256,
+        )
+    with pytest.raises(shards.StockSmallError, match="tb4_supersession_source_invalid"):
+        shards._validate_tb4_supersession_source(
+            value,
+            tb4_root=root,
+            production_root=root,
+            certificate_revision=shards.tb4_v12.EXECUTION_SOURCE_REVISION,
+            source_paths=source_paths,
+            distinct_source_revision=True,
+            expected_source_revision=source_revision,
+            production_variant_files=variant_files,
+            production_variant_pair_sha256="0" * 64,
         )
 
 
@@ -1133,9 +1192,113 @@ def test_tb4_v13_source_execution_and_empty_variant_are_exact_and_tamper_closed(
     source_paths = shards.tb4_v13.SUPERSESSION_SOURCE_FILES
     source_files = shards._git_file_hashes(root, source_revision, source_paths)
     production_revision = shards._git(root, "rev-parse", "HEAD")
-    assert source_files == shards._git_file_hashes(root, production_revision, source_paths)
+    production_files = shards._git_file_hashes(root, production_revision, source_paths)
+    source_variant_files = variant["production_supersession_source_variant_files"]
+    assert {path for path in source_paths if source_files[path] != production_files[path]} == source_variant_files
+    source_variant_pairs = {
+        path: {"production": production_files[path], "tb4": source_files[path]} for path in sorted(source_variant_files)
+    }
+    assert (
+        shards._sha256(shards._canonical(source_variant_pairs))
+        == variant["production_supersession_source_variant_pair_sha256"]
+    )
     source = {
         "project_root": "/storage/home/tianhaowu/prime-kimi-tb4-v13-certifier-1618064",
+        "revision": source_revision,
+        "hash_kind": "raw-file-sha256",
+        "files": source_files,
+        "file_set_sha256": shards._sha256(shards._canonical(source_files)),
+    }
+    assert (
+        shards._validate_tb4_supersession_source(
+            source,
+            tb4_root=root,
+            production_root=root,
+            certificate_revision=contract.source_revision,
+            source_paths=source_paths,
+            distinct_source_revision=True,
+            expected_source_revision=source_revision,
+            production_variant_files=source_variant_files,
+            production_variant_pair_sha256=variant["production_supersession_source_variant_pair_sha256"],
+        )["production_variant_pair_sha256"]
+        == shards.TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_PAIR_SHA256
+    )
+    with pytest.raises(shards.StockSmallError, match="tb4_supersession_source_invalid"):
+        shards._validate_tb4_supersession_source(
+            {**source, "revision": contract.source_revision},
+            tb4_root=root,
+            production_root=root,
+            certificate_revision=contract.source_revision,
+            source_paths=source_paths,
+            distinct_source_revision=True,
+            expected_source_revision=source_revision,
+            production_variant_files=source_variant_files,
+            production_variant_pair_sha256=variant["production_supersession_source_variant_pair_sha256"],
+        )
+
+    semantics = shards.tb4_transport._execution_semantics_manifest(
+        contract.source_revision,
+        contract.verifiers_commit,
+    )
+    result = shards._validate_tb4_execution_semantics(
+        semantics,
+        tb4_root=root,
+        production_root=root,
+        certificate_revision=contract.source_revision,
+        verifiers_revision=contract.verifiers_commit,
+        production_shared_variant_files=variant["production_shared_variant_files"],
+        production_lane_variant_files=variant["production_lane_variant_files"],
+        production_sandoq_variant_files=variant["production_sandoq_variant_files"],
+        production_variant_pair_sha256=variant["production_variant_pair_sha256"],
+    )
+    assert result["production_variant_pair_sha256"] == shards.TB4_V13_PRODUCTION_VARIANT_PAIR_SHA256
+    with pytest.raises(shards.StockSmallError, match="tb4_lane_specific_semantics_changed"):
+        shards._validate_tb4_execution_semantics(
+            semantics,
+            tb4_root=root,
+            production_root=root,
+            certificate_revision=contract.source_revision,
+            verifiers_revision=contract.verifiers_commit,
+            production_shared_variant_files=variant["production_shared_variant_files"],
+            production_lane_variant_files=variant["production_lane_variant_files"],
+            production_sandoq_variant_files=variant["production_sandoq_variant_files"],
+            production_variant_pair_sha256="0" * 64,
+        )
+    with pytest.raises(shards.StockSmallError, match="tb4_execution_semantics_invalid"):
+        shards._validate_tb4_execution_semantics(
+            semantics,
+            tb4_root=root,
+            production_root=root,
+            certificate_revision="f" * 40,
+            verifiers_revision=contract.verifiers_commit,
+            production_shared_variant_files=variant["production_shared_variant_files"],
+            production_lane_variant_files=variant["production_lane_variant_files"],
+            production_sandoq_variant_files=variant["production_sandoq_variant_files"],
+            production_variant_pair_sha256=variant["production_variant_pair_sha256"],
+        )
+
+
+def test_tb4_v14_source_execution_and_empty_variant_are_exact_and_tamper_closed() -> None:
+    root = Path(shards.__file__).resolve().parents[3]
+    contract = shards.tb4_v14.execution_contract(shards.tb4_v14.EXECUTION_SLURM_JOB_ID)
+    variant = shards._tb4_gate_variant(
+        {
+            "schema_version": 2,
+            "supersession": {"reason": shards.tb4_v14.SUPERSESSION_REASON},
+        }
+    )
+    assert variant["production_shared_variant_files"] == frozenset()
+    assert variant["production_lane_variant_files"] == frozenset()
+    assert variant["production_sandoq_variant_files"] == frozenset()
+    assert shards._sha256(shards._canonical({})) == shards.TB4_V14_PRODUCTION_VARIANT_PAIR_SHA256
+
+    source_revision = shards.TB4_V14_SUPERSESSION_SOURCE_REVISION
+    source_paths = shards.tb4_v14.SUPERSESSION_SOURCE_FILES
+    source_files = shards._git_file_hashes(root, source_revision, source_paths)
+    production_revision = shards._git(root, "rev-parse", "HEAD")
+    assert source_files == shards._git_file_hashes(root, production_revision, source_paths)
+    source = {
+        "project_root": "/storage/home/tianhaowu/prime-kimi-tb4-v14-lifecycle-1618064",
         "revision": source_revision,
         "hash_kind": "raw-file-sha256",
         "files": source_files,
@@ -1179,7 +1342,7 @@ def test_tb4_v13_source_execution_and_empty_variant_are_exact_and_tamper_closed(
         production_sandoq_variant_files=variant["production_sandoq_variant_files"],
         production_variant_pair_sha256=variant["production_variant_pair_sha256"],
     )
-    assert result["production_variant_pair_sha256"] == shards.TB4_V13_PRODUCTION_VARIANT_PAIR_SHA256
+    assert result["production_variant_pair_sha256"] == shards.TB4_V14_PRODUCTION_VARIANT_PAIR_SHA256
     with pytest.raises(shards.StockSmallError, match="tb4_lane_specific_semantics_changed"):
         shards._validate_tb4_execution_semantics(
             semantics,
@@ -1275,8 +1438,11 @@ def test_tb4_gate_reaudits_v8_error_policy_lifecycle_and_training_exclusion() ->
     assert "audit_pre_model_sandoq_provisioning_errors=variant.get(" in source
     assert "sandoq_provisioning_attempts=(" in source
     assert "tb4_v8._post_agent_verifier_policy(trace_audit)" in source
-    assert "tb4_v8._pre_model_sandoq_provisioning_policy(trace_audit)" in source
+    assert "allow_pre_ready_managed_shell_provisioning_failures = variant.get(" in source
+    assert "tb4_v8._pre_model_sandoq_provisioning_policy(" in source
+    assert "tb4_v8._validated_task_images(decoded_launch_plan, held)" in source
     assert "tb4_v8._assignment_lifecycle_audit(" in source
+    assert "task_images=task_images" in source
     assert 'counts.get("post_agent_verifier_sandbox_error_zeroes")' in source
     assert 'counts.get("pre_model_sandoq_provisioning_error_zeroes")' in source
     assert '"excluded_post_agent_verifier_sandbox_error_rows"' in source

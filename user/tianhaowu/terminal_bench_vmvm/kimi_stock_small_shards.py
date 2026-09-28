@@ -31,6 +31,7 @@ import finalize_kimi_tb4_sandoq_small_v6_supersession as tb4_transport
 import finalize_kimi_tb4_sandoq_small_v8_supersession as tb4_v8
 import finalize_kimi_tb4_sandoq_small_v12 as tb4_v12
 import finalize_kimi_tb4_sandoq_small_v13 as tb4_v13
+import finalize_kimi_tb4_sandoq_small_v14 as tb4_v14
 import kimi_sandoq_production as legacy
 import kimi_stock_small_task_image_soak as task_image_soak
 import kimi_tb4_provider_split as split
@@ -162,7 +163,22 @@ TB4_V13_SUPERSESSION_SOURCE_REVISION = "eecb29f549e94984722806bc72bc02ea9d06db63
 TB4_V13_PRODUCTION_SHARED_VARIANT_FILES: frozenset[str] = frozenset()
 TB4_V13_PRODUCTION_LANE_VARIANT_FILES: frozenset[str] = frozenset()
 TB4_V13_PRODUCTION_SANDOQ_VARIANT_FILES: frozenset[str] = frozenset()
-TB4_V13_PRODUCTION_VARIANT_PAIR_SHA256 = "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+TB4_EMPTY_VARIANT_PAIR_SHA256 = "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
+TB4_V13_PRODUCTION_VARIANT_PAIR_SHA256 = TB4_EMPTY_VARIANT_PAIR_SHA256
+# V14 extends the shared finalizer engine only behind an execution-contract
+# opt-in.  Preserve acceptance of the exact v12/v13 source files by binding
+# that one reviewed old/new source pair instead of relabeling either source.
+TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_FILES = frozenset(
+    {
+        "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_v8_supersession.py",
+    }
+)
+TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_PAIR_SHA256 = "012b532ce1988da914f32b0ab18948e7151dbc4c367cb0e982449228f069ee0e"
+TB4_V14_SUPERSESSION_SOURCE_REVISION = "5d78c4ee12f8350637956b3d683e557db465fd49"
+TB4_V14_PRODUCTION_SHARED_VARIANT_FILES: frozenset[str] = frozenset()
+TB4_V14_PRODUCTION_LANE_VARIANT_FILES: frozenset[str] = frozenset()
+TB4_V14_PRODUCTION_SANDOQ_VARIANT_FILES: frozenset[str] = frozenset()
+TB4_V14_PRODUCTION_VARIANT_PAIR_SHA256 = TB4_EMPTY_VARIANT_PAIR_SHA256
 
 PROXY_SUMMARY_MARKER = b"sandoq: buffered model proxy summary "
 PROXY_SUMMARY_PREFIX_RE = re.compile(rb"[0-9]{2}:[0-9]{2}:[0-9]{2} +INFO \Z")
@@ -917,6 +933,8 @@ def _validate_tb4_supersession_source(
     source_paths: Sequence[str] = tb4_transport.SUPERSESSION_SOURCE_FILES,
     distinct_source_revision: bool = False,
     expected_source_revision: str | None = None,
+    production_variant_files: frozenset[str] = frozenset(),
+    production_variant_pair_sha256: str = TB4_EMPTY_VARIANT_PAIR_SHA256,
 ) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != {
         "project_root",
@@ -949,12 +967,33 @@ def _validate_tb4_supersession_source(
         source_files = _git_file_hashes(tb4_root, certificate_revision, source_paths)
     production_files = _git_file_hashes(production_root, production_revision, source_paths)
     file_set_sha256 = _sha256(_canonical(files))
-    if files != source_files or files != production_files or value.get("file_set_sha256") != file_set_sha256:
+    if (
+        not isinstance(production_variant_files, frozenset)
+        or not production_variant_files <= set(source_paths)
+        or (production_variant_files and not distinct_source_revision)
+        or not isinstance(production_variant_pair_sha256, str)
+        or SHA256_RE.fullmatch(production_variant_pair_sha256) is None
+        or files != source_files
+        or any(files[path] != production_files[path] for path in set(source_paths) - production_variant_files)
+        or _sha256(
+            _canonical(
+                {
+                    path: {"production": production_files[path], "tb4": files[path]}
+                    for path in sorted(production_variant_files)
+                }
+            )
+        )
+        != production_variant_pair_sha256
+        or value.get("file_set_sha256") != file_set_sha256
+    ):
         raise StockSmallError("tb4_supersession_source_invalid")
-    return {
+    result = {
         "source_revision": source_revision,
         "file_set_sha256": file_set_sha256,
     }
+    if production_variant_files:
+        result["production_variant_pair_sha256"] = production_variant_pair_sha256
+    return result
 
 
 def _validate_tb4_provider_context(
@@ -1104,6 +1143,8 @@ def _tb4_gate_variant(value: Mapping[str, Any]) -> dict[str, Any]:
             "supersession_source_paths": tb4_v12.SUPERSESSION_SOURCE_FILES,
             "distinct_supersession_source_revision": True,
             "expected_supersession_source_revision": TB4_V12_SUPERSESSION_SOURCE_REVISION,
+            "production_supersession_source_variant_files": (TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_FILES),
+            "production_supersession_source_variant_pair_sha256": (TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_PAIR_SHA256),
             "production_shared_variant_files": TB4_V12_PRODUCTION_SHARED_VARIANT_FILES,
             "production_lane_variant_files": TB4_V12_PRODUCTION_LANE_VARIANT_FILES,
             "production_sandoq_variant_files": TB4_V12_PRODUCTION_SANDOQ_VARIANT_FILES,
@@ -1161,10 +1202,70 @@ def _tb4_gate_variant(value: Mapping[str, Any]) -> dict[str, Any]:
             "supersession_source_paths": tb4_v13.SUPERSESSION_SOURCE_FILES,
             "distinct_supersession_source_revision": True,
             "expected_supersession_source_revision": TB4_V13_SUPERSESSION_SOURCE_REVISION,
+            "production_supersession_source_variant_files": (TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_FILES),
+            "production_supersession_source_variant_pair_sha256": (TB4_PRE_V14_SUPERSESSION_SOURCE_VARIANT_PAIR_SHA256),
             "production_shared_variant_files": TB4_V13_PRODUCTION_SHARED_VARIANT_FILES,
             "production_lane_variant_files": TB4_V13_PRODUCTION_LANE_VARIANT_FILES,
             "production_sandoq_variant_files": TB4_V13_PRODUCTION_SANDOQ_VARIANT_FILES,
             "production_variant_pair_sha256": TB4_V13_PRODUCTION_VARIANT_PAIR_SHA256,
+        }
+    if value.get("schema_version") == 2 and reason == tb4_v14.SUPERSESSION_REASON:
+        return {
+            "schema_version": 2,
+            "reason": reason,
+            "extra_certificate_keys": frozenset(
+                {
+                    "exact_length_benchmark_policy",
+                    "execution_completion",
+                    "persisted_verifier_artifacts",
+                    "post_agent_verifier_error_policy",
+                    "pre_model_sandoq_provisioning_error_policy",
+                    "sandoq_assignment_lifecycle",
+                }
+            ),
+            "extra_artifact_keys": frozenset({"execution_completion"}),
+            "extra_count_keys": frozenset(
+                {
+                    "benchmark_scored_failures",
+                    "benchmark_scored_rows",
+                    "benchmark_valid_nontrainable_passes",
+                    "infrastructure_zeroes",
+                    "post_agent_verifier_artifact_write_transport_zeroes",
+                    "post_agent_verifier_exec_transport_zeroes",
+                    "post_agent_verifier_sandbox_error_zeroes",
+                    "pre_model_sandoq_provisioning_error_zeroes",
+                    "provider_scored_passes",
+                    "trainable_passes",
+                }
+            ),
+            "extra_training_keys": frozenset(
+                {
+                    "eligible_clean_passes",
+                    "excluded_post_agent_verifier_artifact_write_transport_rows",
+                    "excluded_post_agent_verifier_sandbox_error_rows",
+                    "excluded_pre_model_sandoq_provisioning_error_rows",
+                    "post_agent_verifier_artifact_write_transport_rows_are_trainable",
+                    "post_agent_verifier_sandbox_error_rows_are_trainable",
+                    "pre_model_sandoq_provisioning_error_rows_are_trainable",
+                }
+            ),
+            "allow_post_agent_verifier_sandbox_errors": True,
+            "audit_pre_model_sandoq_provisioning_errors": True,
+            "allow_exact_length_benchmark_rows": True,
+            "allow_post_agent_exec_transport_errors": True,
+            "allow_post_agent_artifact_write_transport_errors": True,
+            "require_persisted_verifier_artifacts": True,
+            "allow_pre_ready_managed_shell_provisioning_failures": True,
+            "execution_contract": tb4_v14.execution_contract(tb4_v14.EXECUTION_SLURM_JOB_ID),
+            "execution_plan": tb4_v14.EXECUTION_PLAN,
+            "execution_run_dir": tb4_v14.EXECUTION_RUN_DIR,
+            "supersession_source_paths": tb4_v14.SUPERSESSION_SOURCE_FILES,
+            "distinct_supersession_source_revision": True,
+            "expected_supersession_source_revision": TB4_V14_SUPERSESSION_SOURCE_REVISION,
+            "production_shared_variant_files": TB4_V14_PRODUCTION_SHARED_VARIANT_FILES,
+            "production_lane_variant_files": TB4_V14_PRODUCTION_LANE_VARIANT_FILES,
+            "production_sandoq_variant_files": TB4_V14_PRODUCTION_SANDOQ_VARIANT_FILES,
+            "production_variant_pair_sha256": TB4_V14_PRODUCTION_VARIANT_PAIR_SHA256,
         }
     raise StockSmallError("tb4_gate_invalid")
 
@@ -1584,6 +1685,14 @@ def _validate_tb4_gate_locked(
             source_paths=variant["supersession_source_paths"],
             distinct_source_revision=variant["distinct_supersession_source_revision"],
             expected_source_revision=variant.get("expected_supersession_source_revision"),
+            production_variant_files=variant.get(
+                "production_supersession_source_variant_files",
+                frozenset(),
+            ),
+            production_variant_pair_sha256=variant.get(
+                "production_supersession_source_variant_pair_sha256",
+                TB4_EMPTY_VARIANT_PAIR_SHA256,
+            ),
         ),
     }
     task_record = identity.get("inputs", {}).get("task_file")
@@ -1751,6 +1860,17 @@ def _validate_tb4_gate_locked(
         "trace_invalid_scored_rows_are_trainable": False,
     }
     if variant["allow_post_agent_verifier_sandbox_errors"]:
+        allow_pre_ready_managed_shell_provisioning_failures = variant.get(
+            "allow_pre_ready_managed_shell_provisioning_failures",
+            False,
+        )
+        if (
+            type(allow_pre_ready_managed_shell_provisioning_failures) is not bool
+            or execution_contract is not None
+            and execution_contract.allow_pre_ready_managed_shell_provisioning_failures
+            is not allow_pre_ready_managed_shell_provisioning_failures
+        ):
+            raise StockSmallError("tb4_gate_lifecycle_invalid")
         expected_training.update(
             {
                 "excluded_post_agent_verifier_sandbox_error_rows": post_agent_zeroes,
@@ -1761,7 +1881,17 @@ def _validate_tb4_gate_locked(
         )
         try:
             expected_post_agent_policy = tb4_v8._post_agent_verifier_policy(trace_audit)
-            expected_pre_model_provisioning_policy = tb4_v8._pre_model_sandoq_provisioning_policy(trace_audit)
+            expected_pre_model_provisioning_policy = tb4_v8._pre_model_sandoq_provisioning_policy(
+                trace_audit,
+                allow_pre_ready_managed_shell_provisioning_failures=(
+                    allow_pre_ready_managed_shell_provisioning_failures
+                ),
+            )
+            task_images = (
+                tb4_v8._validated_task_images(decoded_launch_plan, held)
+                if allow_pre_ready_managed_shell_provisioning_failures
+                else None
+            )
             event_body = _read(
                 run_dir / "pool_events.jsonl",
                 code="tb4_gate_lifecycle_invalid",
@@ -1775,6 +1905,10 @@ def _validate_tb4_gate_locked(
                 trace_audit=trace_audit,
                 rows=rows,
                 verifier_modes=verifier_modes,
+                allow_pre_ready_managed_shell_provisioning_failures=(
+                    allow_pre_ready_managed_shell_provisioning_failures
+                ),
+                task_images=task_images,
             )
         except (OSError, RuntimeError, ValueError) as error:
             raise StockSmallError("tb4_gate_lifecycle_invalid") from error
