@@ -1353,11 +1353,23 @@ def test_sandoq_source_rejects_unobserved_client_version(tmp_path: Path, monkeyp
         _source_identity(args)
 
 
-def test_vendored_sandoq_provider_matches_patched_vendor_inventory() -> None:
+def test_vendored_sandoq_provider_matches_exact_bounded_upload_overlay(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     project_root = Path(__file__).resolve().parents[4]
 
     assert eval_run_identity.SANDOQ_VENDOR_PROVENANCE == "patched-upstream-subtree"
-    assert len(eval_run_identity.SANDOQ_VENDOR_INVENTORY_SHA256) == 64
+    assert eval_run_identity.SANDOQ_VENDOR_INVENTORY_SHA256 == (
+        "78f35c58e7474e087e9653b90d563cf4eb00030f509e4baca42866b1cded7905"
+    )
+    assert eval_run_identity.SANDOQ_VENDOR_OVERLAY_BASE_REVISION == (
+        "aa3ebebec140261a437f538ffcb8b9b913974057"
+    )
+    assert eval_run_identity.SANDOQ_VENDOR_OVERLAY_REVISION == "eee438556236abb5e186621bdda15e6141763590"
+    assert tuple(eval_run_identity.SANDOQ_VENDOR_OVERLAY_BLOBS) == (
+        "extensions/sandoq/sandoq_provider/oci_client.py",
+        "extensions/sandoq/sandoq_provider/tests/test_oci_client_security.py",
+    )
     eval_run_identity._validate_vendored_sandoq_provider(
         project_root,
         expected_commit=eval_run_identity.SANDOQ_UPSTREAM_COMMIT,
@@ -1367,6 +1379,24 @@ def test_vendored_sandoq_provider_matches_patched_vendor_inventory() -> None:
         eval_run_identity._validate_vendored_sandoq_provider(
             project_root,
             expected_commit="0" * 40,
+            expected_tree=eval_run_identity.SANDOQ_UPSTREAM_TREE,
+        )
+
+    original_git_output = eval_run_identity._git_output
+
+    def tampered_git_output(root: Path, *args: str, label: str) -> str:
+        if args == (
+            "rev-parse",
+            "HEAD:extensions/sandoq/sandoq_provider/oci_client.py",
+        ):
+            return "0" * 40 + "\n"
+        return original_git_output(root, *args, label=label)
+
+    monkeypatch.setattr(eval_run_identity, "_git_output", tampered_git_output)
+    with pytest.raises(EvalIdentityError, match="sandoq_provider_mismatch"):
+        eval_run_identity._validate_vendored_sandoq_provider(
+            project_root,
+            expected_commit=eval_run_identity.SANDOQ_UPSTREAM_COMMIT,
             expected_tree=eval_run_identity.SANDOQ_UPSTREAM_TREE,
         )
 

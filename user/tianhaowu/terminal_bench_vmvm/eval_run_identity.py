@@ -108,7 +108,19 @@ SANDOQ_UPSTREAM_COMMIT = "4890302104d76220cef791c86d2009168597d35f"
 SANDOQ_UPSTREAM_TREE = "33f092a3982916660e12f472588e6ce34a906fc2"
 SANDOQ_UPSTREAM_SUBTREE = "10b5bd9bbc76eba1b8253637e1869d6b63b7fc42"
 SANDOQ_VENDOR_PROVENANCE = "patched-upstream-subtree"
-SANDOQ_VENDOR_INVENTORY_SHA256 = "b91da5ab8fb09b6b99407e5354ca9330ddfc8f372fad0581e922da4b87bc83b2"
+SANDOQ_VENDOR_INVENTORY_SHA256 = "78f35c58e7474e087e9653b90d563cf4eb00030f509e4baca42866b1cded7905"
+SANDOQ_VENDOR_OVERLAY_BASE_REVISION = "aa3ebebec140261a437f538ffcb8b9b913974057"
+SANDOQ_VENDOR_OVERLAY_REVISION = "eee438556236abb5e186621bdda15e6141763590"
+SANDOQ_VENDOR_OVERLAY_BLOBS = {
+    "extensions/sandoq/sandoq_provider/oci_client.py": (
+        "11b6c7c4b669d58cebde34535c718c224992cc17",
+        "5739b390ead61cf5eb492bece557a086c1b8ad91",
+    ),
+    "extensions/sandoq/sandoq_provider/tests/test_oci_client_security.py": (
+        "63fdddb48844d778ccca8831c02f28b172cfbb2e",
+        "e29210dc47a3a4ad6c59fabee75c2ffe21b189f8",
+    ),
+}
 KIMI_SANDOQ_FALLBACK_ROLE = "kimi-direct-tb4-sandoq-fallback-diagnostic"
 KIMI_CAPACITY_SMOKE_ROLE = "kimi-direct-capacity-smoke"
 KIMI_PRODUCTION_ROLE = "kimi-direct-mobius"
@@ -1413,6 +1425,10 @@ def _validate_vendored_sandoq_provider(
         SANDOQ_UPSTREAM_SUBTREE,
         SANDOQ_VENDOR_PROVENANCE,
         SANDOQ_VENDOR_INVENTORY_SHA256,
+        SANDOQ_VENDOR_OVERLAY_BASE_REVISION,
+        SANDOQ_VENDOR_OVERLAY_REVISION,
+        *SANDOQ_VENDOR_OVERLAY_BLOBS,
+        *(blob for blobs in SANDOQ_VENDOR_OVERLAY_BLOBS.values() for blob in blobs),
     )
     if (
         not stat.S_ISREG(metadata.st_mode)
@@ -1435,6 +1451,44 @@ def _validate_vendored_sandoq_provider(
         or _sha256_bytes(("\n".join(inventory) + "\n").encode()) != SANDOQ_VENDOR_INVENTORY_SHA256
     ):
         raise EvalIdentityError("sandoq_provider_mismatch")
+    overlay_paths = tuple(SANDOQ_VENDOR_OVERLAY_BLOBS)
+    observed_overlay_paths = tuple(
+        _git_output(
+            project_root,
+            "diff",
+            "--name-only",
+            SANDOQ_VENDOR_OVERLAY_BASE_REVISION,
+            SANDOQ_VENDOR_OVERLAY_REVISION,
+            "--",
+            SANDOQ_VENDOR_RELATIVE.as_posix(),
+            label="sandoq_provider",
+        ).splitlines()
+    )
+    if observed_overlay_paths != overlay_paths:
+        raise EvalIdentityError("sandoq_provider_mismatch")
+    for path, (base_blob, overlay_blob) in SANDOQ_VENDOR_OVERLAY_BLOBS.items():
+        observed_blobs = (
+            _git_output(
+                project_root,
+                "rev-parse",
+                f"{SANDOQ_VENDOR_OVERLAY_BASE_REVISION}:{path}",
+                label="sandoq_provider",
+            ).strip(),
+            _git_output(
+                project_root,
+                "rev-parse",
+                f"{SANDOQ_VENDOR_OVERLAY_REVISION}:{path}",
+                label="sandoq_provider",
+            ).strip(),
+            _git_output(
+                project_root,
+                "rev-parse",
+                f"HEAD:{path}",
+                label="sandoq_provider",
+            ).strip(),
+        )
+        if observed_blobs != (base_blob, overlay_blob, overlay_blob):
+            raise EvalIdentityError("sandoq_provider_mismatch")
 
 
 def _source_identity(args: argparse.Namespace) -> dict[str, str]:
