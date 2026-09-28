@@ -30,6 +30,7 @@ import finalize_kimi_tb4_sandoq_small_v4_recovery as tb4_recovery
 import finalize_kimi_tb4_sandoq_small_v6_supersession as tb4_transport
 import finalize_kimi_tb4_sandoq_small_v8_supersession as tb4_v8
 import finalize_kimi_tb4_sandoq_small_v12 as tb4_v12
+import finalize_kimi_tb4_sandoq_small_v13 as tb4_v13
 import kimi_sandoq_production as legacy
 import kimi_stock_small_task_image_soak as task_image_soak
 import kimi_tb4_provider_split as split
@@ -152,6 +153,16 @@ TB4_V12_PRODUCTION_SANDOQ_VARIANT_FILES = frozenset(
 # distinct from the post-certifier production revision audited by the pair hash.
 TB4_V12_SUPERSESSION_SOURCE_REVISION = "aa3ebebec140261a437f538ffcb8b9b913974057"
 TB4_V12_PRODUCTION_VARIANT_PAIR_SHA256 = "065b880a58c3be9d6fbbcf6cf7caa4be4a1e6ad9f9b5fb8b127d960bcc682866"
+# The v13 certifier is an immutable additive commit atop the exact 3a39
+# execution revision.  No execution-semantic files differ between those two
+# revisions, so the reviewed variant set is deliberately empty and its digest
+# is the canonical empty-map digest.  The production gate itself is a later
+# commit; the supersession source stays pinned to the certifier commit.
+TB4_V13_SUPERSESSION_SOURCE_REVISION = "eecb29f549e94984722806bc72bc02ea9d06db63"
+TB4_V13_PRODUCTION_SHARED_VARIANT_FILES: frozenset[str] = frozenset()
+TB4_V13_PRODUCTION_LANE_VARIANT_FILES: frozenset[str] = frozenset()
+TB4_V13_PRODUCTION_SANDOQ_VARIANT_FILES: frozenset[str] = frozenset()
+TB4_V13_PRODUCTION_VARIANT_PAIR_SHA256 = "ca3d163bab055381827226140568f3bef7eaac187cebd76878e0b63e9e442356"
 
 PROXY_SUMMARY_MARKER = b"sandoq: buffered model proxy summary "
 PROXY_SUMMARY_PREFIX_RE = re.compile(rb"[0-9]{2}:[0-9]{2}:[0-9]{2} +INFO \Z")
@@ -1098,6 +1109,63 @@ def _tb4_gate_variant(value: Mapping[str, Any]) -> dict[str, Any]:
             "production_sandoq_variant_files": TB4_V12_PRODUCTION_SANDOQ_VARIANT_FILES,
             "production_variant_pair_sha256": TB4_V12_PRODUCTION_VARIANT_PAIR_SHA256,
         }
+    if value.get("schema_version") == 2 and reason == tb4_v13.SUPERSESSION_REASON:
+        return {
+            "schema_version": 2,
+            "reason": reason,
+            "extra_certificate_keys": frozenset(
+                {
+                    "exact_length_benchmark_policy",
+                    "execution_completion",
+                    "persisted_verifier_artifacts",
+                    "post_agent_verifier_error_policy",
+                    "pre_model_sandoq_provisioning_error_policy",
+                    "sandoq_assignment_lifecycle",
+                }
+            ),
+            "extra_artifact_keys": frozenset({"execution_completion"}),
+            "extra_count_keys": frozenset(
+                {
+                    "benchmark_scored_failures",
+                    "benchmark_scored_rows",
+                    "benchmark_valid_nontrainable_passes",
+                    "infrastructure_zeroes",
+                    "post_agent_verifier_artifact_write_transport_zeroes",
+                    "post_agent_verifier_exec_transport_zeroes",
+                    "post_agent_verifier_sandbox_error_zeroes",
+                    "pre_model_sandoq_provisioning_error_zeroes",
+                    "provider_scored_passes",
+                    "trainable_passes",
+                }
+            ),
+            "extra_training_keys": frozenset(
+                {
+                    "eligible_clean_passes",
+                    "excluded_post_agent_verifier_artifact_write_transport_rows",
+                    "excluded_post_agent_verifier_sandbox_error_rows",
+                    "excluded_pre_model_sandoq_provisioning_error_rows",
+                    "post_agent_verifier_artifact_write_transport_rows_are_trainable",
+                    "post_agent_verifier_sandbox_error_rows_are_trainable",
+                    "pre_model_sandoq_provisioning_error_rows_are_trainable",
+                }
+            ),
+            "allow_post_agent_verifier_sandbox_errors": True,
+            "audit_pre_model_sandoq_provisioning_errors": True,
+            "allow_exact_length_benchmark_rows": True,
+            "allow_post_agent_exec_transport_errors": True,
+            "allow_post_agent_artifact_write_transport_errors": True,
+            "require_persisted_verifier_artifacts": True,
+            "execution_contract": tb4_v13.execution_contract(tb4_v13.EXECUTION_SLURM_JOB_ID),
+            "execution_plan": tb4_v13.EXECUTION_PLAN,
+            "execution_run_dir": tb4_v13.EXECUTION_RUN_DIR,
+            "supersession_source_paths": tb4_v13.SUPERSESSION_SOURCE_FILES,
+            "distinct_supersession_source_revision": True,
+            "expected_supersession_source_revision": TB4_V13_SUPERSESSION_SOURCE_REVISION,
+            "production_shared_variant_files": TB4_V13_PRODUCTION_SHARED_VARIANT_FILES,
+            "production_lane_variant_files": TB4_V13_PRODUCTION_LANE_VARIANT_FILES,
+            "production_sandoq_variant_files": TB4_V13_PRODUCTION_SANDOQ_VARIANT_FILES,
+            "production_variant_pair_sha256": TB4_V13_PRODUCTION_VARIANT_PAIR_SHA256,
+        }
     raise StockSmallError("tb4_gate_invalid")
 
 
@@ -1409,7 +1477,8 @@ def _validate_tb4_gate_locked(
                 held,
                 execution_contract,
             )
-            if launch_path != tb4_v12.EXECUTION_PLAN or verified_launch_record != launch_record:
+            expected_execution_plan = variant.get("execution_plan", tb4_v12.EXECUTION_PLAN)
+            if launch_path != expected_execution_plan or verified_launch_record != launch_record:
                 raise StockSmallError("tb4_gate_plan_invalid")
     except (OSError, RuntimeError, ValueError) as error:
         raise StockSmallError("tb4_gate_plan_invalid") from error
@@ -1425,8 +1494,9 @@ def _validate_tb4_gate_locked(
         held=held,
     )
     run_dir = Path(str(executed_record["path"])).parent
+    expected_execution_run_dir = variant.get("execution_run_dir", tb4_v12.EXECUTION_RUN_DIR)
     if identity_path != run_dir / "eval_run_identity.json" or (
-        execution_contract is not None and run_dir != tb4_v12.EXECUTION_RUN_DIR
+        execution_contract is not None and run_dir != expected_execution_run_dir
     ):
         raise StockSmallError("tb4_gate_identity_invalid")
     try:
