@@ -31,6 +31,11 @@ CORPUS_KIND = "kimi-k3-stock-small-unfiltered-trajectory-corpus"
 EXPORT_KIND = "kimi-k3-stock-small-pass-only-sft"
 SHA256_RE = stock.SHA256_RE
 MAX_CERTIFICATE_BYTES = 16 * 1024 * 1024
+MAX_CONFIG_BYTES = 4 * 1024 * 1024
+MAX_TASK_FILE_BYTES = 16 * 1024 * 1024
+MAX_IMAGE_MANIFEST_BYTES = 128 * 1024 * 1024
+MAX_INPUT_MANIFEST_BYTES = 4 * 1024 * 1024
+MAX_PROVENANCE_BYTES = 1024 * 1024
 
 
 class StockSmallSFTError(RuntimeError):
@@ -170,6 +175,30 @@ def _strict_json(body: bytes, code: str) -> dict[str, Any]:
     except (UnicodeDecodeError, ValueError) as error:
         raise StockSmallSFTError(code) from error
     if not isinstance(value, dict) or _canonical(value) != body:
+        raise StockSmallSFTError(code)
+    return value
+
+
+def _json_object(body: bytes, code: str) -> dict[str, Any]:
+    """Decode an object while rejecting duplicate keys and non-finite values."""
+
+    def reject_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        value: dict[str, Any] = {}
+        for key, item in pairs:
+            if key in value:
+                raise ValueError("duplicate key")
+            value[key] = item
+        return value
+
+    try:
+        value = json.loads(
+            body,
+            parse_constant=lambda _value: (_ for _ in ()).throw(ValueError()),
+            object_pairs_hook=reject_duplicates,
+        )
+    except (UnicodeDecodeError, ValueError) as error:
+        raise StockSmallSFTError(code) from error
+    if not isinstance(value, dict):
         raise StockSmallSFTError(code)
     return value
 
@@ -580,11 +609,17 @@ def package_unfiltered(
             f"postprocessor_revision={expected_revision}\n"
         ).encode("ascii")
         provenance_artifact = _write_exclusive(temporary / "provenance.txt", provenance_body)
-        certificate_body, _original_certificate_artifact = _read_regular(
+        certificate_body, original_certificate_artifact = _read_regular(
             trace_certificate,
             code="trace_certificate_invalid",
             maximum_bytes=MAX_CERTIFICATE_BYTES,
         )
+        if (
+            original_certificate_artifact != evidence.certificate_artifact
+            or original_certificate_artifact["sha256"] != trace_certificate_sha256
+            or certificate_body != _canonical(evidence.certificate)
+        ):
+            raise StockSmallSFTError("source_artifact_changed")
         certificate_copy = _write_exclusive(temporary / "source-certificate.json", certificate_body)
         results_artifact, row_count = _concatenate_results(
             evidence.result_artifacts,
@@ -595,7 +630,10 @@ def package_unfiltered(
             certificate_copy["sha256"],
         )
         if (
-            revalidated.plan_sha256 != evidence.plan_sha256
+            revalidated.certificate != evidence.certificate
+            or revalidated.plan != evidence.plan
+            or revalidated.plan_sha256 != evidence.plan_sha256
+            or revalidated.completions != evidence.completions
             or revalidated.result_artifacts != evidence.result_artifacts
             or revalidated.outcome_counts != evidence.outcome_counts
             or revalidated.capture_counts != evidence.capture_counts
@@ -686,7 +724,14 @@ def package_unfiltered(
     }
 
 
-def _relative_record(root: Path, value: object, expected_path: str, code: str) -> tuple[bytes, dict[str, Any]]:
+def _relative_record(
+    root: Path,
+    value: object,
+    expected_path: str,
+    code: str,
+    *,
+    maximum_bytes: int,
+) -> tuple[bytes, dict[str, Any]]:
     if (
         not isinstance(value, dict)
         or set(value) != {"path", "bytes", "sha256"}
@@ -695,7 +740,7 @@ def _relative_record(root: Path, value: object, expected_path: str, code: str) -
         or SHA256_RE.fullmatch(str(value.get("sha256", ""))) is None
     ):
         raise StockSmallSFTError(code)
-    body, artifact = _read_regular(root / expected_path, code=code)
+    body, artifact = _read_regular(root / expected_path, code=code, maximum_bytes=maximum_bytes)
     if value != {"path": expected_path, "bytes": artifact["bytes"], "sha256": artifact["sha256"]}:
         raise StockSmallSFTError(code)
     return body, artifact
@@ -783,6 +828,7 @@ def validate_corpus(path: Path, expected_sha256: str) -> dict[str, Any]:
         source_certificate,
         "source-certificate.json",
         "corpus_invalid",
+        maximum_bytes=MAX_CERTIFICATE_BYTES,
     )
     evidence = validate_final_certificate(
         root / "source-certificate.json",
@@ -852,8 +898,22 @@ def validate_corpus(path: Path, expected_sha256: str) -> dict[str, Any]:
     }
     if set(export_inputs) != set(expected_input_paths):
         raise StockSmallSFTError("corpus_invalid")
+    input_limits = {
+        "config": MAX_CONFIG_BYTES,
+        "source_config": MAX_CONFIG_BYTES,
+        "task_file": MAX_TASK_FILE_BYTES,
+        "image_manifest": MAX_IMAGE_MANIFEST_BYTES,
+        "inputs_manifest": MAX_INPUT_MANIFEST_BYTES,
+        "provenance": MAX_PROVENANCE_BYTES,
+    }
     for name, relative in expected_input_paths.items():
-        _relative_record(root, export_inputs[name], relative, "corpus_invalid")
+        _relative_record(
+            root,
+            export_inputs[name],
+            relative,
+            "corpus_invalid",
+            maximum_bytes=input_limits[name],
+        )
     try:
         _source_artifacts, config_summary, task_identity = export_sft._validate_run_provenance(
             root,
@@ -871,6 +931,11 @@ def validate_corpus(path: Path, expected_sha256: str) -> dict[str, Any]:
         "value": value,
         "root": root,
         "results": root / "results.jsonl",
+        "results_artifact": {
+            "path": str(root / "results.jsonl"),
+            "bytes": observed_corpus_artifact["bytes"],
+            "sha256": observed_corpus_artifact["sha256"],
+        },
         "positive_traces": outcomes["positive_traces"],
         "zero_reward_traces": outcomes["zero_reward_traces"],
         "error_traces": outcomes["error_traces"],
@@ -880,8 +945,85 @@ def validate_corpus(path: Path, expected_sha256: str) -> dict[str, Any]:
 
 def _publish_receipt(path: Path, value: Mapping[str, Any]) -> str:
     body = _canonical(value)
-    _write_exclusive(path, body)
+    parent = _private_directory(path.parent, "output_publish_failed")
+    if path != parent / path.name or path.name in {"", ".", ".."} or os.path.lexists(path):
+        raise StockSmallSFTError("output_publish_failed")
+    descriptor = -1
+    temporary: Path | None = None
+    linked = False
+    try:
+        descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=parent)
+        temporary = Path(temporary_name)
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "wb") as stream:
+            descriptor = -1
+            stream.write(body)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.link(temporary, path, follow_symlinks=False)
+        linked = True
+        directory = os.open(parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    except OSError as error:
+        raise StockSmallSFTError("output_publish_failed") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+        if temporary is not None:
+            try:
+                temporary.unlink()
+            except FileNotFoundError:
+                pass
+            except OSError:
+                if not linked:
+                    raise StockSmallSFTError("output_publish_failed")
     return _sha256(body)
+
+
+def _validate_export_manifest_binding(
+    body: bytes,
+    *,
+    corpus: Mapping[str, Any],
+) -> dict[str, Any]:
+    manifest = _json_object(body, "sft_manifest_invalid")
+    counts = manifest.get("counts")
+    source_artifacts = manifest.get("source_artifacts")
+    expected_results = corpus.get("results_artifact")
+    if (
+        not isinstance(counts, dict)
+        or not isinstance(source_artifacts, dict)
+        or not isinstance(expected_results, dict)
+        or source_artifacts.get("results.jsonl")
+        != {
+            "bytes": expected_results.get("bytes"),
+            "sha256": expected_results.get("sha256"),
+        }
+        or manifest.get("selection") != "pass-only"
+        or manifest.get("max_sequence_tokens") != stock.MAX_SEQUENCE_TOKENS
+        or manifest.get("source_validation")
+        != {
+            "max_sequence_tokens": stock.MAX_SEQUENCE_TOKENS,
+            "require_clean_stop": True,
+            "require_exact_provider_json": True,
+            "require_model_io": True,
+            "require_reasoning": True,
+            "require_request_graph_match": True,
+        }
+        or counts.get("input_traces") != stock.TOTAL_TASKS
+        or counts.get("approved_tasks") != stock.TOTAL_TASKS
+        or counts.get("selected_traces") != corpus.get("positive_traces")
+        or counts.get("selected_pass_traces") != corpus.get("positive_traces")
+        or counts.get("selected_fail_traces", 0) != 0
+        or counts.get("excluded_error_traces") != corpus.get("error_traces")
+        or counts.get("scored_pass_traces") != corpus.get("positive_traces")
+        or counts.get("scored_fail_traces", 0) != corpus.get("zero_reward_traces")
+        or counts.get("selection_excluded_fail_traces", 0) != corpus.get("zero_reward_traces")
+    ):
+        raise StockSmallSFTError("sft_manifest_invalid")
+    return manifest
 
 
 def export_pass_only(
@@ -909,40 +1051,75 @@ def export_pass_only(
     ):
         raise StockSmallSFTError("export_arguments_invalid")
     corpus = validate_corpus(corpus_manifest, corpus_manifest_sha256)
+    staging_root = Path(tempfile.mkdtemp(prefix=f".{output_dir.name}.export.", dir=root))
+    os.chmod(staging_root, 0o700)
+    staged_output = staging_root / "sft"
     try:
-        summary = export_sft.export_sft(
-            export_sft.ExportOptions(
-                results=corpus["results"],
-                output_dir=output_dir,
-                selection="pass-only",
-                expected_count=stock.TOTAL_TASKS,
-                validation_permyriad=validation_permyriad,
-                split_salt=split_salt,
-                max_sequence_tokens=stock.MAX_SEQUENCE_TOKENS,
-                require_exact_provider_json=True,
+        try:
+            summary = export_sft.export_sft(
+                export_sft.ExportOptions(
+                    results=corpus["results"],
+                    output_dir=staged_output,
+                    selection="pass-only",
+                    expected_count=stock.TOTAL_TASKS,
+                    validation_permyriad=validation_permyriad,
+                    split_salt=split_salt,
+                    max_sequence_tokens=stock.MAX_SEQUENCE_TOKENS,
+                    require_exact_provider_json=True,
+                )
             )
+        except export_sft.ExportError as error:
+            raise StockSmallSFTError("sft_export_failed") from error
+        if (
+            summary.get("status") != "exported"
+            or summary.get("selection") != "pass-only"
+            or summary.get("input_traces") != stock.TOTAL_TASKS
+            or summary.get("approved_tasks") != stock.TOTAL_TASKS
+            or summary.get("selected_traces") != corpus["positive_traces"]
+            or summary.get("excluded_error_traces") != corpus["error_traces"]
+            or not isinstance(summary.get("rows"), dict)
+            or not isinstance(summary.get("output_sha256"), dict)
+        ):
+            raise StockSmallSFTError("sft_export_contract_invalid")
+        manifest_body, staged_manifest_artifact = _read_regular(
+            staged_output / "manifest.json",
+            code="sft_manifest_invalid",
+            private=False,
+            maximum_bytes=MAX_CERTIFICATE_BYTES,
         )
-    except export_sft.ExportError as error:
-        raise StockSmallSFTError("sft_export_failed") from error
-    if (
-        summary.get("status") != "exported"
-        or summary.get("selection") != "pass-only"
-        or summary.get("input_traces") != stock.TOTAL_TASKS
-        or summary.get("approved_tasks") != stock.TOTAL_TASKS
-        or summary.get("selected_traces") != corpus["positive_traces"]
-        or summary.get("excluded_error_traces") != corpus["error_traces"]
-        or not isinstance(summary.get("rows"), dict)
-        or not isinstance(summary.get("output_sha256"), dict)
-    ):
-        raise StockSmallSFTError("sft_export_contract_invalid")
-    manifest_body, manifest_artifact = _read_regular(
+        manifest_value = _validate_export_manifest_binding(manifest_body, corpus=corpus)
+        counts = manifest_value["counts"]
+        if staged_manifest_artifact["sha256"] != summary["output_sha256"].get("manifest") or summary["rows"] != {
+            "total": counts.get("emitted_rows"),
+            "train": counts.get("train_rows", 0),
+            "validation": counts.get("validation_rows", 0),
+        }:
+            raise StockSmallSFTError("sft_manifest_invalid")
+        try:
+            if os.path.lexists(output_dir):
+                raise StockSmallSFTError("output_publish_failed")
+            os.rename(staged_output, output_dir)
+            directory = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        except OSError as error:
+            raise StockSmallSFTError("output_publish_failed") from error
+    finally:
+        if staging_root.exists():
+            shutil.rmtree(staging_root)
+
+    manifest_body, observed_manifest_artifact = _read_regular(
         output_dir / "manifest.json",
         code="sft_manifest_invalid",
         private=False,
         maximum_bytes=MAX_CERTIFICATE_BYTES,
     )
-    if manifest_artifact["sha256"] != summary["output_sha256"].get("manifest"):
+    _validate_export_manifest_binding(manifest_body, corpus=corpus)
+    if observed_manifest_artifact["sha256"] != summary["output_sha256"].get("manifest"):
         raise StockSmallSFTError("sft_manifest_invalid")
+    manifest_artifact = {**observed_manifest_artifact, "path": str(output_dir / "manifest.json")}
     value = {
         "schema_version": SCHEMA_VERSION,
         "kind": EXPORT_KIND,
@@ -951,6 +1128,7 @@ def export_pass_only(
         "unfiltered_corpus": {
             "path": str(corpus_manifest),
             "sha256": corpus_manifest_sha256,
+            "results": corpus["results_artifact"],
             "trajectory_rows": stock.TOTAL_TASKS,
             "includes_all_outcomes": True,
         },
@@ -969,7 +1147,6 @@ def export_pass_only(
         "preflight": {"required": True, "state": "pending"},
     }
     receipt_sha256 = _publish_receipt(receipt, value)
-    del manifest_body
     return {
         "state": "exported",
         "input_trajectories": stock.TOTAL_TASKS,
@@ -997,6 +1174,11 @@ def _load_export_receipt(path: Path, expected_sha256: str) -> dict[str, Any]:
         or export.get("require_exact_provider_json") is not True
         or export.get("reasoning_required") is not True
         or not isinstance(corpus, dict)
+        or set(corpus) != {"path", "sha256", "results", "trajectory_rows", "includes_all_outcomes"}
+        or not isinstance(corpus.get("path"), str)
+        or not Path(corpus["path"]).is_absolute()
+        or SHA256_RE.fullmatch(str(corpus.get("sha256", ""))) is None
+        or not isinstance(corpus.get("results"), dict)
         or corpus.get("trajectory_rows") != stock.TOTAL_TASKS
         or corpus.get("includes_all_outcomes") is not True
         or value.get("preflight") != {"required": True, "state": "pending"}
@@ -1020,17 +1202,33 @@ def preflight_export(
     if value.get("source") != source:
         raise StockSmallSFTError("export_receipt_invalid")
     export = value["export"]
+    corpus_record = value["unfiltered_corpus"]
+    corpus = validate_corpus(Path(corpus_record["path"]), str(corpus_record["sha256"]))
+    if (
+        corpus_record.get("results") != corpus["results_artifact"]
+        or export.get("selected_traces") != corpus["positive_traces"]
+        or export.get("input_traces") != stock.TOTAL_TASKS
+    ):
+        raise StockSmallSFTError("export_receipt_invalid")
     root = Path(str(export["root"]))
     manifest = export.get("manifest")
     if not isinstance(manifest, dict):
         raise StockSmallSFTError("sft_manifest_invalid")
-    _manifest_body, observed = _read_regular(
+    manifest_body, observed = _read_regular(
         root / "manifest.json",
         code="sft_manifest_invalid",
         private=False,
         maximum_bytes=MAX_CERTIFICATE_BYTES,
     )
     if observed != manifest:
+        raise StockSmallSFTError("sft_manifest_invalid")
+    manifest_value = _validate_export_manifest_binding(manifest_body, corpus=corpus)
+    counts = manifest_value["counts"]
+    if export.get("rows") != {
+        "total": counts.get("emitted_rows"),
+        "train": counts.get("train_rows", 0),
+        "validation": counts.get("validation_rows", 0),
+    }:
         raise StockSmallSFTError("sft_manifest_invalid")
     try:
         from prime_rl.trainer.sft.export_preflight import (

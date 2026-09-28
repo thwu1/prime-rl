@@ -367,6 +367,7 @@ def test_pass_only_export_remains_a_derivative_of_unfiltered_corpus(
     output_root = _private_dir(tmp_path / "outputs")
     corpus_root = _private_dir(tmp_path / "corpus")
     corpus_manifest = _private_file(corpus_root / "corpus-manifest.json", b"{}\n")
+    corpus_results = _private_file(corpus_root / "results.jsonl", b"opaque-results\n")
     source = {"project_root": str(tmp_path / "project"), "prime_rl_revision": "a" * 40}
     monkeypatch.setattr(finalizer, "_source_binding", lambda *_args: source)
     monkeypatch.setattr(finalizer.stock, "TOTAL_TASKS", 2)
@@ -375,6 +376,7 @@ def test_pass_only_export_remains_a_derivative_of_unfiltered_corpus(
         "validate_corpus",
         lambda *_args: {
             "results": corpus_root / "results.jsonl",
+            "results_artifact": corpus_results,
             "positive_traces": 1,
             "zero_reward_traces": 0,
             "error_traces": 1,
@@ -383,7 +385,38 @@ def test_pass_only_export_remains_a_derivative_of_unfiltered_corpus(
 
     def fake_export(options: export_sft.ExportOptions) -> dict[str, object]:
         options.output_dir.mkdir(mode=0o700)
-        manifest = _private_file(options.output_dir / "manifest.json", b"{}\n")
+        manifest_value = {
+            "counts": {
+                "approved_tasks": 2,
+                "emitted_rows": 3,
+                "excluded_error_traces": 1,
+                "input_traces": 2,
+                "scored_fail_traces": 0,
+                "scored_pass_traces": 1,
+                "selected_pass_traces": 1,
+                "selected_traces": 1,
+                "train_rows": 3,
+                "validation_rows": 0,
+            },
+            "max_sequence_tokens": 262_144,
+            "selection": "pass-only",
+            "source_artifacts": {
+                "results.jsonl": {
+                    "bytes": corpus_results["bytes"],
+                    "sha256": corpus_results["sha256"],
+                }
+            },
+            "source_validation": {
+                "max_sequence_tokens": 262_144,
+                "require_clean_stop": True,
+                "require_exact_provider_json": True,
+                "require_model_io": True,
+                "require_reasoning": True,
+                "require_request_graph_match": True,
+            },
+        }
+        manifest_body = json.dumps(manifest_value, indent=2, sort_keys=True).encode() + b"\n"
+        manifest = _private_file(options.output_dir / "manifest.json", manifest_body)
         return {
             "status": "exported",
             "selection": "pass-only",
@@ -413,6 +446,7 @@ def test_pass_only_export_remains_a_derivative_of_unfiltered_corpus(
     assert value["unfiltered_corpus"] == {
         "path": str(corpus_manifest["path"]),
         "sha256": corpus_manifest["sha256"],
+        "results": corpus_results,
         "trajectory_rows": 2,
         "includes_all_outcomes": True,
     }
@@ -469,6 +503,233 @@ def test_real_pass_only_export_from_packaged_corpus(
     assert sft_manifest["counts"]["input_traces"] == 2
     assert sft_manifest["counts"]["excluded_error_traces"] == 1
     assert sft_manifest["counts"]["selected_pass_traces"] == 1
+
+
+def test_package_rejects_source_certificate_swap_after_initial_validation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    evidence, certificate = _evidence(tmp_path)
+    output_root = _private_dir(tmp_path / "outputs")
+    source = {
+        "project_root": str(tmp_path / "project"),
+        "prime_rl_revision": "b" * 40,
+        "prime_rl_tree": "c" * 40,
+        "submodules": {"deps/renderers": "d" * 40, "deps/verifiers": "e" * 40},
+        "files": {},
+    }
+    monkeypatch.setattr(finalizer.stock, "TOTAL_TASKS", 2)
+    monkeypatch.setattr(finalizer, "_source_binding", lambda *_args: source)
+
+    calls = 0
+
+    def validate_then_swap(*_args: object) -> finalizer.FinalEvidence:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            certificate.write_bytes(b'{"changed":true}\n')
+        return evidence
+
+    monkeypatch.setattr(finalizer, "validate_final_certificate", validate_then_swap)
+    with pytest.raises(finalizer.StockSmallSFTError, match="source_artifact_changed"):
+        finalizer.package_unfiltered(
+            project_root=tmp_path / "project",
+            expected_revision="b" * 40,
+            trace_certificate=certificate,
+            trace_certificate_sha256=str(evidence.certificate_artifact["sha256"]),
+            output_root=output_root,
+            output_dir=output_root / "unfiltered",
+        )
+    assert not (output_root / "unfiltered").exists()
+
+
+def test_export_rejects_results_swap_before_publication(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    output_root = _private_dir(tmp_path / "outputs")
+    corpus_root = _private_dir(tmp_path / "corpus")
+    corpus_manifest = _private_file(corpus_root / "corpus-manifest.json", b"{}\n")
+    original_results = _private_file(corpus_root / "results.jsonl", b"original\n")
+    source = {"project_root": str(tmp_path / "project"), "prime_rl_revision": "a" * 40}
+    monkeypatch.setattr(finalizer, "_source_binding", lambda *_args: source)
+    monkeypatch.setattr(finalizer.stock, "TOTAL_TASKS", 2)
+    monkeypatch.setattr(
+        finalizer,
+        "validate_corpus",
+        lambda *_args: {
+            "results": corpus_root / "results.jsonl",
+            "results_artifact": original_results,
+            "positive_traces": 1,
+            "zero_reward_traces": 0,
+            "error_traces": 1,
+        },
+    )
+
+    def fake_export(options: export_sft.ExportOptions) -> dict[str, object]:
+        Path(options.results).write_bytes(b"changed\n")
+        changed_sha = hashlib.sha256(b"changed\n").hexdigest()
+        options.output_dir.mkdir(mode=0o700)
+        manifest_value = {
+            "counts": {
+                "approved_tasks": 2,
+                "emitted_rows": 1,
+                "excluded_error_traces": 1,
+                "input_traces": 2,
+                "scored_fail_traces": 0,
+                "scored_pass_traces": 1,
+                "selected_pass_traces": 1,
+                "selected_traces": 1,
+                "train_rows": 1,
+                "validation_rows": 0,
+            },
+            "max_sequence_tokens": 262_144,
+            "selection": "pass-only",
+            "source_artifacts": {"results.jsonl": {"bytes": 8, "sha256": changed_sha}},
+            "source_validation": {
+                "max_sequence_tokens": 262_144,
+                "require_clean_stop": True,
+                "require_exact_provider_json": True,
+                "require_model_io": True,
+                "require_reasoning": True,
+                "require_request_graph_match": True,
+            },
+        }
+        manifest_body = json.dumps(manifest_value, indent=2, sort_keys=True).encode() + b"\n"
+        manifest = _private_file(options.output_dir / "manifest.json", manifest_body)
+        return {
+            "status": "exported",
+            "selection": "pass-only",
+            "input_traces": 2,
+            "approved_tasks": 2,
+            "selected_traces": 1,
+            "excluded_error_traces": 1,
+            "rows": {"total": 1, "train": 1, "validation": 0},
+            "output_sha256": {"manifest": manifest["sha256"]},
+        }
+
+    monkeypatch.setattr(finalizer.export_sft, "export_sft", fake_export)
+    with pytest.raises(finalizer.StockSmallSFTError, match="sft_manifest_invalid"):
+        finalizer.export_pass_only(
+            project_root=tmp_path / "project",
+            expected_revision="a" * 40,
+            corpus_manifest=Path(str(corpus_manifest["path"])),
+            corpus_manifest_sha256=str(corpus_manifest["sha256"]),
+            output_root=output_root,
+            output_dir=output_root / "sft",
+            validation_permyriad=0,
+            split_salt="sealed-salt",
+            receipt=output_root / "receipt.json",
+        )
+    assert not (output_root / "sft").exists()
+    assert not (output_root / "receipt.json").exists()
+
+
+def test_receipt_publication_never_leaves_partial_final_file(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    root = _private_dir(tmp_path / "outputs")
+    receipt = root / "receipt.json"
+    monkeypatch.setattr(finalizer.os, "fsync", lambda _fd: (_ for _ in ()).throw(OSError("fault")))
+    with pytest.raises(finalizer.StockSmallSFTError, match="output_publish_failed"):
+        finalizer._publish_receipt(receipt, {"state": "exported"})
+    assert not receipt.exists()
+
+
+def test_preflight_rejects_export_manifest_not_bound_to_corpus(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    output_root = _private_dir(tmp_path / "outputs")
+    export_root = _private_dir(output_root / "sft")
+    corpus_root = _private_dir(tmp_path / "corpus")
+    corpus_manifest = _private_file(corpus_root / "corpus-manifest.json", b"{}\n")
+    corpus_results = _private_file(corpus_root / "results.jsonl", b"original\n")
+    source = {"project_root": str(tmp_path / "project"), "prime_rl_revision": "a" * 40}
+    monkeypatch.setattr(finalizer, "_source_binding", lambda *_args: source)
+    monkeypatch.setattr(finalizer.stock, "TOTAL_TASKS", 2)
+    monkeypatch.setattr(
+        finalizer,
+        "validate_corpus",
+        lambda *_args: {
+            "results": corpus_root / "results.jsonl",
+            "results_artifact": corpus_results,
+            "positive_traces": 1,
+            "zero_reward_traces": 0,
+            "error_traces": 1,
+        },
+    )
+    manifest_body = (
+        json.dumps(
+            {
+                "counts": {
+                    "approved_tasks": 2,
+                    "emitted_rows": 1,
+                    "excluded_error_traces": 1,
+                    "input_traces": 2,
+                    "scored_fail_traces": 0,
+                    "scored_pass_traces": 1,
+                    "selected_pass_traces": 1,
+                    "selected_traces": 1,
+                    "train_rows": 1,
+                    "validation_rows": 0,
+                },
+                "max_sequence_tokens": 262_144,
+                "selection": "pass-only",
+                "source_artifacts": {"results.jsonl": {"bytes": 8, "sha256": "f" * 64}},
+                "source_validation": {
+                    "max_sequence_tokens": 262_144,
+                    "require_clean_stop": True,
+                    "require_exact_provider_json": True,
+                    "require_model_io": True,
+                    "require_reasoning": True,
+                    "require_request_graph_match": True,
+                },
+            },
+            indent=2,
+            sort_keys=True,
+        ).encode()
+        + b"\n"
+    )
+    export_manifest = _private_file(export_root / "manifest.json", manifest_body)
+    receipt_value = {
+        "schema_version": 1,
+        "kind": finalizer.EXPORT_KIND,
+        "state": "exported",
+        "source": source,
+        "unfiltered_corpus": {
+            "path": str(corpus_manifest["path"]),
+            "sha256": corpus_manifest["sha256"],
+            "results": corpus_results,
+            "trajectory_rows": 2,
+            "includes_all_outcomes": True,
+        },
+        "export": {
+            "root": str(export_root),
+            "manifest": export_manifest,
+            "selection": "pass-only",
+            "input_traces": 2,
+            "selected_traces": 1,
+            "rows": {"total": 1, "train": 1, "validation": 0},
+            "validation_permyriad": 0,
+            "split_salt_sha256": "e" * 64,
+            "require_exact_provider_json": True,
+            "reasoning_required": True,
+        },
+        "preflight": {"required": True, "state": "pending"},
+    }
+    receipt = _private_file(output_root / "receipt.json", finalizer._canonical(receipt_value))
+    with pytest.raises(finalizer.StockSmallSFTError, match="sft_manifest_invalid"):
+        finalizer.preflight_export(
+            project_root=tmp_path / "project",
+            expected_revision="a" * 40,
+            export_receipt=Path(str(receipt["path"])),
+            export_receipt_sha256=str(receipt["sha256"]),
+            tokenizer_snapshot_path=None,
+            tokenizer_snapshot_sha256=None,
+            output=output_root / "attestation.json",
+        )
 
 
 def test_cli_failure_is_redacted(capsys: pytest.CaptureFixture[str]) -> None:
