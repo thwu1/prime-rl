@@ -15,6 +15,7 @@ import tomllib
 from pathlib import Path
 from typing import Any, Sequence
 
+import eval_run_identity as identity
 import kimi_tb4_provider_split as split
 import prepare_kimi_tb4_miniswe246_union as union
 import prepare_kimi_tb4_sandoq_small_full as legacy
@@ -39,6 +40,10 @@ SCORE_POLICY_BASELINE_REVISION = "97ba80d9c1f284b2ca787d297d756fef6ce03367"
 READY_RECEIPT_KIND = "kimi-stock-fresh-deployment-ready"
 READY_RECEIPT_MINIMUM_SECONDS = 6 * 24 * 60 * 60
 ENDPOINT_MINIMUM_REMAINING_SECONDS = 162 * 60 * 60
+CANONICAL_DATASET_ARCHIVE = Path(
+    "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/downloads/"
+    "terminal-bench-prebuilt-v4.0.0.tar.gz"
+)
 ROUTER_CAPACITY_PROFILE = "sandoq-stock-single-c64-v1"
 ROUTER_POLICY = "consistent_hash"
 EXCLUSIVE_LOCK = Path("/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/terminal-bench-sandoq-campaign.lock")
@@ -155,6 +160,38 @@ def _source_revision(expected_revision: str) -> str:
     if revision != expected_revision or dirty:
         raise V10PlanError("source_revision_invalid")
     return revision
+
+
+def _validated_dataset(path: Path) -> Path:
+    absolute = Path(os.path.abspath(path))
+    try:
+        dataset = absolute.resolve(strict=True)
+    except (OSError, RuntimeError) as error:
+        raise V10PlanError("dataset_content_invalid") from error
+    if dataset != absolute or not dataset.is_dir():
+        raise V10PlanError("dataset_content_invalid")
+
+    archive = CANONICAL_DATASET_ARCHIVE
+    try:
+        if archive.is_symlink() or archive.resolve(strict=True) != archive:
+            raise V10PlanError("dataset_archive_invalid")
+        identity._verified_archive_content(
+            archive,
+            split.CANONICAL_DATASET_ARCHIVE_SHA256,
+            split.CANONICAL_DATASET_CONTENT_SHA256,
+        )
+    except V10PlanError:
+        raise
+    except (OSError, RuntimeError, ValueError) as error:
+        raise V10PlanError("dataset_archive_invalid") from error
+
+    try:
+        observed = identity._tree_digest(dataset)
+    except (OSError, RuntimeError, ValueError) as error:
+        raise V10PlanError("dataset_content_invalid") from error
+    if observed != split.CANONICAL_DATASET_CONTENT_SHA256:
+        raise V10PlanError("dataset_content_invalid")
+    return dataset
 
 
 def _load_base(
@@ -548,10 +585,10 @@ def materialize(args: argparse.Namespace) -> dict[str, Any]:
     image_body = _read(image_manifest, code="image_manifest_invalid")
     if _sha256(image_body) != split.CANONICAL_IMAGE_MANIFEST_SHA256:
         raise V10PlanError("image_manifest_invalid")
-    dataset_dir = args.dataset_dir.resolve(strict=True)
+    dataset_dir = _validated_dataset(args.dataset_dir)
     eval_root = args.eval_root.resolve(strict=True)
-    if not dataset_dir.is_dir() or not eval_root.is_dir():
-        raise V10PlanError("dataset_or_eval_root_invalid")
+    if not eval_root.is_dir():
+        raise V10PlanError("eval_root_invalid")
     base, base_body, base_path = _load_base()
     profile_body, profile_path = legacy._provider_profile()
     smoke_body, smoke_path = legacy._smoke_receipt(args.smoke_receipt, args.smoke_receipt_sha256)
@@ -754,7 +791,7 @@ def verify(path: Path, expected_sha256: str) -> dict[str, Any]:
             config = tomllib.loads(config_body.decode())
         except (UnicodeDecodeError, tomllib.TOMLDecodeError) as error:
             raise V10PlanError("config_invalid") from error
-        dataset_dir = Path(str(config.get("taskset", {}).get("dataset_dir", "")))
+        dataset_dir = _validated_dataset(Path(str(config.get("taskset", {}).get("dataset_dir", ""))))
         run_output = Path(str(lane.get("output_dir", "")))
         full_output = Path(str(plan.get("full_output_dir", "")))
         if not run_output.is_absolute() or full_output != run_output / "full-denominator":

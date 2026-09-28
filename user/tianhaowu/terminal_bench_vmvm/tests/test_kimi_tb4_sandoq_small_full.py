@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import subprocess
+import tarfile
 import tomllib
 from pathlib import Path
 
@@ -553,3 +554,55 @@ def test_v10_c16_config_and_launch_path_are_separate_and_fail_closed() -> None:
     completion = launcher.index("completed-awaiting-v11-certification")
     legacy_finalize = launcher.index("finalize_kimi_tb4_sandoq_small_v7.py")
     assert certify < completion < legacy_finalize
+
+
+def test_v10_dataset_binding_checks_exact_archive_and_live_tree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset = tmp_path / "dataset"
+    member = dataset / "synthetic-case"
+    member.mkdir(parents=True)
+    payload = member / "instruction.md"
+    payload.write_text("synthetic\n")
+    archive = tmp_path / "dataset.tar.gz"
+    with tarfile.open(archive, "w:gz") as handle:
+        handle.add(dataset, arcname="tasks")
+
+    archive_body = archive.read_bytes()
+    content_sha256 = eval_run_identity._tree_digest(dataset)
+    monkeypatch.setattr(v10, "CANONICAL_DATASET_ARCHIVE", archive)
+    monkeypatch.setattr(
+        split,
+        "CANONICAL_DATASET_ARCHIVE_SHA256",
+        hashlib.sha256(archive.read_bytes()).hexdigest(),
+    )
+    monkeypatch.setattr(split, "CANONICAL_DATASET_CONTENT_SHA256", content_sha256)
+
+    assert v10._validated_dataset(dataset) == dataset
+
+    payload.write_text("tampered\n")
+    with pytest.raises(v10.V10PlanError, match="dataset_content_invalid"):
+        v10._validated_dataset(dataset)
+
+    with tarfile.open(archive, "w:gz") as handle:
+        handle.add(dataset, arcname="tasks")
+    monkeypatch.setattr(
+        split,
+        "CANONICAL_DATASET_ARCHIVE_SHA256",
+        hashlib.sha256(archive.read_bytes()).hexdigest(),
+    )
+    with pytest.raises(v10.V10PlanError, match="dataset_archive_invalid"):
+        v10._validated_dataset(dataset)
+
+    payload.write_text("synthetic\n")
+    archive.write_bytes(archive_body)
+    monkeypatch.setattr(
+        split,
+        "CANONICAL_DATASET_ARCHIVE_SHA256",
+        hashlib.sha256(archive_body).hexdigest(),
+    )
+    symlink = tmp_path / "dataset-link"
+    symlink.symlink_to(dataset, target_is_directory=True)
+    with pytest.raises(v10.V10PlanError, match="dataset_content_invalid"):
+        v10._validated_dataset(symlink)
