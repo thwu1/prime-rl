@@ -950,7 +950,6 @@ def _publish_receipt(path: Path, value: Mapping[str, Any]) -> str:
         raise StockSmallSFTError("output_publish_failed")
     descriptor = -1
     temporary: Path | None = None
-    linked = False
     try:
         descriptor, temporary_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=parent)
         temporary = Path(temporary_name)
@@ -961,7 +960,8 @@ def _publish_receipt(path: Path, value: Mapping[str, Any]) -> str:
             stream.flush()
             os.fsync(stream.fileno())
         os.link(temporary, path, follow_symlinks=False)
-        linked = True
+        temporary.unlink()
+        temporary = None
         directory = os.open(parent, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
         try:
             os.fsync(directory)
@@ -978,8 +978,14 @@ def _publish_receipt(path: Path, value: Mapping[str, Any]) -> str:
             except FileNotFoundError:
                 pass
             except OSError:
-                if not linked:
-                    raise StockSmallSFTError("output_publish_failed")
+                pass
+    published_body, published_artifact = _read_regular(
+        path,
+        code="output_publish_failed",
+        maximum_bytes=MAX_CERTIFICATE_BYTES,
+    )
+    if published_body != body or published_artifact["sha256"] != _sha256(body):
+        raise StockSmallSFTError("output_publish_failed")
     return _sha256(body)
 
 
