@@ -1021,12 +1021,14 @@ async def execute_soak(
     interrupted: asyncio.CancelledError | None = None
     live_high_water = 0
     attempts = 0
+    attempted_tasks = 0
     provisioning_cleanup_failures = 0
     provisioned_count = 0
     exercise_counts: Counter[str] = Counter()
     cleanup_counts: Counter[str] = Counter()
     for offset in range(0, SELECTED_TASKS, CONCURRENCY):
         wave = tasks[offset : offset + CONCURRENCY]
+        attempted_tasks += len(wave)
         provision_tasks = [asyncio.create_task(_provision_one(task, runtime_factory)) for task in wave]
         try:
             provision_results = list(await asyncio.gather(*provision_tasks))
@@ -1099,8 +1101,8 @@ async def execute_soak(
         "tasks": SELECTED_TASKS,
         "provisioned": provisioned_count,
         "provisioning_attempts": attempts,
-        "provisioning_retries": max(attempts - provisioned_count, 0),
-        "provisioning_failures": SELECTED_TASKS - provisioned_count,
+        "provisioning_retries": max(attempts - attempted_tasks, 0),
+        "provisioning_failures": attempted_tasks - provisioned_count,
         "provisioning_cleanup_failures": provisioning_cleanup_failures,
         **{
             key: exercise_counts[key]
@@ -1793,7 +1795,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         _publish_terminal_status(code=code, state="blocked")
         print(json.dumps({"code": code, "kind": RECEIPT_KIND, "state": "blocked"}, sort_keys=True), file=sys.stderr)
         return 2
-    _publish_terminal_status(code="completed", state="passed")
+    if result.get("state") in {"authorized", "passed"}:
+        _publish_terminal_status(code="completed", state="passed")
+    else:
+        _publish_terminal_status(code="run_unavailable", state="blocked")
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return 0 if result.get("state") in {"authorized", "passed"} else 2
 

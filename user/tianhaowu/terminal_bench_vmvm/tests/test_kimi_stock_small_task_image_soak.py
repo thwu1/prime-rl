@@ -148,6 +148,35 @@ def test_execute_soak_retries_runtime_factory_failure_without_leaking() -> None:
     assert state.active == 0
 
 
+def test_execute_soak_counts_only_attempted_terminal_provisioning_failure() -> None:
+    state = _State()
+    taskset = _Taskset(state)
+
+    def runtime_factory(task: int) -> _Runtime:
+        return _Runtime(task, state, fail_first=task == 0)
+
+    original_attempts = soak.MAX_PROVISIONING_ATTEMPTS
+    soak.MAX_PROVISIONING_ATTEMPTS = 1
+    try:
+        value = asyncio.run(
+            soak.execute_soak(
+                taskset,
+                tuple(range(soak.SELECTED_TASKS)),
+                runtime_factory=runtime_factory,
+                monotonic=lambda: 1.0,
+            )
+        )
+    finally:
+        soak.MAX_PROVISIONING_ATTEMPTS = original_attempts
+
+    assert value["state"] == "unavailable"
+    assert value["counts"]["provisioned"] == soak.CONCURRENCY - 1
+    assert value["counts"]["provisioning_attempts"] == soak.CONCURRENCY
+    assert value["counts"]["provisioning_retries"] == 0
+    assert value["counts"]["provisioning_failures"] == 1
+    assert value["counts"]["tasks"] - value["counts"]["provisioned"] - value["counts"]["provisioning_failures"] == 2_435
+
+
 def test_contract_is_no_model_c64_firecracker_small() -> None:
     value = soak._contracts()
 
@@ -393,4 +422,45 @@ def test_terminal_status_is_aggregate_only_and_private(
         "kind": soak.RECEIPT_KIND,
         "state": "blocked",
         "code": "provider_environment_invalid",
+    }
+
+
+def test_main_marks_returned_unavailable_result_blocked(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "run"
+    control = output / "control"
+    control.mkdir(parents=True)
+    control.chmod(0o700)
+    status = control / soak.STATUS_FILE_NAME
+    monkeypatch.setenv("PRIME_RL_OUTPUT_DIR", str(output))
+    monkeypatch.setenv(soak.STATUS_FILE_ENV, str(status))
+    monkeypatch.setattr(soak, "run", lambda *args, **kwargs: {"state": "unavailable"})
+
+    result = soak.main(
+        [
+            "run",
+            "--plan",
+            str(tmp_path / "plan.json"),
+            "--plan-sha256",
+            "a" * 64,
+            "--output",
+            str(output),
+            "--worker-manifest",
+            str(tmp_path / "workers.json"),
+            "--worker-manifest-sha256",
+            "b" * 64,
+            "--walltime-receipt",
+            str(tmp_path / "walltime.json"),
+            "--walltime-receipt-sha256",
+            "c" * 64,
+        ]
+    )
+
+    assert result == 2
+    assert json.loads(status.read_bytes()) == {
+        "schema_version": 1,
+        "kind": soak.RECEIPT_KIND,
+        "state": "blocked",
+        "code": "run_unavailable",
     }
