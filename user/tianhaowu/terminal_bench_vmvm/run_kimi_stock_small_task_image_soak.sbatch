@@ -124,6 +124,7 @@ export PRIME_RL_OUTPUT_DIR="$run_dir"
 export OCI_RUNNER_POOL_SOCKET="$pool_socket_dir/${SLURM_JOB_ID}.sock"
 export OCI_RUNNER_POOL_WAL="$run_dir/control/sandoq-pool.wal.jsonl"
 export OCI_RUNNER_POOL_EVENT_LOG="$run_dir/pool_events.jsonl"
+export KIMI_TASK_IMAGE_SOAK_STATUS_FILE="$run_dir/control/task-image-soak-status.json"
 
 set +e
 env SANDOQ_PROVIDER_TERMINATION_GRACE_SECONDS=1200 \
@@ -141,7 +142,21 @@ env SANDOQ_PROVIDER_TERMINATION_GRACE_SECONDS=1200 \
     >/dev/null 2>&1
 run_status=$?
 set -e
-(( run_status == 0 )) || blocked task_image_soak_failed
+if (( run_status != 0 )); then
+    child_code=task_image_soak_failed
+    if [[ -f "$KIMI_TASK_IMAGE_SOAK_STATUS_FILE" && ! -L "$KIMI_TASK_IMAGE_SOAK_STATUS_FILE" \
+        && "$(stat -c '%u:%a' -- "$KIMI_TASK_IMAGE_SOAK_STATUS_FILE")" == "$(id -u):600" ]]; then
+        parsed_code=$(
+            jq -er \
+                'if (keys | sort) == ["code","kind","schema_version","state"] and .schema_version == 1 and .kind == "kimi-k3-stock-small-task-image-c64-soak" and .state == "blocked" and (.code | type) == "string" then .code else error("invalid") end' \
+                "$KIMI_TASK_IMAGE_SOAK_STATUS_FILE" 2>/dev/null
+        ) || parsed_code=
+        if [[ "$parsed_code" =~ ^[a-z][a-z0-9_]{0,127}$ ]]; then
+            child_code=$parsed_code
+        fi
+    fi
+    blocked "$child_code"
+fi
 
 receipt="$run_dir/receipt.json"
 result=$(

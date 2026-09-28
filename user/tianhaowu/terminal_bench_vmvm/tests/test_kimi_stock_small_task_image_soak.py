@@ -353,6 +353,31 @@ def test_launcher_is_c64_no_inference_and_fails_closed() -> None:
     assert "#SBATCH --mem=96G" in launcher
     assert "python3 \"$tool\" run" in launcher
     assert "python3 \"$tool\" certify" in launcher
+    assert 'KIMI_TASK_IMAGE_SOAK_STATUS_FILE="$run_dir/control/task-image-soak-status.json"' in launcher
+    assert 'blocked "$child_code"' in launcher
+    assert '2>"$KIMI_TASK_IMAGE_SOAK_STATUS_FILE"' not in launcher
     assert "mini-swe" not in launcher.lower()
     assert "curl" not in launcher
     assert "\nsbatch " not in launcher
+
+
+def test_terminal_status_is_aggregate_only_and_private(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = tmp_path / "run"
+    control = output / "control"
+    control.mkdir(parents=True)
+    control.chmod(0o700)
+    status = control / soak.STATUS_FILE_NAME
+    monkeypatch.setenv("PRIME_RL_OUTPUT_DIR", str(output))
+    monkeypatch.setenv(soak.STATUS_FILE_ENV, str(status))
+
+    soak._publish_terminal_status(code="provider_environment_invalid", state="blocked")
+
+    assert status.stat().st_mode & 0o777 == 0o600
+    assert json.loads(status.read_bytes()) == {
+        "schema_version": 1,
+        "kind": soak.RECEIPT_KIND,
+        "state": "blocked",
+        "code": "provider_environment_invalid",
+    }

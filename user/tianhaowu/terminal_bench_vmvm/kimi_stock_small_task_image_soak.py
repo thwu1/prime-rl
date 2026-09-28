@@ -82,6 +82,8 @@ SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
 MAX_ARTIFACT_BYTES = 128 * 1024 * 1024
 MAX_RECEIPT_BYTES = 256 * 1024
+STATUS_FILE_ENV = "KIMI_TASK_IMAGE_SOAK_STATUS_FILE"
+STATUS_FILE_NAME = "task-image-soak-status.json"
 
 _T = TypeVar("_T")
 
@@ -244,6 +246,36 @@ def _publish_private(path: Path, value: Mapping[str, object]) -> bytes:
     except Exception as error:
         raise TaskImageSoakError("output_publish_failed") from error
     return body
+
+
+def _publish_terminal_status(*, code: str, state: str) -> None:
+    """Best-effort aggregate-only child status; never retain stderr or task data."""
+
+    status_value = os.environ.get(STATUS_FILE_ENV)
+    output_value = os.environ.get("PRIME_RL_OUTPUT_DIR")
+    if status_value is None or output_value is None:
+        return
+    try:
+        output = Path(output_value)
+        status = Path(status_value)
+        if (
+            status != output / "control" / STATUS_FILE_NAME
+            or re.fullmatch(r"[a-z][a-z0-9_]{0,127}", code) is None
+            or state not in {"blocked", "passed"}
+        ):
+            return
+        _publish_private(
+            status,
+            {
+                "schema_version": SCHEMA_VERSION,
+                "kind": RECEIPT_KIND,
+                "state": state,
+                "code": code,
+            },
+        )
+    except BaseException:
+        # Status publication must never replace the evaluator's actual result.
+        return
 
 
 def _git(root: Path, *arguments: str) -> str:
@@ -1758,8 +1790,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         raise
     except BaseException as error:
         code = error.code if isinstance(error, TaskImageSoakError) else "unexpected_failure"
+        _publish_terminal_status(code=code, state="blocked")
         print(json.dumps({"code": code, "kind": RECEIPT_KIND, "state": "blocked"}, sort_keys=True), file=sys.stderr)
         return 2
+    _publish_terminal_status(code="completed", state="passed")
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return 0 if result.get("state") in {"authorized", "passed"} else 2
 
