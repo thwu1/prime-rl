@@ -565,6 +565,168 @@ def test_separate_verifier_releases_sandoq_agent_after_artifact_capture(
     assert trace.info["terminal_bench_artifacts"] == {"bytes": 8}
 
 
+def test_verifier_artifacts_are_content_addressed_and_reopen_exactly(tmp_path: Path) -> None:
+    output = tmp_path / "output"
+    output.mkdir(mode=0o700)
+    payloads = {"main": b"artifact-main", "sidecar": b"artifact-sidecar"}
+    digest = hashlib.sha256()
+    for service, payload in sorted(payloads.items()):
+        digest.update(service.encode())
+        digest.update(b"\0")
+        digest.update(payload)
+    metadata = {
+        "bytes": sum(map(len, payloads.values())),
+        "sha256": digest.hexdigest(),
+        "captured": {},
+        "missing": [],
+        "collect": [],
+    }
+
+    persistence = taskset_module._persist_verifier_artifacts(
+        output,
+        "opaque-trace",
+        payloads,
+        metadata,
+    )
+    reopened, manifest = taskset_module.load_persisted_verifier_artifacts(
+        output,
+        "opaque-trace",
+        persistence,
+        capture_metadata=metadata,
+    )
+
+    assert reopened == payloads
+    assert manifest["state"] == "persisted-before-scoring"
+    assert persistence["trace_id_sha256"] == hashlib.sha256(b"opaque-trace").hexdigest()
+    assert b"opaque-trace" not in json.dumps(persistence, sort_keys=True).encode()
+    files = list((output / "verifier-artifacts").glob("*/*"))
+    assert len(files) == 3
+    assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in files)
+    assert all(path.stat().st_nlink == 1 for path in files)
+    source_metadata = {**metadata, "persistence": persistence}
+    reopened_from_source, _ = (
+        taskset_module.load_persisted_verifier_artifacts_from_metadata(
+            output,
+            "opaque-trace",
+            source_metadata,
+        )
+    )
+    assert reopened_from_source == payloads
+
+    changed_metadata = {**source_metadata, "bytes": source_metadata["bytes"] + 1}
+    with pytest.raises(RuntimeError, match="capture metadata mismatch"):
+        taskset_module.load_persisted_verifier_artifacts_from_metadata(
+            output,
+            "opaque-trace",
+            changed_metadata,
+        )
+
+
+def test_persisted_verifier_artifact_tamper_fails_closed(tmp_path: Path) -> None:
+    output = tmp_path / "output"
+    output.mkdir(mode=0o700)
+    payloads = {"main": b"artifact"}
+    aggregate = hashlib.sha256(b"main\0artifact").hexdigest()
+    persistence = taskset_module._persist_verifier_artifacts(
+        output,
+        "opaque-trace",
+        payloads,
+        {"bytes": 8, "sha256": aggregate},
+    )
+    blob = next((output / "verifier-artifacts/blobs").iterdir())
+    blob.write_bytes(b"changed!")
+    blob.chmod(0o600)
+
+    with pytest.raises(RuntimeError, match="payload mismatch|collision"):
+        taskset_module.load_persisted_verifier_artifacts(
+            output,
+            "opaque-trace",
+            persistence,
+        )
+
+
+def test_finalize_persists_verifier_artifacts_before_releasing_agent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "output"
+    output.mkdir(mode=0o700)
+    monkeypatch.setenv("PRIME_RL_OUTPUT_DIR", str(output))
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            persist_verifier_artifacts=True,
+        )
+    )
+    runtime = SandoqRuntime(
+        SandoqConfig(
+            image="agent@sha256:" + "a" * 64,
+            workdir="/agent",
+            network_access=False,
+            host_tunnel="none",
+            expected_environment="oci-runner-firecracker",
+            ecr_token_file=Path("/run/secrets/ecr-token"),
+        )
+    )
+    events: list[str] = []
+    payloads = {"main": b"artifact"}
+    metadata = {"bytes": 8, "sha256": hashlib.sha256(b"main\0artifact").hexdigest()}
+
+    async def capture(*_args: object, **_kwargs: object) -> tuple[dict[str, bytes], dict[str, object]]:
+        events.append("capture")
+        return payloads, metadata
+
+    async def stop() -> None:
+        events.append("stop")
+
+    monkeypatch.setattr(taskset, "_capture_artifacts", capture)
+    monkeypatch.setattr(runtime, "stop", stop)
+    task = SimpleNamespace(verifier_mode="separate")
+    trace = SimpleNamespace(id="opaque-trace", info={})
+
+    asyncio.run(taskset.finalize(task, trace, runtime))
+
+    assert events == ["capture", "stop"]
+    persistence = trace.info["terminal_bench_artifacts"]["persistence"]
+    reopened, _manifest = taskset_module.load_persisted_verifier_artifacts(
+        output,
+        trace.id,
+        persistence,
+    )
+    assert reopened == payloads
+    assert taskset._artifact_payloads[trace.id] == payloads
+
+
+def test_finalize_requires_private_durable_output_before_scoring(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    output = tmp_path / "output"
+    output.mkdir(mode=0o755)
+    monkeypatch.setenv("PRIME_RL_OUTPUT_DIR", str(output))
+    taskset = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(
+            id="terminal-bench-vmvm",
+            dataset_dir=tmp_path,
+            persist_verifier_artifacts=True,
+        )
+    )
+    runtime = SimpleNamespace()
+
+    async def capture(*_args: object, **_kwargs: object) -> tuple[dict[str, bytes], dict[str, object]]:
+        return {"main": b"artifact"}, {"bytes": 8, "sha256": hashlib.sha256(b"main\0artifact").hexdigest()}
+
+    monkeypatch.setattr(taskset, "_capture_artifacts", capture)
+    task = SimpleNamespace(verifier_mode="separate")
+    trace = SimpleNamespace(id="opaque-trace", info={})
+
+    with pytest.raises(RuntimeError, match="verifier artifact directory is invalid"):
+        asyncio.run(taskset.finalize(task, trace, runtime))
+    assert trace.info == {}
+    assert taskset._artifact_payloads == {}
+
+
 def test_environment_workdir_defaults_and_tracks_relative_updates(tmp_path: Path) -> None:
     dockerfile = tmp_path / "Dockerfile"
     dockerfile.write_text("FROM python:3.12\nWORKDIR /workspace\nWORKDIR project\n")

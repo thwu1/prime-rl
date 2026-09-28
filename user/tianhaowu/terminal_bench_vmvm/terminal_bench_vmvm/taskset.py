@@ -273,6 +273,13 @@ ORACLE_PIP_CONSTRAINTS: dict[str, tuple[str, ...]] = {
     "cad-model": ("ocp_gordon==0.1.18",),
 }
 
+VERIFIER_ARTIFACT_STORE_KIND = "terminal-bench-verifier-artifact-store"
+VERIFIER_ARTIFACT_STORE_SCHEMA_VERSION = 1
+VERIFIER_ARTIFACT_STORE_DIRECTORY = "verifier-artifacts"
+MAX_PERSISTED_VERIFIER_ARTIFACT_BYTES = 12 * 1024**3
+MAX_PERSISTED_VERIFIER_ARTIFACT_TOTAL_BYTES = 16 * 1024**3
+MAX_VERIFIER_ARTIFACT_MANIFEST_BYTES = 16 * 1024 * 1024
+
 
 class OracleFailure(RuntimeError):
     """The task or its reference solution failed, rather than VMVM transport."""
@@ -324,6 +331,9 @@ class TerminalBenchVMVMConfig(HarborConfig):
     """Use verifier_runtime_retries for shared-mode scoring without re-running the model."""
     capture_convention_artifacts: bool = True
     """Also preserve Harbor's conventional /logs/artifacts directory when present."""
+
+    persist_verifier_artifacts: bool = False
+    """Persist exact separate-verifier archives before any scoring attempt."""
 
     oracle_solution_network_mode: Literal["declared", "public"] = "declared"
     """Network policy for trusted reference solutions; model rollouts always use the declared policy."""
@@ -778,6 +788,380 @@ def _environment_workdir(dockerfile: Path, default: str = "/app") -> str:
         path = PurePosixPath(candidate)
         workdir = path if path.is_absolute() else workdir / path
     return str(workdir)
+
+
+def _verifier_artifact_canonical(value: object) -> bytes:
+    try:
+        return (
+            json.dumps(
+                value,
+                allow_nan=False,
+                ensure_ascii=False,
+                separators=(",", ":"),
+                sort_keys=True,
+            ).encode("utf-8")
+            + b"\n"
+        )
+    except (TypeError, ValueError) as error:
+        raise RuntimeError("verifier artifact manifest is not canonical JSON") from error
+
+
+def _private_artifact_directory(path: Path, *, create: bool) -> Path:
+    if not path.is_absolute() or Path(os.path.normpath(path)) != path:
+        raise RuntimeError("verifier artifact directory is invalid")
+    if create:
+        try:
+            os.mkdir(path, 0o700)
+        except FileExistsError:
+            pass
+        except OSError as error:
+            raise RuntimeError("verifier artifact directory is unavailable") from error
+    try:
+        resolved = path.resolve(strict=True)
+        metadata = path.lstat()
+    except (OSError, RuntimeError) as error:
+        raise RuntimeError("verifier artifact directory is unavailable") from error
+    if (
+        resolved != path
+        or path.is_symlink()
+        or not stat.S_ISDIR(metadata.st_mode)
+        or metadata.st_uid != os.geteuid()
+        or stat.S_IMODE(metadata.st_mode) != 0o700
+    ):
+        raise RuntimeError("verifier artifact directory is invalid")
+    return resolved
+
+
+def _read_private_artifact(path: Path, *, maximum_bytes: int) -> bytes:
+    flags = os.O_RDONLY | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0)
+    descriptor = -1
+    try:
+        if not path.is_absolute() or Path(os.path.normpath(path)) != path or path.resolve(strict=True) != path:
+            raise RuntimeError("verifier artifact file is invalid")
+        descriptor = os.open(path, flags)
+        before = os.fstat(descriptor)
+        if (
+            not stat.S_ISREG(before.st_mode)
+            or before.st_uid != os.geteuid()
+            or before.st_nlink != 1
+            or stat.S_IMODE(before.st_mode) != 0o600
+            or before.st_size > maximum_bytes
+        ):
+            raise RuntimeError("verifier artifact file is invalid")
+        body = bytearray()
+        while chunk := os.read(descriptor, 1 << 20):
+            body.extend(chunk)
+            if len(body) > maximum_bytes:
+                raise RuntimeError("verifier artifact file is too large")
+        after = os.fstat(descriptor)
+        visible = path.lstat()
+    except OSError as error:
+        raise RuntimeError("verifier artifact file is unavailable") from error
+    finally:
+        if descriptor >= 0:
+            os.close(descriptor)
+    identity = lambda value: (
+        value.st_dev,
+        value.st_ino,
+        value.st_mode,
+        value.st_uid,
+        value.st_nlink,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+    if identity(before) != identity(after) or identity(after) != identity(visible):
+        raise RuntimeError("verifier artifact file changed")
+    return bytes(body)
+
+
+def _publish_private_content_addressed(directory: Path, body: bytes, *, suffix: str) -> dict[str, object]:
+    digest = hashlib.sha256(body).hexdigest()
+    destination = directory / f"{digest}.{suffix}"
+    if not destination.exists():
+        temporary = directory / f".{digest}.{os.getpid()}.{uuid.uuid4().hex}.tmp"
+        descriptor = -1
+        try:
+            descriptor = os.open(
+                temporary,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC | getattr(os, "O_NOFOLLOW", 0),
+                0o600,
+            )
+            os.fchmod(descriptor, 0o600)
+            view = memoryview(body)
+            while view:
+                written = os.write(descriptor, view)
+                if written < 1:
+                    raise RuntimeError("verifier artifact write failed")
+                view = view[written:]
+            os.fsync(descriptor)
+            os.close(descriptor)
+            descriptor = -1
+            try:
+                os.link(temporary, destination, follow_symlinks=False)
+            except FileExistsError:
+                pass
+            temporary.unlink()
+            directory_descriptor = os.open(directory, os.O_RDONLY | os.O_CLOEXEC | os.O_DIRECTORY)
+            try:
+                os.fsync(directory_descriptor)
+            finally:
+                os.close(directory_descriptor)
+        except BaseException:
+            if descriptor >= 0:
+                os.close(descriptor)
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise
+    persisted = _read_private_artifact(
+        destination,
+        maximum_bytes=max(len(body), MAX_VERIFIER_ARTIFACT_MANIFEST_BYTES),
+    )
+    if persisted != body:
+        raise RuntimeError("verifier artifact content-addressed collision")
+    return {"bytes": len(body), "path": destination.name, "sha256": digest}
+
+
+def _persist_verifier_artifacts(
+    output_root: Path,
+    trace_id: str,
+    payloads: dict[str, bytes],
+    capture_metadata: dict,
+) -> dict[str, object]:
+    output = _private_artifact_directory(output_root, create=False)
+    store = _private_artifact_directory(output / VERIFIER_ARTIFACT_STORE_DIRECTORY, create=True)
+    blobs = _private_artifact_directory(store / "blobs", create=True)
+    manifests = _private_artifact_directory(store / "manifests", create=True)
+    if not isinstance(trace_id, str) or not trace_id or not payloads:
+        raise RuntimeError("verifier artifact identity is invalid")
+    total = sum(len(payload) for payload in payloads.values())
+    if total > MAX_PERSISTED_VERIFIER_ARTIFACT_TOTAL_BYTES or any(
+        not isinstance(service, str)
+        or not service
+        or not isinstance(payload, bytes)
+        or len(payload) > MAX_PERSISTED_VERIFIER_ARTIFACT_BYTES
+        for service, payload in payloads.items()
+    ):
+        raise RuntimeError("verifier artifact payload is invalid")
+    aggregate = hashlib.sha256()
+    records: list[dict[str, object]] = []
+    for service, payload in sorted(payloads.items()):
+        aggregate.update(service.encode("utf-8"))
+        aggregate.update(b"\0")
+        aggregate.update(payload)
+        artifact = _publish_private_content_addressed(blobs, payload, suffix="tgz")
+        records.append(
+            {
+                "artifact": {**artifact, "path": f"blobs/{artifact['path']}"},
+                "service": service,
+                "service_sha256": hashlib.sha256(service.encode("utf-8")).hexdigest(),
+            }
+        )
+    aggregate_sha256 = aggregate.hexdigest()
+    if capture_metadata.get("bytes") != total or capture_metadata.get("sha256") != aggregate_sha256:
+        raise RuntimeError("verifier artifact capture metadata mismatch")
+    manifest = {
+        "schema_version": VERIFIER_ARTIFACT_STORE_SCHEMA_VERSION,
+        "kind": VERIFIER_ARTIFACT_STORE_KIND,
+        "state": "persisted-before-scoring",
+        "trace_id_sha256": hashlib.sha256(trace_id.encode("utf-8")).hexdigest(),
+        "capture_metadata_sha256": hashlib.sha256(_verifier_artifact_canonical(capture_metadata)).hexdigest(),
+        "aggregate": {
+            "bytes": total,
+            "payload_count": len(records),
+            "sha256": aggregate_sha256,
+        },
+        "payloads": records,
+    }
+    manifest_body = _verifier_artifact_canonical(manifest)
+    manifest_artifact = _publish_private_content_addressed(manifests, manifest_body, suffix="json")
+    return {
+        "schema_version": VERIFIER_ARTIFACT_STORE_SCHEMA_VERSION,
+        "kind": VERIFIER_ARTIFACT_STORE_KIND,
+        "state": "persisted-before-scoring",
+        "trace_id_sha256": manifest["trace_id_sha256"],
+        "capture_metadata_sha256": manifest["capture_metadata_sha256"],
+        "aggregate": manifest["aggregate"],
+        "manifest": {
+            **manifest_artifact,
+            "path": f"{VERIFIER_ARTIFACT_STORE_DIRECTORY}/manifests/{manifest_artifact['path']}",
+        },
+    }
+
+
+def load_persisted_verifier_artifacts(
+    output_root: Path,
+    trace_id: str,
+    persistence: dict,
+    *,
+    capture_metadata: dict | None = None,
+) -> tuple[dict[str, bytes], dict]:
+    output = _private_artifact_directory(output_root, create=False)
+    if (
+        not isinstance(trace_id, str)
+        or not trace_id
+        or not isinstance(persistence, dict)
+        or set(persistence)
+        != {
+            "schema_version",
+            "kind",
+            "state",
+            "trace_id_sha256",
+            "capture_metadata_sha256",
+            "aggregate",
+            "manifest",
+        }
+        or persistence.get("schema_version") != VERIFIER_ARTIFACT_STORE_SCHEMA_VERSION
+        or persistence.get("kind") != VERIFIER_ARTIFACT_STORE_KIND
+        or persistence.get("state") != "persisted-before-scoring"
+        or persistence.get("trace_id_sha256") != hashlib.sha256(trace_id.encode("utf-8")).hexdigest()
+    ):
+        raise RuntimeError("verifier artifact persistence record is invalid")
+    manifest_record = persistence.get("manifest")
+    manifest_sha256 = manifest_record.get("sha256") if isinstance(manifest_record, dict) else None
+    if (
+        not isinstance(manifest_record, dict)
+        or set(manifest_record) != {"bytes", "path", "sha256"}
+        or not isinstance(manifest_sha256, str)
+        or re.fullmatch(r"[0-9a-f]{64}", manifest_sha256) is None
+        or isinstance(manifest_record.get("bytes"), bool)
+        or not isinstance(manifest_record.get("bytes"), int)
+        or not 0 <= manifest_record["bytes"] <= MAX_VERIFIER_ARTIFACT_MANIFEST_BYTES
+    ):
+        raise RuntimeError("verifier artifact persistence record is invalid")
+    relative_manifest = PurePosixPath(str(manifest_record.get("path", "")))
+    if relative_manifest.parts != (
+        VERIFIER_ARTIFACT_STORE_DIRECTORY,
+        "manifests",
+        f"{manifest_sha256}.json",
+    ):
+        raise RuntimeError("verifier artifact persistence record is invalid")
+    manifest_path = output.joinpath(*relative_manifest.parts)
+    manifest_body = _read_private_artifact(manifest_path, maximum_bytes=MAX_VERIFIER_ARTIFACT_MANIFEST_BYTES)
+    if (
+        manifest_record.get("bytes") != len(manifest_body)
+        or manifest_record.get("sha256") != hashlib.sha256(manifest_body).hexdigest()
+    ):
+        raise RuntimeError("verifier artifact manifest mismatch")
+    try:
+        manifest = json.loads(manifest_body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise RuntimeError("verifier artifact manifest is invalid") from error
+    if not isinstance(manifest, dict) or manifest_body != _verifier_artifact_canonical(manifest):
+        raise RuntimeError("verifier artifact manifest is invalid")
+    aggregate_record = manifest.get("aggregate")
+    records = manifest.get("payloads")
+    if (
+        manifest.get("schema_version") != VERIFIER_ARTIFACT_STORE_SCHEMA_VERSION
+        or set(manifest)
+        != {
+            "schema_version",
+            "kind",
+            "state",
+            "trace_id_sha256",
+            "capture_metadata_sha256",
+            "aggregate",
+            "payloads",
+        }
+        or manifest.get("kind") != VERIFIER_ARTIFACT_STORE_KIND
+        or manifest.get("state") != "persisted-before-scoring"
+        or manifest.get("trace_id_sha256") != persistence.get("trace_id_sha256")
+        or manifest.get("aggregate") != persistence.get("aggregate")
+        or manifest.get("capture_metadata_sha256")
+        != persistence.get("capture_metadata_sha256")
+        or not isinstance(manifest.get("capture_metadata_sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", manifest["capture_metadata_sha256"])
+        is None
+        or not isinstance(aggregate_record, dict)
+        or set(aggregate_record) != {"bytes", "payload_count", "sha256"}
+        or isinstance(aggregate_record.get("bytes"), bool)
+        or not isinstance(aggregate_record.get("bytes"), int)
+        or not 0 <= aggregate_record["bytes"] <= MAX_PERSISTED_VERIFIER_ARTIFACT_TOTAL_BYTES
+        or isinstance(aggregate_record.get("payload_count"), bool)
+        or not isinstance(aggregate_record.get("payload_count"), int)
+        or aggregate_record["payload_count"] < 1
+        or not isinstance(aggregate_record.get("sha256"), str)
+        or re.fullmatch(r"[0-9a-f]{64}", aggregate_record["sha256"]) is None
+        or not isinstance(records, list)
+        or aggregate_record.get("payload_count") != len(records)
+    ):
+        raise RuntimeError("verifier artifact manifest is invalid")
+    if capture_metadata is not None:
+        if not isinstance(capture_metadata, dict) or hashlib.sha256(
+            _verifier_artifact_canonical(capture_metadata)
+        ).hexdigest() != manifest.get("capture_metadata_sha256"):
+            raise RuntimeError("verifier artifact capture metadata mismatch")
+    aggregate = hashlib.sha256()
+    payloads: dict[str, bytes] = {}
+    total = 0
+    for record in records:
+        artifact = record.get("artifact") if isinstance(record, dict) else None
+        service = record.get("service") if isinstance(record, dict) else None
+        if (
+            not isinstance(record, dict)
+            or set(record) != {"artifact", "service", "service_sha256"}
+            or not isinstance(service, str)
+            or not service
+            or service in payloads
+            or record.get("service_sha256") != hashlib.sha256(service.encode("utf-8")).hexdigest()
+            or not isinstance(artifact, dict)
+            or set(artifact) != {"bytes", "path", "sha256"}
+        ):
+            raise RuntimeError("verifier artifact manifest is invalid")
+        relative_blob = PurePosixPath(str(artifact.get("path", "")))
+        claimed_bytes = artifact.get("bytes")
+        claimed_sha256 = artifact.get("sha256")
+        if (
+            not isinstance(claimed_sha256, str)
+            or re.fullmatch(r"[0-9a-f]{64}", claimed_sha256) is None
+            or relative_blob.parts != ("blobs", f"{claimed_sha256}.tgz")
+            or isinstance(claimed_bytes, bool)
+            or not isinstance(claimed_bytes, int)
+            or not 0 <= claimed_bytes <= MAX_PERSISTED_VERIFIER_ARTIFACT_BYTES
+        ):
+            raise RuntimeError("verifier artifact manifest is invalid")
+        payload = _read_private_artifact(
+            output / VERIFIER_ARTIFACT_STORE_DIRECTORY / relative_blob,
+            maximum_bytes=MAX_PERSISTED_VERIFIER_ARTIFACT_BYTES,
+        )
+        if len(payload) != claimed_bytes or hashlib.sha256(payload).hexdigest() != artifact.get("sha256"):
+            raise RuntimeError("verifier artifact payload mismatch")
+        payloads[service] = payload
+        total += len(payload)
+        aggregate.update(service.encode("utf-8"))
+        aggregate.update(b"\0")
+        aggregate.update(payload)
+    if (
+        list(payloads) != sorted(payloads)
+        or len(payloads) != aggregate_record.get("payload_count")
+        or total != aggregate_record.get("bytes")
+        or total > MAX_PERSISTED_VERIFIER_ARTIFACT_TOTAL_BYTES
+        or aggregate.hexdigest() != aggregate_record.get("sha256")
+    ):
+        raise RuntimeError("verifier artifact aggregate mismatch")
+    return payloads, manifest
+
+
+def load_persisted_verifier_artifacts_from_metadata(
+    output_root: Path,
+    trace_id: str,
+    artifact_metadata: dict,
+) -> tuple[dict[str, bytes], dict]:
+    """Reopen a store only when it matches the exact source-row metadata."""
+
+    if not isinstance(artifact_metadata, dict) or "persistence" not in artifact_metadata:
+        raise RuntimeError("verifier artifact source metadata is invalid")
+    capture_metadata = {
+        key: value for key, value in artifact_metadata.items() if key != "persistence"
+    }
+    return load_persisted_verifier_artifacts(
+        output_root,
+        trace_id,
+        artifact_metadata["persistence"],
+        capture_metadata=capture_metadata,
+    )
 
 
 def _compose_path(task_dir: Path) -> Path | None:
@@ -2675,6 +3059,18 @@ class TerminalBenchVMVMTaskset(
         if task.verifier_mode != "separate":
             return
         payload, metadata = await self._capture_artifacts(task, runtime)
+        if self.config.persist_verifier_artifacts:
+            output_value = os.environ.get("PRIME_RL_OUTPUT_DIR", "")
+            if not output_value:
+                raise RuntimeError("durable verifier artifact output is unavailable")
+            persistence = await asyncio.to_thread(
+                _persist_verifier_artifacts,
+                Path(output_value),
+                trace.id,
+                payload,
+                metadata,
+            )
+            metadata = {**metadata, "persistence": persistence}
         self._artifact_payloads[trace.id] = payload
         trace.info["terminal_bench_artifacts"] = metadata
         # Separate verification never touches the agent sandbox again: it
@@ -4544,4 +4940,6 @@ __all__ = [
     "TerminalBenchVMVMConfig",
     "TerminalBenchVMVMTaskset",
     "UnsupportedTaskError",
+    "load_persisted_verifier_artifacts",
+    "load_persisted_verifier_artifacts_from_metadata",
 ]
