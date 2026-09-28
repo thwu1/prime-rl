@@ -113,10 +113,15 @@ def _evidence(tmp_path: Path) -> tuple[finalizer.FinalEvidence, Path]:
         finalizer._canonical(_trace("trace-a", "opaque-a", reward=1)),
     )
     error = _trace("trace-b", "opaque-b", reward=0)
-    error["errors"] = [{"message": "opaque", "traceback": "", "type": "HarnessError"}]
+    error["errors"] = [{"message": "opaque", "traceback": "", "type": "SandboxError"}]
     error["rewards"] = {}
     error["metrics"] = {}
-    error["stop_condition"] = "error"
+    error["info"] = {
+        "terminal_bench_verifier": dict(
+            finalizer.stock.SHARED_VERIFIER_TERMINAL_TRANSPORT_DISPOSITION
+        )
+    }
+    error["stop_condition"] = "agent_completed"
     second = _private_file(
         source / "shard-01.jsonl",
         finalizer._canonical(error),
@@ -128,9 +133,9 @@ def _evidence(tmp_path: Path) -> tuple[finalizer.FinalEvidence, Path]:
         "error_traces": 1,
         "zero_model_error_traces": 0,
         "model_bearing_error_traces": 1,
-        "model_bearing_harness_error_traces": 1,
+        "model_bearing_harness_error_traces": 0,
         "model_bearing_provider_error_traces": 0,
-        "model_bearing_shared_verifier_transport_error_traces": 0,
+        "model_bearing_shared_verifier_transport_error_traces": 1,
     }
     capture_counts = {
         "clean_model_io_turns": 1,
