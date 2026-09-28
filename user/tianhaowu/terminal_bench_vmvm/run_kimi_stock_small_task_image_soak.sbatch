@@ -41,7 +41,6 @@ x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
 python_bin=${PYTHON_BIN_X86_64:-python3}
 ecr_token_file=${OCI_RUNNER_ECR_TOKEN_FILE:-/storage/home/tianhaowu/.config/oci-runner/ecr-token}
 ecr_token_metadata=${OCI_RUNNER_ECR_TOKEN_METADATA_PATH:-/storage/home/tianhaowu/.config/oci-runner/ecr-rotation.state.json}
-deployment_root=${KIMI_TASK_IMAGE_SOAK_DEPLOYMENT_ROOT:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/kimi-k3-stock-single-1593665-20260927-v1}
 
 [[ "$expected_revision" =~ ^[0-9a-f]{40}$ \
     && "$plan_sha256" =~ ^[0-9a-f]{64}$ \
@@ -67,12 +66,13 @@ binding=$(
         python3 "$tool" verify --plan "$plan" --plan-sha256 "$plan_sha256" --format launch-tsv
 ) || blocked plan_invalid
 IFS=$'\t' read -r verified_revision selected_tasks selector_sha256 endpoint_identifier \
-    stock_capacity stock_capacity_sha256 endpoint_jobs_sha256 binding_extra <<< "$binding"
+    deployment_root stock_capacity stock_capacity_sha256 endpoint_jobs_sha256 binding_extra <<< "$binding"
 [[ -z "$binding_extra" && "$binding" != *$'\n'* \
     && "$verified_revision" == "$expected_revision" \
     && "$selected_tasks" == 2499 \
     && "$selector_sha256" =~ ^[0-9a-f]{64}$ \
     && "$endpoint_identifier" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ \
+    && "$deployment_root" == /checkpoint/ram/shared/vllm_deployments_v2/"$endpoint_identifier" \
     && "$stock_capacity" == /* \
     && "$stock_capacity_sha256" =~ ^[0-9a-f]{64}$ \
     && "$endpoint_jobs_sha256" =~ ^[0-9a-f]{64}$ ]] || blocked plan_binding_invalid

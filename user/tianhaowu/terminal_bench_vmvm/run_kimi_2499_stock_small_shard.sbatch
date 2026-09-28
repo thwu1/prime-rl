@@ -31,7 +31,6 @@ expected_revision=${KIMI_STOCK_SMALL_EXPECTED_PRIME_RL_REVISION:?}
 plan=${KIMI_STOCK_SMALL_PLAN:?}
 plan_sha256=${KIMI_STOCK_SMALL_PLAN_SHA256:?}
 shard_index=${SLURM_ARRAY_TASK_ID:?}
-deployment_root=${KIMI_STOCK_SMALL_DEPLOYMENT_ROOT:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/private/kimi-k3-stock-single-1593665-20260927-v1}
 x86_site=${PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/python_x86_64}
 sandoq_site=${SANDOQ_PYTHON_SITE_X86_64:-/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sandoq_x86_64_sdk1_82068}
 x86_uv=${UV_BIN_X86_64:-/storage/home/tianhaowu/.local/x86_64/bin/uv}
@@ -108,13 +107,14 @@ binding=$(
         --plan "$plan" --plan-sha256 "$plan_sha256" --index "$shard_index" --format tsv
 )
 IFS=$'\t' read -r verified_revision verified_index task_count task_file task_sha256 \
-    eval_config eval_config_sha256 shard_root endpoint_identifier stock_capacity \
+    eval_config eval_config_sha256 shard_root endpoint_identifier deployment_root stock_capacity \
     stock_capacity_sha256 endpoint_jobs_sha256 binding_extra <<< "$binding"
 if [[ -n "$binding_extra" || "$binding" == *$'\n'* \
     || "$verified_revision" != "$expected_revision" \
     || "$verified_index" != "$shard_index" \
     || ! "$task_count" =~ ^(62|63)$ \
     || ! "$endpoint_identifier" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ \
+    || "$deployment_root" != /checkpoint/ram/shared/vllm_deployments_v2/"$endpoint_identifier" \
     || "$stock_capacity" != /* \
     || ! "$stock_capacity_sha256" =~ ^[0-9a-f]{64}$ \
     || ! "$endpoint_jobs_sha256" =~ ^[0-9a-f]{64}$ ]]; then

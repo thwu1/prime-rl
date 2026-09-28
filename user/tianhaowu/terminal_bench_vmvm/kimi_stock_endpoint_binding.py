@@ -58,6 +58,7 @@ class StockEndpointBinding:
         return {
             "capacity_receipt_sha256": self.capacity_receipt_sha256,
             "deployment_id": self.deployment_id,
+            "deployment_root": str(self.deployment_root),
             "endpoint_job_id": self.endpoint_job_id,
             "endpoint_jobs_sha256": self.endpoint_jobs_sha256,
             "endpoint_authority_sha256": self.endpoint_authority_sha256,

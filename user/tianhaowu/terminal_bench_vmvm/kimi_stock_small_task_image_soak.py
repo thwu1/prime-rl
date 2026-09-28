@@ -1838,6 +1838,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     plan["selection"]["count"],
                     plan["selection"]["selector"]["sha256"],
                     binding.deployment_id,
+                    str(binding.deployment_root),
                     capacity["path"],
                     capacity["sha256"],
                     binding.endpoint_jobs_sha256,
