@@ -2996,8 +2996,28 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             and isinstance(candidate_environment, dict)
             and candidate_environment.get("environment") == KIMI_SMALL_FIRECRACKER_ENVIRONMENT
         )
+        small_v10 = (
+            small_tb4_role
+            and isinstance(candidate_execution, dict)
+            and candidate_execution.get("rollout_concurrency")
+            == KIMI_SMALL_TB4_V10_CONCURRENCY
+        )
         stock_endpoint_identifier = KIMI_STOCK_SINGLE_ENDPOINT_IDENTIFIER
-        if small_production_role:
+        if small_v10:
+            candidate_identifier = candidate_router.get("endpoint_identifier")
+            if (
+                not isinstance(candidate_identifier, str)
+                or not candidate_identifier
+                or len(candidate_identifier.encode()) > 128
+                or any(
+                    character
+                    not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-"
+                    for character in candidate_identifier
+                )
+            ):
+                raise EvalIdentityError("eval_run_identity_schema_invalid")
+            stock_endpoint_identifier = candidate_identifier
+        elif small_production_role:
             promotion_record = deployment.get("promotion_certificate") if isinstance(deployment, dict) else None
             _validate_artifact_shape(promotion_record)
             assert isinstance(promotion_record, dict)

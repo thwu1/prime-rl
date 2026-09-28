@@ -253,6 +253,16 @@ def test_capture_stock_single_c16_preserves_dynamic_deployment_binding(
         task_count=52,
         deployment=deployment,
     ) == receipt
+    with pytest.raises(gate.EndpointWalltimeGateError, match="endpoint_walltime_receipt_invalid"):
+        gate.load_receipt(
+            output,
+            manifest_sha256=manifest_sha256,
+            endpoint_bundle_sha256=manifest["endpoint_bundle_sha256"],
+            profile=gate.STOCK_SINGLE_C16_PROFILE,
+            minimum_remaining_seconds=gate.STOCK_SINGLE_C16_MINIMUM_REMAINING_SECONDS,
+            task_count=52,
+            deployment="different-fresh-stock-deployment",
+        )
 
 
 def test_capture_gate_accepts_exact_stable_24_job_generation(

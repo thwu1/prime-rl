@@ -607,6 +607,31 @@ def test_direct_kimi_stock_small_identity_binds_guest_transport_attempts() -> No
 
     assert _validate_identity_shape(identity) == identity
 
+    fresh_v10 = json.loads(json.dumps(identity))
+    for key in (
+        "rollout_concurrency",
+        "multiplex",
+        "http_max_connections",
+        "http_max_keepalive_connections",
+    ):
+        fresh_v10["execution"][key] = eval_run_identity.KIMI_SMALL_TB4_V10_CONCURRENCY
+    fresh_v10["deployment"]["router"]["endpoint_identifier"] = (
+        "fresh-stock-deployment-20260928-v1"
+    )
+    assert _validate_identity_shape(fresh_v10) == fresh_v10
+
+    malformed_v10 = json.loads(json.dumps(fresh_v10))
+    malformed_v10["deployment"]["router"]["endpoint_identifier"] = "fresh deployment"
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(malformed_v10)
+
+    legacy_dynamic = json.loads(json.dumps(identity))
+    legacy_dynamic["deployment"]["router"]["endpoint_identifier"] = (
+        "fresh-stock-deployment-20260928-v1"
+    )
+    with pytest.raises(EvalIdentityError, match="schema_invalid"):
+        _validate_identity_shape(legacy_dynamic)
+
     for key, value in (
         ("guest_transport_retry_attempts", 9),
         ("logical_request_upstream_attempts", 2),
