@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import fcntl
 import json
+import os
 import re
 import subprocess
 import sys
@@ -15,6 +16,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+import eval_run_identity as identity_module
 import finalize_kimi_tb4_sandoq_small_full as ordinary
 import finalize_kimi_tb4_sandoq_small_v4_recovery as recovery
 import finalize_kimi_tb4_sandoq_small_v6_supersession as transport
@@ -22,6 +24,7 @@ import finalize_kimi_tb4_sandoq_small_v7 as v7
 import kimi_tb4_provider_split as split
 import prepare_kimi_tb4_miniswe246_union as union
 import prepare_kimi_tb4_sandoq_small_full as plan_module
+from terminal_bench_vmvm import taskset as taskset_module
 
 SCHEMA_VERSION = 2
 KIND = ordinary.KIND
@@ -92,6 +95,17 @@ class ExecutionContract:
     supersession_source_files: tuple[str, ...]
     allow_exact_length_benchmark_passes: bool = False
     allow_post_agent_exec_transport_errors: bool = False
+    plan_verifier: str = "legacy-small-full"
+    execution_project_root: str | None = None
+    supported_tasks: int = plan_module.SUPPORTED_TASKS
+    compose_unsupported_tasks: int = plan_module.COMPOSE_UNSUPPORTED_TASKS
+    gpu_unsupported_tasks: int = plan_module.GPU_UNSUPPORTED_TASKS
+    concurrency: int = plan_module.CONCURRENCY
+    stock_endpoint_identifier: str | None = None
+    stock_source_spec_sha256: str | None = None
+    stock_endpoint_bundle_sha256: str | None = None
+    completion_marker_name: str | None = None
+    require_persisted_verifier_artifacts: bool = False
 
 
 V8_EXECUTION_CONTRACT = ExecutionContract(
@@ -135,6 +149,20 @@ def _validated_execution_contract(contract: ExecutionContract) -> ExecutionContr
         or len(contract.supersession_source_files) != len(set(contract.supersession_source_files))
         or type(contract.allow_exact_length_benchmark_passes) is not bool
         or type(contract.allow_post_agent_exec_transport_errors) is not bool
+        or contract.plan_verifier not in {"legacy-small-full", "capacity-bound-v10"}
+        or type(contract.supported_tasks) is not int
+        or type(contract.compose_unsupported_tasks) is not int
+        or type(contract.gpu_unsupported_tasks) is not int
+        or type(contract.concurrency) is not int
+        or contract.supported_tasks < 1
+        or contract.compose_unsupported_tasks < 0
+        or contract.gpu_unsupported_tasks < 0
+        or contract.supported_tasks
+        + contract.compose_unsupported_tasks
+        + contract.gpu_unsupported_tasks
+        != split.TOTAL_TASKS
+        or not 1 <= contract.concurrency <= contract.supported_tasks
+        or type(contract.require_persisted_verifier_artifacts) is not bool
         or any(
             not isinstance(path, str)
             or not path.startswith("user/tianhaowu/terminal_bench_vmvm/")
@@ -144,6 +172,51 @@ def _validated_execution_contract(contract: ExecutionContract) -> ExecutionContr
         )
     ):
         _fail("execution_contract_invalid")
+    dynamic_values = (
+        contract.stock_endpoint_identifier,
+        contract.stock_source_spec_sha256,
+        contract.stock_endpoint_bundle_sha256,
+        contract.completion_marker_name,
+    )
+    if contract.plan_verifier == "legacy-small-full":
+        if (
+            contract.execution_project_root is not None
+            or any(value is not None for value in dynamic_values)
+            or contract.require_persisted_verifier_artifacts
+            or (
+                contract.supported_tasks,
+                contract.compose_unsupported_tasks,
+                contract.gpu_unsupported_tasks,
+                contract.concurrency,
+            )
+            != (
+                plan_module.SUPPORTED_TASKS,
+                plan_module.COMPOSE_UNSUPPORTED_TASKS,
+                plan_module.GPU_UNSUPPORTED_TASKS,
+                plan_module.CONCURRENCY,
+            )
+        ):
+            _fail("execution_contract_invalid")
+    else:
+        project_root = (
+            Path(contract.execution_project_root)
+            if isinstance(contract.execution_project_root, str)
+            else None
+        )
+        if (
+            project_root is None
+            or not project_root.is_absolute()
+            or Path(os.path.normpath(project_root)) != project_root
+            or not isinstance(contract.stock_endpoint_identifier, str)
+            or not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", contract.stock_endpoint_identifier)
+            or not isinstance(contract.stock_source_spec_sha256, str)
+            or plan_module.SHA256_RE.fullmatch(contract.stock_source_spec_sha256) is None
+            or not isinstance(contract.stock_endpoint_bundle_sha256, str)
+            or plan_module.SHA256_RE.fullmatch(contract.stock_endpoint_bundle_sha256) is None
+            or contract.completion_marker_name != "v10_execution_completion.json"
+            or not contract.require_persisted_verifier_artifacts
+        ):
+            _fail("execution_contract_invalid")
     return contract
 
 
@@ -175,6 +248,320 @@ def _supersession_source_binding(
         "hash_kind": "raw-file-sha256",
         "files": files,
         "file_set_sha256": recovery._sha256(split.canonical_json(files)),
+    }
+
+
+def _verified_execution_plan(
+    path: Path,
+    expected_sha256: str,
+    held: split._HeldArtifactSet,
+    execution: ExecutionContract,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
+    if execution.plan_verifier == "legacy-small-full":
+        return v7._verified_plan(path, expected_sha256, held)
+    body = split.read_regular(path, code="plan_invalid", private=True, held=held)
+    if recovery._sha256(body) != expected_sha256:
+        _fail("plan_invalid")
+    project = Path(str(execution.execution_project_root))
+    workflow = project / "user/tianhaowu/terminal_bench_vmvm"
+    verifier = workflow / "prepare_kimi_tb4_sandoq_small_v10_run.py"
+    try:
+        revision = subprocess.run(
+            ["git", "-C", str(project), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        ).stdout.strip()
+        status = subprocess.run(
+            ["git", "-C", str(project), "status", "--porcelain=v1", "--untracked-files=all"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        ).stdout
+        environment = os.environ.copy()
+        environment["PYTHONDONTWRITEBYTECODE"] = "1"
+        execution_paths = (
+            workflow,
+            project / "environments/vmvm_tb_v2",
+            project / "deps/verifiers",
+            project / "deps/renderers",
+            project / "deps/pydantic-config/src",
+        )
+        inherited = environment.get("PYTHONPATH", "")
+        environment["PYTHONPATH"] = ":".join(
+            [*(str(item) for item in execution_paths), *([inherited] if inherited else [])]
+        )
+        completed = subprocess.run(
+            [
+                sys.executable,
+                str(verifier),
+                "verify",
+                "--plan",
+                str(path),
+                "--plan-sha256",
+                expected_sha256,
+                "--format",
+                "json",
+            ],
+            check=False,
+            capture_output=True,
+            env=environment,
+            text=True,
+            timeout=300,
+        )
+        value = json.loads(body)
+        verified = json.loads(completed.stdout)
+    except (OSError, subprocess.SubprocessError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        _fail("plan_invalid", error)
+    if (
+        revision != execution.source_revision
+        or status
+        or not verifier.is_file()
+        or completed.returncode != 0
+        or completed.stderr
+        or len(completed.stdout.encode()) > 64 * 1024
+        or not isinstance(value, dict)
+        or not isinstance(verified, dict)
+        or verified.get("source_revision") != execution.source_revision
+        or verified.get("count") != execution.supported_tasks
+        or verified.get("concurrency") != execution.concurrency
+    ):
+        _fail("plan_invalid")
+    return value, verified, ordinary._artifact_bytes(path, body)
+
+
+def _validate_execution_stock_identity(
+    identity: Mapping[str, Any],
+    execution: ExecutionContract,
+) -> None:
+    if execution.stock_endpoint_identifier is None:
+        v7._validate_stock_identity(identity)
+        return
+    deployment = identity.get("deployment")
+    router = deployment.get("router") if isinstance(deployment, Mapping) else None
+    if (
+        not isinstance(deployment, Mapping)
+        or not isinstance(router, Mapping)
+        or deployment.get("spec_sha256") != execution.stock_source_spec_sha256
+        or deployment.get("endpoint_bundle_sha256")
+        != execution.stock_endpoint_bundle_sha256
+        or router.get("policy") != "consistent_hash"
+        or router.get("capacity_profile") != "sandoq-stock-single-c64-v1"
+        or router.get("endpoint_identifier") != execution.stock_endpoint_identifier
+        or router.get("worker_count") != 1
+        or router.get("provider_concurrency") != 64
+        or router.get("per_worker_capacity") != 64
+    ):
+        _fail("stock_identity_invalid")
+
+
+def _execution_identity_contract(
+    *,
+    run_dir: Path,
+    evidence: split._HeldRunEvidence,
+    plan: Mapping[str, Any],
+    execution: ExecutionContract,
+    held: split._HeldArtifactSet,
+) -> tuple[dict[str, Any], str, str, str]:
+    if execution.plan_verifier == "legacy-small-full":
+        return ordinary._identity_contract(
+            run_dir=run_dir,
+            evidence=evidence,
+            plan=plan,
+            expected_revision=execution.source_revision,
+            expected_verifiers_commit=execution.verifiers_commit,
+            held=held,
+        )
+    try:
+        envelope = identity_module.load_eval_run_identity_bytes(
+            evidence.files["eval_run_identity.json"].body,
+            run_dir=run_dir,
+            verify_references=True,
+            verify_saved_provenance=False,
+        )
+        identity = envelope["identity"]
+        identity_sha256 = envelope["eval_run_identity_sha256"]
+        invocation_sha256, slurm_job_id = split._run_invocation_binding(
+            evidence.files["eval_invocations.jsonl"].body,
+            evidence.files["provenance.txt"].body,
+            identity_sha256,
+            expected_role="kimi-direct-tb4-small-diagnostic",
+        )
+    except Exception as error:
+        _fail("run_identity_invalid", error)
+    source = identity.get("source")
+    config = identity.get("config")
+    inputs = identity.get("inputs")
+    runtime_execution = identity.get("execution")
+    runtime = runtime_execution.get("runtime") if isinstance(runtime_execution, dict) else None
+    environment = (
+        runtime_execution.get("sandoq_environment")
+        if isinstance(runtime_execution, dict)
+        else None
+    )
+    deployment = identity.get("deployment")
+    router = deployment.get("router") if isinstance(deployment, dict) else None
+    contract = identity.get("contract")
+    harness = contract.get("harness") if isinstance(contract, dict) else None
+    lane = plan.get("lane")
+    if (
+        identity.get("role") != identity_module.KIMI_SMALL_TB4_DIAGNOSTIC_ROLE
+        or not isinstance(source, dict)
+        or source.get("sandbox_provider") != "sandoq"
+        or source.get("prime_rl_commit") != execution.source_revision
+        or source.get("verifiers_commit") != execution.verifiers_commit
+        or not isinstance(config, dict)
+        or not isinstance(lane, dict)
+        or config.get("source", {}).get("sha256")
+        != lane.get("config", {}).get("sha256")
+        or not isinstance(inputs, dict)
+        or inputs.get("task_file", {}).get("sha256")
+        != lane.get("selector", {}).get("sha256")
+        or inputs.get("task_file", {}).get("count") != execution.supported_tasks
+        or not isinstance(runtime_execution, dict)
+        or any(
+            runtime_execution.get(key) != execution.concurrency
+            for key in (
+                "rollout_concurrency",
+                "multiplex",
+                "http_max_connections",
+                "http_max_keepalive_connections",
+            )
+        )
+        or runtime_execution.get("cleanup_must_succeed") is not True
+        or not isinstance(runtime, dict)
+        or runtime.get("type") != "sandoq"
+        or runtime.get("expected_environment")
+        != identity_module.KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+        or runtime.get("session_timeout")
+        != identity_module.KIMI_TB4_EXTENDED_SESSION_TIMEOUT_SECONDS
+        or runtime.get("network_access") is not True
+        or runtime.get("host_tunnel") != "sandoq"
+        or runtime.get("buffered_chat_completions") is not True
+        or not isinstance(environment, dict)
+        or environment.get("environment")
+        != identity_module.KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+        or environment.get("provider_profile_sha256")
+        != plan_module.PROVIDER_PROFILE_SHA256
+        or environment.get("task_network") != "public"
+        or environment.get("provider_task_network") != "host"
+        or environment.get("pool_size") != execution.concurrency
+        or not isinstance(deployment, dict)
+        or not isinstance(router, dict)
+        or router.get("retries") != 0
+        or not isinstance(contract, dict)
+        or contract.get("model") != "Kimi-K3"
+        or harness
+        != {
+            "id": "mini-swe-agent",
+            "version": "2.4.6",
+            "placement": "sandbox",
+            "step_limit": 200,
+            "request_timeout_seconds": 144_000,
+            "request_max_retries": 0,
+            "guest_transport_retry_attempts": 10,
+            "logical_request_upstream_attempts": 1,
+        }
+    ):
+        _fail("run_identity_invalid")
+    _validate_execution_stock_identity(identity, execution)
+    return identity, identity_sha256, invocation_sha256, slurm_job_id
+
+
+def _execution_completion_audit(
+    run_dir: Path,
+    execution: ExecutionContract,
+    held: split._HeldArtifactSet,
+) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    if execution.completion_marker_name is None:
+        return None
+    body, artifact = split._read_regular_evidence(
+        run_dir / execution.completion_marker_name,
+        code="execution_completion_invalid",
+        maximum_bytes=64 * 1024,
+        private=True,
+        held=held,
+    )
+    try:
+        value = json.loads(body)
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        _fail("execution_completion_invalid", error)
+    expected = {
+        "execution_revision": execution.source_revision,
+        "job_id": execution.slurm_job_id,
+        "plan_sha256": execution.plan_sha256,
+        "stage": "tb4-miniswe246-sandoq-small-v10-c16",
+        "state": "completed-awaiting-v11-certification",
+    }
+    if value != expected or body != split.canonical_json(expected):
+        _fail("execution_completion_invalid")
+    return expected, artifact
+
+
+def _persisted_verifier_artifact_audit(
+    results_body: bytes,
+    run_dir: Path,
+) -> dict[str, Any]:
+    try:
+        rows = [json.loads(line) for line in results_body.splitlines() if line.strip()]
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        _fail("persisted_verifier_artifacts_invalid", error)
+    trace_hashes: list[str] = []
+    aggregate_hashes: list[str] = []
+    payload_count = 0
+    total_bytes = 0
+    required_rows = 0
+    persisted_rows = 0
+    for row in rows:
+        trace_id = row.get("id") if isinstance(row, dict) else None
+        info = row.get("info") if isinstance(row, dict) else None
+        metadata = info.get("terminal_bench_artifacts") if isinstance(info, dict) else None
+        rewards = row.get("rewards") if isinstance(row, dict) else None
+        required = (
+            isinstance(rewards, dict)
+            and "solved" in rewards
+            or row.get("stop_condition") in {"agent_completed", "max_total_tokens"}
+        ) if isinstance(row, dict) else False
+        required_rows += int(required)
+        if metadata is None:
+            if required:
+                _fail("persisted_verifier_artifacts_missing")
+            continue
+        if not isinstance(trace_id, str) or not trace_id or not isinstance(metadata, dict):
+            _fail("persisted_verifier_artifacts_invalid")
+        try:
+            payloads, manifest = taskset_module.load_persisted_verifier_artifacts_from_metadata(
+                run_dir,
+                trace_id,
+                metadata,
+            )
+        except (OSError, RuntimeError, ValueError) as error:
+            _fail("persisted_verifier_artifacts_invalid", error)
+        aggregate = manifest.get("aggregate") if isinstance(manifest, dict) else None
+        if not payloads or not isinstance(aggregate, dict):
+            _fail("persisted_verifier_artifacts_invalid")
+        persisted_rows += 1
+        payload_count += len(payloads)
+        total_bytes += sum(len(payload) for payload in payloads.values())
+        trace_hashes.append(recovery._sha256(trace_id.encode()))
+        aggregate_hashes.append(str(aggregate.get("sha256", "")))
+    if persisted_rows < required_rows:
+        _fail("persisted_verifier_artifacts_missing")
+    return {
+        "schema_version": 1,
+        "state": "reopened-and-verified",
+        "rows": persisted_rows,
+        "required_rows": required_rows,
+        "payloads": payload_count,
+        "bytes": total_bytes,
+        "trace_set_sha256": recovery._sha256(
+            "".join(f"{value}\n" for value in sorted(trace_hashes)).encode()
+        ),
+        "aggregate_set_sha256": recovery._sha256(
+            "".join(f"{value}\n" for value in sorted(aggregate_hashes)).encode()
+        ),
     }
 
 
@@ -610,7 +997,12 @@ def finalize(
     )
     held = split._HeldArtifactSet.create()
     try:
-        plan, verified, plan_artifact = v7._verified_plan(plan_path, plan_sha256, held)
+        plan, verified, plan_artifact = _verified_execution_plan(
+            plan_path,
+            plan_sha256,
+            held,
+            execution,
+        )
         run_dir = split._absolute_path(run_dir)
         output = run_dir / execution.output_name
         if (
@@ -653,6 +1045,12 @@ def finalize(
                 except BlockingIOError as error:
                     _fail("run_active", error)
 
+            execution_completion = _execution_completion_audit(
+                run_dir,
+                execution,
+                held,
+            )
+
             supported = ordinary._selector_members(plan["lane"]["selector"], held)
             compose = ordinary._selector_members(plan["unsupported"]["compose"], held)
             gpu = ordinary._selector_members(plan["unsupported"]["gpu"], held)
@@ -662,17 +1060,16 @@ def finalize(
                 or gpu != partition.gpu_unsupported
             ):
                 _fail("partition_invalid")
-            identity, identity_sha256, invocation_sha256, slurm_job_id = ordinary._identity_contract(
+            identity, identity_sha256, invocation_sha256, slurm_job_id = _execution_identity_contract(
                 run_dir=run_dir,
                 evidence=evidence,
                 plan=plan,
-                expected_revision=execution.source_revision,
-                expected_verifiers_commit=execution.verifiers_commit,
+                execution=execution,
                 held=held,
             )
             if slurm_job_id != execution.slurm_job_id:
                 _fail("run_identity_invalid")
-            v7._validate_stock_identity(identity)
+            _validate_execution_stock_identity(identity, execution)
 
             results_body, results_artifact = split._read_regular_evidence(
                 run_dir / RESULTS,
@@ -698,6 +1095,11 @@ def finalize(
                     execution.allow_post_agent_exec_transport_errors
                 ),
             )
+            persisted_verifier_artifacts = (
+                _persisted_verifier_artifact_audit(results_body, run_dir)
+                if execution.require_persisted_verifier_artifacts
+                else None
+            )
             try:
                 cleanup, cleanup_artifacts = split._validate_sandoq_cleanup(
                     run_dir / "sandoq_cleanup_audit.json",
@@ -706,8 +1108,8 @@ def finalize(
                     identity_sha256,
                     invocation_sha256,
                     slurm_job_id,
-                    plan_module.SUPPORTED_TASKS,
-                    plan_module.CONCURRENCY,
+                    execution.supported_tasks,
+                    execution.concurrency,
                     held,
                 )
                 event_body, _event_artifact = split._read_regular_evidence(
@@ -727,7 +1129,7 @@ def finalize(
                 router_body, router_artifact, router_marker = split._validate_direct_router_receipt(
                     run_dir / "direct_kimi_router_final.json",
                     identity,
-                    minimum_chat_requests=plan_module.SUPPORTED_TASKS,
+                    minimum_chat_requests=execution.supported_tasks,
                     identity_sha256=identity_sha256,
                     invocation_identity_sha256=invocation_sha256,
                     held=held,
@@ -741,14 +1143,14 @@ def finalize(
             )
             proxy_audit, proxy_artifacts = transport._buffered_proxy_directory_audit(
                 run_dir / "control/buffered-proxy-stats",
-                expected_records=plan_module.SUPPORTED_TASKS,
+                expected_records=execution.supported_tasks,
                 expected_schema="logical-exact-once-v1",
                 held=held,
             )
             buffered_proxy_audit = transport._exact_proxy_trace_binding(
                 proxy_audit,
                 trace_audit,
-                expected_summary_records=plan_module.SUPPORTED_TASKS,
+                expected_summary_records=execution.supported_tasks,
             )
             router_transport_binding = transport._exact_router_proxy_binding(
                 router_body,
@@ -805,9 +1207,9 @@ def finalize(
                 },
                 "counts": {
                     "denominator": split.TOTAL_TASKS,
-                    "executed": plan_module.SUPPORTED_TASKS,
-                    "compose_unsupported": plan_module.COMPOSE_UNSUPPORTED_TASKS,
-                    "gpu_unsupported": plan_module.GPU_UNSUPPORTED_TASKS,
+                    "executed": execution.supported_tasks,
+                    "compose_unsupported": execution.compose_unsupported_tasks,
+                    "gpu_unsupported": execution.gpu_unsupported_tasks,
                     "passes": passes,
                     "failures": split.TOTAL_TASKS - passes,
                     "execution_error_zeroes": trace_audit["execution_error_zeroes"],
@@ -815,7 +1217,7 @@ def finalize(
                     "pre_model_sandoq_provisioning_error_zeroes": pre_model_provisioning_zeroes,
                 },
                 "scores": {
-                    "executed_pass_rate": passes / plan_module.SUPPORTED_TASKS,
+                    "executed_pass_rate": passes / execution.supported_tasks,
                     "all_task_pass_rate": passes / split.TOTAL_TASKS,
                 },
                 "gate": {"target_passes": TARGET_PASSES, "met": gate_met},
@@ -834,7 +1236,8 @@ def finalize(
                     "excluded_pre_model_sandoq_provisioning_error_rows": pre_model_provisioning_zeroes,
                     "excluded_trace_invalid_scored_rows": trace_audit["trace_invalid_scored_rows"],
                     "excluded_unsupported_rows": (
-                        plan_module.COMPOSE_UNSUPPORTED_TASKS + plan_module.GPU_UNSUPPORTED_TASKS
+                        execution.compose_unsupported_tasks
+                        + execution.gpu_unsupported_tasks
                     ),
                     "error_rows_are_trainable": False,
                     "post_agent_verifier_sandbox_error_rows_are_trainable": False,
@@ -861,6 +1264,12 @@ def finalize(
                 },
                 "results_sha256": recovery._sha256(results_output),
             }
+            if execution_completion is not None:
+                completion_value, completion_artifact = execution_completion
+                certificate["execution_completion"] = completion_value
+                certificate["artifacts"]["execution_completion"] = completion_artifact
+            if persisted_verifier_artifacts is not None:
+                certificate["persisted_verifier_artifacts"] = persisted_verifier_artifacts
             if execution.allow_exact_length_benchmark_passes:
                 certificate["counts"].update(
                     {
