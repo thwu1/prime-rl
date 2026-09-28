@@ -17,8 +17,12 @@ inputs must validate again:
 - the task-free Sandoq c64 lifecycle receipt;
 - an aggregate-only soak over all 2,499 distinct real task images in c64
   waves, with at least six days of endpoint walltime remaining at capture time;
-- a transport-qualified TB4 v8 supersession certificate with at least 7/66
-  passes,
+- the exact source-bound TB4 v12 supersession certificate
+  (`fresh-epoch-c16-exact-artifact-write-transport-policy-v12`) for the current
+  lane, with at least 7/66 passes, reopened execution-completion and persisted
+  verifier artifacts, and exact artifact-write transport/count/training claims;
+  already-issued v8 certificates remain accepted only through their unchanged
+  v8 validation path and do not inherit the v12-only claims;
   lossless `exact_provider_json` model I/O on every eligible clean row, and
   exact-once proxy counters; execution-error and trace-invalid rows remain
   explicitly non-trainable.
