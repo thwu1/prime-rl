@@ -168,6 +168,53 @@ def test_v8_assignment_lifecycle_accepts_exact_managed_shell_loss() -> None:
     assert result["managed_shell_abandonments"] == 1
 
 
+def test_v10_assignment_lifecycle_binds_three_exec_transport_failures() -> None:
+    events = [
+        _event("pool_started"),
+        _event("pool_recovery_completed"),
+        _event("assignment_acquired", "agent"),
+        _event("assignment_ready", "agent"),
+        _released("agent", "rollout_complete"),
+    ]
+    for index in range(v8.VERIFIER_ATTEMPTS):
+        assignment = f"verifier-{index}"
+        release = _released(assignment, "managed_shell_lost")
+        release["shell_failure_status"] = "managed_shell_recovery_failed"
+        events.extend(
+            [
+                _event("assignment_acquired", assignment),
+                _event("assignment_ready", assignment),
+                _event(
+                    "managed_shell_recovery_failed",
+                    assignment,
+                    error_type="RuntimeError",
+                ),
+                release,
+            ]
+        )
+    events.append(_event("pool_drained"))
+    result = v8._assignment_lifecycle_audit(
+        _body(*events),
+        expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+        trace_audit={
+            "zero_model_error_zeroes": 0,
+            "post_agent_verifier_sandbox_error_zeroes": 1,
+            "post_agent_verifier_provisioning_error_zeroes": 0,
+            "post_agent_verifier_exec_transport_error_zeroes": 1,
+            "pre_model_sandoq_provisioning_error_zeroes": 0,
+        },
+        rows={"task": _post_agent_row()},
+        verifier_modes={"task": "separate"},
+    )
+
+    assert result["required_exec_transport_ready_terminals"] == 3
+    assert result["managed_shell_recovery_failures"] == 3
+    assert result["release_reason_counts"] == {
+        "managed_shell_lost": 3,
+        "rollout_complete": 1,
+    }
+
+
 def test_v8_assignment_lifecycle_fails_closed_on_corruption() -> None:
     body, trace, rows = _valid_lifecycle()
     decoded = [copy.deepcopy(event) for event in map(v8.json.loads, body.splitlines())]
@@ -235,6 +282,28 @@ def test_v8_post_agent_policy_is_exact_and_nontrainable() -> None:
         changed = {**trace, key: invalid}
         with pytest.raises(v8.V8SupersessionError, match="post_agent_verifier_policy_invalid"):
             v8._post_agent_verifier_policy(changed)
+
+
+def test_v10_post_agent_policy_distinguishes_exec_transport_zeroes() -> None:
+    trace = {
+        "post_agent_verifier_sandbox_error_zeroes": 2,
+        "post_agent_verifier_sandbox_error_model_io_turns": 17,
+        "post_agent_verifier_sandbox_error_row_set_sha256": "a" * 64,
+        "post_agent_verifier_provisioning_error_zeroes": 1,
+        "post_agent_verifier_provisioning_error_row_set_sha256": "b" * 64,
+        "post_agent_verifier_exec_transport_error_zeroes": 1,
+        "post_agent_verifier_exec_transport_error_row_set_sha256": "c" * 64,
+    }
+
+    policy = v8._post_agent_verifier_policy(trace)
+
+    assert policy["schema_version"] == 2
+    assert policy["infrastructure_zeroes"] == 2
+    assert policy["provisioning_exhaustion_zeroes"] == 1
+    assert policy["exec_transport_exhaustion_zeroes"] == 1
+    assert policy["exec_transport_attempts_per_row"] == 3
+    assert policy["counted_as_zero"] is True
+    assert policy["trainable"] is False
 
 
 def test_v8_pre_model_provisioning_policy_and_lifecycle_source_bound() -> None:

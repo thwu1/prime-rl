@@ -12,15 +12,20 @@ def test_v10_contract_binds_v9_execution_and_enables_only_length_policy() -> Non
     assert contract.source_revision == "820d5167443913ed5bb2b3d72e16de442caa696a"
     assert contract.verifiers_commit == "36b0dff6c18affb3d40b7c46d5836381d568050b"
     assert contract.plan_sha256 == "234af70091d5d93c73a3fba82d7215c92ba2f56704507158a91e97f001b1be4e"
+    assert contract.slurm_job_id == "1608879"
     assert contract.output_name == "full-denominator-supersession-v3"
     assert contract.allow_exact_length_benchmark_passes is True
+    assert contract.allow_post_agent_exec_transport_errors is True
     assert v10.engine._validated_execution_contract(contract) is contract
     assert v10.SUPERSESSION_SOURCE_FILES[0].endswith(
         "finalize_kimi_tb4_sandoq_small_v10.py"
     )
 
 
-@pytest.mark.parametrize("job_id", ["", "0", "-1", "1.0", "123:4", " 123", "123 "])
+@pytest.mark.parametrize(
+    "job_id",
+    ["", "0", "-1", "1.0", "123:4", " 123", "123 ", "1234567"],
+)
 def test_v10_contract_rejects_noncanonical_job_ids(job_id: str) -> None:
     with pytest.raises(v10.V10FinalizationError, match="execution_slurm_job_id_invalid"):
         v10.execution_contract(job_id)

@@ -266,6 +266,12 @@ def _post_agent_verifier_sandbox_error(
         or "raise SandboxError" not in traceback
     ):
         return False
+    return _valid_post_agent_artifacts(artifacts)
+
+
+def _valid_post_agent_artifacts(artifacts: object) -> bool:
+    if not isinstance(artifacts, Mapping) or set(artifacts) != POST_AGENT_VERIFIER_ARTIFACT_KEYS:
+        return False
     artifact_bytes = artifacts.get("bytes")
     artifact_sha256 = artifacts.get("sha256")
     captured = artifacts.get("captured")
@@ -312,6 +318,93 @@ def _post_agent_verifier_sandbox_error(
     )
 
 
+POST_AGENT_EXEC_TRANSPORT_FAILURES = frozenset(
+    {
+        (
+            "OCI runner persistent shell exec had an uncertain transport failure: "
+            "Sandoq HTTP transport failed during POST request (ServerDisconnectedError); "
+            "assignment is poisoned and the command was not replayed"
+        ),
+        (
+            "OCI runner persistent shell exec crossed the proxy deadline with HTTP 504 "
+            "and an unknown outcome; assignment is poisoned and the command was not replayed"
+        ),
+    }
+)
+
+
+def _post_agent_verifier_exec_transport_error(
+    row: Mapping[str, Any],
+    *,
+    verifier_mode: str,
+    verifier_attempts: int,
+) -> bool:
+    """Recognize only the witnessed non-replay verifier exec exhaustion."""
+
+    task = row.get("task")
+    task_name = task.get("name") if isinstance(task, Mapping) else None
+    errors = row.get("errors")
+    info = row.get("info")
+    artifacts = info.get("terminal_bench_artifacts") if isinstance(info, Mapping) else None
+    if (
+        verifier_mode != "separate"
+        or verifier_attempts != 3
+        or row.get("stop_condition") not in {"agent_completed", "max_total_tokens"}
+        or row.get("rewards") != {}
+        or row.get("metrics") != {}
+        or not isinstance(task_name, str)
+        or not task_name
+        or not isinstance(errors, list)
+        or len(errors) != 1
+        or not isinstance(info, Mapping)
+        or set(info) != {"terminal_bench_artifacts"}
+        or not _valid_post_agent_artifacts(artifacts)
+    ):
+        return False
+    error = errors[0]
+    message = error.get("message") if isinstance(error, Mapping) else None
+    traceback = error.get("traceback") if isinstance(error, Mapping) else None
+    prefix = f"{task_name}: verifier VMVM failed after {verifier_attempts} attempts: "
+    if (
+        not isinstance(error, Mapping)
+        or set(error) != {"message", "traceback", "type"}
+        or error.get("type") != "SandboxError"
+        or not isinstance(message, str)
+        or not message.startswith(prefix)
+        or not isinstance(traceback, str)
+        or not traceback
+        or "in _score_separate" not in traceback
+        or "in solved" not in traceback
+        or "in run" not in traceback
+        or "Sandoq exec failed" not in traceback
+        or "raise SandboxError" not in traceback
+    ):
+        return False
+    remaining = message[len(prefix) :]
+    for attempt in range(1, verifier_attempts + 1):
+        attempt_prefix = f"attempt {attempt}: Sandoq exec failed: "
+        if not remaining.startswith(attempt_prefix):
+            return False
+        remaining = remaining[len(attempt_prefix) :]
+        matched = next(
+            (
+                detail
+                for detail in POST_AGENT_EXEC_TRANSPORT_FAILURES
+                if remaining == detail or remaining.startswith(f"{detail}; attempt {attempt + 1}: ")
+            ),
+            None,
+        )
+        if matched is None:
+            return False
+        remaining = remaining[len(matched) :]
+        if attempt < verifier_attempts:
+            separator = f"; attempt {attempt + 1}: "
+            if not remaining.startswith(separator):
+                return False
+            remaining = f"attempt {attempt + 1}: {remaining[len(separator) :]}"
+    return remaining == ""
+
+
 def _pre_model_sandoq_provisioning_error(
     row: Mapping[str, Any],
     *,
@@ -348,7 +441,11 @@ def _pre_model_sandoq_provisioning_error(
     )
 
 
-def _derived_post_agent_verifier_error_zero(row: Mapping[str, Any]) -> dict[str, Any]:
+def _derived_post_agent_verifier_error_zero(
+    row: Mapping[str, Any],
+    *,
+    infrastructure_class: str | None = None,
+) -> dict[str, Any]:
     derived = _derived_error_zero(row, zero_model=False)
     disposition = derived["info"]["diagnostic_evaluation_disposition"]
     disposition.update(
@@ -357,6 +454,8 @@ def _derived_post_agent_verifier_error_zero(row: Mapping[str, Any]) -> dict[str,
             "phase": "separate-verifier",
         }
     )
+    if infrastructure_class is not None:
+        disposition["infrastructure_class"] = infrastructure_class
     return derived
 
 
@@ -406,7 +505,14 @@ def _audit_supported_rows(
     audit_pre_model_sandoq_provisioning_errors: bool = False,
     sandoq_provisioning_attempts: int | None = None,
     allow_exact_length_benchmark_rows: bool = False,
+    allow_post_agent_exec_transport_errors: bool = False,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    if allow_post_agent_exec_transport_errors and (
+        not audit_error_model_io
+        or not allow_post_agent_verifier_sandbox_errors
+        or post_agent_verifier_attempts != 3
+    ):
+        _fail("post_agent_verifier_policy_invalid")
     if allow_post_agent_verifier_sandbox_errors and (
         not isinstance(post_agent_verifier_attempts, int)
         or isinstance(post_agent_verifier_attempts, bool)
@@ -450,12 +556,16 @@ def _audit_supported_rows(
     zero_model_provider_errors = 0
     model_bearing_provider_errors = 0
     post_agent_verifier_sandbox_errors = 0
+    post_agent_verifier_provisioning_errors = 0
+    post_agent_verifier_exec_transport_errors = 0
     post_agent_verifier_sandbox_error_model_io_turns = 0
     pre_model_sandoq_provisioning_errors = 0
     error_types: Counter[str] = Counter()
     zero_model_row_hashes: list[str] = []
     error_row_hashes: list[str] = []
     post_agent_verifier_sandbox_error_hashes: list[str] = []
+    post_agent_verifier_provisioning_error_hashes: list[str] = []
+    post_agent_verifier_exec_transport_error_hashes: list[str] = []
     pre_model_sandoq_provisioning_error_hashes: list[str] = []
     trace_invalid_row_hashes: list[str] = []
     exact_length_nontrainable_row_hashes: list[str] = []
@@ -489,7 +599,7 @@ def _audit_supported_rows(
             row_error_types = _valid_error_objects(errors)
             for error_type in row_error_types:
                 error_types[error_type] += 1
-            post_agent_verifier_sandbox_error = (
+            post_agent_verifier_provisioning_error = (
                 audit_error_model_io
                 and turns > 0
                 and row_error_types == ("SandboxError",)
@@ -500,6 +610,21 @@ def _audit_supported_rows(
                     verifier_attempts=int(post_agent_verifier_attempts),
                     provisioning_attempts=int(sandoq_provisioning_attempts),
                 )
+            )
+            post_agent_verifier_exec_transport_error = (
+                audit_error_model_io
+                and turns > 0
+                and row_error_types == ("SandboxError",)
+                and allow_post_agent_exec_transport_errors
+                and _post_agent_verifier_exec_transport_error(
+                    row,
+                    verifier_mode=verifier_modes[task_id],
+                    verifier_attempts=int(post_agent_verifier_attempts),
+                )
+            )
+            post_agent_verifier_sandbox_error = (
+                post_agent_verifier_provisioning_error
+                or post_agent_verifier_exec_transport_error
             )
             if audit_error_model_io:
                 if not post_agent_verifier_sandbox_error and (
@@ -585,9 +710,30 @@ def _audit_supported_rows(
                     post_agent_verifier_sandbox_errors += 1
                     post_agent_verifier_sandbox_error_model_io_turns += turns
                     post_agent_verifier_sandbox_error_hashes.append(_sha256(split.canonical_json(row)))
+                    if post_agent_verifier_provisioning_error:
+                        post_agent_verifier_provisioning_errors += 1
+                        post_agent_verifier_provisioning_error_hashes.append(
+                            _sha256(split.canonical_json(row))
+                        )
+                    if post_agent_verifier_exec_transport_error:
+                        post_agent_verifier_exec_transport_errors += 1
+                        post_agent_verifier_exec_transport_error_hashes.append(
+                            _sha256(split.canonical_json(row))
+                        )
             error_row_hashes.append(_sha256(split.canonical_json(row)))
             if post_agent_verifier_sandbox_error:
-                by_task[task_id] = _derived_post_agent_verifier_error_zero(row)
+                by_task[task_id] = _derived_post_agent_verifier_error_zero(
+                    row,
+                    infrastructure_class=(
+                        "separate-verifier-exec-transport-exhausted"
+                        if post_agent_verifier_exec_transport_error
+                        else (
+                            "separate-verifier-provisioning-exhausted"
+                            if allow_post_agent_exec_transport_errors
+                            else None
+                        )
+                    ),
+                )
             elif zero_model and pre_model_sandoq_provisioning_error:
                 by_task[task_id] = _derived_pre_model_sandoq_provisioning_error_zero(row)
             else:
@@ -736,6 +882,33 @@ def _audit_supported_rows(
                 "exact_length_error_zero_nodes": exact_length_error_zero_nodes,
                 "exact_length_error_zero_row_set_sha256": _sha256(
                     split.canonical_json(sorted(exact_length_error_zero_row_hashes))
+                ),
+            }
+        )
+    if allow_post_agent_exec_transport_errors:
+        if (
+            post_agent_verifier_sandbox_errors
+            != post_agent_verifier_provisioning_errors
+            + post_agent_verifier_exec_transport_errors
+        ):
+            _fail("post_agent_verifier_policy_invalid")
+        summary.update(
+            {
+                "post_agent_verifier_provisioning_error_zeroes": (
+                    post_agent_verifier_provisioning_errors
+                ),
+                "post_agent_verifier_provisioning_error_row_set_sha256": _sha256(
+                    split.canonical_json(
+                        sorted(post_agent_verifier_provisioning_error_hashes)
+                    )
+                ),
+                "post_agent_verifier_exec_transport_error_zeroes": (
+                    post_agent_verifier_exec_transport_errors
+                ),
+                "post_agent_verifier_exec_transport_error_row_set_sha256": _sha256(
+                    split.canonical_json(
+                        sorted(post_agent_verifier_exec_transport_error_hashes)
+                    )
                 ),
             }
         )

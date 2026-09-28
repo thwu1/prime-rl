@@ -40,6 +40,45 @@ def _body(*rows: dict) -> bytes:
     return b"".join(recovery.split.canonical_json(row) for row in rows)
 
 
+def _exec_transport_error_row(*, stop_condition: str = "agent_completed") -> dict:
+    row = _row("transport", reward=None, turns=1, error_type="SandboxError")
+    row["stop_condition"] = stop_condition
+    row["info"] = {
+        "terminal_bench_artifacts": {
+            "bytes": 8,
+            "sha256": "a" * 64,
+            "captured": {"main": ["/workspace/output"]},
+            "missing": [],
+            "collect": [
+                {
+                    "attempts": 1,
+                    "exit_code": 0,
+                    "output_tail": "",
+                    "service": "main",
+                }
+            ],
+        }
+    }
+    detail = sorted(recovery.POST_AGENT_EXEC_TRANSPORT_FAILURES)[0]
+    row["errors"] = [
+        {
+            "type": "SandboxError",
+            "message": (
+                "terminal-bench/transport: verifier VMVM failed after 3 attempts: "
+                + "; ".join(
+                    f"attempt {attempt}: Sandoq exec failed: {detail}"
+                    for attempt in range(1, 4)
+                )
+            ),
+            "traceback": (
+                "in solved\nin _score_separate\nin run\n"
+                "raise SandboxError(f\"Sandoq exec failed: {error}\")"
+            ),
+        }
+    ]
+    return row
+
+
 def test_fixed_denominator_audit_keeps_clean_rows_and_marks_errors_zero(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -145,6 +184,83 @@ def test_exact_length_policy_rejects_every_unrecognized_trace_problem(
             allow_nontrainable_scored_rows=True,
             allow_exact_length_benchmark_rows=True,
         )
+
+
+@pytest.mark.parametrize("stop_condition", ["agent_completed", "max_total_tokens"])
+def test_exec_transport_exhaustion_is_an_exact_nontrainable_infrastructure_zero(
+    monkeypatch: pytest.MonkeyPatch,
+    stop_condition: str,
+) -> None:
+    row = _exec_transport_error_row(stop_condition=stop_condition)
+    assert recovery._post_agent_verifier_exec_transport_error(
+        row,
+        verifier_mode="separate",
+        verifier_attempts=3,
+    )
+    monkeypatch.setattr(
+        recovery.audit_traces,
+        "_audit_trace",
+        lambda *args, **kwargs: ["trace_has_errors"],
+    )
+
+    summary, rows = recovery._audit_supported_rows(
+        _body(row),
+        ("transport",),
+        {"transport": "separate"},
+        allow_nontrainable_scored_rows=True,
+        audit_error_model_io=True,
+        allow_post_agent_verifier_sandbox_errors=True,
+        post_agent_verifier_attempts=3,
+        audit_pre_model_sandoq_provisioning_errors=True,
+        sandoq_provisioning_attempts=9,
+        allow_exact_length_benchmark_rows=True,
+        allow_post_agent_exec_transport_errors=True,
+    )
+
+    assert summary["passes"] == 0
+    assert summary["scored_rows"] == 0
+    assert summary["execution_error_zeroes"] == 1
+    assert summary["post_agent_verifier_exec_transport_error_zeroes"] == 1
+    disposition = rows["transport"]["info"]["diagnostic_evaluation_disposition"]
+    assert disposition["infrastructure_class"] == "separate-verifier-exec-transport-exhausted"
+    assert disposition["trainable"] is False
+    assert rows["transport"]["rewards"] == {"solved": 0}
+
+
+@pytest.mark.parametrize(
+    ("mutation", "mode", "attempts"),
+    [
+        ("reward", "separate", 3),
+        ("stop", "separate", 3),
+        ("message", "separate", 3),
+        ("artifact", "separate", 3),
+        ("traceback", "separate", 3),
+        ("none", "shared", 3),
+        ("none", "separate", 2),
+    ],
+)
+def test_exec_transport_exhaustion_rejects_broader_shapes(
+    mutation: str,
+    mode: str,
+    attempts: int,
+) -> None:
+    row = _exec_transport_error_row()
+    if mutation == "reward":
+        row["rewards"] = {"solved": 0}
+    elif mutation == "stop":
+        row["stop_condition"] = "error"
+    elif mutation == "message":
+        row["errors"][0]["message"] += " unexpected"
+    elif mutation == "artifact":
+        row["info"]["terminal_bench_artifacts"]["opaque"] = True
+    elif mutation == "traceback":
+        row["errors"][0]["traceback"] = "raise SandboxError"
+
+    assert not recovery._post_agent_verifier_exec_transport_error(
+        row,
+        verifier_mode=mode,
+        verifier_attempts=attempts,
+    )
 
 
 def test_legacy_contract_diff_is_only_truthful_v4_fields() -> None:

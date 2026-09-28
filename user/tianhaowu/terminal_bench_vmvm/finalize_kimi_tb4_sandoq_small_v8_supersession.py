@@ -91,6 +91,7 @@ class ExecutionContract:
     supersession_reason: str
     supersession_source_files: tuple[str, ...]
     allow_exact_length_benchmark_passes: bool = False
+    allow_post_agent_exec_transport_errors: bool = False
 
 
 V8_EXECUTION_CONTRACT = ExecutionContract(
@@ -133,6 +134,7 @@ def _validated_execution_contract(contract: ExecutionContract) -> ExecutionContr
         or not contract.supersession_source_files
         or len(contract.supersession_source_files) != len(set(contract.supersession_source_files))
         or type(contract.allow_exact_length_benchmark_passes) is not bool
+        or type(contract.allow_post_agent_exec_transport_errors) is not bool
         or any(
             not isinstance(path, str)
             or not path.startswith("user/tianhaowu/terminal_bench_vmvm/")
@@ -190,6 +192,7 @@ def _assignment_lifecycle_audit(
     ready: set[str] = set()
     terminal: set[str] = set()
     abandoned: set[str] = set()
+    recovery_failed: set[str] = set()
     reasons: Counter[str] = Counter()
     initialization_statuses: Counter[str] = Counter()
     recoveries = 0
@@ -239,7 +242,17 @@ def _assignment_lifecycle_audit(
             ):
                 _fail("assignment_lifecycle_invalid")
             abandoned.add(assignment_id)
-        elif name in {"managed_shell_recovery_failed", "assignment_release_failed", "pool_drain_incomplete"}:
+        elif name == "managed_shell_recovery_failed":
+            if (
+                not isinstance(assignment_id, str)
+                or assignment_id not in ready
+                or assignment_id in terminal
+                or assignment_id in recovery_failed
+                or event.get("error_type") != "RuntimeError"
+            ):
+                _fail("assignment_lifecycle_invalid")
+            recovery_failed.add(assignment_id)
+        elif name in {"assignment_release_failed", "pool_drain_incomplete"}:
             _fail("assignment_lifecycle_invalid")
         elif name == "assignment_cancelled":
             if (
@@ -281,14 +294,19 @@ def _assignment_lifecycle_audit(
                     and not event.get("error")
                 )
             elif reason == "managed_shell_lost":
+                expected_shell_status = (
+                    "managed_shell_command_outcome_unknown"
+                    if assignment_id in abandoned
+                    else "managed_shell_recovery_failed"
+                )
                 valid = (
                     assignment_id in ready
-                    and assignment_id in abandoned
+                    and assignment_id in (abandoned | recovery_failed)
                     and event.get("status") == "poisoned"
                     and event.get("poisoned") is True
                     and event.get("nested_recycle_verified") is False
                     and event.get("outer_deletion_verified_http_status") == 404
-                    and event.get("shell_failure_status") == "managed_shell_command_outcome_unknown"
+                    and event.get("shell_failure_status") == expected_shell_status
                     and isinstance(event.get("error"), str)
                     and bool(event["error"])
                 )
@@ -309,7 +327,10 @@ def _assignment_lifecycle_audit(
         or any(not state["terminal"] for state in acquired.values())
         or ready != {assignment_id for assignment_id in terminal if assignment_id in ready}
         or abandoned != {assignment_id for assignment_id in terminal if assignment_id in abandoned}
-        or reasons["managed_shell_lost"] != len(abandoned)
+        or recovery_failed
+        != {assignment_id for assignment_id in terminal if assignment_id in recovery_failed}
+        or not abandoned.isdisjoint(recovery_failed)
+        or reasons["managed_shell_lost"] != len(abandoned) + len(recovery_failed)
         or len(acquired) != len(ready) + reasons["initialization_failure"] + cancellations
         or len(ready) != reasons["rollout_complete"] + reasons["managed_shell_lost"]
     ):
@@ -317,16 +338,34 @@ def _assignment_lifecycle_audit(
 
     zero_model_errors = trace_audit.get("zero_model_error_zeroes")
     post_agent_errors = trace_audit.get("post_agent_verifier_sandbox_error_zeroes")
+    exec_transport_policy = (
+        "post_agent_verifier_provisioning_error_zeroes" in trace_audit
+        or "post_agent_verifier_exec_transport_error_zeroes" in trace_audit
+    )
+    post_agent_provisioning_errors = trace_audit.get(
+        "post_agent_verifier_provisioning_error_zeroes",
+        post_agent_errors,
+    )
+    post_agent_exec_transport_errors = trace_audit.get(
+        "post_agent_verifier_exec_transport_error_zeroes",
+        0,
+    )
     pre_model_provisioning_errors = trace_audit.get("pre_model_sandoq_provisioning_error_zeroes")
     if (
         not transport._nonnegative_integer(zero_model_errors)
         or not transport._nonnegative_integer(post_agent_errors)
+        or not transport._nonnegative_integer(post_agent_provisioning_errors)
+        or not transport._nonnegative_integer(post_agent_exec_transport_errors)
+        or int(post_agent_errors)
+        != int(post_agent_provisioning_errors) + int(post_agent_exec_transport_errors)
         or not transport._nonnegative_integer(pre_model_provisioning_errors)
         or int(pre_model_provisioning_errors) > int(zero_model_errors)
+        or (not exec_transport_policy and recovery_failed)
     ):
         _fail("assignment_lifecycle_invalid")
     required_initialization_failures = PROVISIONING_ATTEMPTS * (
-        int(pre_model_provisioning_errors) + VERIFIER_ATTEMPTS * int(post_agent_errors)
+        int(pre_model_provisioning_errors)
+        + VERIFIER_ATTEMPTS * int(post_agent_provisioning_errors)
     )
     initialization_failures = reasons["initialization_failure"]
     if initialization_failures < required_initialization_failures:
@@ -349,13 +388,24 @@ def _assignment_lifecycle_audit(
             _fail("assignment_lifecycle_invalid")
         scored_separate += 1
         separate_retry_attempts += attempts - 1
-    minimum_ready_terminal = len(rows) - int(zero_model_errors) + scored_separate
+    required_exec_transport_ready_terminals = (
+        VERIFIER_ATTEMPTS * int(post_agent_exec_transport_errors)
+    )
+    minimum_ready_terminal = (
+        len(rows)
+        - int(zero_model_errors)
+        + scored_separate
+        + required_exec_transport_ready_terminals
+    )
     maximum_ready_terminal = (
         len(rows) + scored_separate + separate_retry_attempts + int(post_agent_errors) * VERIFIER_ATTEMPTS
     )
-    if not minimum_ready_terminal <= len(ready) <= maximum_ready_terminal:
+    if (
+        not minimum_ready_terminal <= len(ready) <= maximum_ready_terminal
+        or len(abandoned) + len(recovery_failed) < required_exec_transport_ready_terminals
+    ):
         _fail("assignment_lifecycle_invalid")
-    return {
+    result = {
         "schema_version": 1,
         "state": "passed",
         "event_log_sha256": recovery._sha256(body),
@@ -372,6 +422,12 @@ def _assignment_lifecycle_audit(
         "minimum_ready_terminal": minimum_ready_terminal,
         "maximum_ready_terminal": maximum_ready_terminal,
     }
+    if exec_transport_policy:
+        result["required_exec_transport_ready_terminals"] = (
+            required_exec_transport_ready_terminals
+        )
+        result["managed_shell_recovery_failures"] = len(recovery_failed)
+    return result
 
 
 def _post_agent_verifier_policy(trace_audit: Mapping[str, Any]) -> dict[str, Any]:
@@ -385,7 +441,7 @@ def _post_agent_verifier_policy(trace_audit: Mapping[str, Any]) -> dict[str, Any
         or plan_module.SHA256_RE.fullmatch(row_set) is None
     ):
         _fail("post_agent_verifier_policy_invalid")
-    return {
+    result = {
         "schema_version": 1,
         "state": "enforced",
         "error_type": "SandboxError",
@@ -402,6 +458,42 @@ def _post_agent_verifier_policy(trace_audit: Mapping[str, Any]) -> dict[str, Any
         "model_io_turns": turns,
         "row_set_sha256": row_set,
     }
+    if "post_agent_verifier_exec_transport_error_zeroes" in trace_audit:
+        provisioning = trace_audit.get("post_agent_verifier_provisioning_error_zeroes")
+        exec_transport = trace_audit.get("post_agent_verifier_exec_transport_error_zeroes")
+        provisioning_rows = trace_audit.get(
+            "post_agent_verifier_provisioning_error_row_set_sha256"
+        )
+        exec_transport_rows = trace_audit.get(
+            "post_agent_verifier_exec_transport_error_row_set_sha256"
+        )
+        if (
+            not transport._nonnegative_integer(provisioning)
+            or not transport._nonnegative_integer(exec_transport)
+            or int(provisioning) + int(exec_transport) != int(count)
+            or not isinstance(provisioning_rows, str)
+            or plan_module.SHA256_RE.fullmatch(provisioning_rows) is None
+            or not isinstance(exec_transport_rows, str)
+            or plan_module.SHA256_RE.fullmatch(exec_transport_rows) is None
+        ):
+            _fail("post_agent_verifier_policy_invalid")
+        result.update(
+            {
+                "schema_version": 2,
+                "stop_condition": "agent_completed-or-max_total_tokens",
+                "infrastructure_zeroes": count,
+                "provisioning_exhaustion_zeroes": provisioning,
+                "provisioning_exhaustion_row_set_sha256": provisioning_rows,
+                "exec_transport_exhaustion_zeroes": exec_transport,
+                "exec_transport_exhaustion_row_set_sha256": exec_transport_rows,
+                "exec_transport_attempts_per_row": VERIFIER_ATTEMPTS,
+                "exec_transport_failure_messages": sorted(
+                    recovery.POST_AGENT_EXEC_TRANSPORT_FAILURES
+                ),
+                "reward_present": False,
+            }
+        )
+    return result
 
 
 def _pre_model_sandoq_provisioning_policy(trace_audit: Mapping[str, Any]) -> dict[str, Any]:
@@ -602,6 +694,9 @@ def finalize(
                 allow_exact_length_benchmark_rows=(
                     execution.allow_exact_length_benchmark_passes
                 ),
+                allow_post_agent_exec_transport_errors=(
+                    execution.allow_post_agent_exec_transport_errors
+                ),
             )
             try:
                 cleanup, cleanup_artifacts = split._validate_sandoq_cleanup(
@@ -770,9 +865,15 @@ def finalize(
                 certificate["counts"].update(
                     {
                         "provider_scored_passes": trace_audit["passes"],
+                        "benchmark_scored_rows": trace_audit["scored_rows"],
+                        "benchmark_scored_failures": trace_audit["scored_failures"],
                         "trainable_passes": trace_audit["trainable_passes"],
                         "benchmark_valid_nontrainable_passes": trace_audit[
                             "exact_length_nontrainable_passing_rows"
+                        ],
+                        "infrastructure_zeroes": trace_audit["execution_error_zeroes"],
+                        "post_agent_verifier_exec_transport_zeroes": trace_audit[
+                            "post_agent_verifier_exec_transport_error_zeroes"
                         ],
                     }
                 )
