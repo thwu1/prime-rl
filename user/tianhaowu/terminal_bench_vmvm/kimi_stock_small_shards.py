@@ -130,7 +130,7 @@ TB4_VERIFIERS_EXECUTION_FILES = (
 )
 # Exact old/new content pairs for the immutable v8 execution and the reviewed
 # production-only variants.  Any later edit to one of these files closes the gate.
-TB4_PRODUCTION_VARIANT_PAIR_SHA256 = "93434536e796c6794f2311e762149d70eb0059f27bd2efe5459dff21fb13bbe5"
+TB4_PRODUCTION_VARIANT_PAIR_SHA256 = "e8d1e516bb088008fd9118d0ab05f497e20f8abcb2e13514abbcdbbd6aa0db11"
 
 PROXY_SUMMARY_MARKER = b"sandoq: buffered model proxy summary "
 PROXY_SUMMARY_PREFIX_RE = re.compile(rb"[0-9]{2}:[0-9]{2}:[0-9]{2} +INFO \Z")

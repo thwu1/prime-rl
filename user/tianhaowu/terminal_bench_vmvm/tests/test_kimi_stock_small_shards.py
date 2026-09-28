@@ -859,9 +859,9 @@ def test_tb4_gate_variant_keeps_v7_closed_and_enables_only_v8_supersession() -> 
             shards._tb4_gate_variant(value)
 
 
-def test_tb4_production_variant_pair_exactly_binds_verifier_workdir_fix() -> None:
+def test_tb4_production_variant_pair_exactly_binds_shared_verifier_resilience() -> None:
     root = Path(shards.__file__).resolve().parents[3]
-    production_revision = "36212f7c169f999fc70c1abec0ac20f3c01dbb04"
+    production_revision = "94698c1f12d37688dd10ef5c75ca5bc922db554c"
     shared_paths = shards.TB4_PRODUCTION_SHARED_VARIANT_FILES
     lane_paths = shards.TB4_PRODUCTION_LANE_VARIANT_FILES
     assert shared_paths == {
