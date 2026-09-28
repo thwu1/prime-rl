@@ -65,14 +65,57 @@ def _exec_transport_error_row(*, stop_condition: str = "agent_completed") -> dic
             "type": "SandboxError",
             "message": (
                 "terminal-bench/transport: verifier VMVM failed after 3 attempts: "
-                + "; ".join(
-                    f"attempt {attempt}: Sandoq exec failed: {detail}"
-                    for attempt in range(1, 4)
-                )
+                + "; ".join(f"attempt {attempt}: Sandoq exec failed: {detail}" for attempt in range(1, 4))
             ),
+            "traceback": ('in solved\nin _score_separate\nin run\nraise SandboxError(f"Sandoq exec failed: {error}")'),
+        }
+    ]
+    return row
+
+
+def _artifact_write_transport_error_row() -> dict:
+    row = _row("artifact-write", reward=None, turns=1, error_type="SandboxError")
+    row["stop_condition"] = "agent_completed"
+    row["info"] = {
+        "terminal_bench_artifacts": {
+            "bytes": 8,
+            "sha256": "a" * 64,
+            "captured": {"main": ["/workspace/output"]},
+            "missing": [],
+            "collect": [
+                {
+                    "attempts": 1,
+                    "exit_code": 0,
+                    "output_tail": "",
+                    "service": "main",
+                }
+            ],
+            "persistence": {},
+        }
+    }
+    write = f"write '{recovery.POST_AGENT_ARTIFACT_WRITE_PATH}': "
+    http_500 = recovery.POST_AGENT_ARTIFACT_WRITE_HTTP_500_DETAIL
+    message = (
+        "terminal-bench/artifact-write: verifier VMVM failed after 3 attempts: "
+        f"attempt 1: {write}OCI runner /v1/exec failed on assignment-{'a' * 32}: {http_500}; "
+        f"attempt 2: {write}{recovery.POST_AGENT_ARTIFACT_WRITE_TRANSPORT_DETAIL}; "
+        f"attempt 3: {write}OCI runner /v1/exec failed on assignment-{'b' * 32}: {http_500}"
+    )
+    root = "/execution"
+    row["errors"] = [
+        {
+            "type": "SandboxError",
+            "message": message,
             "traceback": (
-                "in solved\nin _score_separate\nin run\n"
-                "raise SandboxError(f\"Sandoq exec failed: {error}\")"
+                f'Traceback (most recent call last):\n  File "{root}/deps/verifiers/verifiers/v1/'
+                'rollout.py", line 273, in run\n  File "'
+                f'{root}/deps/verifiers/verifiers/v1/taskset.py"'
+                ', line 143, in score\n  File "'
+                f'{root}/user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm/taskset.py"'
+                ', line 4833, in solved\n  File "'
+                f'{root}/user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm/taskset.py"'
+                ", line 4776, in _score_separate\n    raise SandboxError(\n"
+                f"verifiers.v1.errors.SandboxError: {message}\n"
             ),
         }
     ]
@@ -260,6 +303,114 @@ def test_exec_transport_exhaustion_rejects_broader_shapes(
         row,
         verifier_mode=mode,
         verifier_attempts=attempts,
+    )
+
+
+def test_artifact_write_transport_exhaustion_is_exact_persisted_infrastructure_zero(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _artifact_write_transport_error_row()
+    assert recovery._post_agent_verifier_artifact_write_transport_error(
+        row,
+        verifier_mode="separate",
+        verifier_attempts=3,
+        execution_project_root="/execution",
+    )
+    monkeypatch.setattr(
+        recovery.audit_traces,
+        "_audit_trace",
+        lambda *args, **kwargs: ["trace_has_errors"],
+    )
+
+    summary, rows = recovery._audit_supported_rows(
+        _body(row),
+        ("artifact-write",),
+        {"artifact-write": "separate"},
+        allow_nontrainable_scored_rows=True,
+        audit_error_model_io=True,
+        allow_post_agent_verifier_sandbox_errors=True,
+        post_agent_verifier_attempts=3,
+        audit_pre_model_sandoq_provisioning_errors=True,
+        sandoq_provisioning_attempts=9,
+        allow_exact_length_benchmark_rows=True,
+        allow_post_agent_exec_transport_errors=True,
+        allow_post_agent_artifact_write_transport_errors=True,
+        require_persisted_verifier_artifacts=True,
+        execution_project_root="/execution",
+    )
+
+    assert summary["post_agent_verifier_artifact_write_transport_error_zeroes"] == 1
+    assert summary["post_agent_verifier_exec_transport_error_zeroes"] == 0
+    disposition = rows["artifact-write"]["info"]["diagnostic_evaluation_disposition"]
+    assert disposition["infrastructure_class"] == ("separate-verifier-artifact-write-transport-exhausted")
+    assert disposition["trainable"] is False
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "shared",
+        "attempts",
+        "stop",
+        "reward",
+        "no-persistence",
+        "write-path",
+        "http-body",
+        "transport-replay",
+        "same-assignment",
+        "traceback-root",
+        "traceback-message",
+    ],
+)
+def test_artifact_write_transport_exhaustion_rejects_every_broader_shape(
+    mutation: str,
+) -> None:
+    row = _artifact_write_transport_error_row()
+    mode = "separate"
+    attempts = 3
+    root = "/execution"
+    if mutation == "shared":
+        mode = "shared"
+    elif mutation == "attempts":
+        attempts = 2
+    elif mutation == "stop":
+        row["stop_condition"] = "max_total_tokens"
+    elif mutation == "reward":
+        row["rewards"] = {"solved": 0}
+    elif mutation == "no-persistence":
+        del row["info"]["terminal_bench_artifacts"]["persistence"]
+    elif mutation == "write-path":
+        row["errors"][0]["message"] = row["errors"][0]["message"].replace(
+            "terminal-bench-artifacts-0.tgz",
+            "other.tgz",
+            1,
+        )
+    elif mutation == "http-body":
+        row["errors"][0]["message"] = row["errors"][0]["message"].replace(
+            "argument list too long",
+            "other failure",
+            1,
+        )
+    elif mutation == "transport-replay":
+        row["errors"][0]["message"] = row["errors"][0]["message"].replace(
+            "was not replayed",
+            "was replayed",
+        )
+    elif mutation == "same-assignment":
+        row["errors"][0]["message"] = row["errors"][0]["message"].replace(
+            "assignment-" + "b" * 32,
+            "assignment-" + "a" * 32,
+        )
+    elif mutation == "traceback-root":
+        root = "/wrong"
+    elif mutation == "traceback-message":
+        row["errors"][0]["traceback"] += "unexpected"
+
+    assert not recovery._post_agent_verifier_artifact_write_transport_error(
+        row,
+        verifier_mode=mode,
+        verifier_attempts=attempts,
+        execution_project_root=root,
     )
 
 

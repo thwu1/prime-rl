@@ -95,6 +95,7 @@ class ExecutionContract:
     supersession_source_files: tuple[str, ...]
     allow_exact_length_benchmark_passes: bool = False
     allow_post_agent_exec_transport_errors: bool = False
+    allow_post_agent_artifact_write_transport_errors: bool = False
     plan_verifier: str = "legacy-small-full"
     execution_project_root: str | None = None
     supported_tasks: int = plan_module.SUPPORTED_TASKS
@@ -149,6 +150,7 @@ def _validated_execution_contract(contract: ExecutionContract) -> ExecutionContr
         or len(contract.supersession_source_files) != len(set(contract.supersession_source_files))
         or type(contract.allow_exact_length_benchmark_passes) is not bool
         or type(contract.allow_post_agent_exec_transport_errors) is not bool
+        or type(contract.allow_post_agent_artifact_write_transport_errors) is not bool
         or contract.plan_verifier not in {"legacy-small-full", "capacity-bound-v10"}
         or type(contract.supported_tasks) is not int
         or type(contract.compose_unsupported_tasks) is not int
@@ -157,9 +159,7 @@ def _validated_execution_contract(contract: ExecutionContract) -> ExecutionContr
         or contract.supported_tasks < 1
         or contract.compose_unsupported_tasks < 0
         or contract.gpu_unsupported_tasks < 0
-        or contract.supported_tasks
-        + contract.compose_unsupported_tasks
-        + contract.gpu_unsupported_tasks
+        or contract.supported_tasks + contract.compose_unsupported_tasks + contract.gpu_unsupported_tasks
         != split.TOTAL_TASKS
         or not 1 <= contract.concurrency <= contract.supported_tasks
         or type(contract.require_persisted_verifier_artifacts) is not bool
@@ -199,9 +199,7 @@ def _validated_execution_contract(contract: ExecutionContract) -> ExecutionContr
             _fail("execution_contract_invalid")
     else:
         project_root = (
-            Path(contract.execution_project_root)
-            if isinstance(contract.execution_project_root, str)
-            else None
+            Path(contract.execution_project_root) if isinstance(contract.execution_project_root, str) else None
         )
         if (
             project_root is None
@@ -217,6 +215,12 @@ def _validated_execution_contract(contract: ExecutionContract) -> ExecutionContr
             or not contract.require_persisted_verifier_artifacts
         ):
             _fail("execution_contract_invalid")
+    if contract.allow_post_agent_artifact_write_transport_errors and (
+        contract.plan_verifier != "capacity-bound-v10"
+        or not contract.require_persisted_verifier_artifacts
+        or contract.execution_project_root is None
+    ):
+        _fail("execution_contract_invalid")
     return contract
 
 
@@ -345,8 +349,7 @@ def _validate_execution_stock_identity(
         not isinstance(deployment, Mapping)
         or not isinstance(router, Mapping)
         or deployment.get("spec_sha256") != execution.stock_source_spec_sha256
-        or deployment.get("endpoint_bundle_sha256")
-        != execution.stock_endpoint_bundle_sha256
+        or deployment.get("endpoint_bundle_sha256") != execution.stock_endpoint_bundle_sha256
         or router.get("policy") != "consistent_hash"
         or router.get("capacity_profile") != "sandoq-stock-single-c64-v1"
         or router.get("endpoint_identifier") != execution.stock_endpoint_identifier
@@ -396,11 +399,7 @@ def _execution_identity_contract(
     inputs = identity.get("inputs")
     runtime_execution = identity.get("execution")
     runtime = runtime_execution.get("runtime") if isinstance(runtime_execution, dict) else None
-    environment = (
-        runtime_execution.get("sandoq_environment")
-        if isinstance(runtime_execution, dict)
-        else None
-    )
+    environment = runtime_execution.get("sandoq_environment") if isinstance(runtime_execution, dict) else None
     deployment = identity.get("deployment")
     router = deployment.get("router") if isinstance(deployment, dict) else None
     contract = identity.get("contract")
@@ -414,11 +413,9 @@ def _execution_identity_contract(
         or source.get("verifiers_commit") != execution.verifiers_commit
         or not isinstance(config, dict)
         or not isinstance(lane, dict)
-        or config.get("source", {}).get("sha256")
-        != lane.get("config", {}).get("sha256")
+        or config.get("source", {}).get("sha256") != lane.get("config", {}).get("sha256")
         or not isinstance(inputs, dict)
-        or inputs.get("task_file", {}).get("sha256")
-        != lane.get("selector", {}).get("sha256")
+        or inputs.get("task_file", {}).get("sha256") != lane.get("selector", {}).get("sha256")
         or inputs.get("task_file", {}).get("count") != execution.supported_tasks
         or not isinstance(runtime_execution, dict)
         or any(
@@ -433,18 +430,14 @@ def _execution_identity_contract(
         or runtime_execution.get("cleanup_must_succeed") is not True
         or not isinstance(runtime, dict)
         or runtime.get("type") != "sandoq"
-        or runtime.get("expected_environment")
-        != identity_module.KIMI_SMALL_FIRECRACKER_ENVIRONMENT
-        or runtime.get("session_timeout")
-        != identity_module.KIMI_TB4_EXTENDED_SESSION_TIMEOUT_SECONDS
+        or runtime.get("expected_environment") != identity_module.KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+        or runtime.get("session_timeout") != identity_module.KIMI_TB4_EXTENDED_SESSION_TIMEOUT_SECONDS
         or runtime.get("network_access") is not True
         or runtime.get("host_tunnel") != "sandoq"
         or runtime.get("buffered_chat_completions") is not True
         or not isinstance(environment, dict)
-        or environment.get("environment")
-        != identity_module.KIMI_SMALL_FIRECRACKER_ENVIRONMENT
-        or environment.get("provider_profile_sha256")
-        != plan_module.PROVIDER_PROFILE_SHA256
+        or environment.get("environment") != identity_module.KIMI_SMALL_FIRECRACKER_ENVIRONMENT
+        or environment.get("provider_profile_sha256") != plan_module.PROVIDER_PROFILE_SHA256
         or environment.get("task_network") != "public"
         or environment.get("provider_task_network") != "host"
         or environment.get("pool_size") != execution.concurrency
@@ -520,10 +513,14 @@ def _persisted_verifier_artifact_audit(
         metadata = info.get("terminal_bench_artifacts") if isinstance(info, dict) else None
         rewards = row.get("rewards") if isinstance(row, dict) else None
         required = (
-            isinstance(rewards, dict)
-            and "solved" in rewards
-            or row.get("stop_condition") in {"agent_completed", "max_total_tokens"}
-        ) if isinstance(row, dict) else False
+            (
+                isinstance(rewards, dict)
+                and "solved" in rewards
+                or row.get("stop_condition") in {"agent_completed", "max_total_tokens"}
+            )
+            if isinstance(row, dict)
+            else False
+        )
         required_rows += int(required)
         if metadata is None:
             if required:
@@ -556,12 +553,8 @@ def _persisted_verifier_artifact_audit(
         "required_rows": required_rows,
         "payloads": payload_count,
         "bytes": total_bytes,
-        "trace_set_sha256": recovery._sha256(
-            "".join(f"{value}\n" for value in sorted(trace_hashes)).encode()
-        ),
-        "aggregate_set_sha256": recovery._sha256(
-            "".join(f"{value}\n" for value in sorted(aggregate_hashes)).encode()
-        ),
+        "trace_set_sha256": recovery._sha256("".join(f"{value}\n" for value in sorted(trace_hashes)).encode()),
+        "aggregate_set_sha256": recovery._sha256("".join(f"{value}\n" for value in sorted(aggregate_hashes)).encode()),
     }
 
 
@@ -697,6 +690,24 @@ def _assignment_lifecycle_audit(
                     and isinstance(event.get("error"), str)
                     and bool(event["error"])
                 )
+            elif reason == "gateway_command_outcome_unknown":
+                valid = (
+                    assignment_id in ready
+                    and assignment_id not in (abandoned | recovery_failed)
+                    and event.get("status") == "poisoned"
+                    and event.get("poisoned") is True
+                    and event.get("nested_recycle_verified") is False
+                    and event.get("outer_deletion_verified_http_status") == 404
+                    and event.get("shell_failure_status") == "transport_error"
+                    and event.get("outer_retired") is False
+                    and event.get("shell_deleted") is False
+                    and event.get("managed_shell_recovery_count") == 0
+                    and event.get("cleanup_gateway_retry_count") == 0
+                    and event.get("cleanup_gateway_retry_exhausted_count") == 0
+                    and event.get("retirement_reason") is None
+                    and isinstance(event.get("error"), str)
+                    and bool(event["error"])
+                )
             else:
                 valid = False
             if not valid:
@@ -714,12 +725,12 @@ def _assignment_lifecycle_audit(
         or any(not state["terminal"] for state in acquired.values())
         or ready != {assignment_id for assignment_id in terminal if assignment_id in ready}
         or abandoned != {assignment_id for assignment_id in terminal if assignment_id in abandoned}
-        or recovery_failed
-        != {assignment_id for assignment_id in terminal if assignment_id in recovery_failed}
+        or recovery_failed != {assignment_id for assignment_id in terminal if assignment_id in recovery_failed}
         or not abandoned.isdisjoint(recovery_failed)
         or reasons["managed_shell_lost"] != len(abandoned) + len(recovery_failed)
         or len(acquired) != len(ready) + reasons["initialization_failure"] + cancellations
-        or len(ready) != reasons["rollout_complete"] + reasons["managed_shell_lost"]
+        or len(ready)
+        != reasons["rollout_complete"] + reasons["managed_shell_lost"] + reasons["gateway_command_outcome_unknown"]
     ):
         _fail("assignment_lifecycle_invalid")
 
@@ -728,6 +739,7 @@ def _assignment_lifecycle_audit(
     exec_transport_policy = (
         "post_agent_verifier_provisioning_error_zeroes" in trace_audit
         or "post_agent_verifier_exec_transport_error_zeroes" in trace_audit
+        or "post_agent_verifier_artifact_write_transport_error_zeroes" in trace_audit
     )
     post_agent_provisioning_errors = trace_audit.get(
         "post_agent_verifier_provisioning_error_zeroes",
@@ -737,22 +749,29 @@ def _assignment_lifecycle_audit(
         "post_agent_verifier_exec_transport_error_zeroes",
         0,
     )
+    post_agent_artifact_write_transport_errors = trace_audit.get(
+        "post_agent_verifier_artifact_write_transport_error_zeroes",
+        0,
+    )
     pre_model_provisioning_errors = trace_audit.get("pre_model_sandoq_provisioning_error_zeroes")
     if (
         not transport._nonnegative_integer(zero_model_errors)
         or not transport._nonnegative_integer(post_agent_errors)
         or not transport._nonnegative_integer(post_agent_provisioning_errors)
         or not transport._nonnegative_integer(post_agent_exec_transport_errors)
+        or not transport._nonnegative_integer(post_agent_artifact_write_transport_errors)
         or int(post_agent_errors)
-        != int(post_agent_provisioning_errors) + int(post_agent_exec_transport_errors)
+        != int(post_agent_provisioning_errors)
+        + int(post_agent_exec_transport_errors)
+        + int(post_agent_artifact_write_transport_errors)
         or not transport._nonnegative_integer(pre_model_provisioning_errors)
         or int(pre_model_provisioning_errors) > int(zero_model_errors)
         or (not exec_transport_policy and recovery_failed)
+        or reasons["gateway_command_outcome_unknown"] != int(post_agent_artifact_write_transport_errors)
     ):
         _fail("assignment_lifecycle_invalid")
     required_initialization_failures = PROVISIONING_ATTEMPTS * (
-        int(pre_model_provisioning_errors)
-        + VERIFIER_ATTEMPTS * int(post_agent_provisioning_errors)
+        int(pre_model_provisioning_errors) + VERIFIER_ATTEMPTS * int(post_agent_provisioning_errors)
     )
     initialization_failures = reasons["initialization_failure"]
     if initialization_failures < required_initialization_failures:
@@ -775,14 +794,14 @@ def _assignment_lifecycle_audit(
             _fail("assignment_lifecycle_invalid")
         scored_separate += 1
         separate_retry_attempts += attempts - 1
-    required_exec_transport_ready_terminals = (
-        VERIFIER_ATTEMPTS * int(post_agent_exec_transport_errors)
-    )
+    required_exec_transport_ready_terminals = VERIFIER_ATTEMPTS * int(post_agent_exec_transport_errors)
+    required_artifact_write_ready_terminals = VERIFIER_ATTEMPTS * int(post_agent_artifact_write_transport_errors)
     minimum_ready_terminal = (
         len(rows)
         - int(zero_model_errors)
         + scored_separate
         + required_exec_transport_ready_terminals
+        + required_artifact_write_ready_terminals
     )
     maximum_ready_terminal = (
         len(rows) + scored_separate + separate_retry_attempts + int(post_agent_errors) * VERIFIER_ATTEMPTS
@@ -810,10 +829,11 @@ def _assignment_lifecycle_audit(
         "maximum_ready_terminal": maximum_ready_terminal,
     }
     if exec_transport_policy:
-        result["required_exec_transport_ready_terminals"] = (
-            required_exec_transport_ready_terminals
-        )
+        result["required_exec_transport_ready_terminals"] = required_exec_transport_ready_terminals
         result["managed_shell_recovery_failures"] = len(recovery_failed)
+    if "post_agent_verifier_artifact_write_transport_error_zeroes" in trace_audit:
+        result["required_artifact_write_ready_terminals"] = required_artifact_write_ready_terminals
+        result["required_artifact_write_gateway_unknown_terminals"] = int(post_agent_artifact_write_transport_errors)
     return result
 
 
@@ -848,20 +868,31 @@ def _post_agent_verifier_policy(trace_audit: Mapping[str, Any]) -> dict[str, Any
     if "post_agent_verifier_exec_transport_error_zeroes" in trace_audit:
         provisioning = trace_audit.get("post_agent_verifier_provisioning_error_zeroes")
         exec_transport = trace_audit.get("post_agent_verifier_exec_transport_error_zeroes")
-        provisioning_rows = trace_audit.get(
-            "post_agent_verifier_provisioning_error_row_set_sha256"
+        artifact_write_transport = trace_audit.get(
+            "post_agent_verifier_artifact_write_transport_error_zeroes",
+            0,
         )
-        exec_transport_rows = trace_audit.get(
-            "post_agent_verifier_exec_transport_error_row_set_sha256"
+        provisioning_rows = trace_audit.get("post_agent_verifier_provisioning_error_row_set_sha256")
+        exec_transport_rows = trace_audit.get("post_agent_verifier_exec_transport_error_row_set_sha256")
+        artifact_write_transport_rows = trace_audit.get(
+            "post_agent_verifier_artifact_write_transport_error_row_set_sha256"
         )
         if (
             not transport._nonnegative_integer(provisioning)
             or not transport._nonnegative_integer(exec_transport)
-            or int(provisioning) + int(exec_transport) != int(count)
+            or not transport._nonnegative_integer(artifact_write_transport)
+            or int(provisioning) + int(exec_transport) + int(artifact_write_transport) != int(count)
             or not isinstance(provisioning_rows, str)
             or plan_module.SHA256_RE.fullmatch(provisioning_rows) is None
             or not isinstance(exec_transport_rows, str)
             or plan_module.SHA256_RE.fullmatch(exec_transport_rows) is None
+            or (
+                "post_agent_verifier_artifact_write_transport_error_zeroes" in trace_audit
+                and (
+                    not isinstance(artifact_write_transport_rows, str)
+                    or plan_module.SHA256_RE.fullmatch(artifact_write_transport_rows) is None
+                )
+            )
         ):
             _fail("post_agent_verifier_policy_invalid")
         result.update(
@@ -874,12 +905,24 @@ def _post_agent_verifier_policy(trace_audit: Mapping[str, Any]) -> dict[str, Any
                 "exec_transport_exhaustion_zeroes": exec_transport,
                 "exec_transport_exhaustion_row_set_sha256": exec_transport_rows,
                 "exec_transport_attempts_per_row": VERIFIER_ATTEMPTS,
-                "exec_transport_failure_messages": sorted(
-                    recovery.POST_AGENT_EXEC_TRANSPORT_FAILURES
-                ),
+                "exec_transport_failure_messages": sorted(recovery.POST_AGENT_EXEC_TRANSPORT_FAILURES),
                 "reward_present": False,
             }
         )
+        if "post_agent_verifier_artifact_write_transport_error_zeroes" in trace_audit:
+            result.update(
+                {
+                    "schema_version": 3,
+                    "artifact_write_transport_exhaustion_zeroes": artifact_write_transport,
+                    "artifact_write_transport_exhaustion_row_set_sha256": (artifact_write_transport_rows),
+                    "artifact_write_attempts_per_row": VERIFIER_ATTEMPTS,
+                    "artifact_write_path": recovery.POST_AGENT_ARTIFACT_WRITE_PATH,
+                    "artifact_write_attempt_pattern": (
+                        "http-500-e2big,server-disconnected-poisoned-no-replay,http-500-e2big"
+                    ),
+                    "requires_persisted_artifact_reopen": True,
+                }
+            )
     return result
 
 
@@ -935,16 +978,11 @@ def _exact_length_benchmark_policy(trace_audit: Mapping[str, Any]) -> dict[str, 
         or fields["benchmark_valid_passes"] != fields["passes"]
         or fields["benchmark_valid_passes"]
         != fields["trainable_passes"] + fields["exact_length_nontrainable_passing_rows"]
-        or fields["exact_length_nontrainable_passing_rows"]
-        > fields["exact_length_nontrainable_scored_rows"]
-        or fields["exact_length_nontrainable_passing_rows"]
-        != trace_audit.get("trace_invalid_passing_rows", -1)
-        or fields["exact_length_nontrainable_scored_rows"]
-        > trace_audit.get("trace_invalid_scored_rows", -1)
-        or fields["exact_length_nontrainable_nodes"]
-        < fields["exact_length_nontrainable_scored_rows"]
-        or fields["exact_length_error_zero_rows"]
-        > trace_audit.get("model_bearing_error_zeroes", -1)
+        or fields["exact_length_nontrainable_passing_rows"] > fields["exact_length_nontrainable_scored_rows"]
+        or fields["exact_length_nontrainable_passing_rows"] != trace_audit.get("trace_invalid_passing_rows", -1)
+        or fields["exact_length_nontrainable_scored_rows"] > trace_audit.get("trace_invalid_scored_rows", -1)
+        or fields["exact_length_nontrainable_nodes"] < fields["exact_length_nontrainable_scored_rows"]
+        or fields["exact_length_error_zero_rows"] > trace_audit.get("model_bearing_error_zeroes", -1)
         or fields["exact_length_error_zero_nodes"] < fields["exact_length_error_zero_rows"]
     ):
         _fail("exact_length_benchmark_policy_invalid")
@@ -1088,12 +1126,13 @@ def finalize(
                 post_agent_verifier_attempts=VERIFIER_ATTEMPTS,
                 audit_pre_model_sandoq_provisioning_errors=True,
                 sandoq_provisioning_attempts=PROVISIONING_ATTEMPTS,
-                allow_exact_length_benchmark_rows=(
-                    execution.allow_exact_length_benchmark_passes
+                allow_exact_length_benchmark_rows=(execution.allow_exact_length_benchmark_passes),
+                allow_post_agent_exec_transport_errors=(execution.allow_post_agent_exec_transport_errors),
+                allow_post_agent_artifact_write_transport_errors=(
+                    execution.allow_post_agent_artifact_write_transport_errors
                 ),
-                allow_post_agent_exec_transport_errors=(
-                    execution.allow_post_agent_exec_transport_errors
-                ),
+                require_persisted_verifier_artifacts=(execution.require_persisted_verifier_artifacts),
+                execution_project_root=execution.execution_project_root,
             )
             persisted_verifier_artifacts = (
                 _persisted_verifier_artifact_audit(results_body, run_dir)
@@ -1165,11 +1204,7 @@ def finalize(
                 str(manifest_record["sha256"]),
             )
             passes = int(
-                trace_audit[
-                    "benchmark_valid_passes"
-                    if execution.allow_exact_length_benchmark_passes
-                    else "passes"
-                ]
+                trace_audit["benchmark_valid_passes" if execution.allow_exact_length_benchmark_passes else "passes"]
             )
             gate_met = (
                 _exact_length_gate_met(trace_audit)
@@ -1236,8 +1271,7 @@ def finalize(
                     "excluded_pre_model_sandoq_provisioning_error_rows": pre_model_provisioning_zeroes,
                     "excluded_trace_invalid_scored_rows": trace_audit["trace_invalid_scored_rows"],
                     "excluded_unsupported_rows": (
-                        execution.compose_unsupported_tasks
-                        + execution.gpu_unsupported_tasks
+                        execution.compose_unsupported_tasks + execution.gpu_unsupported_tasks
                     ),
                     "error_rows_are_trainable": False,
                     "post_agent_verifier_sandbox_error_rows_are_trainable": False,
@@ -1277,21 +1311,24 @@ def finalize(
                         "benchmark_scored_rows": trace_audit["scored_rows"],
                         "benchmark_scored_failures": trace_audit["scored_failures"],
                         "trainable_passes": trace_audit["trainable_passes"],
-                        "benchmark_valid_nontrainable_passes": trace_audit[
-                            "exact_length_nontrainable_passing_rows"
-                        ],
+                        "benchmark_valid_nontrainable_passes": trace_audit["exact_length_nontrainable_passing_rows"],
                         "infrastructure_zeroes": trace_audit["execution_error_zeroes"],
                         "post_agent_verifier_exec_transport_zeroes": trace_audit[
                             "post_agent_verifier_exec_transport_error_zeroes"
                         ],
                     }
                 )
-                certificate["training_eligibility"]["eligible_clean_passes"] = (
-                    trace_audit["trainable_passes"]
+                certificate["training_eligibility"]["eligible_clean_passes"] = trace_audit["trainable_passes"]
+                certificate["exact_length_benchmark_policy"] = _exact_length_benchmark_policy(trace_audit)
+            if execution.allow_post_agent_artifact_write_transport_errors:
+                artifact_write_zeroes = trace_audit["post_agent_verifier_artifact_write_transport_error_zeroes"]
+                certificate["counts"]["post_agent_verifier_artifact_write_transport_zeroes"] = artifact_write_zeroes
+                certificate["training_eligibility"]["excluded_post_agent_verifier_artifact_write_transport_rows"] = (
+                    artifact_write_zeroes
                 )
-                certificate["exact_length_benchmark_policy"] = (
-                    _exact_length_benchmark_policy(trace_audit)
-                )
+                certificate["training_eligibility"][
+                    "post_agent_verifier_artifact_write_transport_rows_are_trainable"
+                ] = False
             evidence.revalidate()
             held.revalidate()
             split._publish_private_bundle(

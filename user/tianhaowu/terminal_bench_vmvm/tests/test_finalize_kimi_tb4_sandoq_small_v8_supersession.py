@@ -45,6 +45,24 @@ def _released(assignment: str, reason: str) -> dict[str, object]:
             shell_failure_status="managed_shell_command_outcome_unknown",
             error="opaque",
         )
+    if reason == "gateway_command_outcome_unknown":
+        return _event(
+            "assignment_released",
+            assignment,
+            reason=reason,
+            status="poisoned",
+            poisoned=True,
+            nested_recycle_verified=False,
+            outer_deletion_verified_http_status=404,
+            shell_failure_status="transport_error",
+            outer_retired=False,
+            shell_deleted=False,
+            managed_shell_recovery_count=0,
+            cleanup_gateway_retry_count=0,
+            cleanup_gateway_retry_exhausted_count=0,
+            retirement_reason=None,
+            error="opaque",
+        )
     return _event(
         "assignment_released",
         assignment,
@@ -215,6 +233,66 @@ def test_v10_assignment_lifecycle_binds_three_exec_transport_failures() -> None:
     }
 
 
+def test_v12_assignment_lifecycle_binds_exact_artifact_write_attempts() -> None:
+    events = [
+        _event("pool_started"),
+        _event("pool_recovery_completed"),
+        _event("assignment_acquired", "agent"),
+        _event("assignment_ready", "agent"),
+        _released("agent", "rollout_complete"),
+    ]
+    for index, reason in enumerate(("rollout_complete", "gateway_command_outcome_unknown", "rollout_complete")):
+        assignment = f"verifier-{index}"
+        events.extend(
+            [
+                _event("assignment_acquired", assignment),
+                _event("assignment_ready", assignment),
+                _released(assignment, reason),
+            ]
+        )
+    events.append(_event("pool_drained"))
+    result = v8._assignment_lifecycle_audit(
+        _body(*events),
+        expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+        trace_audit={
+            "zero_model_error_zeroes": 0,
+            "post_agent_verifier_sandbox_error_zeroes": 1,
+            "post_agent_verifier_provisioning_error_zeroes": 0,
+            "post_agent_verifier_exec_transport_error_zeroes": 0,
+            "post_agent_verifier_artifact_write_transport_error_zeroes": 1,
+            "pre_model_sandoq_provisioning_error_zeroes": 0,
+        },
+        rows={"task": _post_agent_row()},
+        verifier_modes={"task": "separate"},
+    )
+
+    assert result["required_artifact_write_ready_terminals"] == 3
+    assert result["required_artifact_write_gateway_unknown_terminals"] == 1
+    assert result["release_reason_counts"] == {
+        "gateway_command_outcome_unknown": 1,
+        "rollout_complete": 3,
+    }
+
+    changed = copy.deepcopy(events)
+    gateway = next(event for event in changed if event.get("reason") == "gateway_command_outcome_unknown")
+    gateway["shell_failure_status"] = "unknown"
+    with pytest.raises(v8.V8SupersessionError, match="assignment_lifecycle_invalid"):
+        v8._assignment_lifecycle_audit(
+            _body(*changed),
+            expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+            trace_audit={
+                "zero_model_error_zeroes": 0,
+                "post_agent_verifier_sandbox_error_zeroes": 1,
+                "post_agent_verifier_provisioning_error_zeroes": 0,
+                "post_agent_verifier_exec_transport_error_zeroes": 0,
+                "post_agent_verifier_artifact_write_transport_error_zeroes": 1,
+                "pre_model_sandoq_provisioning_error_zeroes": 0,
+            },
+            rows={"task": _post_agent_row()},
+            verifier_modes={"task": "separate"},
+        )
+
+
 def test_v8_assignment_lifecycle_fails_closed_on_corruption() -> None:
     body, trace, rows = _valid_lifecycle()
     decoded = [copy.deepcopy(event) for event in map(v8.json.loads, body.splitlines())]
@@ -303,6 +381,28 @@ def test_v10_post_agent_policy_distinguishes_exec_transport_zeroes() -> None:
     assert policy["exec_transport_exhaustion_zeroes"] == 1
     assert policy["exec_transport_attempts_per_row"] == 3
     assert policy["counted_as_zero"] is True
+    assert policy["trainable"] is False
+
+
+def test_v12_post_agent_policy_distinguishes_artifact_write_transport_zeroes() -> None:
+    trace = {
+        "post_agent_verifier_sandbox_error_zeroes": 3,
+        "post_agent_verifier_sandbox_error_model_io_turns": 168,
+        "post_agent_verifier_sandbox_error_row_set_sha256": "a" * 64,
+        "post_agent_verifier_provisioning_error_zeroes": 1,
+        "post_agent_verifier_provisioning_error_row_set_sha256": "b" * 64,
+        "post_agent_verifier_exec_transport_error_zeroes": 1,
+        "post_agent_verifier_exec_transport_error_row_set_sha256": "c" * 64,
+        "post_agent_verifier_artifact_write_transport_error_zeroes": 1,
+        "post_agent_verifier_artifact_write_transport_error_row_set_sha256": "d" * 64,
+    }
+
+    policy = v8._post_agent_verifier_policy(trace)
+
+    assert policy["schema_version"] == 3
+    assert policy["artifact_write_transport_exhaustion_zeroes"] == 1
+    assert policy["artifact_write_attempts_per_row"] == 3
+    assert policy["requires_persisted_artifact_reopen"] is True
     assert policy["trainable"] is False
 
 
