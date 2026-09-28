@@ -1,0 +1,284 @@
+from __future__ import annotations
+
+import copy
+import inspect
+
+import finalize_kimi_tb4_sandoq_small_v8_supersession as v8
+import pytest
+
+
+def _event(name: str, assignment: str | None = None, **updates: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "schema_version": 2,
+        "record_type": "pool_event",
+        "event": name,
+        "slurm_job_id": v8.EXECUTION_SLURM_JOB_ID,
+    }
+    if assignment is not None:
+        value["assignment_id"] = assignment
+    value.update(updates)
+    return value
+
+
+def _released(assignment: str, reason: str) -> dict[str, object]:
+    if reason == "initialization_failure":
+        return _event(
+            "assignment_released",
+            assignment,
+            reason=reason,
+            status="poisoned",
+            poisoned=True,
+            nested_recycle_verified=False,
+            outer_deletion_verified_http_status=404,
+            shell_failure_status="initialization_command_failed",
+            error="opaque",
+        )
+    if reason == "managed_shell_lost":
+        return _event(
+            "assignment_released",
+            assignment,
+            reason=reason,
+            status="poisoned",
+            poisoned=True,
+            nested_recycle_verified=False,
+            outer_deletion_verified_http_status=404,
+            shell_failure_status="managed_shell_command_outcome_unknown",
+            error="opaque",
+        )
+    return _event(
+        "assignment_released",
+        assignment,
+        reason="rollout_complete",
+        status="retired",
+        poisoned=False,
+        nested_recycle_verified=True,
+        outer_deletion_verified_http_status=404,
+        shell_failure_status=None,
+        error=None,
+    )
+
+
+def _body(*events: dict[str, object]) -> bytes:
+    return b"".join(v8.split.canonical_json(event) for event in events)
+
+
+def _post_agent_row() -> dict[str, object]:
+    return {
+        "errors": [{"type": "SandboxError"}],
+        "info": {"terminal_bench_artifacts": {}},
+    }
+
+
+def _valid_lifecycle() -> tuple[bytes, dict[str, object], dict[str, dict[str, object]]]:
+    events = [
+        _event("pool_started"),
+        _event("pool_recovery_completed"),
+        _event("assignment_acquired", "main"),
+        _event("assignment_ready", "main"),
+        _released("main", "rollout_complete"),
+    ]
+    for index in range(v8.VERIFIER_ATTEMPTS * v8.PROVISIONING_ATTEMPTS):
+        assignment = f"verifier-{index}"
+        events.extend(
+            [
+                _event("assignment_acquired", assignment),
+                _released(assignment, "initialization_failure"),
+            ]
+        )
+    events.append(_event("pool_drained"))
+    return (
+        _body(*events),
+        {
+            "zero_model_error_zeroes": 0,
+            "post_agent_verifier_sandbox_error_zeroes": 1,
+            "pre_model_sandoq_provisioning_error_zeroes": 0,
+        },
+        {"task": _post_agent_row()},
+    )
+
+
+def test_v8_supersession_binds_the_immutable_execution() -> None:
+    assert v8.SCHEMA_VERSION == 2
+    assert v8.EXECUTION_SOURCE_REVISION == "02ced99650a33f6c548e47569d18587ae4a71a08"
+    assert v8.EXECUTION_VERIFIERS_COMMIT == "36b0dff6c18affb3d40b7c46d5836381d568050b"
+    assert v8.EXECUTION_SLURM_JOB_ID == "1607011"
+    assert v8.EXECUTION_PLAN_SHA256 == "af936100b1cb06e021f98de9900d235a9175e716fd9e9432298889f9ea9d6150"
+    assert v8.OUTPUT_NAME != v8.v7.OUTPUT_NAME
+    assert v8.SUPERSESSION_SOURCE_FILES
+    assert all(path.startswith("user/tianhaowu/terminal_bench_vmvm/") for path in v8.SUPERSESSION_SOURCE_FILES)
+    assert "user/tianhaowu/terminal_bench_vmvm/prepare_kimi_tb4_miniswe246_union.py" in v8.SUPERSESSION_SOURCE_FILES
+
+
+def test_v8_assignment_lifecycle_accepts_only_bound_pre_ready_failures() -> None:
+    body, trace, rows = _valid_lifecycle()
+    result = v8._assignment_lifecycle_audit(
+        body,
+        expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+        trace_audit=trace,
+        rows=rows,
+        verifier_modes={"task": "separate"},
+    )
+
+    assert result == {
+        "schema_version": 1,
+        "state": "passed",
+        "event_log_sha256": v8.recovery._sha256(body),
+        "assignments_acquired": 28,
+        "assignments_ready": 1,
+        "assignment_releases": 28,
+        "assignment_cancellations": 0,
+        "release_reason_counts": {
+            "initialization_failure": 27,
+            "rollout_complete": 1,
+        },
+        "initialization_failure_status_counts": {"initialization_command_failed": 27},
+        "required_error_source_initialization_failures": 27,
+        "unattributed_initialization_failures": 0,
+        "managed_shell_recoveries": 0,
+        "managed_shell_abandonments": 0,
+        "minimum_ready_terminal": 1,
+        "maximum_ready_terminal": 4,
+    }
+
+
+def test_v8_assignment_lifecycle_accepts_exact_managed_shell_loss() -> None:
+    body = _body(
+        _event("pool_started"),
+        _event("pool_recovery_completed"),
+        _event("assignment_acquired", "main"),
+        _event("assignment_ready", "main"),
+        _event("managed_shell_recovered", "main"),
+        _event("managed_shell_operation_abandoned", "main"),
+        _released("main", "managed_shell_lost"),
+        _event("pool_drained"),
+    )
+    result = v8._assignment_lifecycle_audit(
+        body,
+        expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+        trace_audit={
+            "zero_model_error_zeroes": 0,
+            "post_agent_verifier_sandbox_error_zeroes": 0,
+            "pre_model_sandoq_provisioning_error_zeroes": 0,
+        },
+        rows={"task": _post_agent_row()},
+        verifier_modes={"task": "separate"},
+    )
+    assert result["release_reason_counts"] == {"managed_shell_lost": 1}
+    assert result["managed_shell_recoveries"] == 1
+    assert result["managed_shell_abandonments"] == 1
+
+
+def test_v8_assignment_lifecycle_fails_closed_on_corruption() -> None:
+    body, trace, rows = _valid_lifecycle()
+    decoded = [copy.deepcopy(event) for event in map(v8.json.loads, body.splitlines())]
+    cases: list[list[dict[str, object]]] = []
+
+    wrong_job = copy.deepcopy(decoded)
+    wrong_job[0]["slurm_job_id"] = "999"
+    cases.append(wrong_job)
+    ready_initialization_failure = copy.deepcopy(decoded)
+    ready_initialization_failure.insert(5, _event("assignment_ready", "verifier-0"))
+    cases.append(ready_initialization_failure)
+    unknown_status = copy.deepcopy(decoded)
+    next(event for event in unknown_status if event.get("reason") == "initialization_failure")[
+        "shell_failure_status"
+    ] = "unknown"
+    cases.append(unknown_status)
+    missing_terminal = copy.deepcopy(decoded[:-1])
+    cases.append(missing_terminal)
+    release_failure = copy.deepcopy(decoded)
+    release_failure.append(_event("assignment_release_failed", "main"))
+    cases.append(release_failure)
+    unknown_event = copy.deepcopy(decoded)
+    unknown_event.append(_event("unknown_event"))
+    cases.append(unknown_event)
+
+    for events in cases:
+        with pytest.raises(v8.V8SupersessionError, match="assignment_lifecycle_invalid"):
+            v8._assignment_lifecycle_audit(
+                _body(*events),
+                expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+                trace_audit=trace,
+                rows=rows,
+                verifier_modes={"task": "separate"},
+            )
+
+
+def test_v8_post_agent_policy_is_exact_and_nontrainable() -> None:
+    trace = {
+        "post_agent_verifier_sandbox_error_zeroes": 2,
+        "post_agent_verifier_sandbox_error_model_io_turns": 17,
+        "post_agent_verifier_sandbox_error_row_set_sha256": "a" * 64,
+    }
+    assert v8._post_agent_verifier_policy(trace) == {
+        "schema_version": 1,
+        "state": "enforced",
+        "error_type": "SandboxError",
+        "stop_condition": "agent_completed",
+        "verifier_mode": "separate",
+        "verifier_attempts": 3,
+        "provisioning_attempts_per_verifier": 9,
+        "requires_artifact_manifest": True,
+        "requires_exact_model_io_audit": True,
+        "requires_assignment_lifecycle_proof": True,
+        "counted_as_zero": True,
+        "trainable": False,
+        "rows": 2,
+        "model_io_turns": 17,
+        "row_set_sha256": "a" * 64,
+    }
+    for key, invalid in (
+        ("post_agent_verifier_sandbox_error_zeroes", -1),
+        ("post_agent_verifier_sandbox_error_model_io_turns", True),
+        ("post_agent_verifier_sandbox_error_row_set_sha256", "a" * 40),
+    ):
+        changed = {**trace, key: invalid}
+        with pytest.raises(v8.V8SupersessionError, match="post_agent_verifier_policy_invalid"):
+            v8._post_agent_verifier_policy(changed)
+
+
+def test_v8_pre_model_provisioning_policy_and_lifecycle_source_bound() -> None:
+    trace = {
+        "pre_model_sandoq_provisioning_error_zeroes": 1,
+        "pre_model_sandoq_provisioning_error_row_set_sha256": "b" * 64,
+    }
+    assert v8._pre_model_sandoq_provisioning_policy(trace) == {
+        "schema_version": 1,
+        "state": "enforced",
+        "error_type": "SandboxError",
+        "stop_condition": "error",
+        "phase": "agent-runtime-provisioning",
+        "provisioning_attempts": 9,
+        "requires_empty_model_trace": True,
+        "requires_assignment_lifecycle_proof": True,
+        "counted_as_zero": True,
+        "trainable": False,
+        "rows": 1,
+        "row_set_sha256": "b" * 64,
+    }
+
+    body, lifecycle_trace, rows = _valid_lifecycle()
+    lifecycle_trace["pre_model_sandoq_provisioning_error_zeroes"] = 1
+    lifecycle_trace["zero_model_error_zeroes"] = 1
+    with pytest.raises(v8.V8SupersessionError, match="assignment_lifecycle_invalid"):
+        v8._assignment_lifecycle_audit(
+            body,
+            expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+            trace_audit=lifecycle_trace,
+            rows=rows,
+            verifier_modes={"task": "separate"},
+        )
+
+
+def test_v8_finalizer_enforces_new_audit_and_certificate_fields() -> None:
+    source = inspect.getsource(v8.finalize)
+    assert "allow_post_agent_verifier_sandbox_errors=True" in source
+    assert "post_agent_verifier_attempts=VERIFIER_ATTEMPTS" in source
+    assert "audit_pre_model_sandoq_provisioning_errors=True" in source
+    assert "sandoq_provisioning_attempts=PROVISIONING_ATTEMPTS" in source
+    assert '"post_agent_verifier_error_policy"' in source
+    assert '"pre_model_sandoq_provisioning_error_policy"' in source
+    assert '"sandoq_assignment_lifecycle"' in source
+    assert '"excluded_post_agent_verifier_sandbox_error_rows"' in source
+    assert '"post_agent_verifier_sandbox_error_rows_are_trainable": False' in source
+    assert '"results_mutated": False' in source

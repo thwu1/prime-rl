@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import copy
 import hashlib
+import inspect
 import json
 import tomllib
 from pathlib import Path
@@ -735,3 +737,114 @@ def test_tb4_provider_context_reopens_private_snapshot_and_binds_run_dir(
             executed_results={"path": str(tmp_path / "other/results.jsonl")},
             held=None,
         )
+
+
+def test_tb4_gate_variant_keeps_v7_closed_and_enables_only_v8_supersession() -> None:
+    v7 = shards._tb4_gate_variant(
+        {
+            "schema_version": 1,
+            "supersession": {"reason": "fixed-denominator-exact-transport-v7"},
+        }
+    )
+    assert v7["allow_post_agent_verifier_sandbox_errors"] is False
+    assert v7["extra_certificate_keys"] == frozenset()
+    assert v7["supersession_source_paths"] == shards.tb4_transport.SUPERSESSION_SOURCE_FILES
+
+    v8 = shards._tb4_gate_variant(
+        {
+            "schema_version": 2,
+            "supersession": {"reason": shards.tb4_v8.SUPERSESSION_REASON},
+        }
+    )
+    assert v8["allow_post_agent_verifier_sandbox_errors"] is True
+    assert v8["distinct_supersession_source_revision"] is True
+    assert v8["extra_certificate_keys"] == frozenset(
+        {
+            "post_agent_verifier_error_policy",
+            "pre_model_sandoq_provisioning_error_policy",
+            "sandoq_assignment_lifecycle",
+        }
+    )
+    assert v8["extra_count_keys"] == frozenset(
+        {
+            "post_agent_verifier_sandbox_error_zeroes",
+            "pre_model_sandoq_provisioning_error_zeroes",
+        }
+    )
+    assert v8["audit_pre_model_sandoq_provisioning_errors"] is True
+    assert v8["supersession_source_paths"] == shards.tb4_v8.SUPERSESSION_SOURCE_FILES
+
+    for value in (
+        {"schema_version": 1, "supersession": {"reason": shards.tb4_v8.SUPERSESSION_REASON}},
+        {"schema_version": 2, "supersession": {"reason": "fixed-denominator-exact-transport-v7"}},
+        {"schema_version": 2, "supersession": {"reason": "unknown"}},
+    ):
+        with pytest.raises(shards.StockSmallError, match="tb4_gate_invalid"):
+            shards._tb4_gate_variant(value)
+
+
+def test_tb4_v8_supersession_source_can_be_distinct_but_is_file_exact(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    production = tmp_path / "production"
+    source.mkdir()
+    production.mkdir()
+    source_revision = "b" * 40
+    certificate_revision = "a" * 40
+    paths = ("one.py", "two.py")
+    files = {"one.py": "1" * 64, "two.py": "2" * 64}
+
+    monkeypatch.setattr(
+        shards,
+        "_git",
+        lambda root, *args: source_revision if root == source else "c" * 40,
+    )
+    monkeypatch.setattr(shards, "_git_file_hashes", lambda *_args, **_kwargs: files)
+    value = {
+        "project_root": str(source),
+        "revision": source_revision,
+        "hash_kind": "raw-file-sha256",
+        "files": files,
+        "file_set_sha256": shards._sha256(shards._canonical(files)),
+    }
+
+    result = shards._validate_tb4_supersession_source(
+        value,
+        tb4_root=tmp_path / "execution",
+        production_root=production,
+        certificate_revision=certificate_revision,
+        source_paths=paths,
+        distinct_source_revision=True,
+    )
+    assert result["source_revision"] == source_revision
+
+    changed = copy.deepcopy(value)
+    changed["files"]["one.py"] = "3" * 64
+    with pytest.raises(shards.StockSmallError, match="tb4_supersession_source_invalid"):
+        shards._validate_tb4_supersession_source(
+            changed,
+            tb4_root=tmp_path / "execution",
+            production_root=production,
+            certificate_revision=certificate_revision,
+            source_paths=paths,
+            distinct_source_revision=True,
+        )
+
+
+def test_tb4_gate_reaudits_v8_error_policy_lifecycle_and_training_exclusion() -> None:
+    source = inspect.getsource(shards._validate_tb4_gate_locked)
+    assert "allow_post_agent_verifier_sandbox_errors=variant[" in source
+    assert '"allow_post_agent_verifier_sandbox_errors"' in source
+    assert "post_agent_verifier_attempts=(" in source
+    assert "audit_pre_model_sandoq_provisioning_errors=variant.get(" in source
+    assert "sandoq_provisioning_attempts=(" in source
+    assert "tb4_v8._post_agent_verifier_policy(trace_audit)" in source
+    assert "tb4_v8._pre_model_sandoq_provisioning_policy(trace_audit)" in source
+    assert "tb4_v8._assignment_lifecycle_audit(" in source
+    assert 'counts.get("post_agent_verifier_sandbox_error_zeroes")' in source
+    assert 'counts.get("pre_model_sandoq_provisioning_error_zeroes")' in source
+    assert '"excluded_post_agent_verifier_sandbox_error_rows"' in source
+    assert '"excluded_pre_model_sandoq_provisioning_error_rows"' in source
+    assert '"post_agent_verifier_sandbox_error_rows_are_trainable": False' in source

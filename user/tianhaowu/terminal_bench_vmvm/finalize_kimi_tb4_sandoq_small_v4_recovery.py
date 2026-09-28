@@ -35,6 +35,7 @@ ORIGINAL_BASE_CONFIG_SHA256 = "aa5737800031e79d560127cc025f5b379396767f46e81eaa0
 RESULTS = "results.jsonl"
 CERTIFICATE = "certificate.json"
 REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
+SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 ALLOWED_ERROR_TYPES = frozenset(
     {
         "HarnessError",
@@ -47,6 +48,7 @@ ALLOWED_ERROR_TYPES = frozenset(
         "UserError",
     }
 )
+POST_AGENT_VERIFIER_ARTIFACT_KEYS = frozenset({"bytes", "captured", "collect", "missing", "sha256"})
 
 
 class V4RecoveryError(ValueError):
@@ -171,16 +173,10 @@ def _valid_error_objects(errors: object) -> tuple[str, ...]:
             or error_type not in ALLOWED_ERROR_TYPES
             or not isinstance(error.get("message"), str)
             or not error["message"]
-            or (
-                error_type == "ProviderError"
-                and set(error) != {"message", "type"}
-            )
+            or (error_type == "ProviderError" and set(error) != {"message", "type"})
             or (
                 error_type != "ProviderError"
-                and (
-                    set(error) != {"message", "traceback", "type"}
-                    or not isinstance(error.get("traceback"), str)
-                )
+                and (set(error) != {"message", "traceback", "type"} or not isinstance(error.get("traceback"), str))
             )
         ):
             _fail("error_row_invalid")
@@ -192,11 +188,7 @@ def _model_turns(row: Mapping[str, Any]) -> int:
     nodes = row.get("nodes")
     if not isinstance(nodes, list):
         _fail("provider_trace_audit_failed")
-    return sum(
-        node.get("sampled") is True
-        for node in nodes
-        if isinstance(node, dict)
-    )
+    return sum(node.get("sampled") is True for node in nodes if isinstance(node, dict))
 
 
 def _derived_error_zero(row: Mapping[str, Any], *, zero_model: bool) -> dict[str, Any]:
@@ -215,6 +207,168 @@ def _derived_error_zero(row: Mapping[str, Any], *, zero_model: bool) -> dict[str
             "zero_model": zero_model,
         },
     }
+    return derived
+
+
+def _post_agent_verifier_sandbox_error(
+    row: Mapping[str, Any],
+    *,
+    verifier_mode: str,
+    verifier_attempts: int,
+    provisioning_attempts: int,
+) -> bool:
+    """Recognize the source-bound error emitted after a separate verifier exhausts."""
+
+    task = row.get("task")
+    task_name = task.get("name") if isinstance(task, Mapping) else None
+    errors = row.get("errors")
+    info = row.get("info")
+    artifacts = info.get("terminal_bench_artifacts") if isinstance(info, Mapping) else None
+    if (
+        verifier_mode != "separate"
+        or not isinstance(verifier_attempts, int)
+        or isinstance(verifier_attempts, bool)
+        or verifier_attempts < 1
+        or not isinstance(provisioning_attempts, int)
+        or isinstance(provisioning_attempts, bool)
+        or provisioning_attempts < 1
+        or row.get("stop_condition") != "agent_completed"
+        or row.get("rewards") != {}
+        or row.get("metrics") != {}
+        or not isinstance(task_name, str)
+        or not task_name
+        or not isinstance(errors, list)
+        or len(errors) != 1
+        or not isinstance(info, Mapping)
+        or set(info) != {"terminal_bench_artifacts"}
+        or not isinstance(artifacts, Mapping)
+        or set(artifacts) != POST_AGENT_VERIFIER_ARTIFACT_KEYS
+    ):
+        return False
+    error = errors[0]
+    message = error.get("message") if isinstance(error, Mapping) else None
+    traceback = error.get("traceback") if isinstance(error, Mapping) else None
+    attempt_detail = "; ".join(
+        f"attempt {attempt}: Sandoq provisioning failed after {provisioning_attempts} attempts"
+        for attempt in range(1, verifier_attempts + 1)
+    )
+    expected_message = f"{task_name}: verifier VMVM failed after {verifier_attempts} attempts: {attempt_detail}"
+    if (
+        not isinstance(error, Mapping)
+        or set(error) != {"message", "traceback", "type"}
+        or error.get("type") != "SandboxError"
+        or not isinstance(message, str)
+        or message != expected_message
+        or not isinstance(traceback, str)
+        or not traceback
+        or "in _score_separate" not in traceback
+        or "in solved" not in traceback
+        or "raise SandboxError" not in traceback
+    ):
+        return False
+    artifact_bytes = artifacts.get("bytes")
+    artifact_sha256 = artifacts.get("sha256")
+    captured = artifacts.get("captured")
+    missing = artifacts.get("missing")
+    collect = artifacts.get("collect")
+    return (
+        isinstance(artifact_bytes, int)
+        and not isinstance(artifact_bytes, bool)
+        and artifact_bytes > 0
+        and isinstance(artifact_sha256, str)
+        and SHA256_RE.fullmatch(artifact_sha256) is not None
+        and isinstance(captured, Mapping)
+        and all(
+            isinstance(service, str)
+            and service
+            and isinstance(paths, list)
+            and all(isinstance(path, str) and path.startswith("/") for path in paths)
+            for service, paths in captured.items()
+        )
+        and isinstance(missing, list)
+        and all(
+            isinstance(entry, Mapping)
+            and set(entry) == {"service", "source"}
+            and isinstance(entry.get("service"), str)
+            and bool(entry["service"])
+            and isinstance(entry.get("source"), str)
+            and bool(entry["source"])
+            for entry in missing
+        )
+        and isinstance(collect, list)
+        and all(
+            isinstance(entry, Mapping)
+            and set(entry) == {"attempts", "exit_code", "output_tail", "service"}
+            and isinstance(entry.get("attempts"), int)
+            and not isinstance(entry["attempts"], bool)
+            and entry["attempts"] >= 1
+            and isinstance(entry.get("exit_code"), int)
+            and not isinstance(entry["exit_code"], bool)
+            and isinstance(entry.get("output_tail"), str)
+            and isinstance(entry.get("service"), str)
+            and bool(entry["service"])
+            for entry in collect
+        )
+    )
+
+
+def _pre_model_sandoq_provisioning_error(
+    row: Mapping[str, Any],
+    *,
+    provisioning_attempts: int,
+) -> bool:
+    """Recognize the exact fail-closed Sandoq start exhaustion before model I/O."""
+
+    errors = row.get("errors")
+    if (
+        not isinstance(provisioning_attempts, int)
+        or isinstance(provisioning_attempts, bool)
+        or provisioning_attempts < 1
+        or row.get("stop_condition") != "error"
+        or row.get("nodes") != []
+        or row.get("rewards") != {}
+        or row.get("metrics") != {}
+        or row.get("info") != {}
+        or not isinstance(errors, list)
+        or len(errors) != 1
+    ):
+        return False
+    error = errors[0]
+    traceback = error.get("traceback") if isinstance(error, Mapping) else None
+    return (
+        isinstance(error, Mapping)
+        and set(error) == {"message", "traceback", "type"}
+        and error.get("type") == "SandboxError"
+        and error.get("message") == f"Sandoq provisioning failed after {provisioning_attempts} attempts"
+        and isinstance(traceback, str)
+        and bool(traceback)
+        and "verifiers/v1/runtimes/sandoq.py" in traceback
+        and "in start" in traceback
+        and "raise SandboxError(" in traceback
+    )
+
+
+def _derived_post_agent_verifier_error_zero(row: Mapping[str, Any]) -> dict[str, Any]:
+    derived = _derived_error_zero(row, zero_model=False)
+    disposition = derived["info"]["diagnostic_evaluation_disposition"]
+    disposition.update(
+        {
+            "kind": "post-agent-verifier-error-counted-as-zero",
+            "phase": "separate-verifier",
+        }
+    )
+    return derived
+
+
+def _derived_pre_model_sandoq_provisioning_error_zero(row: Mapping[str, Any]) -> dict[str, Any]:
+    derived = _derived_error_zero(row, zero_model=True)
+    disposition = derived["info"]["diagnostic_evaluation_disposition"]
+    disposition.update(
+        {
+            "kind": "pre-model-sandoq-provisioning-error-counted-as-zero",
+            "phase": "agent-runtime-provisioning",
+        }
+    )
     return derived
 
 
@@ -247,7 +401,26 @@ def _audit_supported_rows(
     *,
     allow_nontrainable_scored_rows: bool = False,
     audit_error_model_io: bool = False,
+    allow_post_agent_verifier_sandbox_errors: bool = False,
+    post_agent_verifier_attempts: int | None = None,
+    audit_pre_model_sandoq_provisioning_errors: bool = False,
+    sandoq_provisioning_attempts: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    if allow_post_agent_verifier_sandbox_errors and (
+        not isinstance(post_agent_verifier_attempts, int)
+        or isinstance(post_agent_verifier_attempts, bool)
+        or post_agent_verifier_attempts < 1
+        or not isinstance(sandoq_provisioning_attempts, int)
+        or isinstance(sandoq_provisioning_attempts, bool)
+        or sandoq_provisioning_attempts < 1
+    ):
+        _fail("post_agent_verifier_policy_invalid")
+    if audit_pre_model_sandoq_provisioning_errors and (
+        not isinstance(sandoq_provisioning_attempts, int)
+        or isinstance(sandoq_provisioning_attempts, bool)
+        or sandoq_provisioning_attempts < 1
+    ):
+        _fail("pre_model_sandoq_provisioning_policy_invalid")
     try:
         rows = [json.loads(line) for line in body.splitlines() if line.strip()]
     except (UnicodeDecodeError, json.JSONDecodeError) as error:
@@ -270,9 +443,14 @@ def _audit_supported_rows(
     model_bearing_errors = 0
     zero_model_provider_errors = 0
     model_bearing_provider_errors = 0
+    post_agent_verifier_sandbox_errors = 0
+    post_agent_verifier_sandbox_error_model_io_turns = 0
+    pre_model_sandoq_provisioning_errors = 0
     error_types: Counter[str] = Counter()
     zero_model_row_hashes: list[str] = []
     error_row_hashes: list[str] = []
+    post_agent_verifier_sandbox_error_hashes: list[str] = []
+    pre_model_sandoq_provisioning_error_hashes: list[str] = []
     trace_invalid_row_hashes: list[str] = []
     trace_problem_counts: Counter[str] = Counter()
     observations: Counter[str] = Counter()
@@ -303,13 +481,32 @@ def _audit_supported_rows(
             row_error_types = _valid_error_objects(errors)
             for error_type in row_error_types:
                 error_types[error_type] += 1
+            post_agent_verifier_sandbox_error = (
+                audit_error_model_io
+                and turns > 0
+                and row_error_types == ("SandboxError",)
+                and allow_post_agent_verifier_sandbox_errors
+                and _post_agent_verifier_sandbox_error(
+                    row,
+                    verifier_mode=verifier_modes[task_id],
+                    verifier_attempts=int(post_agent_verifier_attempts),
+                    provisioning_attempts=int(sandoq_provisioning_attempts),
+                )
+            )
             if audit_error_model_io:
-                if row.get("stop_condition") != "error" or len(row_error_types) != 1:
+                if not post_agent_verifier_sandbox_error and (
+                    row.get("stop_condition") != "error" or len(row_error_types) != 1
+                ):
                     _fail("error_row_invalid")
-                if turns > 0 and row_error_types not in {
-                    ("ProviderError",),
-                    ("HarnessError",),
-                }:
+                if (
+                    turns > 0
+                    and not post_agent_verifier_sandbox_error
+                    and row_error_types
+                    not in {
+                        ("ProviderError",),
+                        ("HarnessError",),
+                    }
+                ):
                     _fail("model_bearing_error_row_invalid")
             if row.get("rewards") != {} or row.get("metrics") != {}:
                 _fail("error_row_invalid")
@@ -317,9 +514,25 @@ def _audit_supported_rows(
             if zero_model:
                 if row.get("nodes") != [] or row.get("info") != {}:
                     _fail("zero_model_error_row_invalid")
+                pre_model_sandoq_provisioning_error = row_error_types == ("SandboxError",) and (
+                    audit_pre_model_sandoq_provisioning_errors
+                    and _pre_model_sandoq_provisioning_error(
+                        row,
+                        provisioning_attempts=int(sandoq_provisioning_attempts),
+                    )
+                )
+                if (
+                    audit_pre_model_sandoq_provisioning_errors
+                    and row_error_types == ("SandboxError",)
+                    and not pre_model_sandoq_provisioning_error
+                ):
+                    _fail("pre_model_sandoq_provisioning_error_invalid")
                 zero_model_errors += 1
                 zero_model_provider_errors += int(row_error_types == ("ProviderError",))
                 zero_model_row_hashes.append(_sha256(split.canonical_json(row)))
+                if pre_model_sandoq_provisioning_error:
+                    pre_model_sandoq_provisioning_errors += 1
+                    pre_model_sandoq_provisioning_error_hashes.append(_sha256(split.canonical_json(row)))
             else:
                 if audit_error_model_io:
                     error_problems = audit_traces._audit_trace(
@@ -340,8 +553,17 @@ def _audit_supported_rows(
                     validated_error_model_io_turns += turns
                 model_bearing_errors += 1
                 model_bearing_provider_errors += int(row_error_types == ("ProviderError",))
+                if post_agent_verifier_sandbox_error:
+                    post_agent_verifier_sandbox_errors += 1
+                    post_agent_verifier_sandbox_error_model_io_turns += turns
+                    post_agent_verifier_sandbox_error_hashes.append(_sha256(split.canonical_json(row)))
             error_row_hashes.append(_sha256(split.canonical_json(row)))
-            by_task[task_id] = _derived_error_zero(row, zero_model=zero_model)
+            if post_agent_verifier_sandbox_error:
+                by_task[task_id] = _derived_post_agent_verifier_error_zero(row)
+            elif zero_model and pre_model_sandoq_provisioning_error:
+                by_task[task_id] = _derived_pre_model_sandoq_provisioning_error_zero(row)
+            else:
+                by_task[task_id] = _derived_error_zero(row, zero_model=zero_model)
             continue
 
         if errors != []:
@@ -372,17 +594,13 @@ def _audit_supported_rows(
             trace_invalid_passing_rows += score
             source_sha256 = _sha256(split.canonical_json(row))
             trace_invalid_row_hashes.append(source_sha256)
-            trace_problem_counts.update(
-                re.sub(r"^node_[0-9]+_", "node_*_", problem) for problem in problems
-            )
+            trace_problem_counts.update(re.sub(r"^node_[0-9]+_", "node_*_", problem) for problem in problems)
             by_task[task_id] = _derived_trace_invalid_score(row, problems=problems)
             continue
         clean_rows += 1
         nodes = row["nodes"]
         clean_model_turns += sum(
-            node.get("sampled") is True and node.get("model_io") is not None
-            for node in nodes
-            if isinstance(node, dict)
+            node.get("sampled") is True and node.get("model_io") is not None for node in nodes if isinstance(node, dict)
         )
         for node in nodes:
             if not isinstance(node, dict) or node.get("sampled") is not True:
@@ -397,11 +615,9 @@ def _audit_supported_rows(
             clean_sampled_tokens += completion
         by_task[task_id] = row
 
-    if (
-        set(by_task) != expected
-        or clean_rows + trace_invalid_scored_rows + zero_model_errors + model_bearing_errors
-        != len(rows)
-    ):
+    if set(
+        by_task
+    ) != expected or clean_rows + trace_invalid_scored_rows + zero_model_errors + model_bearing_errors != len(rows):
         _fail("provider_results_invalid")
     summary = {
         "source_rows": len(rows),
@@ -412,14 +628,11 @@ def _audit_supported_rows(
         "trace_invalid_scored_rows": trace_invalid_scored_rows,
         "trace_invalid_passing_rows": trace_invalid_passing_rows,
         "trace_invalid_problem_counts": dict(sorted(trace_problem_counts.items())),
-        "trace_invalid_row_set_sha256": _sha256(
-            split.canonical_json(sorted(trace_invalid_row_hashes))
-        ),
+        "trace_invalid_row_set_sha256": _sha256(split.canonical_json(sorted(trace_invalid_row_hashes))),
         "execution_error_zeroes": zero_model_errors + model_bearing_errors,
         "zero_model_error_zeroes": zero_model_errors,
         "model_bearing_error_zeroes": model_bearing_errors,
-        "provider_error_zeroes": zero_model_provider_errors
-        + model_bearing_provider_errors,
+        "provider_error_zeroes": zero_model_provider_errors + model_bearing_provider_errors,
         "zero_model_provider_error_zeroes": zero_model_provider_errors,
         "model_bearing_provider_error_zeroes": model_bearing_provider_errors,
         "clean_model_io_turns": clean_model_turns,
@@ -431,16 +644,31 @@ def _audit_supported_rows(
         "exact_provider_json_required": True,
         "request_graph_match_required": True,
         "reasoning_required": True,
-        "provider_explicit_empty_reasoning_tool_turns": observations[
-            "provider_explicit_empty_reasoning_tool_turns"
-        ],
-        "provider_reported_zero_reasoning_tool_turns": observations[
-            "provider_reported_zero_reasoning_tool_turns"
-        ],
+        "provider_explicit_empty_reasoning_tool_turns": observations["provider_explicit_empty_reasoning_tool_turns"],
+        "provider_reported_zero_reasoning_tool_turns": observations["provider_reported_zero_reasoning_tool_turns"],
         "error_type_counts": dict(sorted(error_types.items())),
         "error_row_set_sha256": _sha256(split.canonical_json(sorted(error_row_hashes))),
         "zero_model_row_set_sha256": _sha256(split.canonical_json(sorted(zero_model_row_hashes))),
     }
+    if allow_post_agent_verifier_sandbox_errors:
+        summary.update(
+            {
+                "post_agent_verifier_sandbox_error_zeroes": post_agent_verifier_sandbox_errors,
+                "post_agent_verifier_sandbox_error_model_io_turns": (post_agent_verifier_sandbox_error_model_io_turns),
+                "post_agent_verifier_sandbox_error_row_set_sha256": _sha256(
+                    split.canonical_json(sorted(post_agent_verifier_sandbox_error_hashes))
+                ),
+            }
+        )
+    if audit_pre_model_sandoq_provisioning_errors:
+        summary.update(
+            {
+                "pre_model_sandoq_provisioning_error_zeroes": pre_model_sandoq_provisioning_errors,
+                "pre_model_sandoq_provisioning_error_row_set_sha256": _sha256(
+                    split.canonical_json(sorted(pre_model_sandoq_provisioning_error_hashes))
+                ),
+            }
+        )
     return summary, by_task
 
 
@@ -480,13 +708,9 @@ def finalize(
         with ExitStack() as stack:
             evidence = split._open_held_run_evidence(run_dir)
             stack.callback(evidence.close)
-            writer_lock = stack.enter_context(
-                split._open_private_writer_lock_at(evidence.directory, ".writer.lock")
-            )
+            writer_lock = stack.enter_context(split._open_private_writer_lock_at(evidence.directory, ".writer.lock"))
             router_lock = stack.enter_context(
-                split._open_private_writer_lock(
-                    split._router_lock_path(evidence.files["eval_run_identity.json"].body)
-                )
+                split._open_private_writer_lock(split._router_lock_path(evidence.files["eval_run_identity.json"].body))
             )
             for lock in (writer_lock, router_lock):
                 try:

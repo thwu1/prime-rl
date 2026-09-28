@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import subprocess
 from types import SimpleNamespace
@@ -28,6 +29,39 @@ def _row(name: str) -> dict:
             }
         ],
     }
+
+
+def _post_agent_verifier_sandbox_row(name: str = "separate-verifier") -> dict:
+    row = _row(name)
+    row["stop_condition"] = "agent_completed"
+    row["nodes"] = [{"sampled": True}, {"sampled": True}]
+    row["errors"] = [
+        {
+            "type": "SandboxError",
+            "message": (
+                f"terminal-bench/{name}: verifier VMVM failed after 3 attempts: "
+                "attempt 1: Sandoq provisioning failed after 9 attempts; "
+                "attempt 2: Sandoq provisioning failed after 9 attempts; "
+                "attempt 3: Sandoq provisioning failed after 9 attempts"
+            ),
+            "traceback": (
+                "Traceback (most recent call last):\n"
+                '  File "taskset.py", line 1, in solved\n'
+                '  File "taskset.py", line 2, in _score_separate\n'
+                "    raise SandboxError\n"
+            ),
+        }
+    ]
+    row["info"] = {
+        "terminal_bench_artifacts": {
+            "bytes": 128,
+            "captured": {"main": ["/results/output.txt"]},
+            "collect": [],
+            "missing": [{"service": "main", "source": "/logs/artifacts"}],
+            "sha256": "a" * 64,
+        }
+    }
+    return row
 
 
 def _proxy_summary(**updates: int) -> dict:
@@ -252,6 +286,7 @@ def test_v7_error_row_audits_all_sampled_model_io_and_accepts_canonical_provider
     assert summary["source_model_io_turns"] == 2
     assert summary["validated_error_model_io_turns"] == 2
     assert summary["error_model_io_audit_required"] is True
+    assert "post_agent_verifier_sandbox_error_zeroes" not in summary
     assert len(calls) == 1
     assert calls[0]["require_reasoning"] is True
     assert calls[0]["require_model_io"] is True
@@ -275,9 +310,7 @@ def test_v7_error_row_audits_all_sampled_model_io_and_accepts_canonical_provider
                 audit_error_model_io=True,
             )
 
-    row["errors"] = [
-        {"type": "SandboxError", "message": "opaque failure", "traceback": "trace"}
-    ]
+    row["errors"] = [{"type": "SandboxError", "message": "opaque failure", "traceback": "trace"}]
     with pytest.raises(v4.V4RecoveryError, match="model_bearing_error_row_invalid"):
         v4._audit_supported_rows(
             v6.split.canonical_json(row),
@@ -286,9 +319,7 @@ def test_v7_error_row_audits_all_sampled_model_io_and_accepts_canonical_provider
             audit_error_model_io=True,
         )
 
-    row["errors"] = [
-        {"type": "HarnessError", "message": "opaque failure", "traceback": "trace"}
-    ]
+    row["errors"] = [{"type": "HarnessError", "message": "opaque failure", "traceback": "trace"}]
     row["stop_condition"] = "agent_completed"
     with pytest.raises(v4.V4RecoveryError, match="error_row_invalid"):
         v4._audit_supported_rows(
@@ -309,6 +340,213 @@ def test_v7_error_row_audits_all_sampled_model_io_and_accepts_canonical_provider
             ("provider-error",),
             {"provider-error": "shared"},
             audit_error_model_io=True,
+        )
+
+
+def test_v8_accepts_only_exact_post_agent_separate_verifier_sandbox_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _post_agent_verifier_sandbox_row()
+    calls: list[dict] = []
+
+    def audit(*_args, **kwargs):
+        calls.append(kwargs)
+        return ["trace_has_errors"]
+
+    monkeypatch.setattr(v4.audit_traces, "_audit_trace", audit)
+    summary, rows = v4._audit_supported_rows(
+        v6.split.canonical_json(row),
+        ("separate-verifier",),
+        {"separate-verifier": "separate"},
+        allow_nontrainable_scored_rows=True,
+        audit_error_model_io=True,
+        allow_post_agent_verifier_sandbox_errors=True,
+        post_agent_verifier_attempts=3,
+        sandoq_provisioning_attempts=9,
+    )
+
+    assert summary["execution_error_zeroes"] == 1
+    assert summary["model_bearing_error_zeroes"] == 1
+    assert summary["post_agent_verifier_sandbox_error_zeroes"] == 1
+    assert summary["post_agent_verifier_sandbox_error_model_io_turns"] == 2
+    assert len(summary["post_agent_verifier_sandbox_error_row_set_sha256"]) == 64
+    assert summary["validated_error_model_io_turns"] == 2
+    assert summary["provider_error_zeroes"] == 0
+    assert len(calls) == 1
+    assert calls[0]["require_clean_stop"] is False
+    disposition = rows["separate-verifier"]["info"]["diagnostic_evaluation_disposition"]
+    assert disposition == {
+        "kind": "post-agent-verifier-error-counted-as-zero",
+        "phase": "separate-verifier",
+        "source_row_sha256": v4._sha256(v6.split.canonical_json(row)),
+        "trainable": False,
+        "zero_model": False,
+    }
+    assert rows["separate-verifier"]["rewards"] == {"solved": 0}
+
+
+def test_v8_post_agent_verifier_sandbox_error_contract_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        v4.audit_traces,
+        "_audit_trace",
+        lambda *_args, **_kwargs: ["trace_has_errors"],
+    )
+    base = _post_agent_verifier_sandbox_row()
+    invalid: list[tuple[dict, str, int | None]] = []
+
+    shared = copy.deepcopy(base)
+    invalid.append((shared, "shared", 3))
+    wrong_stop = copy.deepcopy(base)
+    wrong_stop["stop_condition"] = "error"
+    invalid.append((wrong_stop, "separate", 3))
+    missing_artifacts = copy.deepcopy(base)
+    missing_artifacts["info"] = {}
+    invalid.append((missing_artifacts, "separate", 3))
+    verifier_present = copy.deepcopy(base)
+    verifier_present["info"]["terminal_bench_verifier"] = {"mode": "separate"}
+    invalid.append((verifier_present, "separate", 3))
+    rewarded = copy.deepcopy(base)
+    rewarded["rewards"] = {"solved": 0}
+    invalid.append((rewarded, "separate", 3))
+    metered = copy.deepcopy(base)
+    metered["metrics"] = {"loss": 0}
+    invalid.append((metered, "separate", 3))
+    zero_model = copy.deepcopy(base)
+    zero_model["nodes"] = []
+    invalid.append((zero_model, "separate", 3))
+    duplicate_error = copy.deepcopy(base)
+    duplicate_error["errors"].append(copy.deepcopy(duplicate_error["errors"][0]))
+    invalid.append((duplicate_error, "separate", 3))
+    wrong_message = copy.deepcopy(base)
+    wrong_message["errors"][0]["message"] = "opaque sandbox error"
+    invalid.append((wrong_message, "separate", 3))
+    wrong_nested_attempts = copy.deepcopy(base)
+    wrong_nested_attempts["errors"][0]["message"] = wrong_nested_attempts["errors"][0]["message"].replace(
+        "9 attempts", "8 attempts"
+    )
+    invalid.append((wrong_nested_attempts, "separate", 3))
+    missing_attempt = copy.deepcopy(base)
+    missing_attempt["errors"][0]["message"] = (
+        "terminal-bench/separate-verifier: verifier VMVM failed after 3 attempts: "
+        "attempt 1: unavailable; attempt 3: unavailable"
+    )
+    invalid.append((missing_attempt, "separate", 3))
+    blank_traceback = copy.deepcopy(base)
+    blank_traceback["errors"][0]["traceback"] = ""
+    invalid.append((blank_traceback, "separate", 3))
+    wrong_frame = copy.deepcopy(base)
+    wrong_frame["errors"][0]["traceback"] = "Traceback: raise SandboxError"
+    invalid.append((wrong_frame, "separate", 3))
+    malformed_artifact = copy.deepcopy(base)
+    malformed_artifact["info"]["terminal_bench_artifacts"]["sha256"] = "a" * 40
+    invalid.append((malformed_artifact, "separate", 3))
+    wrong_attempts = copy.deepcopy(base)
+    invalid.append((wrong_attempts, "separate", 2))
+
+    for candidate, mode, attempts in invalid:
+        with pytest.raises(v4.V4RecoveryError):
+            v4._audit_supported_rows(
+                v6.split.canonical_json(candidate),
+                ("separate-verifier",),
+                {"separate-verifier": mode},
+                audit_error_model_io=True,
+                allow_post_agent_verifier_sandbox_errors=True,
+                post_agent_verifier_attempts=attempts,
+                sandoq_provisioning_attempts=9,
+            )
+
+    with pytest.raises(v4.V4RecoveryError, match="post_agent_verifier_policy_invalid"):
+        v4._audit_supported_rows(
+            v6.split.canonical_json(base),
+            ("separate-verifier",),
+            {"separate-verifier": "separate"},
+            audit_error_model_io=True,
+            allow_post_agent_verifier_sandbox_errors=True,
+            post_agent_verifier_attempts=None,
+            sandoq_provisioning_attempts=9,
+        )
+
+
+def test_v8_pre_model_sandoq_provisioning_error_is_exact_and_nontrainable() -> None:
+    row = _row("pre-model-provisioning")
+    row["errors"] = [
+        {
+            "type": "SandboxError",
+            "message": "Sandoq provisioning failed after 9 attempts",
+            "traceback": (
+                "Traceback (most recent call last):\n"
+                '  File "verifiers/v1/runtimes/sandoq.py", line 1, in start\n'
+                "    raise SandboxError(\n"
+            ),
+        }
+    ]
+    summary, rows = v4._audit_supported_rows(
+        v6.split.canonical_json(row),
+        ("pre-model-provisioning",),
+        {"pre-model-provisioning": "shared"},
+        audit_error_model_io=True,
+        audit_pre_model_sandoq_provisioning_errors=True,
+        sandoq_provisioning_attempts=9,
+    )
+    assert summary["pre_model_sandoq_provisioning_error_zeroes"] == 1
+    assert len(summary["pre_model_sandoq_provisioning_error_row_set_sha256"]) == 64
+    assert rows["pre-model-provisioning"]["info"]["diagnostic_evaluation_disposition"] == {
+        "kind": "pre-model-sandoq-provisioning-error-counted-as-zero",
+        "phase": "agent-runtime-provisioning",
+        "source_row_sha256": v4._sha256(v6.split.canonical_json(row)),
+        "trainable": False,
+        "zero_model": True,
+    }
+
+    for mutation in (
+        lambda value: value["errors"][0].update(message="Sandoq provisioning failed after 8 attempts"),
+        lambda value: value["errors"][0].update(traceback="Traceback: raise SandboxError("),
+        lambda value: value.update(info={"unexpected": True}),
+        lambda value: value.update(nodes=[{"sampled": True}]),
+    ):
+        changed = copy.deepcopy(row)
+        mutation(changed)
+        with pytest.raises(v4.V4RecoveryError):
+            v4._audit_supported_rows(
+                v6.split.canonical_json(changed),
+                ("pre-model-provisioning",),
+                {"pre-model-provisioning": "shared"},
+                audit_error_model_io=True,
+                audit_pre_model_sandoq_provisioning_errors=True,
+                sandoq_provisioning_attempts=9,
+            )
+
+    with pytest.raises(v4.V4RecoveryError, match="pre_model_sandoq_provisioning_policy_invalid"):
+        v4._audit_supported_rows(
+            v6.split.canonical_json(row),
+            ("pre-model-provisioning",),
+            {"pre-model-provisioning": "shared"},
+            audit_error_model_io=True,
+            audit_pre_model_sandoq_provisioning_errors=True,
+            sandoq_provisioning_attempts=None,
+        )
+
+
+def test_v8_post_agent_verifier_sandbox_error_requires_exact_trace_audit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _post_agent_verifier_sandbox_row()
+    monkeypatch.setattr(
+        v4.audit_traces,
+        "_audit_trace",
+        lambda *_args, **_kwargs: ["trace_has_errors", "node_2_reasoning_mismatch"],
+    )
+    with pytest.raises(v4.V4RecoveryError, match="error_row_model_io_audit_failed"):
+        v4._audit_supported_rows(
+            v6.split.canonical_json(row),
+            ("separate-verifier",),
+            {"separate-verifier": "separate"},
+            audit_error_model_io=True,
+            allow_post_agent_verifier_sandbox_errors=True,
+            post_agent_verifier_attempts=3,
+            sandoq_provisioning_attempts=9,
         )
 
 
@@ -340,9 +578,7 @@ def test_v6_trace_invalid_pass_is_retained_but_blocks_diagnostic_gate(
     assert v6._gate_met({"passes": v6.TARGET_PASSES, "trace_invalid_passing_rows": 0}) is True
     disposition = rows["passing"]["info"]["diagnostic_evaluation_disposition"]
     assert disposition["source_row_sha256"] == v4._sha256(v6.split.canonical_json(row))
-    assert disposition["audit_problem_set_sha256"] == v4._sha256(
-        v6.split.canonical_json(problems)
-    )
+    assert disposition["audit_problem_set_sha256"] == v4._sha256(v6.split.canonical_json(problems))
     assert disposition["trainable"] is False
 
 

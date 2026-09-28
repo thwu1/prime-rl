@@ -1,0 +1,673 @@
+#!/usr/bin/env python3
+"""Finalize the immutable Kimi TB4 v8 run with verifier-failure zeroes."""
+
+from __future__ import annotations
+
+import argparse
+import fcntl
+import json
+import re
+import subprocess
+import sys
+from collections import Counter
+from contextlib import ExitStack
+from pathlib import Path
+from typing import Any, Mapping, Sequence
+
+import finalize_kimi_tb4_sandoq_small_full as ordinary
+import finalize_kimi_tb4_sandoq_small_v4_recovery as recovery
+import finalize_kimi_tb4_sandoq_small_v6_supersession as transport
+import finalize_kimi_tb4_sandoq_small_v7 as v7
+import kimi_tb4_provider_split as split
+import prepare_kimi_tb4_miniswe246_union as union
+import prepare_kimi_tb4_sandoq_small_full as plan_module
+
+SCHEMA_VERSION = 2
+KIND = ordinary.KIND
+RESULTS = ordinary.RESULTS
+CERTIFICATE = ordinary.CERTIFICATE
+OUTPUT_NAME = "full-denominator-supersession-v2"
+SUPERSESSION_REASON = "fixed-denominator-exact-transport-v8-post-agent-verifier-zero"
+TARGET_PASSES = 7
+EXECUTION_SOURCE_REVISION = "02ced99650a33f6c548e47569d18587ae4a71a08"
+EXECUTION_VERIFIERS_COMMIT = "36b0dff6c18affb3d40b7c46d5836381d568050b"
+EXECUTION_SLURM_JOB_ID = "1607011"
+EXECUTION_PLAN_SHA256 = "af936100b1cb06e021f98de9900d235a9175e716fd9e9432298889f9ea9d6150"
+VERIFIER_ATTEMPTS = 3
+PROVISIONING_ATTEMPTS = 9
+REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
+KNOWN_POOL_EVENTS = frozenset(
+    {
+        "assignment_acquired",
+        "assignment_cancelled",
+        "assignment_ready",
+        "assignment_release_failed",
+        "assignment_released",
+        "capacity_backpressure",
+        "ecr_credential_vended",
+        "gateway_close_failed",
+        "managed_shell_ipc_response_delivery_failed",
+        "managed_shell_operation_abandoned",
+        "managed_shell_recovered",
+        "managed_shell_recovery_failed",
+        "outer_create_failed",
+        "outer_created",
+        "outer_delete_failed",
+        "outer_deleted",
+        "outer_renewal_failed",
+        "outer_renewed",
+        "pool_drain_incomplete",
+        "pool_drained",
+        "pool_recovery_completed",
+        "pool_recovery_incomplete",
+        "pool_recovery_retry",
+        "pool_recovery_started",
+        "pool_started",
+    }
+)
+SUPERSESSION_SOURCE_FILES = (
+    "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_v8_supersession.py",
+    "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_v7.py",
+    "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_v6_supersession.py",
+    "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_v4_recovery.py",
+    "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_full.py",
+    "user/tianhaowu/terminal_bench_vmvm/kimi_tb4_provider_split.py",
+    "user/tianhaowu/terminal_bench_vmvm/prepare_kimi_tb4_miniswe246_union.py",
+    "user/tianhaowu/terminal_bench_vmvm/prepare_kimi_tb4_sandoq_small_full.py",
+    "user/tianhaowu/terminal_bench_vmvm/audit_traces.py",
+)
+
+
+class V8SupersessionError(ValueError):
+    """The immutable v8 run cannot be represented by this supersession."""
+
+
+def _fail(code: str, error: BaseException | None = None) -> None:
+    if error is None:
+        raise V8SupersessionError(code)
+    raise V8SupersessionError(code) from error
+
+
+def _supersession_source_binding(expected_revision: str) -> dict[str, Any]:
+    try:
+        binding = recovery._repository_binding(expected_revision)
+        project = Path(str(binding["project_root"]))
+        status = subprocess.run(
+            ["git", "-C", str(project), "status", "--porcelain", "--untracked-files=all"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        if status:
+            _fail("supersession_source_invalid")
+        files = transport._git_file_hashes(project, expected_revision, SUPERSESSION_SOURCE_FILES)
+        for path, expected_sha256 in files.items():
+            if recovery._sha256((project / path).read_bytes()) != expected_sha256:
+                _fail("supersession_source_invalid")
+    except V8SupersessionError:
+        raise
+    except (OSError, RuntimeError, ValueError, subprocess.CalledProcessError) as error:
+        _fail("supersession_source_invalid", error)
+    return {
+        **binding,
+        "hash_kind": "raw-file-sha256",
+        "files": files,
+        "file_set_sha256": recovery._sha256(split.canonical_json(files)),
+    }
+
+
+def _assignment_lifecycle_audit(
+    body: bytes,
+    *,
+    expected_slurm_job_id: str,
+    trace_audit: Mapping[str, Any],
+    rows: Mapping[str, Mapping[str, Any]],
+    verifier_modes: Mapping[str, str],
+) -> dict[str, Any]:
+    if not body or not body.endswith(b"\n") or b"\r" in body:
+        _fail("assignment_lifecycle_invalid")
+    acquired: dict[str, dict[str, bool]] = {}
+    ready: set[str] = set()
+    terminal: set[str] = set()
+    abandoned: set[str] = set()
+    reasons: Counter[str] = Counter()
+    initialization_statuses: Counter[str] = Counter()
+    recoveries = 0
+    cancellations = 0
+    event_counts: Counter[str] = Counter()
+    for line in body.splitlines():
+        try:
+            event = json.loads(line)
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            _fail("assignment_lifecycle_invalid", error)
+        if (
+            not isinstance(event, dict)
+            or event.get("schema_version") != 2
+            or event.get("record_type") != "pool_event"
+            or event.get("slurm_job_id") != expected_slurm_job_id
+        ):
+            _fail("assignment_lifecycle_invalid")
+        name = event.get("event")
+        if not isinstance(name, str) or name not in KNOWN_POOL_EVENTS:
+            _fail("assignment_lifecycle_invalid")
+        event_counts[name] += 1
+        assignment_id = event.get("assignment_id")
+        if name == "assignment_acquired":
+            if not isinstance(assignment_id, str) or not assignment_id or assignment_id in acquired:
+                _fail("assignment_lifecycle_invalid")
+            acquired[assignment_id] = {"ready": False, "terminal": False}
+        elif name == "assignment_ready":
+            if (
+                not isinstance(assignment_id, str)
+                or assignment_id not in acquired
+                or assignment_id in ready
+                or assignment_id in terminal
+            ):
+                _fail("assignment_lifecycle_invalid")
+            acquired[assignment_id]["ready"] = True
+            ready.add(assignment_id)
+        elif name == "managed_shell_recovered":
+            if not isinstance(assignment_id, str) or assignment_id not in ready or assignment_id in terminal:
+                _fail("assignment_lifecycle_invalid")
+            recoveries += 1
+        elif name == "managed_shell_operation_abandoned":
+            if (
+                not isinstance(assignment_id, str)
+                or assignment_id not in ready
+                or assignment_id in terminal
+                or assignment_id in abandoned
+            ):
+                _fail("assignment_lifecycle_invalid")
+            abandoned.add(assignment_id)
+        elif name in {"managed_shell_recovery_failed", "assignment_release_failed", "pool_drain_incomplete"}:
+            _fail("assignment_lifecycle_invalid")
+        elif name == "assignment_cancelled":
+            if (
+                not isinstance(assignment_id, str)
+                or assignment_id not in acquired
+                or assignment_id in ready
+                or assignment_id in terminal
+                or event.get("cancellation_verified") is not True
+                or event.get("status") is not None
+                or bool(event.get("error"))
+            ):
+                _fail("assignment_lifecycle_invalid")
+            acquired[assignment_id]["terminal"] = True
+            terminal.add(assignment_id)
+            cancellations += 1
+        elif name == "assignment_released":
+            if not isinstance(assignment_id, str) or assignment_id not in acquired or assignment_id in terminal:
+                _fail("assignment_lifecycle_invalid")
+            reason = event.get("reason")
+            if reason == "initialization_failure":
+                valid = (
+                    assignment_id not in ready
+                    and event.get("status") == "poisoned"
+                    and event.get("poisoned") is True
+                    and event.get("nested_recycle_verified") is False
+                    and event.get("outer_deletion_verified_http_status") == 404
+                    and isinstance(event.get("error"), str)
+                    and bool(event["error"])
+                    and event.get("shell_failure_status") in {"http_500", "initialization_command_failed"}
+                )
+                initialization_statuses[str(event.get("shell_failure_status"))] += 1
+            elif reason == "rollout_complete":
+                valid = (
+                    assignment_id in ready
+                    and event.get("status") == "retired"
+                    and event.get("poisoned") is False
+                    and event.get("nested_recycle_verified") is True
+                    and event.get("outer_deletion_verified_http_status") == 404
+                    and not event.get("error")
+                )
+            elif reason == "managed_shell_lost":
+                valid = (
+                    assignment_id in ready
+                    and assignment_id in abandoned
+                    and event.get("status") == "poisoned"
+                    and event.get("poisoned") is True
+                    and event.get("nested_recycle_verified") is False
+                    and event.get("outer_deletion_verified_http_status") == 404
+                    and event.get("shell_failure_status") == "managed_shell_command_outcome_unknown"
+                    and isinstance(event.get("error"), str)
+                    and bool(event["error"])
+                )
+            else:
+                valid = False
+            if not valid:
+                _fail("assignment_lifecycle_invalid")
+            acquired[assignment_id]["terminal"] = True
+            terminal.add(assignment_id)
+            reasons[str(reason)] += 1
+
+    if (
+        not acquired
+        or event_counts["pool_started"] != 1
+        or event_counts["pool_recovery_completed"] != 1
+        or event_counts["pool_drained"] != 1
+        or set(acquired) != terminal
+        or any(not state["terminal"] for state in acquired.values())
+        or ready != {assignment_id for assignment_id in terminal if assignment_id in ready}
+        or abandoned != {assignment_id for assignment_id in terminal if assignment_id in abandoned}
+        or reasons["managed_shell_lost"] != len(abandoned)
+        or len(acquired) != len(ready) + reasons["initialization_failure"] + cancellations
+        or len(ready) != reasons["rollout_complete"] + reasons["managed_shell_lost"]
+    ):
+        _fail("assignment_lifecycle_invalid")
+
+    zero_model_errors = trace_audit.get("zero_model_error_zeroes")
+    post_agent_errors = trace_audit.get("post_agent_verifier_sandbox_error_zeroes")
+    pre_model_provisioning_errors = trace_audit.get("pre_model_sandoq_provisioning_error_zeroes")
+    if (
+        not transport._nonnegative_integer(zero_model_errors)
+        or not transport._nonnegative_integer(post_agent_errors)
+        or not transport._nonnegative_integer(pre_model_provisioning_errors)
+        or int(pre_model_provisioning_errors) > int(zero_model_errors)
+    ):
+        _fail("assignment_lifecycle_invalid")
+    required_initialization_failures = PROVISIONING_ATTEMPTS * (
+        int(pre_model_provisioning_errors) + VERIFIER_ATTEMPTS * int(post_agent_errors)
+    )
+    initialization_failures = reasons["initialization_failure"]
+    if initialization_failures < required_initialization_failures:
+        _fail("assignment_lifecycle_invalid")
+    scored_separate = 0
+    separate_retry_attempts = 0
+    for task_id, row in rows.items():
+        if row.get("errors") != [] or verifier_modes.get(task_id) != "separate":
+            continue
+        verifier = row.get("info", {}).get("terminal_bench_verifier")
+        attempts = verifier.get("attempts") if isinstance(verifier, Mapping) else None
+        failures = verifier.get("infrastructure_failures") if isinstance(verifier, Mapping) else None
+        if (
+            not isinstance(attempts, int)
+            or isinstance(attempts, bool)
+            or not 1 <= attempts <= VERIFIER_ATTEMPTS
+            or not isinstance(failures, list)
+            or len(failures) != attempts - 1
+        ):
+            _fail("assignment_lifecycle_invalid")
+        scored_separate += 1
+        separate_retry_attempts += attempts - 1
+    minimum_ready_terminal = len(rows) - int(zero_model_errors) + scored_separate
+    maximum_ready_terminal = (
+        len(rows) + scored_separate + separate_retry_attempts + int(post_agent_errors) * VERIFIER_ATTEMPTS
+    )
+    if not minimum_ready_terminal <= len(ready) <= maximum_ready_terminal:
+        _fail("assignment_lifecycle_invalid")
+    return {
+        "schema_version": 1,
+        "state": "passed",
+        "event_log_sha256": recovery._sha256(body),
+        "assignments_acquired": len(acquired),
+        "assignments_ready": len(ready),
+        "assignment_releases": sum(reasons.values()),
+        "assignment_cancellations": cancellations,
+        "release_reason_counts": dict(sorted(reasons.items())),
+        "initialization_failure_status_counts": dict(sorted(initialization_statuses.items())),
+        "required_error_source_initialization_failures": required_initialization_failures,
+        "unattributed_initialization_failures": initialization_failures - required_initialization_failures,
+        "managed_shell_recoveries": recoveries,
+        "managed_shell_abandonments": len(abandoned),
+        "minimum_ready_terminal": minimum_ready_terminal,
+        "maximum_ready_terminal": maximum_ready_terminal,
+    }
+
+
+def _post_agent_verifier_policy(trace_audit: Mapping[str, Any]) -> dict[str, Any]:
+    count = trace_audit.get("post_agent_verifier_sandbox_error_zeroes")
+    turns = trace_audit.get("post_agent_verifier_sandbox_error_model_io_turns")
+    row_set = trace_audit.get("post_agent_verifier_sandbox_error_row_set_sha256")
+    if (
+        not transport._nonnegative_integer(count)
+        or not transport._nonnegative_integer(turns)
+        or not isinstance(row_set, str)
+        or plan_module.SHA256_RE.fullmatch(row_set) is None
+    ):
+        _fail("post_agent_verifier_policy_invalid")
+    return {
+        "schema_version": 1,
+        "state": "enforced",
+        "error_type": "SandboxError",
+        "stop_condition": "agent_completed",
+        "verifier_mode": "separate",
+        "verifier_attempts": VERIFIER_ATTEMPTS,
+        "provisioning_attempts_per_verifier": PROVISIONING_ATTEMPTS,
+        "requires_artifact_manifest": True,
+        "requires_exact_model_io_audit": True,
+        "requires_assignment_lifecycle_proof": True,
+        "counted_as_zero": True,
+        "trainable": False,
+        "rows": count,
+        "model_io_turns": turns,
+        "row_set_sha256": row_set,
+    }
+
+
+def _pre_model_sandoq_provisioning_policy(trace_audit: Mapping[str, Any]) -> dict[str, Any]:
+    count = trace_audit.get("pre_model_sandoq_provisioning_error_zeroes")
+    row_set = trace_audit.get("pre_model_sandoq_provisioning_error_row_set_sha256")
+    if (
+        not transport._nonnegative_integer(count)
+        or not isinstance(row_set, str)
+        or plan_module.SHA256_RE.fullmatch(row_set) is None
+    ):
+        _fail("pre_model_sandoq_provisioning_policy_invalid")
+    return {
+        "schema_version": 1,
+        "state": "enforced",
+        "error_type": "SandboxError",
+        "stop_condition": "error",
+        "phase": "agent-runtime-provisioning",
+        "provisioning_attempts": PROVISIONING_ATTEMPTS,
+        "requires_empty_model_trace": True,
+        "requires_assignment_lifecycle_proof": True,
+        "counted_as_zero": True,
+        "trainable": False,
+        "rows": count,
+        "row_set_sha256": row_set,
+    }
+
+
+def finalize(
+    *,
+    plan_path: Path,
+    plan_sha256: str,
+    run_dir: Path,
+    supersession_source_revision: str,
+) -> dict[str, Any]:
+    if plan_sha256 != EXECUTION_PLAN_SHA256:
+        _fail("execution_plan_invalid")
+    source_binding = _supersession_source_binding(supersession_source_revision)
+    execution_semantics = transport._execution_semantics_manifest(
+        EXECUTION_SOURCE_REVISION,
+        EXECUTION_VERIFIERS_COMMIT,
+    )
+    held = split._HeldArtifactSet.create()
+    try:
+        plan, verified, plan_artifact = v7._verified_plan(plan_path, plan_sha256, held)
+        run_dir = split._absolute_path(run_dir)
+        output = run_dir / OUTPUT_NAME
+        if (
+            str(run_dir) != verified["output_dir"]
+            or plan.get("full_output_dir") != str(run_dir / v7.OUTPUT_NAME)
+            or output.exists()
+            or output.is_symlink()
+        ):
+            _fail("output_or_run_directory_invalid")
+        manifest_record = plan["source"]["manifest"]
+        manifest_path = Path(str(manifest_record["path"]))
+        manifest_body = split.read_regular(
+            manifest_path,
+            code="manifest_invalid",
+            private=True,
+            held=held,
+        )
+        if ordinary._artifact_bytes(manifest_path, manifest_body) != manifest_record:
+            _fail("manifest_invalid")
+        try:
+            _manifest, entries = split.parse_manifest(
+                manifest_body,
+                str(manifest_record["sha256"]),
+            )
+            partition = union.derive_union_partition(entries)
+        except Exception as error:
+            _fail("manifest_invalid", error)
+        verifier_modes = {entry.task_id: entry.verifier_mode for entry in entries}
+
+        with ExitStack() as stack:
+            evidence = split._open_held_run_evidence(run_dir)
+            stack.callback(evidence.close)
+            writer_lock = stack.enter_context(split._open_private_writer_lock_at(evidence.directory, ".writer.lock"))
+            router_lock = stack.enter_context(
+                split._open_private_writer_lock(split._router_lock_path(evidence.files["eval_run_identity.json"].body))
+            )
+            for lock in (writer_lock, router_lock):
+                try:
+                    fcntl.flock(lock.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError as error:
+                    _fail("run_active", error)
+
+            supported = ordinary._selector_members(plan["lane"]["selector"], held)
+            compose = ordinary._selector_members(plan["unsupported"]["compose"], held)
+            gpu = ordinary._selector_members(plan["unsupported"]["gpu"], held)
+            if (
+                supported != partition.sandoq_firecracker
+                or compose != partition.compose_required
+                or gpu != partition.gpu_unsupported
+            ):
+                _fail("partition_invalid")
+            identity, identity_sha256, invocation_sha256, slurm_job_id = ordinary._identity_contract(
+                run_dir=run_dir,
+                evidence=evidence,
+                plan=plan,
+                expected_revision=EXECUTION_SOURCE_REVISION,
+                expected_verifiers_commit=EXECUTION_VERIFIERS_COMMIT,
+                held=held,
+            )
+            if slurm_job_id != EXECUTION_SLURM_JOB_ID:
+                _fail("run_identity_invalid")
+            v7._validate_stock_identity(identity)
+
+            results_body, results_artifact = split._read_regular_evidence(
+                run_dir / RESULTS,
+                code="provider_results_invalid",
+                maximum_bytes=512 * 1024 * 1024,
+                private=True,
+                held=held,
+            )
+            trace_audit, rows = recovery._audit_supported_rows(
+                results_body,
+                supported,
+                verifier_modes,
+                allow_nontrainable_scored_rows=True,
+                audit_error_model_io=True,
+                allow_post_agent_verifier_sandbox_errors=True,
+                post_agent_verifier_attempts=VERIFIER_ATTEMPTS,
+                audit_pre_model_sandoq_provisioning_errors=True,
+                sandoq_provisioning_attempts=PROVISIONING_ATTEMPTS,
+            )
+            try:
+                cleanup, cleanup_artifacts = split._validate_sandoq_cleanup(
+                    run_dir / "sandoq_cleanup_audit.json",
+                    run_dir,
+                    identity,
+                    identity_sha256,
+                    invocation_sha256,
+                    slurm_job_id,
+                    plan_module.SUPPORTED_TASKS,
+                    plan_module.CONCURRENCY,
+                    held,
+                )
+                event_body, _event_artifact = split._read_regular_evidence(
+                    run_dir / "pool_events.jsonl",
+                    code="assignment_lifecycle_invalid",
+                    maximum_bytes=128 * 1024 * 1024,
+                    private=True,
+                    held=held,
+                )
+                assignment_lifecycle = _assignment_lifecycle_audit(
+                    event_body,
+                    expected_slurm_job_id=slurm_job_id,
+                    trace_audit=trace_audit,
+                    rows=rows,
+                    verifier_modes=verifier_modes,
+                )
+                router_body, router_artifact, router_marker = split._validate_direct_router_receipt(
+                    run_dir / "direct_kimi_router_final.json",
+                    identity,
+                    minimum_chat_requests=plan_module.SUPPORTED_TASKS,
+                    identity_sha256=identity_sha256,
+                    invocation_identity_sha256=invocation_sha256,
+                    held=held,
+                    allow_terminal_upstream_statuses=True,
+                )
+            except Exception as error:
+                _fail("run_audit_failed", error)
+            provider_context = transport._provider_context(
+                run_dir / "sandoq-provider-context.json",
+                held,
+            )
+            proxy_audit, proxy_artifacts = transport._buffered_proxy_directory_audit(
+                run_dir / "control/buffered-proxy-stats",
+                expected_records=plan_module.SUPPORTED_TASKS,
+                expected_schema="logical-exact-once-v1",
+                held=held,
+            )
+            buffered_proxy_audit = transport._exact_proxy_trace_binding(
+                proxy_audit,
+                trace_audit,
+                expected_summary_records=plan_module.SUPPORTED_TASKS,
+            )
+            router_transport_binding = transport._exact_router_proxy_binding(
+                router_body,
+                buffered_proxy_audit,
+                trace_audit,
+            )
+            results_output = transport._merge_rows(
+                entries,
+                rows,
+                compose,
+                gpu,
+                str(manifest_record["sha256"]),
+            )
+            passes = int(trace_audit["passes"])
+            gate_met = transport._gate_met(trace_audit)
+            post_agent_policy = _post_agent_verifier_policy(trace_audit)
+            pre_model_provisioning_policy = _pre_model_sandoq_provisioning_policy(trace_audit)
+            post_agent_zeroes = int(trace_audit["post_agent_verifier_sandbox_error_zeroes"])
+            pre_model_provisioning_zeroes = int(trace_audit["pre_model_sandoq_provisioning_error_zeroes"])
+            certificate = {
+                "schema_version": SCHEMA_VERSION,
+                "kind": KIND,
+                "state": "finalized-with-explicit-error-zeroes",
+                "certification_eligible": False,
+                "official_comparable": False,
+                "result_label": "resource-clamped-firecracker-small-diagnostic",
+                "source_revision": EXECUTION_SOURCE_REVISION,
+                "launch_plan_sha256": plan_sha256,
+                "manifest_sha256": manifest_record["sha256"],
+                "eval_run_identity_sha256": identity_sha256,
+                "invocation_identity_sha256": invocation_sha256,
+                "source_run": {
+                    "slurm_job_id": slurm_job_id,
+                    "source_revision": EXECUTION_SOURCE_REVISION,
+                    "launch_plan": plan_artifact,
+                    "results": results_artifact,
+                    "results_mutated": False,
+                },
+                "supersession": {
+                    "source": source_binding,
+                    "reason": SUPERSESSION_REASON,
+                    "original_full_output": plan["full_output_dir"],
+                    "model_attempts_preserved": True,
+                },
+                "counts": {
+                    "denominator": split.TOTAL_TASKS,
+                    "executed": plan_module.SUPPORTED_TASKS,
+                    "compose_unsupported": plan_module.COMPOSE_UNSUPPORTED_TASKS,
+                    "gpu_unsupported": plan_module.GPU_UNSUPPORTED_TASKS,
+                    "passes": passes,
+                    "failures": split.TOTAL_TASKS - passes,
+                    "execution_error_zeroes": trace_audit["execution_error_zeroes"],
+                    "post_agent_verifier_sandbox_error_zeroes": post_agent_zeroes,
+                    "pre_model_sandoq_provisioning_error_zeroes": pre_model_provisioning_zeroes,
+                },
+                "scores": {
+                    "executed_pass_rate": passes / plan_module.SUPPORTED_TASKS,
+                    "all_task_pass_rate": passes / split.TOTAL_TASKS,
+                },
+                "gate": {"target_passes": TARGET_PASSES, "met": gate_met},
+                "policy": plan["contracts"],
+                "execution_semantics": execution_semantics,
+                "post_agent_verifier_error_policy": post_agent_policy,
+                "pre_model_sandoq_provisioning_error_policy": pre_model_provisioning_policy,
+                "sandoq_assignment_lifecycle": assignment_lifecycle,
+                "buffered_proxy_audit": buffered_proxy_audit,
+                "router_transport_binding": router_transport_binding,
+                "trace_audit": trace_audit,
+                "training_eligibility": {
+                    "eligible_clean_scored_rows": trace_audit["clean_scored_rows"],
+                    "excluded_error_rows": trace_audit["execution_error_zeroes"],
+                    "excluded_post_agent_verifier_sandbox_error_rows": post_agent_zeroes,
+                    "excluded_pre_model_sandoq_provisioning_error_rows": pre_model_provisioning_zeroes,
+                    "excluded_trace_invalid_scored_rows": trace_audit["trace_invalid_scored_rows"],
+                    "excluded_unsupported_rows": (
+                        plan_module.COMPOSE_UNSUPPORTED_TASKS + plan_module.GPU_UNSUPPORTED_TASKS
+                    ),
+                    "error_rows_are_trainable": False,
+                    "post_agent_verifier_sandbox_error_rows_are_trainable": False,
+                    "pre_model_sandoq_provisioning_error_rows_are_trainable": False,
+                    "trace_invalid_scored_rows_are_trainable": False,
+                },
+                "zero_model_recovery": {
+                    "state": "not_attempted",
+                    "eligible_rows": trace_audit["zero_model_error_zeroes"],
+                    "recovered_rows": 0,
+                    "source_row_set_sha256": trace_audit["zero_model_row_set_sha256"],
+                    "model_attempts_preserved": True,
+                    "requires_new_versioned_supersession_for_recovered_rows": True,
+                },
+                "cleanup": cleanup,
+                "provider_context": provider_context,
+                "router_receipt_sha256": recovery._sha256(router_body),
+                "artifacts": {
+                    "executed_results": results_artifact,
+                    "buffered_proxy_summary_records": proxy_artifacts,
+                    "router_receipt": router_artifact,
+                    "router_receipt_commit": router_marker,
+                    **cleanup_artifacts,
+                },
+                "results_sha256": recovery._sha256(results_output),
+            }
+            evidence.revalidate()
+            held.revalidate()
+            split._publish_private_bundle(
+                output,
+                {RESULTS: results_output, CERTIFICATE: split.canonical_json(certificate)},
+            )
+            evidence.revalidate()
+            held.revalidate()
+    finally:
+        held.close()
+    return {
+        "state": "finalized-with-explicit-error-zeroes",
+        "denominator": split.TOTAL_TASKS,
+        "passes": passes,
+        "failures": split.TOTAL_TASKS - passes,
+        "execution_error_zeroes": trace_audit["execution_error_zeroes"],
+        "post_agent_verifier_sandbox_error_zeroes": post_agent_zeroes,
+        "pre_model_sandoq_provisioning_error_zeroes": pre_model_provisioning_zeroes,
+        "gate_met": gate_met,
+        "all_task_pass_rate": passes / split.TOTAL_TASKS,
+        "certification_eligible": False,
+        "results_sha256": recovery._sha256(results_output),
+    }
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--plan", type=Path, required=True)
+    parser.add_argument("--plan-sha256", required=True)
+    parser.add_argument("--run-dir", type=Path, required=True)
+    parser.add_argument("--supersession-source-revision", required=True)
+    args = parser.parse_args(argv)
+    try:
+        result = finalize(
+            plan_path=args.plan,
+            plan_sha256=args.plan_sha256,
+            run_dir=args.run_dir,
+            supersession_source_revision=args.supersession_source_revision,
+        )
+    except (OSError, RuntimeError, ValueError):
+        print(
+            '{"code":"kimi_tb4_sandoq_small_v8_supersession_failed","state":"blocked"}',
+            file=sys.stderr,
+        )
+        return 2
+    print(json.dumps(result, sort_keys=True, separators=(",", ":")))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

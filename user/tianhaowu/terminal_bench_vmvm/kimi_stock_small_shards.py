@@ -28,6 +28,7 @@ import audit_traces
 import finalize_kimi_tb4_sandoq_small_full as tb4_full
 import finalize_kimi_tb4_sandoq_small_v4_recovery as tb4_recovery
 import finalize_kimi_tb4_sandoq_small_v6_supersession as tb4_transport
+import finalize_kimi_tb4_sandoq_small_v8_supersession as tb4_v8
 import kimi_sandoq_production as legacy
 import kimi_stock_small_task_image_soak as task_image_soak
 import kimi_tb4_provider_split as split
@@ -835,6 +836,8 @@ def _validate_tb4_supersession_source(
     tb4_root: Path,
     production_root: Path,
     certificate_revision: str,
+    source_paths: Sequence[str] = tb4_transport.SUPERSESSION_SOURCE_FILES,
+    distinct_source_revision: bool = False,
 ) -> dict[str, Any]:
     if not isinstance(value, dict) or set(value) != {
         "project_root",
@@ -844,22 +847,32 @@ def _validate_tb4_supersession_source(
         "file_set_sha256",
     }:
         raise StockSmallError("tb4_supersession_source_invalid")
+    source_revision = value.get("revision")
+    source_root_value = value.get("project_root")
+    source_root = Path(source_root_value) if isinstance(source_root_value, str) else Path()
     if (
-        value.get("project_root") != str(tb4_root)
-        or value.get("revision") != certificate_revision
+        not isinstance(source_revision, str)
+        or REVISION_RE.fullmatch(source_revision) is None
+        or not isinstance(source_root_value, str)
+        or not source_root_value
+        or not source_root.is_absolute()
         or value.get("hash_kind") != "raw-file-sha256"
+        or (not distinct_source_revision and source_revision != certificate_revision)
+        or (not distinct_source_revision and source_root != tb4_root)
     ):
         raise StockSmallError("tb4_supersession_source_invalid")
-    paths = tb4_transport.SUPERSESSION_SOURCE_FILES
-    files = _validated_hash_map(value.get("files"), paths)
-    tb4_files = _git_file_hashes(tb4_root, certificate_revision, paths)
+    files = _validated_hash_map(value.get("files"), source_paths)
     production_revision = _git(production_root, "rev-parse", "HEAD")
-    production_files = _git_file_hashes(production_root, production_revision, paths)
+    if distinct_source_revision:
+        source_files = _git_file_hashes(production_root, source_revision, source_paths)
+    else:
+        source_files = _git_file_hashes(tb4_root, certificate_revision, source_paths)
+    production_files = _git_file_hashes(production_root, production_revision, source_paths)
     file_set_sha256 = _sha256(_canonical(files))
-    if files != tb4_files or files != production_files or value.get("file_set_sha256") != file_set_sha256:
+    if files != source_files or files != production_files or value.get("file_set_sha256") != file_set_sha256:
         raise StockSmallError("tb4_supersession_source_invalid")
     return {
-        "source_revision": certificate_revision,
+        "source_revision": source_revision,
         "file_set_sha256": file_set_sha256,
     }
 
@@ -917,6 +930,53 @@ def _validate_tb4_provider_context(
     return provider_snapshot
 
 
+def _tb4_gate_variant(value: Mapping[str, Any]) -> dict[str, Any]:
+    supersession = value.get("supersession")
+    reason = supersession.get("reason") if isinstance(supersession, Mapping) else None
+    if value.get("schema_version") == 1 and reason == "fixed-denominator-exact-transport-v7":
+        return {
+            "schema_version": 1,
+            "reason": reason,
+            "extra_certificate_keys": frozenset(),
+            "extra_count_keys": frozenset(),
+            "extra_training_keys": frozenset(),
+            "allow_post_agent_verifier_sandbox_errors": False,
+            "supersession_source_paths": tb4_transport.SUPERSESSION_SOURCE_FILES,
+            "distinct_supersession_source_revision": False,
+        }
+    if value.get("schema_version") == 2 and reason == tb4_v8.SUPERSESSION_REASON:
+        return {
+            "schema_version": 2,
+            "reason": reason,
+            "extra_certificate_keys": frozenset(
+                {
+                    "post_agent_verifier_error_policy",
+                    "pre_model_sandoq_provisioning_error_policy",
+                    "sandoq_assignment_lifecycle",
+                }
+            ),
+            "extra_count_keys": frozenset(
+                {
+                    "post_agent_verifier_sandbox_error_zeroes",
+                    "pre_model_sandoq_provisioning_error_zeroes",
+                }
+            ),
+            "extra_training_keys": frozenset(
+                {
+                    "excluded_post_agent_verifier_sandbox_error_rows",
+                    "excluded_pre_model_sandoq_provisioning_error_rows",
+                    "post_agent_verifier_sandbox_error_rows_are_trainable",
+                    "pre_model_sandoq_provisioning_error_rows_are_trainable",
+                }
+            ),
+            "allow_post_agent_verifier_sandbox_errors": True,
+            "audit_pre_model_sandoq_provisioning_errors": True,
+            "supersession_source_paths": tb4_v8.SUPERSESSION_SOURCE_FILES,
+            "distinct_supersession_source_revision": True,
+        }
+    raise StockSmallError("tb4_gate_invalid")
+
+
 def _validate_tb4_gate_locked(
     path: Path,
     expected_sha256: str,
@@ -948,6 +1008,7 @@ def _validate_tb4_gate_locked(
     training = value.get("training_eligibility")
     recovery = value.get("zero_model_recovery")
     certificate_revision = value.get("source_revision")
+    variant = _tb4_gate_variant(value)
     policy_timeouts = policy.get("timeouts") if isinstance(policy, dict) else None
     expected_certificate_keys = {
         "schema_version",
@@ -978,22 +1039,22 @@ def _validate_tb4_gate_locked(
         "router_receipt_sha256",
         "artifacts",
         "results_sha256",
-    }
+    } | set(variant["extra_certificate_keys"])
     count_values = ()
+    expected_count_keys = {
+        "denominator",
+        "executed",
+        "compose_unsupported",
+        "gpu_unsupported",
+        "passes",
+        "failures",
+        "execution_error_zeroes",
+    } | set(variant["extra_count_keys"])
     if isinstance(counts, dict):
-        count_values = tuple(
-            counts.get(key)
-            for key in (
-                "denominator",
-                "executed",
-                "compose_unsupported",
-                "gpu_unsupported",
-                "passes",
-                "failures",
-                "execution_error_zeroes",
-            )
-        )
-    counts_are_integers = len(count_values) == 7 and all(map(_plain_nonnegative_integer, count_values))
+        count_values = tuple(counts.get(key) for key in sorted(expected_count_keys))
+    counts_are_integers = len(count_values) == len(expected_count_keys) and all(
+        map(_plain_nonnegative_integer, count_values)
+    )
     rate = scores.get("all_task_pass_rate") if isinstance(scores, dict) else None
     rate_is_number = isinstance(rate, (int, float)) and not isinstance(rate, bool) and math.isfinite(float(rate))
     identity_path: Path | None = None
@@ -1013,7 +1074,7 @@ def _validate_tb4_gate_locked(
             router_record = candidate_router_record
     if (
         set(value) != expected_certificate_keys
-        or value.get("schema_version") != 1
+        or value.get("schema_version") != variant["schema_version"]
         or value.get("kind") != "kimi-tb4-miniswe246-sandoq-firecracker-small-diagnostic"
         or value.get("state") != "finalized-with-explicit-error-zeroes"
         or value.get("certification_eligible") is not False
@@ -1033,16 +1094,7 @@ def _validate_tb4_gate_locked(
         )
         or value.get("result_label") != "resource-clamped-firecracker-small-diagnostic"
         or not isinstance(counts, dict)
-        or set(counts)
-        != {
-            "denominator",
-            "executed",
-            "compose_unsupported",
-            "gpu_unsupported",
-            "passes",
-            "failures",
-            "execution_error_zeroes",
-        }
+        or set(counts) != expected_count_keys
         or not counts_are_integers
         or counts.get("denominator") != 66
         or counts.get("executed") != 52
@@ -1108,7 +1160,7 @@ def _validate_tb4_gate_locked(
             "original_full_output",
             "model_attempts_preserved",
         }
-        or supersession.get("reason") != "fixed-denominator-exact-transport-v7"
+        or supersession.get("reason") != variant["reason"]
         or supersession.get("model_attempts_preserved") is not True
         or not isinstance(supersession.get("original_full_output"), str)
         or identity_path is None
@@ -1206,6 +1258,8 @@ def _validate_tb4_gate_locked(
             tb4_root=tb4_root,
             production_root=production_root,
             certificate_revision=certificate_revision,
+            source_paths=variant["supersession_source_paths"],
+            distinct_source_revision=variant["distinct_supersession_source_revision"],
         ),
     }
     task_record = identity.get("inputs", {}).get("task_file")
@@ -1256,6 +1310,21 @@ def _validate_tb4_gate_locked(
             verifier_modes,
             allow_nontrainable_scored_rows=True,
             audit_error_model_io=True,
+            allow_post_agent_verifier_sandbox_errors=variant["allow_post_agent_verifier_sandbox_errors"],
+            post_agent_verifier_attempts=(
+                int(policy["verifier_runtime_retries"]) + 1
+                if variant["allow_post_agent_verifier_sandbox_errors"]
+                else None
+            ),
+            audit_pre_model_sandoq_provisioning_errors=variant.get(
+                "audit_pre_model_sandoq_provisioning_errors",
+                False,
+            ),
+            sandoq_provisioning_attempts=(
+                int(policy["provisioning_retries"]) + 1
+                if variant.get("audit_pre_model_sandoq_provisioning_errors", False)
+                else None
+            ),
         )
         finalized_results = tb4_transport._merge_rows(
             entries,
@@ -1319,6 +1388,52 @@ def _validate_tb4_gate_locked(
         proxy_audit,
         provider_error_rows=int(trace_audit["provider_error_zeroes"]),
     )
+    post_agent_zeroes = trace_audit.get("post_agent_verifier_sandbox_error_zeroes", 0)
+    pre_model_provisioning_zeroes = trace_audit.get("pre_model_sandoq_provisioning_error_zeroes", 0)
+    expected_training = {
+        "eligible_clean_scored_rows": trace_audit.get("clean_scored_rows"),
+        "excluded_error_rows": trace_audit.get("execution_error_zeroes"),
+        "excluded_trace_invalid_scored_rows": trace_audit.get("trace_invalid_scored_rows"),
+        "excluded_unsupported_rows": 14,
+        "error_rows_are_trainable": False,
+        "trace_invalid_scored_rows_are_trainable": False,
+    }
+    if variant["allow_post_agent_verifier_sandbox_errors"]:
+        expected_training.update(
+            {
+                "excluded_post_agent_verifier_sandbox_error_rows": post_agent_zeroes,
+                "excluded_pre_model_sandoq_provisioning_error_rows": pre_model_provisioning_zeroes,
+                "post_agent_verifier_sandbox_error_rows_are_trainable": False,
+                "pre_model_sandoq_provisioning_error_rows_are_trainable": False,
+            }
+        )
+        try:
+            expected_post_agent_policy = tb4_v8._post_agent_verifier_policy(trace_audit)
+            expected_pre_model_provisioning_policy = tb4_v8._pre_model_sandoq_provisioning_policy(trace_audit)
+            event_body = _read(
+                run_dir / "pool_events.jsonl",
+                code="tb4_gate_lifecycle_invalid",
+                private=True,
+                held=held,
+                maximum_bytes=128 * 1024 * 1024,
+            )
+            expected_assignment_lifecycle = tb4_v8._assignment_lifecycle_audit(
+                event_body,
+                expected_slurm_job_id=invocation_job_id,
+                trace_audit=trace_audit,
+                rows=rows,
+                verifier_modes=verifier_modes,
+            )
+        except (OSError, RuntimeError, ValueError) as error:
+            raise StockSmallError("tb4_gate_lifecycle_invalid") from error
+        if (
+            value.get("post_agent_verifier_error_policy") != expected_post_agent_policy
+            or value.get("pre_model_sandoq_provisioning_error_policy") != expected_pre_model_provisioning_policy
+            or value.get("sandoq_assignment_lifecycle") != expected_assignment_lifecycle
+            or counts.get("post_agent_verifier_sandbox_error_zeroes") != post_agent_zeroes
+            or counts.get("pre_model_sandoq_provisioning_error_zeroes") != pre_model_provisioning_zeroes
+        ):
+            raise StockSmallError("tb4_gate_lifecycle_invalid")
     if (
         result_artifact != executed_record
         or _sha256(finalized_results) != value.get("results_sha256")
@@ -1334,15 +1449,7 @@ def _validate_tb4_gate_locked(
         + trace_audit.get("trace_invalid_scored_rows")
         + trace_audit.get("execution_error_zeroes")
         != counts["executed"]
-        or training
-        != {
-            "eligible_clean_scored_rows": trace_audit.get("clean_scored_rows"),
-            "excluded_error_rows": trace_audit.get("execution_error_zeroes"),
-            "excluded_trace_invalid_scored_rows": trace_audit.get("trace_invalid_scored_rows"),
-            "excluded_unsupported_rows": 14,
-            "error_rows_are_trainable": False,
-            "trace_invalid_scored_rows_are_trainable": False,
-        }
+        or training != expected_training
         or recovery
         != {
             "state": "not_attempted",
