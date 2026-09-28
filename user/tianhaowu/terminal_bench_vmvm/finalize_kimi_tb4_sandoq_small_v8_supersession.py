@@ -11,6 +11,7 @@ import subprocess
 import sys
 from collections import Counter
 from contextlib import ExitStack
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -78,6 +79,30 @@ SUPERSESSION_SOURCE_FILES = (
 )
 
 
+@dataclass(frozen=True)
+class ExecutionContract:
+    """Immutable execution identity consumed by the shared v8 audit engine."""
+
+    source_revision: str
+    verifiers_commit: str
+    slurm_job_id: str
+    plan_sha256: str
+    output_name: str
+    supersession_reason: str
+    supersession_source_files: tuple[str, ...]
+
+
+V8_EXECUTION_CONTRACT = ExecutionContract(
+    source_revision=EXECUTION_SOURCE_REVISION,
+    verifiers_commit=EXECUTION_VERIFIERS_COMMIT,
+    slurm_job_id=EXECUTION_SLURM_JOB_ID,
+    plan_sha256=EXECUTION_PLAN_SHA256,
+    output_name=OUTPUT_NAME,
+    supersession_reason=SUPERSESSION_REASON,
+    supersession_source_files=SUPERSESSION_SOURCE_FILES,
+)
+
+
 class V8SupersessionError(ValueError):
     """The immutable v8 run cannot be represented by this supersession."""
 
@@ -88,7 +113,40 @@ def _fail(code: str, error: BaseException | None = None) -> None:
     raise V8SupersessionError(code) from error
 
 
-def _supersession_source_binding(expected_revision: str) -> dict[str, Any]:
+def _validated_execution_contract(contract: ExecutionContract) -> ExecutionContract:
+    if (
+        not isinstance(contract, ExecutionContract)
+        or not isinstance(contract.source_revision, str)
+        or REVISION_RE.fullmatch(contract.source_revision) is None
+        or not isinstance(contract.verifiers_commit, str)
+        or REVISION_RE.fullmatch(contract.verifiers_commit) is None
+        or not isinstance(contract.slurm_job_id, str)
+        or re.fullmatch(r"[1-9][0-9]*", contract.slurm_job_id) is None
+        or not isinstance(contract.plan_sha256, str)
+        or plan_module.SHA256_RE.fullmatch(contract.plan_sha256) is None
+        or not isinstance(contract.output_name, str)
+        or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", contract.output_name) is None
+        or not isinstance(contract.supersession_reason, str)
+        or not contract.supersession_reason
+        or not isinstance(contract.supersession_source_files, tuple)
+        or not contract.supersession_source_files
+        or len(contract.supersession_source_files) != len(set(contract.supersession_source_files))
+        or any(
+            not isinstance(path, str)
+            or not path.startswith("user/tianhaowu/terminal_bench_vmvm/")
+            or Path(path).is_absolute()
+            or ".." in Path(path).parts
+            for path in contract.supersession_source_files
+        )
+    ):
+        _fail("execution_contract_invalid")
+    return contract
+
+
+def _supersession_source_binding(
+    expected_revision: str,
+    source_files: tuple[str, ...] = SUPERSESSION_SOURCE_FILES,
+) -> dict[str, Any]:
     try:
         binding = recovery._repository_binding(expected_revision)
         project = Path(str(binding["project_root"]))
@@ -100,7 +158,7 @@ def _supersession_source_binding(expected_revision: str) -> dict[str, Any]:
         ).stdout
         if status:
             _fail("supersession_source_invalid")
-        files = transport._git_file_hashes(project, expected_revision, SUPERSESSION_SOURCE_FILES)
+        files = transport._git_file_hashes(project, expected_revision, source_files)
         for path, expected_sha256 in files.items():
             if recovery._sha256((project / path).read_bytes()) != expected_sha256:
                 _fail("supersession_source_invalid")
@@ -375,19 +433,24 @@ def finalize(
     plan_sha256: str,
     run_dir: Path,
     supersession_source_revision: str,
+    execution_contract: ExecutionContract = V8_EXECUTION_CONTRACT,
 ) -> dict[str, Any]:
-    if plan_sha256 != EXECUTION_PLAN_SHA256:
+    execution = _validated_execution_contract(execution_contract)
+    if plan_sha256 != execution.plan_sha256:
         _fail("execution_plan_invalid")
-    source_binding = _supersession_source_binding(supersession_source_revision)
+    source_binding = _supersession_source_binding(
+        supersession_source_revision,
+        execution.supersession_source_files,
+    )
     execution_semantics = transport._execution_semantics_manifest(
-        EXECUTION_SOURCE_REVISION,
-        EXECUTION_VERIFIERS_COMMIT,
+        execution.source_revision,
+        execution.verifiers_commit,
     )
     held = split._HeldArtifactSet.create()
     try:
         plan, verified, plan_artifact = v7._verified_plan(plan_path, plan_sha256, held)
         run_dir = split._absolute_path(run_dir)
-        output = run_dir / OUTPUT_NAME
+        output = run_dir / execution.output_name
         if (
             str(run_dir) != verified["output_dir"]
             or plan.get("full_output_dir") != str(run_dir / v7.OUTPUT_NAME)
@@ -441,11 +504,11 @@ def finalize(
                 run_dir=run_dir,
                 evidence=evidence,
                 plan=plan,
-                expected_revision=EXECUTION_SOURCE_REVISION,
-                expected_verifiers_commit=EXECUTION_VERIFIERS_COMMIT,
+                expected_revision=execution.source_revision,
+                expected_verifiers_commit=execution.verifiers_commit,
                 held=held,
             )
-            if slurm_job_id != EXECUTION_SLURM_JOB_ID:
+            if slurm_job_id != execution.slurm_job_id:
                 _fail("run_identity_invalid")
             v7._validate_stock_identity(identity)
 
@@ -544,21 +607,21 @@ def finalize(
                 "certification_eligible": False,
                 "official_comparable": False,
                 "result_label": "resource-clamped-firecracker-small-diagnostic",
-                "source_revision": EXECUTION_SOURCE_REVISION,
+                "source_revision": execution.source_revision,
                 "launch_plan_sha256": plan_sha256,
                 "manifest_sha256": manifest_record["sha256"],
                 "eval_run_identity_sha256": identity_sha256,
                 "invocation_identity_sha256": invocation_sha256,
                 "source_run": {
                     "slurm_job_id": slurm_job_id,
-                    "source_revision": EXECUTION_SOURCE_REVISION,
+                    "source_revision": execution.source_revision,
                     "launch_plan": plan_artifact,
                     "results": results_artifact,
                     "results_mutated": False,
                 },
                 "supersession": {
                     "source": source_binding,
-                    "reason": SUPERSESSION_REASON,
+                    "reason": execution.supersession_reason,
                     "original_full_output": plan["full_output_dir"],
                     "model_attempts_preserved": True,
                 },
