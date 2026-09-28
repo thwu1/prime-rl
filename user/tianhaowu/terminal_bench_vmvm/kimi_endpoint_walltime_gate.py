@@ -678,6 +678,7 @@ def capture_gate(
             manifest.get("source_endpoint_bundle_sha256") if profile == C23_PROFILE else None
         ),
         excluded_backend_sha256=excluded_backend_sha256,
+        deployment=deployment,
     )
     _write_receipt(output, receipt)
     return receipt

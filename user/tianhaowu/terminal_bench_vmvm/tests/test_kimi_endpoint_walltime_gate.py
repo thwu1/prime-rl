@@ -164,6 +164,97 @@ def test_stock_single_c16_profile_requires_four_wave_margin() -> None:
         gate._validate_task_count(16, profile=gate.STOCK_SINGLE_C16_PROFILE)
 
 
+def test_capture_stock_single_c16_preserves_dynamic_deployment_binding(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    deployment = "fresh-stock-deployment"
+    host = "fresh-stock-worker"
+    backend = _backend(host)
+    manifest = {
+        "schema_version": 6,
+        "workers": [{"backend_sha256": backend}],
+        "endpoint_bundle_sha256": gate._bundle_sha256([backend]),
+        "router": {
+            "capacity_profile": gate.STOCK_SINGLE_MANIFEST_CAPACITY_PROFILE,
+            "endpoint_identifier": deployment,
+            "max_concurrent_requests": gate.W2_ROUTER_ADMISSION,
+            "queue_size": gate.W2_ROUTER_ADMISSION,
+            "per_worker_capacity": gate.W2_ROUTER_ADMISSION,
+            "request_timeout_seconds": gate.EXTENDED_REQUEST_TIMEOUT_SECONDS,
+            "queue_timeout_seconds": gate.EXTENDED_REQUEST_TIMEOUT_SECONDS,
+            "retries": 0,
+        },
+    }
+    manifest_path = tmp_path / "direct_kimi_workers.json"
+    manifest_raw = (json.dumps(manifest, sort_keys=True) + "\n").encode()
+    manifest_path.write_bytes(manifest_raw)
+    manifest_sha256 = hashlib.sha256(manifest_raw).hexdigest()
+    monkeypatch.setattr(
+        direct_kimi_workers,
+        "validate_saved_manifest",
+        lambda *_args, **_kwargs: manifest,
+    )
+    status = (
+        json.dumps(
+            {
+                "schema_version": 4,
+                "deployment_id": deployment,
+                "phase": "serving",
+                "endpoints_summary": {
+                    "desired": 1,
+                    "ready": 1,
+                    "running_not_ready": 0,
+                    "pending": 0,
+                },
+                "endpoints": [
+                    {
+                        "jobid": "1609421",
+                        "host": host,
+                        "port": 8000,
+                        "slurm_state": "RUNNING",
+                        "sub_state": "ready",
+                    }
+                ],
+            },
+            sort_keys=True,
+        )
+        + "\n"
+    ).encode()
+    scheduler = b"1609421|RUNNING|0|3600|10080\n"
+    tmp_path.chmod(0o700)
+    serve_sh = tmp_path / "serve.sh"
+    serve_sh.write_text("#!/bin/sh\n")
+
+    def runner(argv, _timeout):
+        return gate.CommandResult(0, scheduler if argv[0] == str(gate.SACCT) else status)
+
+    output = tmp_path / "endpoint-walltime.json"
+    receipt = gate.capture_gate(
+        manifest_path=manifest_path,
+        manifest_sha256=manifest_sha256,
+        output=output,
+        profile=gate.STOCK_SINGLE_C16_PROFILE,
+        minimum_remaining_seconds=gate.STOCK_SINGLE_C16_MINIMUM_REMAINING_SECONDS,
+        task_count=52,
+        serve_sh=serve_sh,
+        deployment=deployment,
+        runner=runner,
+        now=lambda: "2026-09-28T09:00:00Z",
+    )
+
+    assert receipt["deployment"] == deployment
+    assert gate.load_receipt(
+        output,
+        manifest_sha256=manifest_sha256,
+        endpoint_bundle_sha256=manifest["endpoint_bundle_sha256"],
+        profile=gate.STOCK_SINGLE_C16_PROFILE,
+        minimum_remaining_seconds=gate.STOCK_SINGLE_C16_MINIMUM_REMAINING_SECONDS,
+        task_count=52,
+        deployment=deployment,
+    ) == receipt
+
+
 def test_capture_gate_accepts_exact_stable_24_job_generation(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
