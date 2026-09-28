@@ -348,3 +348,34 @@ the tokenizer/rendering preflight are mandatory.
 
 All operational output must remain aggregate-only. Never print the selector,
 task identifiers, prompts, responses, or raw task errors.
+
+### Opaque failed-image provisioning recheck
+
+If the c64 task-image soak stops because one image exhausts all nine startup
+attempts, use `kimi_stock_small_single_image_probe.py` and its matching Slurm
+launcher. The materializer derives the unique failed image in memory from the
+private soak plan plus cleanup-verified pool ledger. Never pass, print, copy,
+or inspect the task or image identity directly.
+
+Materialize a private plan from the immutable source worktree after committing
+the probe implementation. The source plan SHA and source run directory must be
+the exact artifacts from the failed soak:
+
+```bash
+uv run --no-project python \
+  user/tianhaowu/terminal_bench_vmvm/kimi_stock_small_single_image_probe.py materialize \
+  --project-root "$PWD" --expected-revision "$(git rev-parse HEAD)" \
+  --source-plan /absolute/private/source-plan.json \
+  --source-plan-sha256 <source-plan-sha256> \
+  --source-run-root /absolute/private/source-run \
+  --output /absolute/private/probe-plan-directory
+```
+
+Run only after competing TB4 or soak activity has ended, and submit only
+through `swebench_vmvm:Launcher.0`. The probe uses c1, performs at most three
+sequential readiness attempts, runs no setup, command, verifier, harness, or
+model call, and verifies every assignment and outer session was removed. Its
+aggregate receipt classifies a clean readiness as `transient_success` and
+three repeated pre-ready initialization failures as `repeatable_failure`.
+Raw pool evidence remains owner-only; only the aggregate certificate may be
+reported.
