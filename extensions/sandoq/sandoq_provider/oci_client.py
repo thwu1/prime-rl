@@ -215,6 +215,50 @@ def _request_timeout(deadline: float, requested: float) -> float:
     return min(requested, remaining)
 
 
+def _staging_chunk_glob(outer_path: str) -> str:
+    """Return a shell-safe glob for the private, zero-padded upload chunks."""
+    return f"{shlex.quote(outer_path + '.b64.')}*"
+
+
+def _staging_decode_command(outer_path: str, chunk_count: int) -> str:
+    """Build a bounded command that atomically assembles one staged upload.
+
+    Do not interpolate the complete chunk-path list here. A large artifact can
+    contain thousands of chunks, and passing that list as the single argument
+    to ``bash -lc`` exceeds Linux's per-argument limit before ``bash`` starts.
+    The shell loop expands the private glob inside the already-running shell
+    and invokes ``base64`` with one pathname at a time.
+    """
+    if chunk_count <= 0:
+        raise ValueError("staged upload chunk count must be positive")
+    chunk_prefix = f"{outer_path}.b64."
+    temporary_path = f"{outer_path}.tmp"
+    quoted_temporary = shlex.quote(temporary_path)
+    return (
+        "set -e; export LC_ALL=C; "
+        f"prefix={shlex.quote(chunk_prefix)}; index=0; "
+        f": > {quoted_temporary}; "
+        'for chunk in "$prefix"*; do '
+        'printf -v expected \'%s%08d\' "$prefix" "$index"; '
+        'test "$chunk" = "$expected"; '
+        f'base64 -d -- "$chunk" >> {quoted_temporary}; '
+        "index=$((index + 1)); "
+        "done; "
+        f'test "$index" -eq {chunk_count}; '
+        f"mv -f -- {quoted_temporary} {shlex.quote(outer_path)}"
+    )
+
+
+def _staging_cleanup_command(outer_path: str) -> str:
+    """Build a bounded cleanup command for one private staged upload."""
+    return (
+        f"for chunk in {_staging_chunk_glob(outer_path)}; do "
+        'rm -f -- "$chunk"; '
+        "done; "
+        f"rm -f -- {shlex.quote(outer_path)} {shlex.quote(outer_path + '.tmp')}"
+    )
+
+
 async def _sleep_before_deadline(delay: float, deadline: float) -> None:
     remaining = _remaining_seconds(deadline)
     if remaining <= 0:
@@ -2703,11 +2747,11 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
         )
         if setup.exit_code != 0:
             raise APIError(f"OCI staging setup failed for {outer_path}: {setup.stderr[-1000:]}")
-        chunk_paths: list[str] = []
+        chunk_count = 0
         for index, offset in enumerate(range(0, len(encoded), _STAGING_CHUNK_BYTES)):
             chunk = encoded[offset : offset + _STAGING_CHUNK_BYTES]
             chunk_path = f"{outer_path}.b64.{index:08d}"
-            chunk_paths.append(chunk_path)
+            chunk_count += 1
             append = await self._outer_exec_idempotent(
                 info,
                 f"printf %s {shlex.quote(chunk)} > {shlex.quote(chunk_path)}",
@@ -2717,12 +2761,8 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             )
             if append.exit_code != 0:
                 raise APIError(f"OCI staging append failed for {outer_path}: {append.stderr[-1000:]}")
-        temporary_path = f"{outer_path}.tmp"
-        if chunk_paths:
-            decode_command = (
-                f"cat {' '.join(shlex.quote(path) for path in chunk_paths)} | "
-                f"base64 -d > {shlex.quote(temporary_path)} && mv -f {shlex.quote(temporary_path)} {quoted_path}"
-            )
+        if chunk_count:
+            decode_command = _staging_decode_command(outer_path, chunk_count)
         else:
             decode_command = f": > {quoted_path}"
         decode = await self._outer_exec_idempotent(
@@ -2814,8 +2854,7 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
         finally:
             await self._outer_exec_idempotent(
                 info,
-                f"rm -f -- {shlex.quote(outer_path)} {shlex.quote(outer_path + '.tmp')} "
-                f"{shlex.quote(outer_path + '.b64.')}*",
+                _staging_cleanup_command(outer_path),
                 timeout=30,
                 deadline=absolute_deadline,
                 operation="file_upload_cleanup",

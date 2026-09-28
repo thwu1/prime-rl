@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
+import math
+import subprocess
 import time
 from dataclasses import fields
 from types import SimpleNamespace
@@ -11,12 +14,106 @@ from prime_sandboxes.exceptions import APIError
 from sandoq_provider.ecr import ECRConfig, ECRCredentialCache, authenticated_ecr_registry
 from sandoq_provider.gateway import SandoqHttpResponse, SandoqHttpTransportError
 from sandoq_provider.oci_client import (
+    _STAGING_CHUNK_BYTES,
     CommandResponse,
     OCIRunnerAsyncSandboxClient,
     OCIRunnerStageError,
     _image_mounts,
+    _staging_cleanup_command,
+    _staging_decode_command,
     get_oci_config,
 )
+
+
+def test_staging_commands_remain_bounded_for_observed_large_artifact() -> None:
+    payload_size = 171 * 1024 * 1024
+    encoded_size = 4 * math.ceil(payload_size / 3)
+    chunk_count = math.ceil(encoded_size / _STAGING_CHUNK_BYTES)
+    outer_path = f"/home/runner/shared/.prime-rl-transfer/{'a' * 32}"
+    chunk_paths = [f"{outer_path}.b64.{index:08d}" for index in range(chunk_count)]
+    legacy_decode = f"cat {' '.join(chunk_paths)} | base64 -d"
+
+    decode = _staging_decode_command(outer_path, chunk_count)
+    cleanup = _staging_cleanup_command(outer_path)
+
+    assert len(legacy_decode.encode()) > 128 * 1024
+    assert len(decode.encode()) < 1024
+    assert len(cleanup.encode()) < 1024
+    assert ".b64.00000000" not in decode
+    assert ".b64.00000000" not in cleanup
+
+
+def test_staging_decode_round_trips_ordered_chunks_and_cleanup(tmp_path) -> None:
+    outer_path = tmp_path / "staging dir" / "transfer'payload"
+    outer_path.parent.mkdir()
+    payload = bytes(range(256)) * 1025
+    encoded = base64.b64encode(payload)
+    chunks = [
+        encoded[offset : offset + _STAGING_CHUNK_BYTES] for offset in range(0, len(encoded), _STAGING_CHUNK_BYTES)
+    ]
+    for index in reversed(range(len(chunks))):
+        (outer_path.parent / f"{outer_path.name}.b64.{index:08d}").write_bytes(chunks[index])
+
+    subprocess.run(
+        ["bash", "-lc", _staging_decode_command(str(outer_path), len(chunks))],
+        check=True,
+        capture_output=True,
+    )
+
+    assert outer_path.read_bytes() == payload
+    assert not (outer_path.parent / f"{outer_path.name}.tmp").exists()
+    assert len(list(outer_path.parent.glob(f"{outer_path.name}.b64.*"))) == len(chunks)
+
+    subprocess.run(
+        ["bash", "-lc", _staging_cleanup_command(str(outer_path))],
+        check=True,
+        capture_output=True,
+    )
+
+    assert not outer_path.exists()
+    assert not list(outer_path.parent.glob(f"{outer_path.name}.b64.*"))
+
+
+def test_staging_decode_failure_preserves_existing_target_and_cleans_up(tmp_path) -> None:
+    outer_path = tmp_path / "transfer"
+    outer_path.write_bytes(b"existing")
+    (tmp_path / "transfer.b64.00000000").write_bytes(base64.b64encode(b"replacement"))
+    (tmp_path / "transfer.b64.00000001").write_bytes(b"not-base64")
+
+    result = subprocess.run(
+        ["bash", "-lc", _staging_decode_command(str(outer_path), 2)],
+        check=False,
+        capture_output=True,
+    )
+
+    assert result.returncode != 0
+    assert outer_path.read_bytes() == b"existing"
+    assert (tmp_path / "transfer.tmp").exists()
+
+    subprocess.run(
+        ["bash", "-lc", _staging_cleanup_command(str(outer_path))],
+        check=True,
+        capture_output=True,
+    )
+    assert not outer_path.exists()
+    assert not (tmp_path / "transfer.tmp").exists()
+    assert not list(tmp_path.glob("transfer.b64.*"))
+
+
+def test_staging_decode_rejects_missing_chunk(tmp_path) -> None:
+    outer_path = tmp_path / "transfer"
+    outer_path.write_bytes(b"existing")
+    (tmp_path / "transfer.b64.00000000").write_bytes(base64.b64encode(b"first"))
+    (tmp_path / "transfer.b64.00000002").write_bytes(base64.b64encode(b"third"))
+
+    result = subprocess.run(
+        ["bash", "-lc", _staging_decode_command(str(outer_path), 2)],
+        check=False,
+        capture_output=True,
+    )
+
+    assert result.returncode != 0
+    assert outer_path.read_bytes() == b"existing"
 
 
 @pytest.mark.parametrize("key", ["ECR_CREDENTIAL", "REGISTRY_AUTH"])
