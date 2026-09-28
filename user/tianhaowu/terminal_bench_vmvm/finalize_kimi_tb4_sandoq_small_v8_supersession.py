@@ -40,6 +40,7 @@ EXECUTION_PLAN_SHA256 = "af936100b1cb06e021f98de9900d235a9175e716fd9e9432298889f
 VERIFIER_ATTEMPTS = 3
 PROVISIONING_ATTEMPTS = 9
 REVISION_RE = re.compile(r"[0-9a-f]{40}\Z")
+IMAGE_DIGEST_RE = re.compile(r"[^\s@]+@sha256:([0-9a-f]{64})\Z")
 KNOWN_POOL_EVENTS = frozenset(
     {
         "assignment_acquired",
@@ -107,6 +108,7 @@ class ExecutionContract:
     stock_endpoint_bundle_sha256: str | None = None
     completion_marker_name: str | None = None
     require_persisted_verifier_artifacts: bool = False
+    allow_pre_ready_managed_shell_provisioning_failures: bool = False
 
 
 V8_EXECUTION_CONTRACT = ExecutionContract(
@@ -163,6 +165,7 @@ def _validated_execution_contract(contract: ExecutionContract) -> ExecutionContr
         != split.TOTAL_TASKS
         or not 1 <= contract.concurrency <= contract.supported_tasks
         or type(contract.require_persisted_verifier_artifacts) is not bool
+        or type(contract.allow_pre_ready_managed_shell_provisioning_failures) is not bool
         or any(
             not isinstance(path, str)
             or not path.startswith("user/tianhaowu/terminal_bench_vmvm/")
@@ -216,6 +219,12 @@ def _validated_execution_contract(contract: ExecutionContract) -> ExecutionContr
         ):
             _fail("execution_contract_invalid")
     if contract.allow_post_agent_artifact_write_transport_errors and (
+        contract.plan_verifier != "capacity-bound-v10"
+        or not contract.require_persisted_verifier_artifacts
+        or contract.execution_project_root is None
+    ):
+        _fail("execution_contract_invalid")
+    if contract.allow_pre_ready_managed_shell_provisioning_failures and (
         contract.plan_verifier != "capacity-bound-v10"
         or not contract.require_persisted_verifier_artifacts
         or contract.execution_project_root is None
@@ -558,6 +567,99 @@ def _persisted_verifier_artifact_audit(
     }
 
 
+def _immutable_image_digest(value: object) -> str:
+    match = IMAGE_DIGEST_RE.fullmatch(value) if isinstance(value, str) else None
+    if match is None:
+        _fail("assignment_lifecycle_image_binding_invalid")
+    return match.group(1)
+
+
+def _validated_task_images(
+    plan: Mapping[str, Any],
+    held: split._HeldArtifactSet,
+) -> dict[str, dict[str, str]]:
+    source = plan.get("source")
+    record = source.get("image_manifest") if isinstance(source, Mapping) else None
+    if not isinstance(record, Mapping) or set(record) != {"path", "bytes", "sha256"}:
+        _fail("assignment_lifecycle_image_binding_invalid")
+    path = Path(str(record.get("path", "")))
+    body = split.read_regular(
+        path,
+        code="assignment_lifecycle_image_binding_invalid",
+        private=False,
+        held=held,
+    )
+    if ordinary._artifact_bytes(path, body) != record:
+        _fail("assignment_lifecycle_image_binding_invalid")
+    try:
+        raw = union._json(body, code="assignment_lifecycle_image_binding_invalid")
+        images = raw.get("images", raw)
+        if not isinstance(images, dict):
+            raise ValueError("image_manifest_invalid")
+        normalized: dict[str, dict[str, str]] = {}
+        for task_id, entry in images.items():
+            if not isinstance(task_id, str) or not task_id:
+                raise ValueError("image_manifest_invalid")
+            if isinstance(entry, str):
+                normalized[task_id] = {"agent": entry}
+            elif (
+                isinstance(entry, dict)
+                and entry
+                and all(
+                    isinstance(role, str) and bool(role) and isinstance(reference, str) and bool(reference)
+                    for role, reference in entry.items()
+                )
+            ):
+                normalized[task_id] = dict(entry)
+            else:
+                raise ValueError("image_manifest_invalid")
+        return normalized
+    except (RuntimeError, ValueError) as error:
+        _fail("assignment_lifecycle_image_binding_invalid", error)
+
+
+def _pre_model_provisioning_image_requirements(
+    rows: Mapping[str, Mapping[str, Any]],
+    task_images: Mapping[str, Mapping[str, str]],
+    expected_rows: int,
+) -> tuple[Counter[str], frozenset[str]]:
+    pre_model_rows_by_agent_image: Counter[str] = Counter()
+    selected_agent_images: Counter[str] = Counter()
+    selected_verifier_images: Counter[str] = Counter()
+    observed_rows = 0
+    for task_id, row in rows.items():
+        image_entry = task_images.get(task_id)
+        if not isinstance(image_entry, Mapping) or set(image_entry) != {"agent", "verifier"}:
+            _fail("assignment_lifecycle_image_binding_invalid")
+        agent_digest = _immutable_image_digest(image_entry.get("agent"))
+        verifier_digest = _immutable_image_digest(image_entry.get("verifier"))
+        selected_agent_images[agent_digest] += 1
+        selected_verifier_images[verifier_digest] += 1
+        info = row.get("info")
+        disposition = info.get("diagnostic_evaluation_disposition") if isinstance(info, Mapping) else None
+        if (
+            not isinstance(disposition, Mapping)
+            or disposition.get("kind") != "pre-model-sandoq-provisioning-error-counted-as-zero"
+        ):
+            continue
+        pre_model_rows_by_agent_image[agent_digest] += 1
+        observed_rows += 1
+    if observed_rows != expected_rows or any(
+        selected_agent_images[digest] != rows_for_digest or selected_verifier_images[digest] != 0
+        for digest, rows_for_digest in pre_model_rows_by_agent_image.items()
+    ):
+        _fail("assignment_lifecycle_image_binding_invalid")
+    return (
+        Counter(
+            {
+                digest: rows_for_digest * PROVISIONING_ATTEMPTS
+                for digest, rows_for_digest in pre_model_rows_by_agent_image.items()
+            }
+        ),
+        frozenset(selected_agent_images) | frozenset(selected_verifier_images),
+    )
+
+
 def _assignment_lifecycle_audit(
     body: bytes,
     *,
@@ -565,14 +667,26 @@ def _assignment_lifecycle_audit(
     trace_audit: Mapping[str, Any],
     rows: Mapping[str, Mapping[str, Any]],
     verifier_modes: Mapping[str, str],
+    allow_pre_ready_managed_shell_provisioning_failures: bool = False,
+    task_images: Mapping[str, Mapping[str, str]] | None = None,
 ) -> dict[str, Any]:
-    if not body or not body.endswith(b"\n") or b"\r" in body:
+    if (
+        not body
+        or not body.endswith(b"\n")
+        or b"\r" in body
+        or type(allow_pre_ready_managed_shell_provisioning_failures) is not bool
+        or (allow_pre_ready_managed_shell_provisioning_failures and not isinstance(task_images, Mapping))
+        or (not allow_pre_ready_managed_shell_provisioning_failures and task_images is not None)
+    ):
         _fail("assignment_lifecycle_invalid")
-    acquired: dict[str, dict[str, bool]] = {}
+    acquired: dict[str, dict[str, Any]] = {}
     ready: set[str] = set()
     terminal: set[str] = set()
     abandoned: set[str] = set()
     recovery_failed: set[str] = set()
+    pre_ready_recovery_failed: set[str] = set()
+    initialization_by_image: Counter[str] = Counter()
+    pre_ready_loss_by_image: Counter[str] = Counter()
     reasons: Counter[str] = Counter()
     initialization_statuses: Counter[str] = Counter()
     recoveries = 0
@@ -598,7 +712,11 @@ def _assignment_lifecycle_audit(
         if name == "assignment_acquired":
             if not isinstance(assignment_id, str) or not assignment_id or assignment_id in acquired:
                 _fail("assignment_lifecycle_invalid")
-            acquired[assignment_id] = {"ready": False, "terminal": False}
+            acquired[assignment_id] = {
+                "ready": False,
+                "terminal": False,
+                "requested_image": event.get("requested_image"),
+            }
         elif name == "assignment_ready":
             if (
                 not isinstance(assignment_id, str)
@@ -625,13 +743,16 @@ def _assignment_lifecycle_audit(
         elif name == "managed_shell_recovery_failed":
             if (
                 not isinstance(assignment_id, str)
-                or assignment_id not in ready
+                or assignment_id not in acquired
                 or assignment_id in terminal
                 or assignment_id in recovery_failed
                 or event.get("error_type") != "RuntimeError"
+                or (assignment_id not in ready and not allow_pre_ready_managed_shell_provisioning_failures)
             ):
                 _fail("assignment_lifecycle_invalid")
             recovery_failed.add(assignment_id)
+            if assignment_id not in ready:
+                pre_ready_recovery_failed.add(assignment_id)
         elif name in {"assignment_release_failed", "pool_drain_incomplete"}:
             _fail("assignment_lifecycle_invalid")
         elif name == "assignment_cancelled":
@@ -664,6 +785,10 @@ def _assignment_lifecycle_audit(
                     and event.get("shell_failure_status") in {"http_500", "initialization_command_failed"}
                 )
                 initialization_statuses[str(event.get("shell_failure_status"))] += 1
+                if allow_pre_ready_managed_shell_provisioning_failures:
+                    initialization_by_image[
+                        _immutable_image_digest(acquired[assignment_id].get("requested_image"))
+                    ] += 1
             elif reason == "rollout_complete":
                 valid = (
                     assignment_id in ready
@@ -680,7 +805,7 @@ def _assignment_lifecycle_audit(
                     else "managed_shell_recovery_failed"
                 )
                 valid = (
-                    assignment_id in ready
+                    assignment_id in (ready | pre_ready_recovery_failed)
                     and assignment_id in (abandoned | recovery_failed)
                     and event.get("status") == "poisoned"
                     and event.get("poisoned") is True
@@ -690,6 +815,10 @@ def _assignment_lifecycle_audit(
                     and isinstance(event.get("error"), str)
                     and bool(event["error"])
                 )
+                if valid and assignment_id in pre_ready_recovery_failed:
+                    pre_ready_loss_by_image[
+                        _immutable_image_digest(acquired[assignment_id].get("requested_image"))
+                    ] += 1
             elif reason == "gateway_command_outcome_unknown":
                 valid = (
                     assignment_id in ready
@@ -726,11 +855,18 @@ def _assignment_lifecycle_audit(
         or ready != {assignment_id for assignment_id in terminal if assignment_id in ready}
         or abandoned != {assignment_id for assignment_id in terminal if assignment_id in abandoned}
         or recovery_failed != {assignment_id for assignment_id in terminal if assignment_id in recovery_failed}
+        or pre_ready_recovery_failed
+        != {assignment_id for assignment_id in terminal if assignment_id in pre_ready_recovery_failed}
         or not abandoned.isdisjoint(recovery_failed)
+        or not pre_ready_recovery_failed <= recovery_failed
         or reasons["managed_shell_lost"] != len(abandoned) + len(recovery_failed)
-        or len(acquired) != len(ready) + reasons["initialization_failure"] + cancellations
+        or len(acquired)
+        != len(ready) + reasons["initialization_failure"] + len(pre_ready_recovery_failed) + cancellations
         or len(ready)
-        != reasons["rollout_complete"] + reasons["managed_shell_lost"] + reasons["gateway_command_outcome_unknown"]
+        != reasons["rollout_complete"]
+        + reasons["managed_shell_lost"]
+        - len(pre_ready_recovery_failed)
+        + reasons["gateway_command_outcome_unknown"]
     ):
         _fail("assignment_lifecycle_invalid")
 
@@ -770,12 +906,55 @@ def _assignment_lifecycle_audit(
         or reasons["gateway_command_outcome_unknown"] != int(post_agent_artifact_write_transport_errors)
     ):
         _fail("assignment_lifecycle_invalid")
-    required_initialization_failures = PROVISIONING_ATTEMPTS * (
-        int(pre_model_provisioning_errors) + VERIFIER_ATTEMPTS * int(post_agent_provisioning_errors)
+    required_pre_model_attempts = PROVISIONING_ATTEMPTS * int(pre_model_provisioning_errors)
+    required_post_agent_initialization_failures = (
+        PROVISIONING_ATTEMPTS * VERIFIER_ATTEMPTS * int(post_agent_provisioning_errors)
     )
     initialization_failures = reasons["initialization_failure"]
-    if initialization_failures < required_initialization_failures:
+    attributed_pre_model_initialization_failures = required_pre_model_attempts
+    pre_model_image_set_sha256: str | None = None
+    if allow_pre_ready_managed_shell_provisioning_failures:
+        assert task_images is not None
+        required_by_image, selected_image_digests = _pre_model_provisioning_image_requirements(
+            rows,
+            task_images,
+            int(pre_model_provisioning_errors),
+        )
+        if (
+            not set(initialization_by_image) <= selected_image_digests
+            or not set(pre_ready_loss_by_image) <= set(required_by_image)
+            or any(
+                initialization_by_image[digest] + pre_ready_loss_by_image[digest] != required
+                for digest, required in required_by_image.items()
+            )
+        ):
+            _fail("assignment_lifecycle_image_binding_invalid")
+        attributed_pre_model_initialization_failures = sum(
+            initialization_by_image[digest] for digest in required_by_image
+        )
+        pre_model_image_set_sha256 = recovery._sha256(
+            split.canonical_json(
+                [
+                    {
+                        "agent_image_sha256": digest,
+                        "required_attempts": required,
+                        "rows": required // PROVISIONING_ATTEMPTS,
+                    }
+                    for digest, required in sorted(required_by_image.items())
+                ]
+            )
+        )
+    elif pre_ready_recovery_failed:
         _fail("assignment_lifecycle_invalid")
+    if (
+        attributed_pre_model_initialization_failures + len(pre_ready_recovery_failed) != required_pre_model_attempts
+        or initialization_failures - attributed_pre_model_initialization_failures
+        < required_post_agent_initialization_failures
+    ):
+        _fail("assignment_lifecycle_invalid")
+    required_initialization_failures = (
+        attributed_pre_model_initialization_failures + required_post_agent_initialization_failures
+    )
     scored_separate = 0
     separate_retry_attempts = 0
     for task_id, row in rows.items():
@@ -808,7 +987,8 @@ def _assignment_lifecycle_audit(
     )
     if (
         not minimum_ready_terminal <= len(ready) <= maximum_ready_terminal
-        or len(abandoned) + len(recovery_failed) < required_exec_transport_ready_terminals
+        or len(abandoned) + len(recovery_failed) - len(pre_ready_recovery_failed)
+        < required_exec_transport_ready_terminals
     ):
         _fail("assignment_lifecycle_invalid")
     result = {
@@ -822,7 +1002,11 @@ def _assignment_lifecycle_audit(
         "release_reason_counts": dict(sorted(reasons.items())),
         "initialization_failure_status_counts": dict(sorted(initialization_statuses.items())),
         "required_error_source_initialization_failures": required_initialization_failures,
-        "unattributed_initialization_failures": initialization_failures - required_initialization_failures,
+        "unattributed_initialization_failures": (
+            initialization_failures
+            - attributed_pre_model_initialization_failures
+            - required_post_agent_initialization_failures
+        ),
         "managed_shell_recoveries": recoveries,
         "managed_shell_abandonments": len(abandoned),
         "minimum_ready_terminal": minimum_ready_terminal,
@@ -834,6 +1018,17 @@ def _assignment_lifecycle_audit(
     if "post_agent_verifier_artifact_write_transport_error_zeroes" in trace_audit:
         result["required_artifact_write_ready_terminals"] = required_artifact_write_ready_terminals
         result["required_artifact_write_gateway_unknown_terminals"] = int(post_agent_artifact_write_transport_errors)
+    if allow_pre_ready_managed_shell_provisioning_failures:
+        assert pre_model_image_set_sha256 is not None
+        result["pre_model_attempt_attribution"] = {
+            "schema_version": 1,
+            "state": "image-digest-bound",
+            "rows": int(pre_model_provisioning_errors),
+            "required_attempts": required_pre_model_attempts,
+            "initialization_failures": attributed_pre_model_initialization_failures,
+            "pre_ready_managed_shell_losses": len(pre_ready_recovery_failed),
+            "pre_model_image_set_sha256": pre_model_image_set_sha256,
+        }
     return result
 
 
@@ -926,16 +1121,21 @@ def _post_agent_verifier_policy(trace_audit: Mapping[str, Any]) -> dict[str, Any
     return result
 
 
-def _pre_model_sandoq_provisioning_policy(trace_audit: Mapping[str, Any]) -> dict[str, Any]:
+def _pre_model_sandoq_provisioning_policy(
+    trace_audit: Mapping[str, Any],
+    *,
+    allow_pre_ready_managed_shell_provisioning_failures: bool = False,
+) -> dict[str, Any]:
     count = trace_audit.get("pre_model_sandoq_provisioning_error_zeroes")
     row_set = trace_audit.get("pre_model_sandoq_provisioning_error_row_set_sha256")
     if (
-        not transport._nonnegative_integer(count)
+        type(allow_pre_ready_managed_shell_provisioning_failures) is not bool
+        or not transport._nonnegative_integer(count)
         or not isinstance(row_set, str)
         or plan_module.SHA256_RE.fullmatch(row_set) is None
     ):
         _fail("pre_model_sandoq_provisioning_policy_invalid")
-    return {
+    result = {
         "schema_version": 1,
         "state": "enforced",
         "error_type": "SandboxError",
@@ -949,6 +1149,20 @@ def _pre_model_sandoq_provisioning_policy(trace_audit: Mapping[str, Any]) -> dic
         "rows": count,
         "row_set_sha256": row_set,
     }
+    if allow_pre_ready_managed_shell_provisioning_failures:
+        result.update(
+            {
+                "schema_version": 2,
+                "accepted_attempt_release_classes": [
+                    "initialization_failure",
+                    "pre_ready_managed_shell_recovery_failed",
+                ],
+                "pre_ready_managed_shell_loss_requires_recovery_failed": True,
+                "requires_agent_image_digest_binding": True,
+                "requires_exact_attempt_count_per_row": True,
+            }
+        )
+    return result
 
 
 def _exact_length_benchmark_policy(trace_audit: Mapping[str, Any]) -> dict[str, Any]:
@@ -1069,6 +1283,11 @@ def finalize(
         except Exception as error:
             _fail("manifest_invalid", error)
         verifier_modes = {entry.task_id: entry.verifier_mode for entry in entries}
+        task_images = (
+            _validated_task_images(plan, held)
+            if execution.allow_pre_ready_managed_shell_provisioning_failures
+            else None
+        )
 
         with ExitStack() as stack:
             evidence = split._open_held_run_evidence(run_dir)
@@ -1164,6 +1383,10 @@ def finalize(
                     trace_audit=trace_audit,
                     rows=rows,
                     verifier_modes=verifier_modes,
+                    allow_pre_ready_managed_shell_provisioning_failures=(
+                        execution.allow_pre_ready_managed_shell_provisioning_failures
+                    ),
+                    task_images=task_images,
                 )
                 router_body, router_artifact, router_marker = split._validate_direct_router_receipt(
                     run_dir / "direct_kimi_router_final.json",
@@ -1212,7 +1435,12 @@ def finalize(
                 else transport._gate_met(trace_audit)
             )
             post_agent_policy = _post_agent_verifier_policy(trace_audit)
-            pre_model_provisioning_policy = _pre_model_sandoq_provisioning_policy(trace_audit)
+            pre_model_provisioning_policy = _pre_model_sandoq_provisioning_policy(
+                trace_audit,
+                allow_pre_ready_managed_shell_provisioning_failures=(
+                    execution.allow_pre_ready_managed_shell_provisioning_failures
+                ),
+            )
             post_agent_zeroes = int(trace_audit["post_agent_verifier_sandbox_error_zeroes"])
             pre_model_provisioning_zeroes = int(trace_audit["pre_model_sandoq_provisioning_error_zeroes"])
             certificate = {

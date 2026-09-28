@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import inspect
+from pathlib import Path
 
 import finalize_kimi_tb4_sandoq_small_v8_supersession as v8
 import pytest
@@ -437,6 +438,270 @@ def test_v8_pre_model_provisioning_policy_and_lifecycle_source_bound() -> None:
             rows=rows,
             verifier_modes={"task": "separate"},
         )
+
+
+def _mixed_pre_model_lifecycle(
+    *,
+    initialization_failures: int = 8,
+    managed_shell_losses: int = 1,
+    ready_loss: bool = False,
+    recovery_error_type: str = "RuntimeError",
+    release_status: str = "poisoned",
+) -> tuple[bytes, dict[str, object], dict[str, dict[str, object]], dict[str, dict[str, str]]]:
+    digest = "a" * 64
+    requested_image = f"internal.registry/agent@sha256:{digest}"
+    events = [_event("pool_started"), _event("pool_recovery_completed")]
+    for index in range(initialization_failures):
+        assignment = f"init-{index}"
+        events.extend(
+            [
+                _event("assignment_acquired", assignment, requested_image=requested_image),
+                _released(assignment, "initialization_failure"),
+            ]
+        )
+    for index in range(managed_shell_losses):
+        assignment = f"lost-{index}"
+        release = _released(assignment, "managed_shell_lost")
+        release["shell_failure_status"] = "managed_shell_recovery_failed"
+        release["status"] = release_status
+        events.append(_event("assignment_acquired", assignment, requested_image=requested_image))
+        if ready_loss:
+            events.append(_event("assignment_ready", assignment))
+        events.extend(
+            [
+                _event(
+                    "managed_shell_recovery_failed",
+                    assignment,
+                    error_type=recovery_error_type,
+                ),
+                release,
+            ]
+        )
+    events.append(_event("pool_drained"))
+    trace = {
+        "zero_model_error_zeroes": 1,
+        "post_agent_verifier_sandbox_error_zeroes": 0,
+        "post_agent_verifier_provisioning_error_zeroes": 0,
+        "post_agent_verifier_exec_transport_error_zeroes": 0,
+        "post_agent_verifier_artifact_write_transport_error_zeroes": 0,
+        "pre_model_sandoq_provisioning_error_zeroes": 1,
+    }
+    rows = {
+        "task": {
+            "errors": [{"type": "SandboxError"}],
+            "info": {
+                "diagnostic_evaluation_disposition": {
+                    "kind": "pre-model-sandoq-provisioning-error-counted-as-zero",
+                }
+            },
+        }
+    }
+    images = {
+        "task": {
+            "agent": f"public.registry/agent@sha256:{digest}",
+            "verifier": f"public.registry/verifier@sha256:{'b' * 64}",
+        }
+    }
+    return _body(*events), trace, rows, images
+
+
+def test_v14_assignment_lifecycle_accepts_only_digest_bound_mixed_pre_model_attempts() -> None:
+    body, trace, rows, images = _mixed_pre_model_lifecycle()
+    with pytest.raises(v8.V8SupersessionError, match="assignment_lifecycle_invalid"):
+        v8._assignment_lifecycle_audit(
+            body,
+            expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+            trace_audit=trace,
+            rows=rows,
+            verifier_modes={"task": "shared"},
+        )
+
+    result = v8._assignment_lifecycle_audit(
+        body,
+        expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+        trace_audit=trace,
+        rows=rows,
+        verifier_modes={"task": "shared"},
+        allow_pre_ready_managed_shell_provisioning_failures=True,
+        task_images=images,
+    )
+    assert result["release_reason_counts"] == {
+        "initialization_failure": 8,
+        "managed_shell_lost": 1,
+    }
+    assert result["required_error_source_initialization_failures"] == 8
+    assert result["unattributed_initialization_failures"] == 0
+    assert result["pre_model_attempt_attribution"] == {
+        "schema_version": 1,
+        "state": "image-digest-bound",
+        "rows": 1,
+        "required_attempts": 9,
+        "initialization_failures": 8,
+        "pre_ready_managed_shell_losses": 1,
+        "pre_model_image_set_sha256": v8.recovery._sha256(
+            v8.split.canonical_json(
+                [
+                    {
+                        "agent_image_sha256": "a" * 64,
+                        "required_attempts": 9,
+                        "rows": 1,
+                    }
+                ]
+            )
+        ),
+    }
+
+
+@pytest.mark.parametrize(
+    ("updates", "error"),
+    [
+        ({"initialization_failures": 7}, "assignment_lifecycle_image_binding_invalid"),
+        ({"managed_shell_losses": 2}, "assignment_lifecycle_image_binding_invalid"),
+        ({"ready_loss": True}, "assignment_lifecycle_image_binding_invalid"),
+        ({"recovery_error_type": "ValueError"}, "assignment_lifecycle_invalid"),
+        ({"release_status": "retired"}, "assignment_lifecycle_invalid"),
+    ],
+)
+def test_v14_mixed_pre_model_attempts_reject_count_ready_and_status_tamper(
+    updates: dict[str, object],
+    error: str,
+) -> None:
+    body, trace, rows, images = _mixed_pre_model_lifecycle(**updates)
+    with pytest.raises(v8.V8SupersessionError, match=error):
+        v8._assignment_lifecycle_audit(
+            body,
+            expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+            trace_audit=trace,
+            rows=rows,
+            verifier_modes={"task": "shared"},
+            allow_pre_ready_managed_shell_provisioning_failures=True,
+            task_images=images,
+        )
+
+
+def test_v14_mixed_pre_model_attempts_reject_wrong_or_unbound_image() -> None:
+    body, trace, rows, images = _mixed_pre_model_lifecycle()
+    for changed_images in (
+        {"task": {"agent": f"public.registry/agent@sha256:{'c' * 64}", "verifier": images["task"]["verifier"]}},
+        {"task": {"agent": "public.registry/agent:mutable", "verifier": images["task"]["verifier"]}},
+        {},
+    ):
+        with pytest.raises(v8.V8SupersessionError, match="assignment_lifecycle_image_binding_invalid"):
+            v8._assignment_lifecycle_audit(
+                body,
+                expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+                trace_audit=trace,
+                rows=rows,
+                verifier_modes={"task": "shared"},
+                allow_pre_ready_managed_shell_provisioning_failures=True,
+                task_images=changed_images,
+            )
+
+    events = [copy.deepcopy(event) for event in map(v8.json.loads, body.splitlines())]
+    first_acquired = next(event for event in events if event.get("event") == "assignment_acquired")
+    first_acquired["requested_image"] = "internal.registry/agent:mutable"
+    with pytest.raises(v8.V8SupersessionError, match="assignment_lifecycle_image_binding_invalid"):
+        v8._assignment_lifecycle_audit(
+            _body(*events),
+            expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+            trace_audit=trace,
+            rows=rows,
+            verifier_modes={"task": "shared"},
+            allow_pre_ready_managed_shell_provisioning_failures=True,
+            task_images=images,
+        )
+
+
+def test_v14_mixed_pre_model_attempts_reject_ambiguous_selected_image_role() -> None:
+    body, trace, rows, images = _mixed_pre_model_lifecycle()
+    rows["other"] = {"errors": [], "info": {}}
+    for changed_images in (
+        {
+            **images,
+            "other": {
+                "agent": images["task"]["agent"],
+                "verifier": f"public.registry/verifier@sha256:{'c' * 64}",
+            },
+        },
+        {
+            **images,
+            "other": {
+                "agent": f"public.registry/agent@sha256:{'c' * 64}",
+                "verifier": images["task"]["agent"],
+            },
+        },
+    ):
+        with pytest.raises(v8.V8SupersessionError, match="assignment_lifecycle_image_binding_invalid"):
+            v8._assignment_lifecycle_audit(
+                body,
+                expected_slurm_job_id=v8.EXECUTION_SLURM_JOB_ID,
+                trace_audit=trace,
+                rows=rows,
+                verifier_modes={"task": "shared", "other": "shared"},
+                allow_pre_ready_managed_shell_provisioning_failures=True,
+                task_images=changed_images,
+            )
+
+
+def test_v14_image_manifest_is_held_and_digest_bound(tmp_path: Path) -> None:
+    path = tmp_path / "images.json"
+    body = v8.split.canonical_json(
+        {
+            "images": {
+                "task": {
+                    "agent": f"public.registry/agent@sha256:{'a' * 64}",
+                    "verifier": f"public.registry/verifier@sha256:{'b' * 64}",
+                }
+            },
+            "schema_version": 1,
+            "source": "synthetic-test",
+        }
+    )
+    path.write_bytes(body)
+    plan = {"source": {"image_manifest": v8.ordinary._artifact_bytes(path, body)}}
+    held = v8.split._HeldArtifactSet.create()
+    try:
+        assert v8._validated_task_images(plan, held) == {
+            "task": {
+                "agent": f"public.registry/agent@sha256:{'a' * 64}",
+                "verifier": f"public.registry/verifier@sha256:{'b' * 64}",
+            }
+        }
+    finally:
+        held.close()
+
+    changed = copy.deepcopy(plan)
+    changed["source"]["image_manifest"]["sha256"] = "0" * 64
+    held = v8.split._HeldArtifactSet.create()
+    try:
+        with pytest.raises(v8.V8SupersessionError, match="assignment_lifecycle_image_binding_invalid"):
+            v8._validated_task_images(changed, held)
+    finally:
+        held.close()
+
+
+def test_v14_pre_model_policy_is_opt_in_and_v8_policy_is_unchanged() -> None:
+    trace = {
+        "pre_model_sandoq_provisioning_error_zeroes": 1,
+        "pre_model_sandoq_provisioning_error_row_set_sha256": "b" * 64,
+    }
+    legacy = v8._pre_model_sandoq_provisioning_policy(trace)
+    assert legacy["schema_version"] == 1
+    assert "accepted_attempt_release_classes" not in legacy
+    assert v8._pre_model_sandoq_provisioning_policy(
+        trace,
+        allow_pre_ready_managed_shell_provisioning_failures=True,
+    ) == {
+        **legacy,
+        "schema_version": 2,
+        "accepted_attempt_release_classes": [
+            "initialization_failure",
+            "pre_ready_managed_shell_recovery_failed",
+        ],
+        "pre_ready_managed_shell_loss_requires_recovery_failed": True,
+        "requires_agent_image_digest_binding": True,
+        "requires_exact_attempt_count_per_row": True,
+    }
 
 
 def test_exact_length_policy_separates_benchmark_and_training_passes() -> None:
