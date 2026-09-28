@@ -614,6 +614,52 @@ def test_shared_verifier_uses_agent_image_workdir(tmp_path: Path) -> None:
     assert task.verifier_workdir == "/workspace"
 
 
+def test_sealed_verifier_without_workdir_uses_required_tests_directory(tmp_path: Path) -> None:
+    task_dir = tmp_path / "separate-task"
+    environment = task_dir / "environment"
+    tests = task_dir / "tests"
+    environment.mkdir(parents=True)
+    tests.mkdir()
+    (task_dir / "instruction.md").write_text("Exercise the sandbox.\n")
+    (task_dir / "task.toml").write_text(
+        "[task]\nname = \"separate-task\"\n\n"
+        "[environment]\ncpus = 1\nmemory_mb = 1024\nstorage_mb = 1024\n\n"
+        "[verifier]\nenvironment_mode = \"separate\"\n"
+    )
+    (environment / "Dockerfile").write_text("FROM python:3.12\nWORKDIR /app\n")
+    (tests / "Dockerfile").write_text("FROM python:3.12\nCOPY . /tests\n")
+
+    task = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(id="terminal-bench-vmvm", dataset_dir=tmp_path, ignore_dockerfile=True)
+    ).load_tasks()[0]
+
+    assert task.workdir == "/app"
+    assert task.verifier_tests_baked is True
+    assert task.verifier_workdir == "/tests"
+
+
+def test_sealed_verifier_preserves_explicit_workdir(tmp_path: Path) -> None:
+    task_dir = tmp_path / "separate-task"
+    environment = task_dir / "environment"
+    tests = task_dir / "tests"
+    environment.mkdir(parents=True)
+    tests.mkdir()
+    (task_dir / "instruction.md").write_text("Exercise the sandbox.\n")
+    (task_dir / "task.toml").write_text(
+        "[task]\nname = \"separate-task\"\n\n"
+        "[environment]\ncpus = 1\nmemory_mb = 1024\nstorage_mb = 1024\n\n"
+        "[verifier]\nenvironment_mode = \"separate\"\n"
+    )
+    (environment / "Dockerfile").write_text("FROM python:3.12\nWORKDIR /app\n")
+    (tests / "Dockerfile").write_text("FROM python:3.12\nWORKDIR /verifier\nCOPY . /tests\n")
+
+    task = TerminalBenchVMVMTaskset(
+        TerminalBenchVMVMConfig(id="terminal-bench-vmvm", dataset_dir=tmp_path, ignore_dockerfile=True)
+    ).load_tasks()[0]
+
+    assert task.verifier_workdir == "/verifier"
+
+
 def test_compose_path_accepts_standard_names_in_precedence_order(tmp_path: Path) -> None:
     environment = tmp_path / "environment"
     environment.mkdir()

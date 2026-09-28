@@ -79,6 +79,14 @@ relay. The already-passing `environment` smoke retains the generic tunnel
 contract check. The subsequent one-task DeepSWE model smoke proves the actual
 Sandoq-to-`ram-inference-gateway` path used by evaluation.
 
+For per-task OCI images, the provider validates the configured workdir and
+fails closed rather than creating a missing directory. Keep agent workdirs
+bound to the environment Dockerfile. A sealed separate-verifier image instead
+executes through the absolute `/tests` contract: preserve an explicit
+`tests/Dockerfile` `WORKDIR`, but use `/tests` when that Dockerfile omits one.
+Do not inherit the agent-only `/app` default or create a missing verifier path;
+the provider's existence check must still reject a malformed sealed image.
+
 DeepSWE uses a fresh outer Sandoq pod for every trial by setting
 `OCI_RUNNER_POOL_MAX_REUSE_COUNT=1` and disabling the per-pod image cache.
 Its task images are large and unrelated. The launcher enables

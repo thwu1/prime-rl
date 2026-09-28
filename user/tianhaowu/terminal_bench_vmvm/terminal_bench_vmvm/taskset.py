@@ -2331,7 +2331,17 @@ class TerminalBenchVMVMTaskset(
                     )
                 else:
                     verifier_image = image
-                verifier_workdir = _environment_workdir(tests_dockerfile if verifier_tests_baked else agent_dockerfile)
+                # A sealed verifier image is built from ``tests/Dockerfile`` and
+                # is consumed through the absolute ``/tests`` contract below.
+                # When that Dockerfile omits WORKDIR, do not synthesize the
+                # agent-only /app convention: standalone verifier bases need
+                # not contain it.  /tests is both the execution root required by
+                # _run_verifier and an image-integrity check; Sandoq still fails
+                # closed during startup if the sealed image did not create it.
+                verifier_workdir = _environment_workdir(
+                    tests_dockerfile if verifier_tests_baked else agent_dockerfile,
+                    default="/tests" if verifier_tests_baked else "/app",
+                )
 
             task_data = parsed.model_dump()
             task_data.update(
