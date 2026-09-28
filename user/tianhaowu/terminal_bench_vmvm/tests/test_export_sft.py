@@ -763,8 +763,7 @@ def test_exports_nullable_openai_wire_fields_without_losing_reasoning(tmp_path: 
     assert summary["selected_traces"] == 1
     assert all(row["target_has_reasoning"] is True for row in rows)
     assert all(
-        set(row["messages"][-1]).isdisjoint({"annotations", "audio", "function_call", "refusal"})
-        for row in rows
+        set(row["messages"][-1]).isdisjoint({"annotations", "audio", "function_call", "refusal"}) for row in rows
     )
 
 
@@ -2343,6 +2342,34 @@ def test_input_manifest_digest_mismatch_fails_before_output(tmp_path: Path) -> N
     with pytest.raises(ExportError, match="^input_manifest_digest_mismatch$"):
         export_sft(_options(results, tmp_path / "dataset"))
     assert not (tmp_path / "dataset").exists()
+
+
+def test_run_provenance_reads_are_size_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    results = _write_run(tmp_path / "run", [_linear_trace()])
+    output = tmp_path / "dataset"
+    limits = dict(exporter.REQUIRED_RUN_ARTIFACT_LIMITS)
+    limits["provenance.txt"] = 4
+    monkeypatch.setattr(exporter, "REQUIRED_RUN_ARTIFACT_LIMITS", limits)
+
+    with pytest.raises(ExportError, match="^source_artifact_too_large$"):
+        export_sft(_options(results, output, expected_count=1))
+    assert not output.exists()
+
+
+def test_image_manifest_read_is_size_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    results = _write_run(tmp_path / "run", [_linear_trace()])
+    output = tmp_path / "dataset"
+    monkeypatch.setattr(exporter, "MAX_RUN_IMAGE_MANIFEST_BYTES", 1)
+
+    with pytest.raises(ExportError, match="^image_manifest_binding_invalid$"):
+        export_sft(_options(results, output, expected_count=1))
+    assert not output.exists()
 
 
 def test_existing_output_is_never_overwritten(tmp_path: Path) -> None:

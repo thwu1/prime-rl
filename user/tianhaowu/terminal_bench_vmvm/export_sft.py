@@ -60,6 +60,11 @@ MAX_ROUTING_EPOCH_INDEX_BYTES = 16 * 1024 * 1024
 MAX_ROUTING_TRANSITION_BYTES = 2 * 1024 * 1024
 MAX_REPAIR_SELECTION_BYTES = 16 * 1024 * 1024
 MAX_TARGET_RENDERING_CONTRACT_BYTES = 64 * 1024
+MAX_RUN_CONFIG_BYTES = 4 * 1024 * 1024
+MAX_RUN_PROVENANCE_BYTES = 1024 * 1024
+MAX_RUN_INPUT_MANIFEST_BYTES = 4 * 1024 * 1024
+MAX_RUN_TASK_FILE_BYTES = 16 * 1024 * 1024
+MAX_RUN_IMAGE_MANIFEST_BYTES = 128 * 1024 * 1024
 SHA256_HEX_CHARS = frozenset("0123456789abcdef")
 FORBIDDEN_REQUEST_FIELDS = frozenset({"logprobs", "prompt_logprobs", "return_token_ids", "top_logprobs"})
 REQUIRED_RUN_ARTIFACTS = (
@@ -69,6 +74,13 @@ REQUIRED_RUN_ARTIFACTS = (
     "inputs/source_config.toml",
     "inputs/task_file.txt",
 )
+REQUIRED_RUN_ARTIFACT_LIMITS = {
+    "config.toml": MAX_RUN_CONFIG_BYTES,
+    "provenance.txt": MAX_RUN_PROVENANCE_BYTES,
+    "inputs/manifest.json": MAX_RUN_INPUT_MANIFEST_BYTES,
+    "inputs/source_config.toml": MAX_RUN_CONFIG_BYTES,
+    "inputs/task_file.txt": MAX_RUN_TASK_FILE_BYTES,
+}
 IMAGE_MANIFEST_ARTIFACT = "inputs/image_manifest.json"
 REQUIRED_RUNTIME_SUBMODULES = (
     "deps/pydantic-config",
@@ -843,7 +855,7 @@ def _validate_optional_image_manifest(
         raise ExportError("image_manifest_binding_invalid")
 
     try:
-        body, artifact = _read_stable_file(image_path)
+        body, artifact = _read_stable_file(image_path, max_bytes=MAX_RUN_IMAGE_MANIFEST_BYTES)
         expected_path = image_path.resolve(strict=True)
         manifest_path = Path(record["snapshot"]).resolve(strict=True)
         resolved_config_path = Path(configured_path).resolve(strict=True)
@@ -867,7 +879,10 @@ def _validate_run_provenance(
     bodies: dict[str, bytes] = {}
     artifacts: dict[str, FileArtifact] = {}
     for relative in REQUIRED_RUN_ARTIFACTS:
-        body, artifact = _read_stable_file(run_dir / relative)
+        body, artifact = _read_stable_file(
+            run_dir / relative,
+            max_bytes=REQUIRED_RUN_ARTIFACT_LIMITS[relative],
+        )
         bodies[relative] = body
         artifacts[relative] = artifact
 
