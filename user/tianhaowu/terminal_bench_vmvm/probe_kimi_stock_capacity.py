@@ -46,6 +46,8 @@ SESSION_HEADER = "X-Session-ID"
 HOST_RE = re.compile(r"[A-Za-z0-9.-]+\Z")
 ENDPOINT_FILE_RE = re.compile(r"[1-9][0-9]*\.json\Z")
 STARTED_AT_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\r\n]+Z\Z")
+DEPLOYMENT_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}\Z")
+SHA256_RE = re.compile(r"[0-9a-f]{64}\Z")
 REQUIRED_METRICS = {
     "vllm:num_requests_running": "running",
     "vllm:num_requests_waiting": "waiting",
@@ -133,6 +135,7 @@ class Endpoint:
 @dataclass(frozen=True)
 class DeploymentBinding:
     root: Path
+    deployment_id: str
     spec: ArtifactSnapshot
     proxy_config: ArtifactSnapshot
     endpoint_file: ArtifactSnapshot
@@ -329,8 +332,8 @@ def _load_yaml_object(body: bytes, *, label: str) -> dict[str, Any]:
     return value
 
 
-def _validate_spec(artifact: ArtifactSnapshot) -> None:
-    if artifact.sha256 != EXPECTED_SPEC_SHA256:
+def _validate_spec(artifact: ArtifactSnapshot, expected_sha256: str) -> None:
+    if artifact.sha256 != expected_sha256:
         raise KimiStockCapacityProbeError("deployment_spec_digest_mismatch")
     document = _load_yaml_object(artifact.body, label="deployment_spec")
     spec = document.get("spec")
@@ -338,8 +341,14 @@ def _validate_spec(artifact: ArtifactSnapshot) -> None:
         raise KimiStockCapacityProbeError("deployment_spec_invalid")
 
 
-def _validate_proxy_config(artifact: ArtifactSnapshot, endpoint: Endpoint) -> None:
-    if artifact.sha256 != EXPECTED_PROXY_CONFIG_SHA256:
+def _validate_proxy_config(
+    artifact: ArtifactSnapshot,
+    endpoint: Endpoint,
+    expected_sha256: str,
+    *,
+    expected_sticky_ttl_seconds: int | None,
+) -> None:
+    if artifact.sha256 != expected_sha256:
         raise KimiStockCapacityProbeError("proxy_config_digest_mismatch")
     document = _load_yaml_object(artifact.body, label="proxy_config")
     models = document.get("model_list")
@@ -347,6 +356,7 @@ def _validate_proxy_config(artifact: ArtifactSnapshot, endpoint: Endpoint) -> No
         raise KimiStockCapacityProbeError("proxy_config_invalid")
     entry = models[0]
     params = entry.get("litellm_params")
+    router = document.get("router_settings")
     if (
         entry.get("model_name") != EXPECTED_MODEL
         or not isinstance(params, dict)
@@ -355,10 +365,39 @@ def _validate_proxy_config(artifact: ArtifactSnapshot, endpoint: Endpoint) -> No
         or params.get("api_base") != endpoint.client_base_url
     ):
         raise KimiStockCapacityProbeError("proxy_config_invalid")
+    if expected_sticky_ttl_seconds is not None and (
+        not isinstance(router, dict)
+        or router.get("enable_pre_call_checks") is not True
+        or router.get("optional_pre_call_checks") != ["session_affinity"]
+        or router.get("deployment_affinity_ttl_seconds") != expected_sticky_ttl_seconds
+    ):
+        raise KimiStockCapacityProbeError("sticky_routing_invalid")
 
 
-def _load_binding(deployment_root: Path) -> DeploymentBinding:
-    if not deployment_root.is_absolute():
+def _load_binding(
+    deployment_root: Path,
+    *,
+    expected_deployment_id: str | None = None,
+    expected_spec_sha256: str | None = None,
+    expected_proxy_config_sha256: str | None = None,
+    expected_sticky_ttl_seconds: int | None = None,
+) -> DeploymentBinding:
+    if expected_deployment_id is None:
+        expected_deployment_id = EXPECTED_DEPLOYMENT_ID
+    if expected_spec_sha256 is None:
+        expected_spec_sha256 = EXPECTED_SPEC_SHA256
+    if expected_proxy_config_sha256 is None:
+        expected_proxy_config_sha256 = EXPECTED_PROXY_CONFIG_SHA256
+    if (
+        not deployment_root.is_absolute()
+        or DEPLOYMENT_ID_RE.fullmatch(expected_deployment_id) is None
+        or SHA256_RE.fullmatch(expected_spec_sha256) is None
+        or SHA256_RE.fullmatch(expected_proxy_config_sha256) is None
+        or (
+            expected_sticky_ttl_seconds is not None
+            and (isinstance(expected_sticky_ttl_seconds, bool) or expected_sticky_ttl_seconds < 1)
+        )
+    ):
         raise KimiStockCapacityProbeError("deployment_root_invalid")
     try:
         root = deployment_root.resolve(strict=True)
@@ -367,8 +406,8 @@ def _load_binding(deployment_root: Path) -> DeploymentBinding:
         raise KimiStockCapacityProbeError("deployment_root_invalid") from error
     if (
         root != deployment_root
-        or root != DEFAULT_DEPLOYMENT_ROOT
-        or deployment_root.name != EXPECTED_DEPLOYMENT_ID
+        or root.parent != DEFAULT_DEPLOYMENT_ROOT.parent
+        or deployment_root.name != expected_deployment_id
         or not stat.S_ISDIR(root_metadata.st_mode)
         or deployment_root.is_symlink()
     ):
@@ -392,11 +431,17 @@ def _load_binding(deployment_root: Path) -> DeploymentBinding:
     proxy_config = _read_regular(root / "proxy_litellm_config.yaml")
     endpoint_file = _read_regular(entries[0], maximum_bytes=16 * 1024)
     endpoint = _endpoint_from_artifact(endpoint_file)
-    _validate_spec(spec)
-    _validate_proxy_config(proxy_config, endpoint)
+    _validate_spec(spec, expected_spec_sha256)
+    _validate_proxy_config(
+        proxy_config,
+        endpoint,
+        expected_proxy_config_sha256,
+        expected_sticky_ttl_seconds=expected_sticky_ttl_seconds,
+    )
     authority = _sha256(endpoint.client_base_url.encode("utf-8"))
     return DeploymentBinding(
         root=root,
+        deployment_id=expected_deployment_id,
         spec=spec,
         proxy_config=proxy_config,
         endpoint_file=endpoint_file,
@@ -752,9 +797,22 @@ def _metric_deltas(
     }
 
 
-def _binding_unchanged(before: DeploymentBinding, deployment_root: Path) -> bool:
+def _binding_unchanged(
+    before: DeploymentBinding,
+    deployment_root: Path,
+    *,
+    expected_spec_sha256: str,
+    expected_proxy_config_sha256: str,
+    expected_sticky_ttl_seconds: int | None,
+) -> bool:
     try:
-        after = _load_binding(deployment_root)
+        after = _load_binding(
+            deployment_root,
+            expected_deployment_id=before.deployment_id,
+            expected_spec_sha256=expected_spec_sha256,
+            expected_proxy_config_sha256=expected_proxy_config_sha256,
+            expected_sticky_ttl_seconds=expected_sticky_ttl_seconds,
+        )
     except KimiStockCapacityProbeError:
         return False
     return (
@@ -854,7 +912,7 @@ def _aggregate_receipt(
         "deployment": {
             "endpoint_authority_sha256": binding.endpoint_authority_sha256,
             "endpoint_job_id": binding.endpoint.job_id,
-            "id": EXPECTED_DEPLOYMENT_ID,
+            "id": binding.deployment_id,
             "model": EXPECTED_MODEL,
         },
         "endpoint_unchanged": endpoint_unchanged,
@@ -901,6 +959,10 @@ def run_probe(
     concurrency: int = DEFAULT_CONCURRENCY,
     request_timeout_seconds: float = DEFAULT_REQUEST_TIMEOUT_SECONDS,
     metrics_timeout_seconds: float = DEFAULT_METRICS_TIMEOUT_SECONDS,
+    expected_deployment_id: str | None = None,
+    expected_spec_sha256: str | None = None,
+    expected_proxy_config_sha256: str | None = None,
+    expected_sticky_ttl_seconds: int | None = None,
     transport: HttpTransport | None = None,
     monotonic: Any = time.monotonic,
 ) -> dict[str, Any]:
@@ -917,7 +979,13 @@ def run_probe(
         or not 1 <= metrics_timeout_seconds <= 60
     ):
         raise KimiStockCapacityProbeError("timeout_invalid")
-    binding = _load_binding(deployment_root)
+    binding = _load_binding(
+        deployment_root,
+        expected_deployment_id=expected_deployment_id,
+        expected_spec_sha256=expected_spec_sha256,
+        expected_proxy_config_sha256=expected_proxy_config_sha256,
+        expected_sticky_ttl_seconds=expected_sticky_ttl_seconds,
+    )
     client = transport or DirectHttpTransport(binding.endpoint.host, binding.endpoint.port)
 
     before_metrics, before_response_errors, before_transport_errors = _safe_metrics(
@@ -961,7 +1029,13 @@ def run_probe(
         client,
         timeout=metrics_timeout_seconds,
     )
-    endpoint_unchanged = _binding_unchanged(binding, deployment_root)
+    endpoint_unchanged = _binding_unchanged(
+        binding,
+        deployment_root,
+        expected_spec_sha256=expected_spec_sha256,
+        expected_proxy_config_sha256=expected_proxy_config_sha256,
+        expected_sticky_ttl_seconds=expected_sticky_ttl_seconds,
+    )
     return _aggregate_receipt(
         binding=binding,
         concurrency=concurrency,
@@ -1064,6 +1138,10 @@ def capture_probe(
     concurrency: int = DEFAULT_CONCURRENCY,
     request_timeout_seconds: float = DEFAULT_REQUEST_TIMEOUT_SECONDS,
     metrics_timeout_seconds: float = DEFAULT_METRICS_TIMEOUT_SECONDS,
+    expected_deployment_id: str | None = None,
+    expected_spec_sha256: str | None = None,
+    expected_proxy_config_sha256: str | None = None,
+    expected_sticky_ttl_seconds: int | None = None,
     transport: HttpTransport | None = None,
     monotonic: Any = time.monotonic,
 ) -> tuple[dict[str, Any], str]:
@@ -1072,6 +1150,10 @@ def capture_probe(
         concurrency=concurrency,
         request_timeout_seconds=request_timeout_seconds,
         metrics_timeout_seconds=metrics_timeout_seconds,
+        expected_deployment_id=expected_deployment_id,
+        expected_spec_sha256=expected_spec_sha256,
+        expected_proxy_config_sha256=expected_proxy_config_sha256,
+        expected_sticky_ttl_seconds=expected_sticky_ttl_seconds,
         transport=transport,
         monotonic=monotonic,
     )
@@ -1084,6 +1166,10 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--concurrency", type=int, choices=ALLOWED_CONCURRENCY, default=DEFAULT_CONCURRENCY)
     parser.add_argument("--request-timeout-seconds", type=float, default=DEFAULT_REQUEST_TIMEOUT_SECONDS)
     parser.add_argument("--metrics-timeout-seconds", type=float, default=DEFAULT_METRICS_TIMEOUT_SECONDS)
+    parser.add_argument("--expected-deployment-id", default=EXPECTED_DEPLOYMENT_ID)
+    parser.add_argument("--expected-spec-sha256", default=EXPECTED_SPEC_SHA256)
+    parser.add_argument("--expected-proxy-config-sha256", default=EXPECTED_PROXY_CONFIG_SHA256)
+    parser.add_argument("--expected-sticky-ttl-seconds", type=int)
     parser.add_argument("--output", type=Path, required=True)
     return parser
 
@@ -1097,6 +1183,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             concurrency=arguments.concurrency,
             request_timeout_seconds=arguments.request_timeout_seconds,
             metrics_timeout_seconds=arguments.metrics_timeout_seconds,
+            expected_deployment_id=arguments.expected_deployment_id,
+            expected_spec_sha256=arguments.expected_spec_sha256,
+            expected_proxy_config_sha256=arguments.expected_proxy_config_sha256,
+            expected_sticky_ttl_seconds=arguments.expected_sticky_ttl_seconds,
         )
     except (KimiStockCapacityProbeError, OSError, RuntimeError, ValueError):
         print(

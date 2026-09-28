@@ -35,8 +35,14 @@ from typing import Any, TypeVar
 
 import kimi_sandoq_production as legacy
 import sanitize_sandoq_cleanup_audit as cleanup_sanitizer
+from kimi_stock_endpoint_binding import (
+    StockEndpointBinding,
+    StockEndpointBindingError,
+    load_capacity_binding,
+)
 
 SCHEMA_VERSION = 1
+DYNAMIC_SCHEMA_VERSION = 2
 PLAN_KIND = "kimi-k3-stock-small-task-image-c64-soak-plan"
 RUN_KIND = "kimi-k3-stock-small-task-image-c64-soak-run"
 RECEIPT_KIND = "kimi-k3-stock-small-task-image-c64-soak"
@@ -363,49 +369,34 @@ def _validate_lifecycle_soak() -> tuple[dict[str, int | str], bytes]:
     return artifact, body
 
 
+def _validate_bound_stock_capacity(
+    path: Path,
+    expected_sha256: str,
+) -> tuple[dict[str, int | str], bytes, StockEndpointBinding]:
+    try:
+        binding, body = load_capacity_binding(
+            path,
+            expected_sha256,
+        )
+    except (OSError, RuntimeError, ValueError, StockEndpointBindingError) as error:
+        raise TaskImageSoakError("stock_capacity_invalid") from error
+    artifact = _artifact(binding.capacity_receipt_path, body)
+    return artifact, body, binding
+
+
 def _validate_stock_capacity() -> tuple[dict[str, int | str], bytes, str]:
-    path = STOCK_CAPACITY.resolve(strict=True)
-    if path != STOCK_CAPACITY:
-        raise TaskImageSoakError("stock_capacity_invalid")
-    artifact, body = _stable_artifact(path, "stock_capacity_invalid", private=True)
-    value = _strict_json(body, "stock_capacity_invalid")
-    deployment = value.get("deployment")
-    concurrency = value.get("concurrency")
-    completions = value.get("completions")
-    model = value.get("model_identity")
-    artifacts = value.get("artifacts")
-    endpoint_job_id = deployment.get("endpoint_job_id") if isinstance(deployment, dict) else None
-    spec = artifacts.get("spec") if isinstance(artifacts, dict) else None
-    proxy = artifacts.get("proxy_config") if isinstance(artifacts, dict) else None
+    artifact, body, binding = _validate_bound_stock_capacity(
+        STOCK_CAPACITY,
+        STOCK_CAPACITY_SHA256,
+    )
     if (
-        artifact["sha256"] != STOCK_CAPACITY_SHA256
-        or value.get("schema_version") != 1
-        or value.get("kind") != "kimi-stock-capacity-probe"
-        or value.get("state") != "passed"
-        or value.get("endpoint_unchanged") is not True
-        or not isinstance(deployment, dict)
-        or deployment.get("id") != STOCK_ENDPOINT_IDENTIFIER
-        or deployment.get("model") != "Kimi-K3"
-        or not isinstance(endpoint_job_id, str)
-        or re.fullmatch(r"[1-9][0-9]*", endpoint_job_id) is None
-        or not isinstance(concurrency, dict)
-        or concurrency.get("configured") != CONCURRENCY
-        or concurrency.get("client_peak_in_flight") != CONCURRENCY
-        or not isinstance(completions, dict)
-        or any(completions.get(key) != CONCURRENCY for key in ("requested", "attempted", "successful", "http_200"))
-        or completions.get("transport_errors") != 0
-        or completions.get("response_errors") != 0
-        or not isinstance(model, dict)
-        or model.get("served_model") != "Kimi-K3"
-        or model.get("confirmed") is not True
-        or not isinstance(artifacts, dict)
-        or not isinstance(spec, dict)
-        or spec.get("sha256") != STOCK_SOURCE_SPEC_SHA256
-        or not isinstance(proxy, dict)
-        or proxy.get("sha256") != STOCK_SOURCE_PROXY_SHA256
+        binding.deployment_id != STOCK_ENDPOINT_IDENTIFIER
+        or binding.source_spec_sha256 != STOCK_SOURCE_SPEC_SHA256
+        or binding.source_proxy_config_sha256 != STOCK_SOURCE_PROXY_SHA256
+        or binding.endpoint_bundle_sha256 != STOCK_ENDPOINT_BUNDLE_SHA256
     ):
         raise TaskImageSoakError("stock_capacity_invalid")
-    return artifact, body, _sha256(f"{endpoint_job_id}\n".encode())
+    return artifact, body, binding.endpoint_jobs_sha256
 
 
 def _selection_coverage(dataset: Path, members: Sequence[str]) -> dict[str, Any]:
@@ -510,7 +501,11 @@ def _selector_receipt(selector_body: bytes, coverage: Mapping[str, Any]) -> dict
     }
 
 
-def _contracts() -> dict[str, Any]:
+def _contracts(binding: StockEndpointBinding | None = None) -> dict[str, Any]:
+    endpoint_identifier = binding.deployment_id if binding is not None else STOCK_ENDPOINT_IDENTIFIER
+    capacity_receipt_sha256 = (
+        binding.capacity_receipt_sha256 if binding is not None else STOCK_CAPACITY_SHA256
+    )
     return {
         "purpose": "real-task-image-prelaunch-soak",
         "task_count": SELECTED_TASKS,
@@ -531,8 +526,8 @@ def _contracts() -> dict[str, Any]:
         },
         "endpoint_epoch": {
             "capacity_profile": STOCK_CAPACITY_PROFILE,
-            "endpoint_identifier": STOCK_ENDPOINT_IDENTIFIER,
-            "capacity_receipt_sha256": STOCK_CAPACITY_SHA256,
+            "endpoint_identifier": endpoint_identifier,
+            "capacity_receipt_sha256": capacity_receipt_sha256,
             "minimum_remaining_seconds": MINIMUM_ENDPOINT_REMAINING_SECONDS,
             "walltime_gate_task_count": ENDPOINT_GATE_TASK_COUNT,
             "capture_before_sandbox_start": True,
@@ -568,6 +563,8 @@ def materialize(
     dataset: Path,
     image_manifest: Path,
     output: Path,
+    stock_capacity: Path = STOCK_CAPACITY,
+    stock_capacity_sha256: str = STOCK_CAPACITY_SHA256,
 ) -> dict[str, Any]:
     root = _validate_source(project_root, expected_revision)
     try:
@@ -583,7 +580,16 @@ def materialize(
         raise TaskImageSoakError("image_manifest_invalid")
     profile_record, profile_body = _validate_provider_profile()
     lifecycle_record, lifecycle_body = _validate_lifecycle_soak()
-    stock_record, stock_body, endpoint_jobs_sha256 = _validate_stock_capacity()
+    dynamic_binding = stock_capacity != STOCK_CAPACITY or stock_capacity_sha256 != STOCK_CAPACITY_SHA256
+    if dynamic_binding:
+        stock_record, stock_body, binding = _validate_bound_stock_capacity(
+            stock_capacity,
+            stock_capacity_sha256,
+        )
+        endpoint_jobs_sha256 = binding.endpoint_jobs_sha256
+    else:
+        stock_record, stock_body, endpoint_jobs_sha256 = _validate_stock_capacity()
+        binding = None
     tool_path = Path(__file__).resolve(strict=True)
     launcher_path = _launcher_path().resolve(strict=True)
     tool_record, tool_body = _stable_artifact(tool_path, "tool_identity_invalid")
@@ -595,7 +601,7 @@ def materialize(
     selector_value = _selector_receipt(selector_body, coverage)
     selector_receipt_body = _canonical(selector_value)
     plan: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": DYNAMIC_SCHEMA_VERSION if dynamic_binding else SCHEMA_VERSION,
         "kind": PLAN_KIND,
         "state": "authorized",
         "source_revision": expected_revision,
@@ -620,8 +626,10 @@ def materialize(
             "receipt": _artifact(selector_receipt_path, selector_receipt_body),
         },
         "endpoint_epoch": {"endpoint_jobs_sha256": endpoint_jobs_sha256},
-        "contracts": _contracts(),
+        "contracts": _contracts(binding if dynamic_binding else None),
     }
+    if dynamic_binding:
+        plan["endpoint_binding"] = binding.public_record
     plan["plan_sha256"] = _sha256(_canonical(plan))
     try:
         os.mkdir(output, 0o700)
@@ -675,25 +683,28 @@ def validate_plan(path: Path, expected_sha256: str) -> dict[str, Any]:
     claimed = unsigned.pop("plan_sha256", None)
     source = value.get("source")
     selection = value.get("selection")
+    schema_version = value.get("schema_version")
+    dynamic_binding = schema_version == DYNAMIC_SCHEMA_VERSION
+    expected_keys = {
+        "schema_version",
+        "kind",
+        "state",
+        "source_revision",
+        "source",
+        "selection",
+        "endpoint_epoch",
+        "contracts",
+        "plan_sha256",
+    }
+    if dynamic_binding:
+        expected_keys.add("endpoint_binding")
     if (
-        set(value)
-        != {
-            "schema_version",
-            "kind",
-            "state",
-            "source_revision",
-            "source",
-            "selection",
-            "endpoint_epoch",
-            "contracts",
-            "plan_sha256",
-        }
-        or value.get("schema_version") != SCHEMA_VERSION
+        set(value) != expected_keys
+        or schema_version not in {SCHEMA_VERSION, DYNAMIC_SCHEMA_VERSION}
         or value.get("kind") != PLAN_KIND
         or value.get("state") != "authorized"
         or REVISION_RE.fullmatch(str(value.get("source_revision", ""))) is None
         or claimed != _sha256(_canonical(unsigned))
-        or value.get("contracts") != _contracts()
         or not isinstance(source, dict)
         or set(source)
         != {
@@ -750,7 +761,17 @@ def validate_plan(path: Path, expected_sha256: str) -> dict[str, Any]:
     )
     lifecycle_record, expected_lifecycle_body = _validate_lifecycle_soak()
     stock_path, stock_body = _record_body(source["stock_model_c64"], "stock_capacity_invalid", private=True)
-    stock_record, expected_stock_body, endpoint_jobs_sha256 = _validate_stock_capacity()
+    if dynamic_binding:
+        stock_record, expected_stock_body, binding = _validate_bound_stock_capacity(
+            stock_path,
+            str(source["stock_model_c64"].get("sha256", "")),
+        )
+        endpoint_jobs_sha256 = binding.endpoint_jobs_sha256
+        expected_binding = binding.public_record
+    else:
+        stock_record, expected_stock_body, endpoint_jobs_sha256 = _validate_stock_capacity()
+        binding = None
+        expected_binding = None
     tool_path, _tool_body = _record_body(source["tool"], "tool_identity_invalid")
     launcher_path, _launcher_body = _record_body(source["launcher"], "tool_identity_invalid")
     if (
@@ -761,6 +782,8 @@ def validate_plan(path: Path, expected_sha256: str) -> dict[str, Any]:
         or stock_path != Path(stock_record["path"])
         or stock_body != expected_stock_body
         or value.get("endpoint_epoch") != {"endpoint_jobs_sha256": endpoint_jobs_sha256}
+        or value.get("contracts") != _contracts(binding if dynamic_binding else None)
+        or (dynamic_binding and value.get("endpoint_binding") != expected_binding)
         or tool_path != Path(__file__).resolve(strict=True)
         or launcher_path != _launcher_path().resolve(strict=True)
         or project_root != Path(str(source["project_root"]))
@@ -769,6 +792,32 @@ def validate_plan(path: Path, expected_sha256: str) -> dict[str, Any]:
     ):
         raise TaskImageSoakError("plan_binding_invalid")
     return value
+
+
+def _plan_endpoint_binding(plan: Mapping[str, Any]) -> StockEndpointBinding:
+    source = plan.get("source")
+    record = source.get("stock_model_c64") if isinstance(source, dict) else None
+    if not isinstance(record, dict):
+        raise TaskImageSoakError("stock_capacity_invalid")
+    try:
+        binding, _body = load_capacity_binding(
+            Path(str(record.get("path", ""))),
+            str(record.get("sha256", "")),
+        )
+    except (OSError, RuntimeError, ValueError, StockEndpointBindingError) as error:
+        raise TaskImageSoakError("stock_capacity_invalid") from error
+    if plan.get("schema_version") == DYNAMIC_SCHEMA_VERSION:
+        if plan.get("endpoint_binding") != binding.public_record:
+            raise TaskImageSoakError("endpoint_binding_invalid")
+    elif (
+        binding.deployment_id != STOCK_ENDPOINT_IDENTIFIER
+        or binding.capacity_receipt_sha256 != STOCK_CAPACITY_SHA256
+        or binding.source_spec_sha256 != STOCK_SOURCE_SPEC_SHA256
+        or binding.source_proxy_config_sha256 != STOCK_SOURCE_PROXY_SHA256
+        or binding.endpoint_bundle_sha256 != STOCK_ENDPOINT_BUNDLE_SHA256
+    ):
+        raise TaskImageSoakError("stock_capacity_invalid")
+    return binding
 
 
 def _validate_execution_environment(output: Path) -> None:
@@ -1196,6 +1245,7 @@ def _validate_endpoint_gate(
     walltime_path: Path,
     walltime_sha256: str,
     endpoint_jobs_sha256: str,
+    binding: StockEndpointBinding,
     revalidate_live_source: bool,
 ) -> dict[str, Any]:
     if any(SHA256_RE.fullmatch(value) is None for value in (manifest_sha256, walltime_sha256, endpoint_jobs_sha256)):
@@ -1219,17 +1269,27 @@ def _validate_endpoint_gate(
         )
         router = manifest.get("router")
         workers = manifest.get("workers")
+        dynamic_manifest = manifest.get("schema_version") == 6
         if (
-            manifest.get("schema_version") != 5
+            manifest.get("schema_version") not in {5, 6}
             or manifest.get("model") != "Kimi-K3"
-            or manifest.get("source_spec_sha256") != STOCK_SOURCE_SPEC_SHA256
-            or manifest.get("source_proxy_config_sha256") != STOCK_SOURCE_PROXY_SHA256
-            or manifest.get("endpoint_bundle_sha256") != STOCK_ENDPOINT_BUNDLE_SHA256
+            or manifest.get("source_spec_sha256") != binding.source_spec_sha256
+            or manifest.get("source_proxy_config_sha256") != binding.source_proxy_config_sha256
+            or manifest.get("endpoint_bundle_sha256") != binding.endpoint_bundle_sha256
+            or (
+                dynamic_manifest
+                and manifest.get("stock_capacity")
+                != {
+                    "path": str(binding.capacity_receipt_path),
+                    "sha256": binding.capacity_receipt_sha256,
+                }
+            )
+            or (not dynamic_manifest and binding.capacity_receipt_sha256 != STOCK_CAPACITY_SHA256)
             or not isinstance(workers, list)
             or len(workers) != 1
             or not isinstance(router, dict)
             or router.get("capacity_profile") != STOCK_CAPACITY_PROFILE
-            or router.get("endpoint_identifier") != STOCK_ENDPOINT_IDENTIFIER
+            or router.get("endpoint_identifier") != binding.deployment_id
             or router.get("max_concurrent_requests") != CONCURRENCY
             or router.get("queue_size") != CONCURRENCY
             or router.get("per_worker_capacity") != CONCURRENCY
@@ -1241,10 +1301,11 @@ def _validate_endpoint_gate(
         walltime = validate_receipt(
             _strict_json(walltime_body, "endpoint_walltime_invalid"),
             manifest_sha256=manifest_sha256,
-            endpoint_bundle_sha256=STOCK_ENDPOINT_BUNDLE_SHA256,
+            endpoint_bundle_sha256=binding.endpoint_bundle_sha256,
             profile=WALLTIME_PROFILE,
             minimum_remaining_seconds=MINIMUM_ENDPOINT_REMAINING_SECONDS,
             task_count=ENDPOINT_GATE_TASK_COUNT,
+            deployment=binding.deployment_id,
         )
     except TaskImageSoakError:
         raise
@@ -1252,6 +1313,7 @@ def _validate_endpoint_gate(
         raise TaskImageSoakError("endpoint_gate_invalid") from error
     if (
         walltime.get("endpoint_jobs_sha256") != endpoint_jobs_sha256
+        or endpoint_jobs_sha256 != binding.endpoint_jobs_sha256
         or walltime.get("observed_minimum_remaining_seconds", 0) < MINIMUM_ENDPOINT_REMAINING_SECONDS
     ):
         raise TaskImageSoakError("endpoint_epoch_invalid")
@@ -1308,7 +1370,7 @@ def _validate_run_value(
             "endpoint_gate",
             "elapsed_seconds",
         }
-        or value.get("schema_version") != SCHEMA_VERSION
+        or value.get("schema_version") not in {SCHEMA_VERSION, DYNAMIC_SCHEMA_VERSION}
         or value.get("kind") != RUN_KIND
         or value.get("state") != "passed"
         or value.get("plan") != {"path": str(plan_path), "sha256": plan_sha256}
@@ -1380,6 +1442,7 @@ def run(
     walltime_receipt_sha256: str,
 ) -> dict[str, Any]:
     plan = validate_plan(plan_path, plan_sha256)
+    binding = _plan_endpoint_binding(plan)
     run_root = _private_directory(output, "run_output_invalid")
     if (
         worker_manifest != run_root / "endpoint-generation/direct_kimi_workers.json"
@@ -1396,6 +1459,7 @@ def run(
         walltime_path=walltime_receipt,
         walltime_sha256=walltime_receipt_sha256,
         endpoint_jobs_sha256=plan["endpoint_epoch"]["endpoint_jobs_sha256"],
+        binding=binding,
         revalidate_live_source=True,
     )
     try:
@@ -1549,6 +1613,7 @@ def _build_receipt(
     run_root: Path,
 ) -> dict[str, Any]:
     plan = validate_plan(plan_path, plan_sha256)
+    binding = _plan_endpoint_binding(plan)
     run_record, run_body = _stable_artifact(run_root / "run-result.json", "run_result_invalid", private=True)
     run_value = _strict_json(run_body, "run_result_invalid")
     _validate_run_value(run_value, plan_path.resolve(strict=True), plan_sha256, plan)
@@ -1566,6 +1631,7 @@ def _build_receipt(
         walltime_path=Path(str(endpoint_gate["walltime_receipt"]["path"])),
         walltime_sha256=str(endpoint_gate["walltime_receipt"]["sha256"]),
         endpoint_jobs_sha256=str(endpoint_gate["endpoint_jobs_sha256"]),
+        binding=binding,
         revalidate_live_source=False,
     )
     if observed_endpoint_gate != endpoint_gate:
@@ -1575,7 +1641,7 @@ def _build_receipt(
     snapshot_record, _snapshot = _validate_provider_snapshot(run_root / "sandoq-provider-context.json")
     cleanup_record, cleanup, cleanup_records = _revalidate_cleanup(run_root)
     value: dict[str, Any] = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": plan["schema_version"],
         "kind": RECEIPT_KIND,
         "state": "passed",
         "source_revision": plan["source_revision"],
@@ -1608,7 +1674,7 @@ def _build_receipt(
             },
         },
         "endpoint_epoch": {
-            "capacity_receipt_sha256": STOCK_CAPACITY_SHA256,
+            "capacity_receipt_sha256": binding.capacity_receipt_sha256,
             "endpoint_jobs_sha256": endpoint_gate["endpoint_jobs_sha256"],
             "minimum_remaining_seconds": MINIMUM_ENDPOINT_REMAINING_SECONDS,
             "walltime_gate_task_count": ENDPOINT_GATE_TASK_COUNT,
@@ -1644,6 +1710,8 @@ def _build_receipt(
             "error_text_present": False,
         },
     }
+    if plan["schema_version"] == DYNAMIC_SCHEMA_VERSION:
+        value["endpoint_binding"] = binding.public_record
     value["certificate_sha256"] = _sha256(_canonical(value))
     return value
 
@@ -1708,12 +1776,14 @@ def _parser() -> argparse.ArgumentParser:
     materialize_parser.add_argument("--expected-revision", required=True)
     materialize_parser.add_argument("--dataset", type=Path, required=True)
     materialize_parser.add_argument("--image-manifest", type=Path, required=True)
+    materialize_parser.add_argument("--stock-capacity", type=Path, default=STOCK_CAPACITY)
+    materialize_parser.add_argument("--stock-capacity-sha256", default=STOCK_CAPACITY_SHA256)
     materialize_parser.add_argument("--output", type=Path, required=True)
 
     verify_parser = subparsers.add_parser("verify")
     verify_parser.add_argument("--plan", type=Path, required=True)
     verify_parser.add_argument("--plan-sha256", required=True)
-    verify_parser.add_argument("--format", choices=("json", "tsv"), default="json")
+    verify_parser.add_argument("--format", choices=("json", "tsv", "launch-tsv"), default="json")
 
     run_parser = subparsers.add_parser("run")
     run_parser.add_argument("--plan", type=Path, required=True)
@@ -1747,6 +1817,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                 dataset=args.dataset,
                 image_manifest=args.image_manifest,
                 output=args.output,
+                stock_capacity=args.stock_capacity,
+                stock_capacity_sha256=args.stock_capacity_sha256,
             )
         elif args.command == "verify":
             plan = validate_plan(args.plan, args.plan_sha256)
@@ -1755,6 +1827,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                     plan["source_revision"],
                     plan["selection"]["count"],
                     plan["selection"]["selector"]["sha256"],
+                    sep="\t",
+                )
+                return 0
+            if args.format == "launch-tsv":
+                binding = _plan_endpoint_binding(plan)
+                capacity = plan["source"]["stock_model_c64"]
+                print(
+                    plan["source_revision"],
+                    plan["selection"]["count"],
+                    plan["selection"]["selector"]["sha256"],
+                    binding.deployment_id,
+                    capacity["path"],
+                    capacity["sha256"],
+                    binding.endpoint_jobs_sha256,
                     sep="\t",
                 )
                 return 0

@@ -64,13 +64,18 @@ export PYTHONPATH="$workflow_dir:$project_dir/environments/vmvm_tb_v2:$project_d
 
 binding=$(
     "$x86_uv" run --no-project --offline --python "$python_bin" \
-        python3 "$tool" verify --plan "$plan" --plan-sha256 "$plan_sha256" --format tsv
+        python3 "$tool" verify --plan "$plan" --plan-sha256 "$plan_sha256" --format launch-tsv
 ) || blocked plan_invalid
-IFS=$'\t' read -r verified_revision selected_tasks selector_sha256 binding_extra <<< "$binding"
+IFS=$'\t' read -r verified_revision selected_tasks selector_sha256 endpoint_identifier \
+    stock_capacity stock_capacity_sha256 endpoint_jobs_sha256 binding_extra <<< "$binding"
 [[ -z "$binding_extra" && "$binding" != *$'\n'* \
     && "$verified_revision" == "$expected_revision" \
     && "$selected_tasks" == 2499 \
-    && "$selector_sha256" =~ ^[0-9a-f]{64}$ ]] || blocked plan_binding_invalid
+    && "$selector_sha256" =~ ^[0-9a-f]{64}$ \
+    && "$endpoint_identifier" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ \
+    && "$stock_capacity" == /* \
+    && "$stock_capacity_sha256" =~ ^[0-9a-f]{64}$ \
+    && "$endpoint_jobs_sha256" =~ ^[0-9a-f]{64}$ ]] || blocked plan_binding_invalid
 
 if [[ -e "$output_root" || -L "$output_root" ]]; then
     [[ -d "$output_root" && ! -L "$output_root" \
@@ -97,14 +102,18 @@ mkdir -m 0700 -- "$generation_dir"
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" snapshot-source \
     --deployment-root "$deployment_root" --output-root "$deployment_snapshot" \
-    --capacity-profile sandoq-stock-single-c64-v1 >/dev/null 2>&1 \
+    --capacity-profile sandoq-stock-single-c64-v1 \
+    --stock-capacity-receipt "$stock_capacity" \
+    --stock-capacity-receipt-sha256 "$stock_capacity_sha256" >/dev/null 2>&1 \
     || blocked endpoint_snapshot_failed
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" prepare \
     --deployment-root "$deployment_snapshot" --output-root "$generation_dir" \
     --manifest "$worker_manifest" --urls-output "$worker_urls" --ports-output "$router_ports" \
     --capacity-profile sandoq-stock-single-c64-v1 \
-    --endpoint-identifier tianhaowu-kimi-k3-stock-eval-20260927 \
+    --endpoint-identifier "$endpoint_identifier" \
+    --stock-capacity-receipt "$stock_capacity" \
+    --stock-capacity-receipt-sha256 "$stock_capacity_sha256" \
     --request-timeout-seconds 144000 --probe >/dev/null 2>&1 \
     || blocked endpoint_manifest_failed
 worker_manifest_sha256=$(sha256sum -- "$worker_manifest" | cut -d' ' -f1)
@@ -113,7 +122,7 @@ worker_manifest_sha256=$(sha256sum -- "$worker_manifest" | cut -d' ' -f1)
     --manifest "$worker_manifest" --manifest-sha256 "$worker_manifest_sha256" \
     --profile tb4-extended-c24-stock-single-three-wave-v1 \
     --minimum-remaining-seconds 518400 --task-count 64 \
-    --deployment tianhaowu-kimi-k3-stock-eval-20260927 \
+    --deployment "$endpoint_identifier" \
     --output "$walltime_receipt" >/dev/null 2>&1 \
     || blocked endpoint_walltime_failed
 walltime_receipt_sha256=$(sha256sum -- "$walltime_receipt" | cut -d' ' -f1)

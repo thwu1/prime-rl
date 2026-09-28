@@ -108,11 +108,16 @@ binding=$(
         --plan "$plan" --plan-sha256 "$plan_sha256" --index "$shard_index" --format tsv
 )
 IFS=$'\t' read -r verified_revision verified_index task_count task_file task_sha256 \
-    eval_config eval_config_sha256 shard_root binding_extra <<< "$binding"
+    eval_config eval_config_sha256 shard_root endpoint_identifier stock_capacity \
+    stock_capacity_sha256 endpoint_jobs_sha256 binding_extra <<< "$binding"
 if [[ -n "$binding_extra" || "$binding" == *$'\n'* \
     || "$verified_revision" != "$expected_revision" \
     || "$verified_index" != "$shard_index" \
-    || ! "$task_count" =~ ^(62|63)$ ]]; then
+    || ! "$task_count" =~ ^(62|63)$ \
+    || ! "$endpoint_identifier" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ \
+    || "$stock_capacity" != /* \
+    || ! "$stock_capacity_sha256" =~ ^[0-9a-f]{64}$ \
+    || ! "$endpoint_jobs_sha256" =~ ^[0-9a-f]{64}$ ]]; then
     blocked shard_binding_invalid
 fi
 
@@ -159,13 +164,17 @@ flock -n 8 || blocked router_generation_busy
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" snapshot-source \
     --deployment-root "$deployment_root" --output-root "$deployment_snapshot" \
-    --capacity-profile sandoq-stock-single-c64-v1 >/dev/null
+    --capacity-profile sandoq-stock-single-c64-v1 \
+    --stock-capacity-receipt "$stock_capacity" \
+    --stock-capacity-receipt-sha256 "$stock_capacity_sha256" >/dev/null
 "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_workers.py" prepare \
     --deployment-root "$deployment_snapshot" --output-root "$generation_dir" \
     --manifest "$manifest" --urls-output "$urls_file" --ports-output "$ports_file" \
     --capacity-profile sandoq-stock-single-c64-v1 \
-    --endpoint-identifier tianhaowu-kimi-k3-stock-eval-20260927 \
+    --endpoint-identifier "$endpoint_identifier" \
+    --stock-capacity-receipt "$stock_capacity" \
+    --stock-capacity-receipt-sha256 "$stock_capacity_sha256" \
     --request-timeout-seconds 144000 --probe >/dev/null
 manifest_sha256=$(sha256sum -- "$manifest" | cut -d' ' -f1)
 
@@ -188,7 +197,7 @@ setsid "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/direct_kimi_router.py" \
     --worker-urls-file "$urls_file" --host 127.0.0.1 --port "$router_port" \
     --metrics-port "$metrics_port" --capacity-profile sandoq-stock-single-c64-v1 \
-    --endpoint-identifier tianhaowu-kimi-k3-stock-eval-20260927 \
+    --endpoint-identifier "$endpoint_identifier" \
     --request-timeout-seconds 144000 >"$router_log" 2>&1 &
 router_pid=$!
 for attempt in $(seq 1 120); do
@@ -225,7 +234,7 @@ stage_env=(
     DIRECT_KIMI_SANDBOX_PROVIDER=sandoq
     DIRECT_KIMI_EXECUTION_MODE=certified
     DIRECT_KIMI_ROUTER_CAPACITY_PROFILE=sandoq-stock-single-c64-v1
-    DIRECT_KIMI_ENDPOINT_IDENTIFIER=tianhaowu-kimi-k3-stock-eval-20260927
+    DIRECT_KIMI_ENDPOINT_IDENTIFIER="$endpoint_identifier"
     DIRECT_KIMI_PRODUCTION_LAUNCH="$launch"
     DIRECT_KIMI_PRODUCTION_LAUNCH_SHA256="$launch_sha256"
     DIRECT_KIMI_ZERO_MODEL_RESUME_ATTEMPTS=0

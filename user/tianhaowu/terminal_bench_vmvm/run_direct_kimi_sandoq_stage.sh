@@ -82,7 +82,9 @@ elif [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
         exit 2
     fi
     if [[ "$sandbox_provider" != sandoq \
-        || "$endpoint_identifier" != tianhaowu-kimi-k3-stock-eval-20260927 ]]; then
+        || ! "$endpoint_identifier" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ \
+        || ( "$stock_small_production" != 1 \
+            && "$endpoint_identifier" != tianhaowu-kimi-k3-stock-eval-20260927 ) ]]; then
         printf 'Direct Kimi stock-single profile requires its exact endpoint\n' >&2
         exit 2
     fi
@@ -646,7 +648,7 @@ if [[ "$direct_request_timeout" == 144000 ]]; then
         fi
         walltime_deployment_args=()
         if [[ "$router_capacity_profile" == sandoq-stock-single-c64-v1 ]]; then
-            walltime_deployment_args=(--deployment tianhaowu-kimi-k3-stock-eval-20260927)
+            walltime_deployment_args=(--deployment "$endpoint_identifier")
         fi
         "$x86_uv" run --no-project --offline --python "$python_bin" \
             python3 "$workflow_dir/kimi_endpoint_walltime_gate.py" capture \

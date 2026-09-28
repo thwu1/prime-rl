@@ -23,6 +23,7 @@ from direct_kimi_router import (
     worker_count_for_profile,
 )
 from direct_kimi_workers import (
+    DYNAMIC_STOCK_SINGLE_MANIFEST_SCHEMA_VERSION,
     EXPECTED_ENDPOINT_IDENTIFIER,
     EXPECTED_ENDPOINTS,
     GENERATION_FILE_NAMES,
@@ -145,18 +146,25 @@ def _load_bound_generation(
     capacity_profile = router.get("capacity_profile") if isinstance(router, dict) else None
     expected_worker_count = worker_count_for_profile(capacity_profile)
     expected_schema = (
-        STOCK_SINGLE_MANIFEST_SCHEMA_VERSION
+        (
+            DYNAMIC_STOCK_SINGLE_MANIFEST_SCHEMA_VERSION,
+            STOCK_SINGLE_MANIFEST_SCHEMA_VERSION,
+        )
         if capacity_profile == STOCK_SINGLE_C64_CAPACITY_PROFILE
-        else W2_MANIFEST_SCHEMA_VERSION
+        else (W2_MANIFEST_SCHEMA_VERSION,)
     )
     expected_identifier = (
-        STOCK_SINGLE_ENDPOINT_IDENTIFIER
+        (
+            router.get("endpoint_identifier")
+            if manifest.get("schema_version") == DYNAMIC_STOCK_SINGLE_MANIFEST_SCHEMA_VERSION
+            else STOCK_SINGLE_ENDPOINT_IDENTIFIER
+        )
         if capacity_profile == STOCK_SINGLE_C64_CAPACITY_PROFILE
         else EXPECTED_ENDPOINT_IDENTIFIER
     )
     if (
         capacity_profile not in {C64_W2_CAPACITY_PROFILE, STOCK_SINGLE_C64_CAPACITY_PROFILE}
-        or manifest.get("schema_version") != expected_schema
+        or manifest.get("schema_version") not in expected_schema
         or not isinstance(router, dict)
         or router.get("endpoint_identifier") != expected_identifier
         or not isinstance(workers, list)

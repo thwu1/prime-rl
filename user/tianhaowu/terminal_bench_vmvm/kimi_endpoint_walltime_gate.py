@@ -448,10 +448,13 @@ def _load_manifest(
     elif profile == STOCK_SINGLE_PROFILE:
         workers = manifest.get("workers")
         invalid = (
-            manifest.get("schema_version") != 5
+            manifest.get("schema_version") not in {5, 6}
             or common_router_invalid
             or router.get("capacity_profile") != STOCK_SINGLE_MANIFEST_CAPACITY_PROFILE
-            or router.get("endpoint_identifier") != STOCK_SINGLE_DEPLOYMENT
+            or (
+                manifest.get("schema_version") == 5
+                and router.get("endpoint_identifier") != STOCK_SINGLE_DEPLOYMENT
+            )
             or router.get("max_concurrent_requests") != W2_ROUTER_ADMISSION
             or router.get("queue_size") != W2_ROUTER_ADMISSION
             or router.get("per_worker_capacity") != W2_ROUTER_ADMISSION
@@ -483,10 +486,15 @@ def capture_gate(
 
     _validate_profile(profile, minimum_remaining_seconds)
     _validate_task_count(task_count, profile=profile)
-    expected_deployment = STOCK_SINGLE_DEPLOYMENT if profile == STOCK_SINGLE_PROFILE else EXPECTED_DEPLOYMENT
+    manifest = _load_manifest(manifest_path, manifest_sha256, profile=profile)
+    router = manifest.get("router")
+    expected_deployment = (
+        router.get("endpoint_identifier")
+        if profile == STOCK_SINGLE_PROFILE and isinstance(router, dict)
+        else EXPECTED_DEPLOYMENT
+    )
     if deployment != expected_deployment or cluster != EXPECTED_CLUSTER:
         raise EndpointWalltimeGateError("deployment_or_cluster_invalid")
-    manifest = _load_manifest(manifest_path, manifest_sha256, profile=profile)
     workers = manifest.get("workers") if isinstance(manifest, dict) else None
     selected_endpoint_count = (
         1
@@ -645,6 +653,7 @@ def validate_receipt(
     task_count: int,
     source_endpoint_bundle_sha256: str | None = None,
     excluded_backend_sha256: str | None = None,
+    deployment: str | None = None,
 ) -> dict[str, Any]:
     """Validate the aggregate receipt without consulting mutable scheduler state."""
 
@@ -720,7 +729,11 @@ def validate_receipt(
         if profile == C23_PROFILE
         else EXPECTED_ENDPOINTS
     )
-    expected_deployment = STOCK_SINGLE_DEPLOYMENT if profile == STOCK_SINGLE_PROFILE else EXPECTED_DEPLOYMENT
+    expected_deployment = (
+        deployment or STOCK_SINGLE_DEPLOYMENT
+        if profile == STOCK_SINGLE_PROFILE
+        else EXPECTED_DEPLOYMENT
+    )
     if (
         value.get("schema_version") != expected_schema_version
         or value.get("kind") != RECEIPT_KIND
@@ -786,6 +799,7 @@ def load_receipt(
     task_count: int,
     source_endpoint_bundle_sha256: str | None = None,
     excluded_backend_sha256: str | None = None,
+    deployment: str | None = None,
 ) -> dict[str, Any]:
     try:
         before = path.lstat()
@@ -815,6 +829,7 @@ def load_receipt(
         task_count=task_count,
         source_endpoint_bundle_sha256=source_endpoint_bundle_sha256,
         excluded_backend_sha256=excluded_backend_sha256,
+        deployment=deployment,
     )
 
 
@@ -922,6 +937,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                     manifest.get("source_endpoint_bundle_sha256") if args.profile == C23_PROFILE else None
                 ),
                 excluded_backend_sha256=(excluded.get("backend_sha256") if isinstance(excluded, dict) else None),
+                deployment=(
+                    manifest.get("router", {}).get("endpoint_identifier")
+                    if args.profile == STOCK_SINGLE_PROFILE
+                    else None
+                ),
             )
     except EndpointWalltimeGateError as error:
         print(f"endpoint_walltime_gate_error:{error}", file=sys.stderr)

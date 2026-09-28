@@ -2984,6 +2984,33 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
             and isinstance(candidate_environment, dict)
             and candidate_environment.get("environment") == KIMI_SMALL_FIRECRACKER_ENVIRONMENT
         )
+        stock_endpoint_identifier = KIMI_STOCK_SINGLE_ENDPOINT_IDENTIFIER
+        if small_production_role:
+            promotion_record = deployment.get("promotion_certificate") if isinstance(deployment, dict) else None
+            _validate_artifact_shape(promotion_record)
+            assert isinstance(promotion_record, dict)
+            promotion_value = _json_artifact(
+                promotion_record,
+                label="direct_kimi_production_launch",
+            )
+            promotion_deployment = promotion_value.get("deployment")
+            candidate_identifier = (
+                promotion_deployment.get("endpoint_identifier")
+                if isinstance(promotion_deployment, dict)
+                else None
+            )
+            if (
+                not isinstance(candidate_identifier, str)
+                or not candidate_identifier
+                or len(candidate_identifier.encode()) > 128
+                or any(
+                    character
+                    not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._:-"
+                    for character in candidate_identifier
+                )
+            ):
+                raise EvalIdentityError("eval_run_identity_schema_invalid")
+            stock_endpoint_identifier = candidate_identifier
         stock_single_role = (
             (small_tb4_role or small_production_role)
             and candidate_router.get("capacity_profile") == KIMI_STOCK_SINGLE_CAPACITY_PROFILE
@@ -3054,7 +3081,7 @@ def _validate_identity_shape(identity: object) -> dict[str, Any]:
                         KIMI_STOCK_SINGLE_CAPACITY_PROFILE if stock_single_role else KIMI_W2_CAPACITY_PROFILE
                     ),
                     "endpoint_identifier": (
-                        KIMI_STOCK_SINGLE_ENDPOINT_IDENTIFIER if stock_single_role else "cpu-132-021_8103"
+                        stock_endpoint_identifier if stock_single_role else "cpu-132-021_8103"
                     ),
                     "per_worker_capacity": (
                         KIMI_STOCK_SINGLE_PER_WORKER_CAPACITY
@@ -4167,6 +4194,11 @@ def load_eval_run_identity_bytes(
                         else KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS
                     ),
                     task_count=identity["inputs"]["task_file"]["count"],
+                    deployment=(
+                        deployment.get("router", {}).get("endpoint_identifier")
+                        if walltime_profile == STOCK_SINGLE_PROFILE
+                        else None
+                    ),
                 )
             except (OSError, RuntimeError, ValueError) as error:
                 raise EvalIdentityError("direct_kimi_endpoint_walltime_gate_invalid") from error
@@ -4941,6 +4973,11 @@ def _prepare_direct_kimi(args: argparse.Namespace) -> str:
                     else KIMI_TB4_W2_MINIMUM_REMAINING_SECONDS
                 ),
                 task_count=inputs["task_file"]["count"],
+                deployment=(
+                    router.get("endpoint_identifier")
+                    if walltime_profile == STOCK_SINGLE_PROFILE
+                    else None
+                ),
             )
         except (OSError, RuntimeError, ValueError) as error:
             raise EvalIdentityError("direct_kimi_endpoint_walltime_gate_invalid") from error

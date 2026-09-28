@@ -34,8 +34,14 @@ import kimi_stock_small_task_image_soak as task_image_soak
 import kimi_tb4_provider_split as split
 import prepare_kimi_tb4_miniswe246_union as union
 import prepare_kimi_tb4_sandoq_small_full as tb4_small
+from kimi_stock_endpoint_binding import (
+    StockEndpointBinding,
+    StockEndpointBindingError,
+    load_capacity_binding,
+)
 
 SCHEMA_VERSION = 1
+DYNAMIC_SCHEMA_VERSION = 2
 PLAN_KIND = "kimi-k3-stock-small-sharded-production-plan"
 COMPLETION_KIND = "kimi-k3-stock-small-shard-completion"
 FINAL_KIND = "kimi-k3-stock-small-sharded-production-completion"
@@ -592,12 +598,15 @@ def _validate_stock_capacity(
     path: Path,
     expected_sha256: str,
     held: split._HeldArtifactSet | None = None,
-) -> tuple[Path, bytes]:
+) -> tuple[Path, bytes, StockEndpointBinding]:
     try:
-        body, canonical = tb4_small._capacity_receipt(path, expected_sha256, held)
-    except (OSError, RuntimeError, ValueError) as error:
+        binding, body = load_capacity_binding(
+            path,
+            expected_sha256,
+        )
+    except (OSError, RuntimeError, ValueError, StockEndpointBindingError) as error:
         raise StockSmallError("stock_capacity_receipt_invalid") from error
-    return canonical, body
+    return binding.capacity_receipt_path, body, binding
 
 
 def _validate_sandoq_capacity(
@@ -1561,7 +1570,8 @@ def _render_config(
     return union._render_toml(value)
 
 
-def _contracts() -> dict[str, Any]:
+def _contracts(binding: StockEndpointBinding | None = None) -> dict[str, Any]:
+    endpoint_identifier = binding.deployment_id if binding is not None else ENDPOINT_IDENTIFIER
     return {
         "model": MODEL,
         "harness": {"id": "mini-swe-agent", "version": "2.4.6"},
@@ -1627,7 +1637,7 @@ def _contracts() -> dict[str, Any]:
         },
         "router": {
             "profile": CAPACITY_PROFILE,
-            "endpoint_identifier": ENDPOINT_IDENTIFIER,
+            "endpoint_identifier": endpoint_identifier,
             "worker_count": 1,
             "per_worker_capacity": CONCURRENCY,
             "policy": "consistent_hash",
@@ -1694,7 +1704,11 @@ def materialize(
         raise StockSmallError("run_root_parent_invalid")
     base, base_body, base_path = _load_base()
     provider_path, provider_body = _validate_provider_profile()
-    stock_path, stock_body = _validate_stock_capacity(stock_capacity, stock_capacity_sha256)
+    stock_path, stock_body, binding = _validate_stock_capacity(stock_capacity, stock_capacity_sha256)
+    dynamic_binding = (
+        stock_path != STOCK_CAPACITY
+        or stock_capacity_sha256 != STOCK_CAPACITY_SHA256
+    )
     sandoq_path, sandoq_body = _validate_sandoq_capacity(sandoq_capacity, sandoq_capacity_sha256)
     tb4_path, tb4_body, tb4_semantics = _validate_tb4_gate(
         tb4_certificate,
@@ -1709,6 +1723,18 @@ def materialize(
         )
     except (OSError, RuntimeError, ValueError) as error:
         raise StockSmallError("task_image_soak_receipt_invalid") from error
+    task_soak_value = _json(task_soak_body, code="task_image_soak_receipt_invalid")
+    task_soak_epoch = task_soak_value.get("endpoint_epoch")
+    if (
+        not isinstance(task_soak_epoch, dict)
+        or task_soak_epoch.get("capacity_receipt_sha256") != binding.capacity_receipt_sha256
+        or task_soak_epoch.get("endpoint_jobs_sha256") != binding.endpoint_jobs_sha256
+        or (
+            dynamic_binding
+            and task_soak_value.get("endpoint_binding") != binding.public_record
+        )
+    ):
+        raise StockSmallError("task_image_soak_endpoint_binding_invalid")
     source_path = source.resolve(strict=True)
     source_body = _read(source_path, code="approved_source_invalid")
     if source_path != legacy._canonical_source_path() or _sha256(source_body) != legacy.CANONICAL_SOURCE_SHA256:
@@ -1766,12 +1792,12 @@ def materialize(
             }
         )
     plan = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": DYNAMIC_SCHEMA_VERSION if dynamic_binding else SCHEMA_VERSION,
         "kind": PLAN_KIND,
         "state": "authorized",
         "deployment_namespace": DEPLOYMENT_NAMESPACE,
         "source_revision": expected_revision,
-        "contracts": _contracts(),
+        "contracts": _contracts(binding if dynamic_binding else None),
         "source": {
             "project_root": str(root),
             "approved_selector_source": _artifact(source_path, source_body),
@@ -1795,6 +1821,8 @@ def materialize(
         "run_root": str(run_root),
         "shards": shard_records,
     }
+    if dynamic_binding:
+        plan["endpoint_binding"] = binding.public_record
     plan["plan_sha256"] = _sha256(_canonical(plan))
     plan_files["plan.json"] = _canonical(plan)
     try:
@@ -1839,28 +1867,31 @@ def _verify_with_held(
     plan = _json(body, code="plan_invalid")
     unsigned = dict(plan)
     claimed = unsigned.pop("plan_sha256", None)
+    schema_version = plan.get("schema_version")
+    dynamic_binding = schema_version == DYNAMIC_SCHEMA_VERSION
+    expected_plan_keys = {
+        "schema_version",
+        "kind",
+        "state",
+        "deployment_namespace",
+        "source_revision",
+        "contracts",
+        "source",
+        "qualification",
+        "selection",
+        "run_root",
+        "shards",
+        "plan_sha256",
+    }
+    if dynamic_binding:
+        expected_plan_keys.add("endpoint_binding")
     if (
-        set(plan)
-        != {
-            "schema_version",
-            "kind",
-            "state",
-            "deployment_namespace",
-            "source_revision",
-            "contracts",
-            "source",
-            "qualification",
-            "selection",
-            "run_root",
-            "shards",
-            "plan_sha256",
-        }
-        or plan.get("schema_version") != SCHEMA_VERSION
+        set(plan) != expected_plan_keys
+        or schema_version not in {SCHEMA_VERSION, DYNAMIC_SCHEMA_VERSION}
         or plan.get("kind") != PLAN_KIND
         or plan.get("state") != "authorized"
         or plan.get("deployment_namespace") != DEPLOYMENT_NAMESPACE
         or claimed != _sha256(_canonical(unsigned))
-        or plan.get("contracts") != _contracts()
         or not isinstance(plan.get("source"), dict)
         or not isinstance(plan.get("qualification"), dict)
         or not isinstance(plan.get("selection"), dict)
@@ -1917,7 +1948,25 @@ def _verify_with_held(
         or _sha256(records["provider_profile"][1]) != PROVIDER_PROFILE_SHA256
     ):
         raise StockSmallError("plan_source_invalid")
-    _validate_stock_capacity(records["stock_model_c64"][0], STOCK_CAPACITY_SHA256, held)
+    stock_path, _stock_body, binding = _validate_stock_capacity(
+        records["stock_model_c64"][0],
+        str(source["stock_model_c64"].get("sha256", "")),
+        held,
+    )
+    if not dynamic_binding and (
+        stock_path != STOCK_CAPACITY
+        or binding.capacity_receipt_sha256 != STOCK_CAPACITY_SHA256
+        or binding.deployment_id != ENDPOINT_IDENTIFIER
+        or binding.source_spec_sha256 != SOURCE_SPEC_SHA256
+        or binding.source_proxy_config_sha256 != SOURCE_PROXY_SHA256
+        or binding.endpoint_bundle_sha256 != ENDPOINT_BUNDLE_SHA256
+    ):
+        raise StockSmallError("stock_capacity_receipt_invalid")
+    if (
+        plan.get("contracts") != _contracts(binding if dynamic_binding else None)
+        or (dynamic_binding and plan.get("endpoint_binding") != binding.public_record)
+    ):
+        raise StockSmallError("endpoint_binding_invalid")
     _validate_sandoq_capacity(records["sandoq_small_c64"][0], SANDOQ_CAPACITY_SHA256, held)
     _tb4_path, _tb4_body, tb4_semantics = _validate_tb4_gate(
         records["tb4_gate"][0],
@@ -1935,6 +1984,18 @@ def _verify_with_held(
         )
     except (OSError, RuntimeError, ValueError) as error:
         raise StockSmallError("task_image_soak_receipt_invalid") from error
+    task_soak_value = _json(
+        records["task_image_c64_soak"][1],
+        code="task_image_soak_receipt_invalid",
+    )
+    task_soak_epoch = task_soak_value.get("endpoint_epoch")
+    if (
+        not isinstance(task_soak_epoch, dict)
+        or task_soak_epoch.get("capacity_receipt_sha256") != binding.capacity_receipt_sha256
+        or task_soak_epoch.get("endpoint_jobs_sha256") != binding.endpoint_jobs_sha256
+        or (dynamic_binding and task_soak_value.get("endpoint_binding") != binding.public_record)
+    ):
+        raise StockSmallError("task_image_soak_endpoint_binding_invalid")
     try:
         partition = legacy.derive_partition(
             records["approved_selector_source"][1],
@@ -2007,8 +2068,35 @@ def verify(plan_path: Path, plan_sha256: str) -> dict[str, Any]:
         held.close()
 
 
+def _plan_endpoint_binding(plan: Mapping[str, Any]) -> StockEndpointBinding:
+    source = plan.get("source")
+    record = source.get("stock_model_c64") if isinstance(source, dict) else None
+    if not isinstance(record, dict):
+        raise StockSmallError("stock_capacity_receipt_invalid")
+    try:
+        binding, _body = load_capacity_binding(
+            Path(str(record.get("path", ""))),
+            str(record.get("sha256", "")),
+        )
+    except (OSError, RuntimeError, ValueError, StockEndpointBindingError) as error:
+        raise StockSmallError("stock_capacity_receipt_invalid") from error
+    if plan.get("schema_version") == DYNAMIC_SCHEMA_VERSION:
+        if plan.get("endpoint_binding") != binding.public_record:
+            raise StockSmallError("endpoint_binding_invalid")
+    elif (
+        binding.deployment_id != ENDPOINT_IDENTIFIER
+        or binding.capacity_receipt_sha256 != STOCK_CAPACITY_SHA256
+        or binding.source_spec_sha256 != SOURCE_SPEC_SHA256
+        or binding.source_proxy_config_sha256 != SOURCE_PROXY_SHA256
+        or binding.endpoint_bundle_sha256 != ENDPOINT_BUNDLE_SHA256
+    ):
+        raise StockSmallError("stock_capacity_receipt_invalid")
+    return binding
+
+
 def shard_binding(plan_path: Path, plan_sha256: str, index: int) -> dict[str, Any]:
     plan = verify(plan_path, plan_sha256)
+    binding = _plan_endpoint_binding(plan)
     if not 0 <= index < SHARD_COUNT:
         raise StockSmallError("shard_index_invalid")
     shard = plan["shards"][index]
@@ -2023,10 +2111,18 @@ def shard_binding(plan_path: Path, plan_sha256: str, index: int) -> dict[str, An
         "config": shard["config"]["path"],
         "config_sha256": shard["config"]["sha256"],
         "run_root": shard["run_root"],
+        "endpoint_identifier": binding.deployment_id,
+        "stock_capacity": str(binding.capacity_receipt_path),
+        "stock_capacity_sha256": binding.capacity_receipt_sha256,
+        "endpoint_jobs_sha256": binding.endpoint_jobs_sha256,
     }
 
 
-def _validated_worker_manifest(path: Path, expected_sha256: str) -> tuple[Path, bytes, dict[str, Any]]:
+def _validated_worker_manifest(
+    path: Path,
+    expected_sha256: str,
+    binding: StockEndpointBinding,
+) -> tuple[Path, bytes, dict[str, Any]]:
     if SHA256_RE.fullmatch(expected_sha256) is None:
         raise StockSmallError("worker_manifest_invalid")
     try:
@@ -2039,15 +2135,25 @@ def _validated_worker_manifest(path: Path, expected_sha256: str) -> tuple[Path, 
         raise StockSmallError("worker_manifest_invalid") from error
     router = manifest.get("router")
     workers = manifest.get("workers")
+    dynamic_manifest = manifest.get("schema_version") == 6
     if (
         canonical != path
         or _sha256(body) != expected_sha256
-        or manifest.get("source_spec_sha256") != SOURCE_SPEC_SHA256
-        or manifest.get("source_proxy_config_sha256") != SOURCE_PROXY_SHA256
-        or manifest.get("endpoint_bundle_sha256") != ENDPOINT_BUNDLE_SHA256
+        or manifest.get("source_spec_sha256") != binding.source_spec_sha256
+        or manifest.get("source_proxy_config_sha256") != binding.source_proxy_config_sha256
+        or manifest.get("endpoint_bundle_sha256") != binding.endpoint_bundle_sha256
+        or (
+            dynamic_manifest
+            and manifest.get("stock_capacity")
+            != {
+                "path": str(binding.capacity_receipt_path),
+                "sha256": binding.capacity_receipt_sha256,
+            }
+        )
+        or (not dynamic_manifest and binding.capacity_receipt_sha256 != STOCK_CAPACITY_SHA256)
         or not isinstance(router, dict)
         or router.get("capacity_profile") != CAPACITY_PROFILE
-        or router.get("endpoint_identifier") != ENDPOINT_IDENTIFIER
+        or router.get("endpoint_identifier") != binding.deployment_id
         or router.get("max_concurrent_requests") != CONCURRENCY
         or router.get("per_worker_capacity") != CONCURRENCY
         or router.get("request_timeout_seconds") != REQUEST_TIMEOUT_SECONDS
@@ -2088,10 +2194,15 @@ def create_launch(
     output: Path,
 ) -> dict[str, Any]:
     plan = verify(plan_path, plan_sha256)
+    binding = _plan_endpoint_binding(plan)
     if not 0 <= index < SHARD_COUNT or SHA256_RE.fullmatch(worker_manifest_sha256) is None:
         raise StockSmallError("shard_launch_invalid")
     shard = plan["shards"][index]
-    manifest_path, manifest_body, manifest = _validated_worker_manifest(worker_manifest, worker_manifest_sha256)
+    manifest_path, manifest_body, manifest = _validated_worker_manifest(
+        worker_manifest,
+        worker_manifest_sha256,
+        binding,
+    )
     router = manifest.get("router")
     if not isinstance(router, dict) or SHA256_RE.fullmatch(str(router.get("implementation_sha256", ""))) is None:
         raise StockSmallError("worker_manifest_invalid")
@@ -2104,8 +2215,25 @@ def create_launch(
         or run_dir.is_symlink()
     ):
         raise StockSmallError("run_directory_invalid")
+    deployment = {
+        "capacity_profile": CAPACITY_PROFILE,
+        "endpoint_identifier": binding.deployment_id,
+        "endpoint_bundle_sha256": binding.endpoint_bundle_sha256,
+        "source_spec_sha256": binding.source_spec_sha256,
+        "router_implementation_sha256": router.get("implementation_sha256"),
+        "endpoint_jobs_sha256": _capacity_endpoint_jobs_sha256(plan),
+        "worker_count": 1,
+        "per_worker_capacity": CONCURRENCY,
+    }
+    if plan["schema_version"] == DYNAMIC_SCHEMA_VERSION:
+        deployment.update(
+            {
+                "source_proxy_config_sha256": binding.source_proxy_config_sha256,
+                "capacity_receipt_sha256": binding.capacity_receipt_sha256,
+            }
+        )
     value = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": plan["schema_version"],
         "kind": LAUNCH_KIND,
         "state": "authorized",
         "plan": {"path": str(plan_path.resolve(strict=True)), "sha256": plan_sha256},
@@ -2118,16 +2246,7 @@ def create_launch(
         },
         "run_dir": str(run_dir),
         "worker_manifest": _artifact(manifest_path, manifest_body),
-        "deployment": {
-            "capacity_profile": CAPACITY_PROFILE,
-            "endpoint_identifier": ENDPOINT_IDENTIFIER,
-            "endpoint_bundle_sha256": ENDPOINT_BUNDLE_SHA256,
-            "source_spec_sha256": SOURCE_SPEC_SHA256,
-            "router_implementation_sha256": router.get("implementation_sha256"),
-            "endpoint_jobs_sha256": _capacity_endpoint_jobs_sha256(plan),
-            "worker_count": 1,
-            "per_worker_capacity": CONCURRENCY,
-        },
+        "deployment": deployment,
         "execution": {
             "requested_concurrency": CONCURRENCY,
             "pool_size": CONCURRENCY,
@@ -2190,7 +2309,7 @@ def validate_launch(
     execution = value.get("execution")
     manifest_record = value.get("worker_manifest")
     if (
-        value.get("schema_version") != SCHEMA_VERSION
+        value.get("schema_version") not in {SCHEMA_VERSION, DYNAMIC_SCHEMA_VERSION}
         or value.get("kind") != LAUNCH_KIND
         or value.get("state") != "authorized"
         or claimed != _sha256(_canonical(unsigned))
@@ -2212,13 +2331,15 @@ def validate_launch(
     ):
         raise StockSmallError("shard_launch_invalid")
     plan = verify(Path(str(plan_record["path"])), str(plan_record["sha256"]))
+    binding = _plan_endpoint_binding(plan)
     index = shard_record.get("index")
     if not isinstance(index, int) or isinstance(index, bool) or not 0 <= index < SHARD_COUNT:
         raise StockSmallError("shard_launch_invalid")
     expected_shard = plan["shards"][index]
     run_dir = Path(str(value.get("run_dir", "")))
     if (
-        value.get("source_revision") != plan["source_revision"]
+        value.get("schema_version") != plan["schema_version"]
+        or value.get("source_revision") != plan["source_revision"]
         or shard_record
         != {
             "index": index,
@@ -2229,13 +2350,21 @@ def validate_launch(
         or deployment
         != {
             "capacity_profile": CAPACITY_PROFILE,
-            "endpoint_identifier": ENDPOINT_IDENTIFIER,
-            "endpoint_bundle_sha256": ENDPOINT_BUNDLE_SHA256,
-            "source_spec_sha256": SOURCE_SPEC_SHA256,
+            "endpoint_identifier": binding.deployment_id,
+            "endpoint_bundle_sha256": binding.endpoint_bundle_sha256,
+            "source_spec_sha256": binding.source_spec_sha256,
             "router_implementation_sha256": deployment.get("router_implementation_sha256"),
             "endpoint_jobs_sha256": _capacity_endpoint_jobs_sha256(plan),
             "worker_count": 1,
             "per_worker_capacity": CONCURRENCY,
+            **(
+                {
+                    "source_proxy_config_sha256": binding.source_proxy_config_sha256,
+                    "capacity_receipt_sha256": binding.capacity_receipt_sha256,
+                }
+                if plan["schema_version"] == DYNAMIC_SCHEMA_VERSION
+                else {}
+            ),
         }
         or SHA256_RE.fullmatch(str(deployment.get("router_implementation_sha256", ""))) is None
         or execution
@@ -2266,6 +2395,7 @@ def validate_launch(
     manifest_path, manifest_body, manifest = _validated_worker_manifest(
         Path(str(manifest_record["path"])),
         str(manifest_record["sha256"]),
+        binding,
     )
     if manifest_record != _artifact(manifest_path, manifest_body):
         raise StockSmallError("shard_launch_invalid")
@@ -2278,8 +2408,8 @@ def validate_launch(
         "config": (config_sha256, expected_shard["config"]["sha256"]),
         "selector": (selector_sha256, expected_shard["selector"]["sha256"]),
         "worker_manifest": (worker_manifest_sha256, manifest_record.get("sha256")),
-        "source_spec": (source_spec_sha256, SOURCE_SPEC_SHA256),
-        "endpoint_bundle": (endpoint_bundle_sha256, ENDPOINT_BUNDLE_SHA256),
+        "source_spec": (source_spec_sha256, binding.source_spec_sha256),
+        "endpoint_bundle": (endpoint_bundle_sha256, binding.endpoint_bundle_sha256),
         "router_implementation": (router_implementation_sha256, deployment.get("router_implementation_sha256")),
     }
     if any(observed is not None and observed != expected for observed, expected in checks.values()):
@@ -2548,8 +2678,8 @@ def _shard_completion_value(
         },
         "deployment": {
             "capacity_profile": CAPACITY_PROFILE,
-            "endpoint_identifier": ENDPOINT_IDENTIFIER,
-            "endpoint_bundle_sha256": ENDPOINT_BUNDLE_SHA256,
+            "endpoint_identifier": launch["deployment"]["endpoint_identifier"],
+            "endpoint_bundle_sha256": launch["deployment"]["endpoint_bundle_sha256"],
         },
         "sandbox": {
             "environment": "oci-runner-firecracker-small",
@@ -2574,6 +2704,7 @@ def _validate_run_evidence(
     run_dir: Path,
     completion_path: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any], dict[str, Any]]:
+    binding = _plan_endpoint_binding(plan)
     shard_root = Path(str(shard["run_root"]))
     try:
         canonical_run = run_dir.resolve(strict=True)
@@ -2670,12 +2801,12 @@ def _validate_run_evidence(
                 or identity.get("config", {}).get("source", {}).get("sha256") != shard["config"]["sha256"]
                 or not isinstance(router, dict)
                 or router.get("capacity_profile") != CAPACITY_PROFILE
-                or router.get("endpoint_identifier") != ENDPOINT_IDENTIFIER
+                or router.get("endpoint_identifier") != binding.deployment_id
                 or router.get("worker_count") != 1
                 or router.get("provider_concurrency") != CONCURRENCY
                 or router.get("retries") != 0
-                or identity_deployment.get("spec_sha256") != SOURCE_SPEC_SHA256
-                or identity_deployment.get("endpoint_bundle_sha256") != ENDPOINT_BUNDLE_SHA256
+                or identity_deployment.get("spec_sha256") != binding.source_spec_sha256
+                or identity_deployment.get("endpoint_bundle_sha256") != binding.endpoint_bundle_sha256
                 or not isinstance(environment, dict)
                 or environment.get("environment") != "oci-runner-firecracker-small"
                 or environment.get("pool_size") != CONCURRENCY
@@ -2807,6 +2938,7 @@ def _validate_completion_value(
     plan_sha256: str,
     shard: Mapping[str, Any],
 ) -> dict[str, Any]:
+    binding = _plan_endpoint_binding(plan)
     if (
         set(value)
         != {
@@ -2842,8 +2974,8 @@ def _validate_completion_value(
             "request_graph_match_required": True,
         }
         or value.get("deployment", {}).get("capacity_profile") != CAPACITY_PROFILE
-        or value.get("deployment", {}).get("endpoint_identifier") != ENDPOINT_IDENTIFIER
-        or value.get("deployment", {}).get("endpoint_bundle_sha256") != ENDPOINT_BUNDLE_SHA256
+        or value.get("deployment", {}).get("endpoint_identifier") != binding.deployment_id
+        or value.get("deployment", {}).get("endpoint_bundle_sha256") != binding.endpoint_bundle_sha256
         or value.get("sandbox", {}).get("environment") != "oci-runner-firecracker-small"
         or value.get("sandbox", {}).get("capacity") != CONCURRENCY
     ):
@@ -3439,6 +3571,10 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "config",
                     "config_sha256",
                     "run_root",
+                    "endpoint_identifier",
+                    "stock_capacity",
+                    "stock_capacity_sha256",
+                    "endpoint_jobs_sha256",
                 )
             )
         )

@@ -33,6 +33,11 @@ from direct_kimi_router import (
     validate_request_timeout_seconds,
     worker_count_for_profile,
 )
+from kimi_stock_endpoint_binding import (
+    StockEndpointBinding,
+    StockEndpointBindingError,
+    load_capacity_binding,
+)
 
 EXPECTED_MODEL = "Kimi-K3"
 EXPECTED_ENDPOINTS = 24
@@ -62,6 +67,7 @@ C64_MANIFEST_SCHEMA_VERSION = 2
 W2_MANIFEST_SCHEMA_VERSION = 3
 C23_MANIFEST_SCHEMA_VERSION = 4
 STOCK_SINGLE_MANIFEST_SCHEMA_VERSION = 5
+DYNAMIC_STOCK_SINGLE_MANIFEST_SCHEMA_VERSION = 6
 C23_SELECTION_PROFILE = "exclude-one-from-c24-v1"
 W2_PER_WORKER_CAPACITY = 2
 W2_FORWARDED_CAPACITY = EXPECTED_ENDPOINTS * W2_PER_WORKER_CAPACITY
@@ -93,8 +99,13 @@ class DirectKimiWorkerError(ValueError):
     """The direct Kimi worker generation does not match the pinned source."""
 
 
-def _source_contract(capacity_profile: str) -> tuple[str, str, int]:
+def _source_contract(
+    capacity_profile: str,
+    stock_binding: StockEndpointBinding | None = None,
+) -> tuple[str, str, int]:
     if capacity_profile == STOCK_SINGLE_C64_CAPACITY_PROFILE:
+        if stock_binding is not None:
+            return stock_binding.source_spec_sha256, stock_binding.source_proxy_config_sha256, 1
         return STOCK_SINGLE_SPEC_SHA256, STOCK_SINGLE_PROXY_CONFIG_SHA256, 1
     if capacity_profile in {
         LEGACY_CAPACITY_PROFILE,
@@ -106,10 +117,15 @@ def _source_contract(capacity_profile: str) -> tuple[str, str, int]:
     raise DirectKimiWorkerError("capacity_profile_invalid")
 
 
-def _expected_endpoint_identifier(capacity_profile: str) -> str | None:
+def _expected_endpoint_identifier(
+    capacity_profile: str,
+    stock_binding: StockEndpointBinding | None = None,
+) -> str | None:
     if capacity_profile == LEGACY_CAPACITY_PROFILE:
         return None
     if capacity_profile == STOCK_SINGLE_C64_CAPACITY_PROFILE:
+        if stock_binding is not None:
+            return stock_binding.deployment_id
         return STOCK_SINGLE_ENDPOINT_IDENTIFIER
     return EXPECTED_ENDPOINT_IDENTIFIER
 
@@ -423,6 +439,7 @@ def load_workers(
     deployment_root: Path,
     *,
     capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
+    stock_binding: StockEndpointBinding | None = None,
     held: _HeldArtifactSet | None = None,
 ) -> tuple[list[Worker], str, str, str]:
     root = _absolute_path(deployment_root, code="source_unreadable")
@@ -430,7 +447,10 @@ def load_workers(
     proxy_config = root / "proxy_litellm_config.yaml"
     spec_body = _read_bound_file(spec, held=held)
     proxy_body = _read_bound_file(proxy_config, held=held)
-    expected_spec_sha256, expected_proxy_sha256, expected_worker_count = _source_contract(capacity_profile)
+    expected_spec_sha256, expected_proxy_sha256, expected_worker_count = _source_contract(
+        capacity_profile,
+        stock_binding,
+    )
     if _sha256_bytes(spec_body) != expected_spec_sha256 or _sha256_bytes(proxy_body) != expected_proxy_sha256:
         raise DirectKimiWorkerError("source_generation_mismatch")
     document = _read_yaml(proxy_body)
@@ -477,6 +497,8 @@ def load_workers(
         raise DirectKimiWorkerError("worker_model_generation_mismatch")
     workers.sort(key=lambda worker: worker.backend_sha256)
     endpoint_bundle_sha256 = _endpoint_bundle_sha256(workers)
+    if stock_binding is not None and endpoint_bundle_sha256 != stock_binding.endpoint_bundle_sha256:
+        raise DirectKimiWorkerError("source_generation_mismatch")
     return workers, expected_spec_sha256, expected_proxy_sha256, endpoint_bundle_sha256
 
 
@@ -516,6 +538,7 @@ def materialize_source_snapshot(
     output_root: Path,
     *,
     capacity_profile: str = DEFAULT_CAPACITY_PROFILE,
+    stock_binding: StockEndpointBinding | None = None,
 ) -> dict[str, str]:
     """Publish a private exact-hash snapshot without weakening live-source checks."""
 
@@ -523,7 +546,12 @@ def materialize_source_snapshot(
     output = _absolute_path(output_root, code="output_parent_invalid")
     if source == output or source.is_relative_to(output) or output.is_relative_to(source):
         raise DirectKimiWorkerError("source_snapshot_invalid")
-    expected_spec_sha256, expected_proxy_sha256, expected_worker_count = _source_contract(capacity_profile)
+    if stock_binding is not None and source != stock_binding.deployment_root:
+        raise DirectKimiWorkerError("source_snapshot_invalid")
+    expected_spec_sha256, expected_proxy_sha256, expected_worker_count = _source_contract(
+        capacity_profile,
+        stock_binding,
+    )
     files = {
         "spec.yaml": _read_exact_snapshot_input(source / "spec.yaml", expected_spec_sha256),
         "proxy_litellm_config.yaml": _read_exact_snapshot_input(
@@ -540,6 +568,7 @@ def materialize_source_snapshot(
     workers, spec_sha256, proxy_sha256, endpoint_bundle_sha256 = load_workers(
         output,
         capacity_profile=capacity_profile,
+        stock_binding=stock_binding,
     )
     if len(workers) != expected_worker_count:
         raise DirectKimiWorkerError("source_snapshot_invalid")
@@ -585,15 +614,18 @@ def _manifest(
     request_timeout_seconds: int = ROUTER_REQUEST_TIMEOUT_SECONDS,
     source_endpoint_bundle_sha256: str | None = None,
     excluded_worker: Worker | None = None,
+    stock_binding: StockEndpointBinding | None = None,
 ) -> dict[str, Any]:
     capacity = capacity_for_profile(capacity_profile)
     expected_worker_count = worker_count_for_profile(capacity_profile)
     request_timeout_seconds = validate_request_timeout_seconds(request_timeout_seconds)
+    if stock_binding is not None and endpoint_identifier is None:
+        endpoint_identifier = stock_binding.deployment_id
     endpoint_identifier = validate_endpoint_identifier(
         endpoint_identifier,
         capacity_profile=capacity_profile,
     )
-    if endpoint_identifier != _expected_endpoint_identifier(capacity_profile):
+    if endpoint_identifier != _expected_endpoint_identifier(capacity_profile, stock_binding):
         raise DirectKimiWorkerError("endpoint_identifier_invalid")
     if len(workers) != expected_worker_count:
         raise DirectKimiWorkerError("worker_count_invalid")
@@ -630,6 +662,8 @@ def _manifest(
             C64_W2_CAPACITY_PROFILE: W2_MANIFEST_SCHEMA_VERSION,
             STOCK_SINGLE_C64_CAPACITY_PROFILE: STOCK_SINGLE_MANIFEST_SCHEMA_VERSION,
         }[capacity_profile]
+        if capacity_profile == STOCK_SINGLE_C64_CAPACITY_PROFILE and stock_binding is not None:
+            schema_version = DYNAMIC_STOCK_SINGLE_MANIFEST_SCHEMA_VERSION
         router.update(
             {
                 "capacity_profile": capacity_profile,
@@ -658,6 +692,13 @@ def _manifest(
                 "excluded_worker": excluded_worker.public_record,
             }
         )
+    if stock_binding is not None:
+        if capacity_profile != STOCK_SINGLE_C64_CAPACITY_PROFILE:
+            raise DirectKimiWorkerError("stock_capacity_unexpected")
+        manifest["stock_capacity"] = {
+            "path": str(stock_binding.capacity_receipt_path),
+            "sha256": stock_binding.capacity_receipt_sha256,
+        }
     return manifest
 
 
@@ -994,6 +1035,7 @@ def prepare_generation(
     endpoint_identifier: str | None = None,
     request_timeout_seconds: int = ROUTER_REQUEST_TIMEOUT_SECONDS,
     excluded_backend_sha256: str | None = None,
+    stock_binding: StockEndpointBinding | None = None,
 ) -> dict[str, Any]:
     output_root = _absolute_path(output_root, code="output_parent_invalid")
     publication_paths = tuple(
@@ -1010,6 +1052,7 @@ def prepare_generation(
     source_workers, spec_sha256, proxy_config_sha256, source_endpoint_bundle_sha256 = load_workers(
         deployment_root,
         capacity_profile=capacity_profile,
+        stock_binding=stock_binding,
     )
     workers = source_workers
     excluded_worker = None
@@ -1040,6 +1083,7 @@ def prepare_generation(
             source_endpoint_bundle_sha256 if capacity_profile == C23_CAPACITY_PROFILE else None
         ),
         excluded_worker=excluded_worker,
+        stock_binding=stock_binding,
     )
     files = {
         publication_paths[0].name: (json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n").encode(),
@@ -1089,6 +1133,11 @@ def validate_manifest_value(
         else DEFAULT_CAPACITY_PROFILE
     )
     c23_profile = capacity_profile == C23_CAPACITY_PROFILE
+    dynamic_stock_profile = (
+        capacity_profile == STOCK_SINGLE_C64_CAPACITY_PROFILE
+        and schema_version == DYNAMIC_STOCK_SINGLE_MANIFEST_SCHEMA_VERSION
+    )
+    stock_binding = None
     if c23_profile:
         expected_keys.update(
             {
@@ -1097,6 +1146,18 @@ def validate_manifest_value(
                 "excluded_worker",
             }
         )
+    if dynamic_stock_profile:
+        expected_keys.add("stock_capacity")
+        record = manifest.get("stock_capacity") if isinstance(manifest, dict) else None
+        if not isinstance(record, dict) or set(record) != {"path", "sha256"}:
+            raise DirectKimiWorkerError("manifest_invalid")
+        try:
+            stock_binding, _capacity_body = load_capacity_binding(
+                Path(str(record["path"])),
+                str(record["sha256"]),
+            )
+        except (OSError, RuntimeError, ValueError, StockEndpointBindingError) as error:
+            raise DirectKimiWorkerError("manifest_invalid") from error
     try:
         capacity = capacity_for_profile(capacity_profile)
         expected_worker_count = worker_count_for_profile(capacity_profile)
@@ -1109,7 +1170,7 @@ def validate_manifest_value(
         )
     except ValueError as error:
         raise DirectKimiWorkerError("manifest_invalid") from error
-    if endpoint_identifier != _expected_endpoint_identifier(capacity_profile):
+    if endpoint_identifier != _expected_endpoint_identifier(capacity_profile, stock_binding):
         raise DirectKimiWorkerError("manifest_invalid")
     historical_legacy = (
         capacity_profile == LEGACY_CAPACITY_PROFILE
@@ -1170,7 +1231,11 @@ def validate_manifest_value(
         C23_CAPACITY_PROFILE: C23_MANIFEST_SCHEMA_VERSION,
         C64_CAPACITY_PROFILE: C64_MANIFEST_SCHEMA_VERSION,
         C64_W2_CAPACITY_PROFILE: W2_MANIFEST_SCHEMA_VERSION,
-        STOCK_SINGLE_C64_CAPACITY_PROFILE: STOCK_SINGLE_MANIFEST_SCHEMA_VERSION,
+        STOCK_SINGLE_C64_CAPACITY_PROFILE: (
+            DYNAMIC_STOCK_SINGLE_MANIFEST_SCHEMA_VERSION
+            if dynamic_stock_profile
+            else STOCK_SINGLE_MANIFEST_SCHEMA_VERSION
+        ),
     }.get(capacity_profile)
     if (
         not isinstance(manifest, dict)
@@ -1178,9 +1243,13 @@ def validate_manifest_value(
         or schema_version != expected_schema_version
         or manifest.get("kind") != "direct-kimi-worker-generation"
         or manifest.get("model") != EXPECTED_MODEL
-        or manifest.get("source_spec_sha256") != _source_contract(capacity_profile)[0]
-        or manifest.get("source_proxy_config_sha256") != _source_contract(capacity_profile)[1]
+        or manifest.get("source_spec_sha256") != _source_contract(capacity_profile, stock_binding)[0]
+        or manifest.get("source_proxy_config_sha256") != _source_contract(capacity_profile, stock_binding)[1]
         or SHA256_RE.fullmatch(str(manifest.get("endpoint_bundle_sha256", ""))) is None
+        or (
+            stock_binding is not None
+            and manifest.get("endpoint_bundle_sha256") != stock_binding.endpoint_bundle_sha256
+        )
         or not isinstance(workers, list)
         or len(workers) != expected_worker_count
         or not isinstance(router, dict)
@@ -1231,6 +1300,7 @@ def validate_manifest_value(
         observed, spec_sha256, proxy_config_sha256, endpoint_bundle_sha256 = load_workers(
             Path(manifest["deployment_root"]),
             capacity_profile=capacity_profile,
+            stock_binding=stock_binding,
             held=held,
         )
         observed_workers = observed
@@ -2098,6 +2168,8 @@ def main() -> None:
     )
     prepare.add_argument("--endpoint-identifier")
     prepare.add_argument("--excluded-backend-sha256")
+    prepare.add_argument("--stock-capacity-receipt", type=Path)
+    prepare.add_argument("--stock-capacity-receipt-sha256")
     prepare.add_argument(
         "--request-timeout-seconds",
         type=int,
@@ -2113,6 +2185,8 @@ def main() -> None:
         choices=tuple(CAPACITY_PROFILES),
         default=DEFAULT_CAPACITY_PROFILE,
     )
+    snapshot.add_argument("--stock-capacity-receipt", type=Path)
+    snapshot.add_argument("--stock-capacity-receipt-sha256")
     certify = subparsers.add_parser("certify-router")
     certify.add_argument("--manifest", type=Path, required=True)
     certify.add_argument("--manifest-sha256", required=True)
@@ -2124,11 +2198,27 @@ def main() -> None:
     certify.add_argument("--output", type=Path, required=True)
     certify.add_argument("--allow-terminal-upstream-statuses", action="store_true")
     args = parser.parse_args()
+    stock_capacity_path = getattr(args, "stock_capacity_receipt", None)
+    stock_capacity_sha256 = getattr(args, "stock_capacity_receipt_sha256", None)
+    if (stock_capacity_path is None) != (stock_capacity_sha256 is None):
+        raise DirectKimiWorkerError("stock_capacity_incomplete")
+    stock_binding = None
+    if stock_capacity_path is not None:
+        if args.capacity_profile != STOCK_SINGLE_C64_CAPACITY_PROFILE:
+            raise DirectKimiWorkerError("stock_capacity_unexpected")
+        try:
+            stock_binding, _capacity_body = load_capacity_binding(
+                stock_capacity_path,
+                stock_capacity_sha256,
+            )
+        except (OSError, RuntimeError, ValueError, StockEndpointBindingError) as error:
+            raise DirectKimiWorkerError("stock_capacity_invalid") from error
     if args.command == "snapshot-source":
         snapshot_value = materialize_source_snapshot(
             args.deployment_root,
             args.output_root,
             capacity_profile=args.capacity_profile,
+            stock_binding=stock_binding,
         )
         print(
             json.dumps({"endpoint_bundle_sha256": snapshot_value["endpoint_bundle_sha256"], "ok": True}, sort_keys=True)
@@ -2158,9 +2248,14 @@ def main() -> None:
         endpoint_identifier=args.endpoint_identifier,
         request_timeout_seconds=args.request_timeout_seconds,
         excluded_backend_sha256=args.excluded_backend_sha256,
+        stock_binding=stock_binding,
     )
     if args.probe:
-        workers, _, _, _ = load_workers(args.deployment_root, capacity_profile=args.capacity_profile)
+        workers, _, _, _ = load_workers(
+            args.deployment_root,
+            capacity_profile=args.capacity_profile,
+            stock_binding=stock_binding,
+        )
         if args.capacity_profile == C23_CAPACITY_PROFILE:
             workers = [worker for worker in workers if worker.backend_sha256 != args.excluded_backend_sha256]
         probe_workers(workers)
