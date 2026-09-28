@@ -101,13 +101,19 @@ TB4_LANE_PRIME_FILES = (
     "user/tianhaowu/terminal_bench_vmvm/finalize_kimi_tb4_sandoq_small_v7.py",
     "user/tianhaowu/terminal_bench_vmvm/kimi_tb4_provider_split.py",
 )
-TB4_PRODUCTION_VARIANT_FILES = frozenset(
+TB4_PRODUCTION_SHARED_VARIANT_FILES = frozenset(
+    {
+        "user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm/taskset.py",
+    }
+)
+TB4_PRODUCTION_LANE_VARIANT_FILES = frozenset(
     {
         "user/tianhaowu/terminal_bench_vmvm/eval_run_identity.py",
         "user/tianhaowu/terminal_bench_vmvm/direct_kimi_workers.py",
         "user/tianhaowu/terminal_bench_vmvm/run_direct_kimi_sandoq_stage.sh",
     }
 )
+TB4_PRODUCTION_VARIANT_FILES = TB4_PRODUCTION_SHARED_VARIANT_FILES | TB4_PRODUCTION_LANE_VARIANT_FILES
 TB4_SANDOQ_EXTENSION_PREFIX = "extensions/sandoq/sandoq_provider"
 TB4_VERIFIERS_EXECUTION_FILES = (
     "verifiers/v1/env.py",
@@ -115,9 +121,9 @@ TB4_VERIFIERS_EXECUTION_FILES = (
     "verifiers/v1/harnesses/mini_swe_agent/harness.py",
     "verifiers/v1/harnesses/mini_swe_agent/program.py",
 )
-# Filled only after the transport-qualified TB4 v7 source and this production
-# source are immutable.  A placeholder deliberately prevents materialization.
-TB4_PRODUCTION_VARIANT_PAIR_SHA256 = "pending-transport-qualified-tb4-v7"
+# Exact old/new content pairs for the immutable v8 execution and the reviewed
+# production-only variants.  Any later edit to one of these files closes the gate.
+TB4_PRODUCTION_VARIANT_PAIR_SHA256 = "93434536e796c6794f2311e762149d70eb0059f27bd2efe5459dff21fb13bbe5"
 
 PROXY_SUMMARY_MARKER = b"sandoq: buffered model proxy summary "
 PROXY_SUMMARY_PREFIX_RE = re.compile(rb"[0-9]{2}:[0-9]{2}:[0-9]{2} +INFO \Z")
@@ -768,7 +774,10 @@ def _validate_tb4_execution_semantics(
         production_revision,
         TB4_SHARED_PRIME_FILES,
     )
-    if production_shared != shared_files:
+    if any(
+        production_shared[path] != shared_files[path]
+        for path in set(TB4_SHARED_PRIME_FILES) - TB4_PRODUCTION_SHARED_VARIANT_FILES
+    ):
         raise StockSmallError("tb4_shared_execution_semantics_changed")
     production_lane = _git_file_hashes(
         production_root,
@@ -776,12 +785,19 @@ def _validate_tb4_execution_semantics(
         TB4_LANE_PRIME_FILES,
     )
     if any(
-        production_lane[path] != lane_files[path] for path in set(TB4_LANE_PRIME_FILES) - TB4_PRODUCTION_VARIANT_FILES
+        production_lane[path] != lane_files[path]
+        for path in set(TB4_LANE_PRIME_FILES) - TB4_PRODUCTION_LANE_VARIANT_FILES
     ):
         raise StockSmallError("tb4_lane_execution_semantics_changed")
     variant_pairs = {
-        path: {"production": production_lane[path], "tb4": lane_files[path]}
-        for path in sorted(TB4_PRODUCTION_VARIANT_FILES)
+        **{
+            path: {"production": production_shared[path], "tb4": shared_files[path]}
+            for path in sorted(TB4_PRODUCTION_SHARED_VARIANT_FILES)
+        },
+        **{
+            path: {"production": production_lane[path], "tb4": lane_files[path]}
+            for path in sorted(TB4_PRODUCTION_LANE_VARIANT_FILES)
+        },
     }
     if _sha256(_canonical(variant_pairs)) != TB4_PRODUCTION_VARIANT_PAIR_SHA256:
         raise StockSmallError("tb4_lane_specific_semantics_changed")

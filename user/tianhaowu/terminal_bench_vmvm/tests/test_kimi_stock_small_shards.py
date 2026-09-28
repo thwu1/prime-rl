@@ -783,6 +783,36 @@ def test_tb4_gate_variant_keeps_v7_closed_and_enables_only_v8_supersession() -> 
             shards._tb4_gate_variant(value)
 
 
+def test_tb4_production_variant_pair_exactly_binds_verifier_workdir_fix() -> None:
+    root = Path(shards.__file__).resolve().parents[3]
+    production_revision = "36212f7c169f999fc70c1abec0ac20f3c01dbb04"
+    shared_paths = shards.TB4_PRODUCTION_SHARED_VARIANT_FILES
+    lane_paths = shards.TB4_PRODUCTION_LANE_VARIANT_FILES
+    assert shared_paths == {
+        "user/tianhaowu/terminal_bench_vmvm/terminal_bench_vmvm/taskset.py",
+    }
+    assert shared_paths.isdisjoint(lane_paths)
+    assert shared_paths | lane_paths == shards.TB4_PRODUCTION_VARIANT_FILES
+    assert shared_paths < set(shards.TB4_SHARED_PRIME_FILES)
+    assert lane_paths <= set(shards.TB4_LANE_PRIME_FILES)
+
+    production_shared = shards._git_file_hashes(root, production_revision, tuple(shared_paths))
+    execution_shared = shards._git_file_hashes(root, shards.tb4_v8.EXECUTION_SOURCE_REVISION, tuple(shared_paths))
+    production_lane = shards._git_file_hashes(root, production_revision, tuple(lane_paths))
+    execution_lane = shards._git_file_hashes(root, shards.tb4_v8.EXECUTION_SOURCE_REVISION, tuple(lane_paths))
+    pairs = {
+        **{
+            path: {"production": production_shared[path], "tb4": execution_shared[path]}
+            for path in sorted(shared_paths)
+        },
+        **{path: {"production": production_lane[path], "tb4": execution_lane[path]} for path in sorted(lane_paths)},
+    }
+    assert shards._sha256(shards._canonical(pairs)) == shards.TB4_PRODUCTION_VARIANT_PAIR_SHA256
+    changed = copy.deepcopy(pairs)
+    changed[next(iter(shared_paths))]["production"] = "0" * 64
+    assert shards._sha256(shards._canonical(changed)) != shards.TB4_PRODUCTION_VARIANT_PAIR_SHA256
+
+
 def test_tb4_v8_supersession_source_can_be_distinct_but_is_file_exact(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
