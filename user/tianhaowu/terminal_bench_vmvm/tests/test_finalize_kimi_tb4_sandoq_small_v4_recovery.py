@@ -90,6 +90,63 @@ def test_fixed_denominator_audit_rejects_malformed_or_scored_error_rows(
         )
 
 
+def test_exact_length_policy_counts_benchmark_pass_but_excludes_training(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _row("length", reward=1.0, turns=1)
+    problems = [
+        "node_0_finish_reason_invalid",
+        "node_0_model_io_response_finish_reason_invalid",
+    ]
+    monkeypatch.setattr(recovery.audit_traces, "_audit_trace", lambda *args, **kwargs: problems)
+    monkeypatch.setattr(
+        recovery.audit_traces,
+        "_exact_length_termination_nodes",
+        lambda *args, **kwargs: (0,),
+    )
+
+    summary, rows = recovery._audit_supported_rows(
+        _body(row),
+        ("length",),
+        {"length": "separate"},
+        allow_nontrainable_scored_rows=True,
+        allow_exact_length_benchmark_rows=True,
+    )
+
+    assert summary["passes"] == 1
+    assert summary["benchmark_valid_passes"] == 1
+    assert summary["trainable_passes"] == 0
+    assert summary["benchmark_invalid_passing_rows"] == 0
+    assert summary["exact_length_nontrainable_passing_rows"] == 1
+    assert rows["length"]["info"]["diagnostic_evaluation_disposition"]["trainable"] is False
+    assert rows["length"]["nodes"] == row["nodes"]
+
+
+def test_exact_length_policy_rejects_every_unrecognized_trace_problem(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    row = _row("bad", reward=1.0, turns=1)
+    monkeypatch.setattr(
+        recovery.audit_traces,
+        "_audit_trace",
+        lambda *args, **kwargs: ["node_0_model_io_response_message_mismatch"],
+    )
+    monkeypatch.setattr(
+        recovery.audit_traces,
+        "_exact_length_termination_nodes",
+        lambda *args, **kwargs: None,
+    )
+
+    with pytest.raises(recovery.V4RecoveryError, match="provider_trace_audit_failed"):
+        recovery._audit_supported_rows(
+            _body(row),
+            ("bad",),
+            {"bad": "separate"},
+            allow_nontrainable_scored_rows=True,
+            allow_exact_length_benchmark_rows=True,
+        )
+
+
 def test_legacy_contract_diff_is_only_truthful_v4_fields() -> None:
     legacy = recovery._legacy_contracts()
     assert legacy["model_io_response_kind"] == "normalized_stream_response"

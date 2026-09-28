@@ -270,6 +270,70 @@ def test_v8_pre_model_provisioning_policy_and_lifecycle_source_bound() -> None:
         )
 
 
+def test_exact_length_policy_separates_benchmark_and_training_passes() -> None:
+    trace = {
+        "passes": 7,
+        "benchmark_valid_passes": 7,
+        "trainable_passes": 6,
+        "benchmark_invalid_passing_rows": 0,
+        "trace_invalid_scored_rows": 3,
+        "trace_invalid_passing_rows": 1,
+        "trace_invalid_row_set_sha256": "a" * 64,
+        "model_bearing_error_zeroes": 1,
+        "exact_length_nontrainable_scored_rows": 3,
+        "exact_length_nontrainable_passing_rows": 1,
+        "exact_length_nontrainable_nodes": 4,
+        "exact_length_nontrainable_row_set_sha256": "a" * 64,
+        "exact_length_error_zero_rows": 1,
+        "exact_length_error_zero_nodes": 1,
+        "exact_length_error_zero_row_set_sha256": "b" * 64,
+    }
+
+    policy = v8._exact_length_benchmark_policy(trace)
+
+    assert v8._exact_length_gate_met(trace) is True
+    assert policy["benchmark_valid_passes"] == 7
+    assert policy["trainable_passes"] == 6
+    assert policy["nontrainable_passing_rows"] == 1
+    assert policy["trainable"] is False
+
+
+@pytest.mark.parametrize(
+    ("key", "value"),
+    [
+        ("benchmark_invalid_passing_rows", 1),
+        ("benchmark_valid_passes", 6),
+        ("trainable_passes", 7),
+        ("exact_length_nontrainable_passing_rows", 4),
+        ("exact_length_nontrainable_nodes", 2),
+        ("exact_length_error_zero_rows", 2),
+        ("exact_length_nontrainable_row_set_sha256", "a" * 40),
+    ],
+)
+def test_exact_length_policy_fails_closed(key: str, value: object) -> None:
+    trace = {
+        "passes": 7,
+        "benchmark_valid_passes": 7,
+        "trainable_passes": 6,
+        "benchmark_invalid_passing_rows": 0,
+        "trace_invalid_scored_rows": 3,
+        "trace_invalid_passing_rows": 1,
+        "trace_invalid_row_set_sha256": "a" * 64,
+        "model_bearing_error_zeroes": 1,
+        "exact_length_nontrainable_scored_rows": 3,
+        "exact_length_nontrainable_passing_rows": 1,
+        "exact_length_nontrainable_nodes": 4,
+        "exact_length_nontrainable_row_set_sha256": "a" * 64,
+        "exact_length_error_zero_rows": 1,
+        "exact_length_error_zero_nodes": 1,
+        "exact_length_error_zero_row_set_sha256": "b" * 64,
+    }
+    trace[key] = value
+
+    with pytest.raises(v8.V8SupersessionError, match="exact_length_benchmark_policy_invalid"):
+        v8._exact_length_benchmark_policy(trace)
+
+
 def test_v8_finalizer_enforces_new_audit_and_certificate_fields() -> None:
     source = inspect.getsource(v8.finalize)
     assert "allow_post_agent_verifier_sandbox_errors=True" in source

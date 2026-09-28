@@ -405,6 +405,7 @@ def _audit_supported_rows(
     post_agent_verifier_attempts: int | None = None,
     audit_pre_model_sandoq_provisioning_errors: bool = False,
     sandoq_provisioning_attempts: int | None = None,
+    allow_exact_length_benchmark_rows: bool = False,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     if allow_post_agent_verifier_sandbox_errors and (
         not isinstance(post_agent_verifier_attempts, int)
@@ -435,6 +436,11 @@ def _audit_supported_rows(
     clean_rows = 0
     trace_invalid_scored_rows = 0
     trace_invalid_passing_rows = 0
+    exact_length_nontrainable_scored_rows = 0
+    exact_length_nontrainable_passing_rows = 0
+    exact_length_nontrainable_nodes = 0
+    exact_length_error_zero_rows = 0
+    exact_length_error_zero_nodes = 0
     clean_model_turns = 0
     source_model_io_turns = 0
     validated_error_model_io_turns = 0
@@ -452,6 +458,8 @@ def _audit_supported_rows(
     post_agent_verifier_sandbox_error_hashes: list[str] = []
     pre_model_sandoq_provisioning_error_hashes: list[str] = []
     trace_invalid_row_hashes: list[str] = []
+    exact_length_nontrainable_row_hashes: list[str] = []
+    exact_length_error_zero_row_hashes: list[str] = []
     trace_problem_counts: Counter[str] = Counter()
     observations: Counter[str] = Counter()
 
@@ -548,8 +556,28 @@ def _audit_supported_rows(
                         require_exact_provider_json=True,
                         require_clean_stop=False,
                     )
-                    if error_problems != ["trace_has_errors"]:
+                    length_problems = [
+                        problem for problem in error_problems if problem != "trace_has_errors"
+                    ]
+                    length_nodes = (
+                        audit_traces._exact_length_termination_nodes(
+                            row,
+                            length_problems,
+                            audit_traces.KIMI_K3_MAX_MODEL_IO_CONTRACT,
+                        )
+                        if allow_exact_length_benchmark_rows and length_problems
+                        else None
+                    )
+                    if error_problems.count("trace_has_errors") != 1 or (
+                        length_problems and length_nodes is None
+                    ):
                         _fail("error_row_model_io_audit_failed")
+                    if length_nodes is not None:
+                        exact_length_error_zero_rows += 1
+                        exact_length_error_zero_nodes += len(length_nodes)
+                        exact_length_error_zero_row_hashes.append(
+                            _sha256(split.canonical_json(row))
+                        )
                     validated_error_model_io_turns += turns
                 model_bearing_errors += 1
                 model_bearing_provider_errors += int(row_error_types == ("ProviderError",))
@@ -585,9 +613,24 @@ def _audit_supported_rows(
             require_exact_provider_json=True,
             require_clean_stop=True,
         )
-        if problems and not allow_nontrainable_scored_rows:
-            _fail("provider_trace_audit_failed")
+        exact_length_nodes = (
+            audit_traces._exact_length_termination_nodes(
+                row,
+                problems,
+                audit_traces.KIMI_K3_MAX_MODEL_IO_CONTRACT,
+            )
+            if allow_exact_length_benchmark_rows and problems
+            else None
+        )
         score = split._score(row)
+        if problems:
+            if allow_exact_length_benchmark_rows:
+                if score == 1 and exact_length_nodes is None:
+                    _fail("provider_trace_audit_failed")
+                if score == 0 and exact_length_nodes is None and not allow_nontrainable_scored_rows:
+                    _fail("provider_trace_audit_failed")
+            elif not allow_nontrainable_scored_rows:
+                _fail("provider_trace_audit_failed")
         passes += score
         if problems:
             trace_invalid_scored_rows += 1
@@ -595,6 +638,11 @@ def _audit_supported_rows(
             source_sha256 = _sha256(split.canonical_json(row))
             trace_invalid_row_hashes.append(source_sha256)
             trace_problem_counts.update(re.sub(r"^node_[0-9]+_", "node_*_", problem) for problem in problems)
+            if exact_length_nodes is not None:
+                exact_length_nontrainable_scored_rows += 1
+                exact_length_nontrainable_passing_rows += score
+                exact_length_nontrainable_nodes += len(exact_length_nodes)
+                exact_length_nontrainable_row_hashes.append(source_sha256)
             by_task[task_id] = _derived_trace_invalid_score(row, problems=problems)
             continue
         clean_rows += 1
@@ -666,6 +714,28 @@ def _audit_supported_rows(
                 "pre_model_sandoq_provisioning_error_zeroes": pre_model_sandoq_provisioning_errors,
                 "pre_model_sandoq_provisioning_error_row_set_sha256": _sha256(
                     split.canonical_json(sorted(pre_model_sandoq_provisioning_error_hashes))
+                ),
+            }
+        )
+    if allow_exact_length_benchmark_rows:
+        benchmark_invalid_passing_rows = (
+            trace_invalid_passing_rows - exact_length_nontrainable_passing_rows
+        )
+        summary.update(
+            {
+                "benchmark_valid_passes": passes - benchmark_invalid_passing_rows,
+                "trainable_passes": passes - trace_invalid_passing_rows,
+                "benchmark_invalid_passing_rows": benchmark_invalid_passing_rows,
+                "exact_length_nontrainable_scored_rows": exact_length_nontrainable_scored_rows,
+                "exact_length_nontrainable_passing_rows": exact_length_nontrainable_passing_rows,
+                "exact_length_nontrainable_nodes": exact_length_nontrainable_nodes,
+                "exact_length_nontrainable_row_set_sha256": _sha256(
+                    split.canonical_json(sorted(exact_length_nontrainable_row_hashes))
+                ),
+                "exact_length_error_zero_rows": exact_length_error_zero_rows,
+                "exact_length_error_zero_nodes": exact_length_error_zero_nodes,
+                "exact_length_error_zero_row_set_sha256": _sha256(
+                    split.canonical_json(sorted(exact_length_error_zero_row_hashes))
                 ),
             }
         )

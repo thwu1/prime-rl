@@ -11,6 +11,7 @@ from audit_traces import (
     TraceJSONLError,
     _audit_trace,
     _captured_zero_reasoning_tool_turn,
+    _exact_length_termination_nodes,
     _iter_traces,
     _summarize_clean_stops,
     _summarize_hashed_clean_stops,
@@ -155,6 +156,81 @@ def _trace_with_model_io(trace_id: str = "model-io", slug: str = "model-io-task"
     trace = _trace(trace_id, slug)
     trace["nodes"][0]["model_io"] = _model_io(_request())
     return trace
+
+
+def _exact_length_trace() -> dict:
+    trace = _trace_with_model_io()
+    node = trace["nodes"][0]
+    node["finish_reason"] = "length"
+    response = node["model_io"]["response"]
+    response["body"]["choices"][0]["finish_reason"] = "length"
+    response["sha256"] = _digest(response["body"])
+    return trace
+
+
+def test_exact_length_recognizer_revalidates_complete_provider_semantics() -> None:
+    trace = _exact_length_trace()
+    problems = _audit_trace(
+        trace,
+        require_reasoning=True,
+        require_model_io=True,
+        model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+        require_request_graph_match=False,
+        require_exact_provider_json=True,
+        require_clean_stop=True,
+    )
+
+    assert problems == [
+        "node_0_finish_reason_invalid",
+        "node_0_model_io_response_finish_reason_invalid",
+    ]
+    assert _exact_length_termination_nodes(
+        trace,
+        problems,
+        KIMI_K3_MAX_MODEL_IO_CONTRACT,
+    ) == (0,)
+
+
+def test_exact_length_recognizer_rejects_hidden_mismatch_or_tool_call() -> None:
+    mismatched = _exact_length_trace()
+    response = mismatched["nodes"][0]["model_io"]["response"]
+    response["body"]["choices"][0]["message"]["content"] = "different"
+    response["sha256"] = _digest(response["body"])
+    ordinary_problems = _audit_trace(
+        mismatched,
+        require_reasoning=True,
+        require_model_io=True,
+        model_io_contract=KIMI_K3_MAX_MODEL_IO_CONTRACT,
+        require_request_graph_match=False,
+        require_exact_provider_json=True,
+        require_clean_stop=True,
+    )
+    assert ordinary_problems == [
+        "node_0_finish_reason_invalid",
+        "node_0_model_io_response_finish_reason_invalid",
+    ]
+    assert (
+        _exact_length_termination_nodes(
+            mismatched,
+            ordinary_problems,
+            KIMI_K3_MAX_MODEL_IO_CONTRACT,
+        )
+        is None
+    )
+
+    tool_bearing = _exact_length_trace()
+    tool_bearing["nodes"][0]["message"]["tool_calls"] = []
+    assert (
+        _exact_length_termination_nodes(
+            tool_bearing,
+            [
+                "node_0_finish_reason_invalid",
+                "node_0_model_io_response_finish_reason_invalid",
+            ],
+            KIMI_K3_MAX_MODEL_IO_CONTRACT,
+        )
+        is None
+    )
 
 
 def _use_normalized_stream_response(trace: dict) -> None:

@@ -656,6 +656,8 @@ def _response_node_problems(
     index: int,
     response: dict,
     model_io_contract: CapturedModelIOContract | None,
+    *,
+    accepted_finish_reasons: frozenset[str] = TRAINABLE_FINISH_REASONS,
 ) -> list[str]:
     """Reparse captured response semantics exactly as Verifiers did before graph commit."""
     body = response["body"]
@@ -668,7 +670,7 @@ def _response_node_problems(
             return [f"node_{index}_model_io_response_semantics_invalid"]
     else:
         raw_finish_reason = body.get("finish_reason")
-    if raw_finish_reason not in TRAINABLE_FINISH_REASONS:
+    if raw_finish_reason not in accepted_finish_reasons:
         return [f"node_{index}_model_io_response_finish_reason_invalid"]
 
     try:
@@ -697,6 +699,85 @@ def _response_node_problems(
     if model_io_contract is not None and parsed.model != model_io_contract.response_model:
         problems.append(f"node_{index}_model_io_response_model_mismatch")
     return problems
+
+
+def _exact_length_termination_nodes(
+    row: dict,
+    problems: list[str],
+    model_io_contract: CapturedModelIOContract,
+) -> tuple[int, ...] | None:
+    """Recognize only losslessly captured, reasoning-bearing length stops.
+
+    A length stop is a valid provider outcome for benchmark scoring, but is not
+    a trainable assistant turn.  The ordinary trace audit deliberately rejects
+    it.  This recognizer can therefore waive only the two expected finish
+    reason findings after re-running the complete response semantic comparison
+    with ``length`` admitted.  Any capture, message, usage, model, or graph
+    mismatch remains outside this policy.
+    """
+
+    nodes = row.get("nodes")
+    if not isinstance(nodes, list) or not problems:
+        return None
+    by_node: dict[int, set[str]] = {}
+    for problem in problems:
+        match = re.fullmatch(
+            r"node_([0-9]+)_(finish_reason_invalid|model_io_response_finish_reason_invalid)",
+            problem,
+        )
+        if match is None:
+            return None
+        index = int(match.group(1))
+        by_node.setdefault(index, set()).add(match.group(2))
+    expected = {"finish_reason_invalid", "model_io_response_finish_reason_invalid"}
+    if (
+        not by_node
+        or len(problems) != 2 * len(by_node)
+        or any(findings != expected for findings in by_node.values())
+    ):
+        return None
+
+    accepted = TRAINABLE_FINISH_REASONS | {"length"}
+    for index in sorted(by_node):
+        if not 0 <= index < len(nodes):
+            return None
+        node = nodes[index]
+        message = node.get("message") if isinstance(node, dict) else None
+        model_io = node.get("model_io") if isinstance(node, dict) else None
+        response = model_io.get("response") if isinstance(model_io, dict) else None
+        body = response.get("body") if isinstance(response, dict) else None
+        choices = body.get("choices") if isinstance(body, dict) else None
+        choice = choices[0] if isinstance(choices, list) and len(choices) == 1 else None
+        wire_message = choice.get("message") if isinstance(choice, dict) else None
+        if (
+            not isinstance(node, dict)
+            or node.get("sampled") is not True
+            or node.get("finish_reason") != "length"
+            or not isinstance(message, dict)
+            or message.get("role") != "assistant"
+            or not isinstance(message.get("reasoning_content"), str)
+            or not message["reasoning_content"].strip()
+            or message.get("tool_calls") is not None
+            or not isinstance(model_io, dict)
+            or model_io.get("provider_route") != model_io_contract.provider_route
+            or not isinstance(response, dict)
+            or response.get("kind") != "exact_provider_json"
+            or not _valid_model_response(response)
+            or _json_sha256(body) != response.get("sha256")
+            or not isinstance(choice, dict)
+            or choice.get("finish_reason") != "length"
+            or not isinstance(wire_message, dict)
+            or wire_message.get("tool_calls") is not None
+            or _response_node_problems(
+                node,
+                index,
+                response,
+                model_io_contract,
+                accepted_finish_reasons=frozenset(accepted),
+            )
+        ):
+            return None
+    return tuple(sorted(by_node))
 
 
 def _captured_zero_reasoning_tool_turn(

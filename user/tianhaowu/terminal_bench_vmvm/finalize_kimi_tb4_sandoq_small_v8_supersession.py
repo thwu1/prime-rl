@@ -90,6 +90,7 @@ class ExecutionContract:
     output_name: str
     supersession_reason: str
     supersession_source_files: tuple[str, ...]
+    allow_exact_length_benchmark_passes: bool = False
 
 
 V8_EXECUTION_CONTRACT = ExecutionContract(
@@ -131,6 +132,7 @@ def _validated_execution_contract(contract: ExecutionContract) -> ExecutionContr
         or not isinstance(contract.supersession_source_files, tuple)
         or not contract.supersession_source_files
         or len(contract.supersession_source_files) != len(set(contract.supersession_source_files))
+        or type(contract.allow_exact_length_benchmark_passes) is not bool
         or any(
             not isinstance(path, str)
             or not path.startswith("user/tianhaowu/terminal_bench_vmvm/")
@@ -427,6 +429,74 @@ def _pre_model_sandoq_provisioning_policy(trace_audit: Mapping[str, Any]) -> dic
     }
 
 
+def _exact_length_benchmark_policy(trace_audit: Mapping[str, Any]) -> dict[str, Any]:
+    fields = {
+        key: trace_audit.get(key)
+        for key in (
+            "passes",
+            "benchmark_valid_passes",
+            "trainable_passes",
+            "benchmark_invalid_passing_rows",
+            "exact_length_nontrainable_scored_rows",
+            "exact_length_nontrainable_passing_rows",
+            "exact_length_nontrainable_nodes",
+            "exact_length_error_zero_rows",
+            "exact_length_error_zero_nodes",
+        )
+    }
+    row_set = trace_audit.get("exact_length_nontrainable_row_set_sha256")
+    error_row_set = trace_audit.get("exact_length_error_zero_row_set_sha256")
+    if (
+        any(not transport._nonnegative_integer(value) for value in fields.values())
+        or not isinstance(row_set, str)
+        or plan_module.SHA256_RE.fullmatch(row_set) is None
+        or not isinstance(error_row_set, str)
+        or plan_module.SHA256_RE.fullmatch(error_row_set) is None
+        or fields["benchmark_invalid_passing_rows"] != 0
+        or fields["benchmark_valid_passes"] != fields["passes"]
+        or fields["benchmark_valid_passes"]
+        != fields["trainable_passes"] + fields["exact_length_nontrainable_passing_rows"]
+        or fields["exact_length_nontrainable_passing_rows"]
+        > fields["exact_length_nontrainable_scored_rows"]
+        or fields["exact_length_nontrainable_passing_rows"]
+        != trace_audit.get("trace_invalid_passing_rows", -1)
+        or fields["exact_length_nontrainable_scored_rows"]
+        > trace_audit.get("trace_invalid_scored_rows", -1)
+        or fields["exact_length_nontrainable_nodes"]
+        < fields["exact_length_nontrainable_scored_rows"]
+        or fields["exact_length_error_zero_rows"]
+        > trace_audit.get("model_bearing_error_zeroes", -1)
+        or fields["exact_length_error_zero_nodes"] < fields["exact_length_error_zero_rows"]
+    ):
+        _fail("exact_length_benchmark_policy_invalid")
+    return {
+        "schema_version": 1,
+        "state": "enforced",
+        "benchmark_finish_reason": "length",
+        "requires_matching_node_and_exact_provider_finish_reason": True,
+        "requires_exact_provider_json": True,
+        "requires_complete_response_semantic_match": True,
+        "requires_reasoning": True,
+        "requires_null_tool_calls": True,
+        "counted_for_benchmark_pass_at_1": True,
+        "trainable": False,
+        "benchmark_valid_passes": fields["benchmark_valid_passes"],
+        "trainable_passes": fields["trainable_passes"],
+        "nontrainable_scored_rows": fields["exact_length_nontrainable_scored_rows"],
+        "nontrainable_passing_rows": fields["exact_length_nontrainable_passing_rows"],
+        "nontrainable_nodes": fields["exact_length_nontrainable_nodes"],
+        "nontrainable_row_set_sha256": row_set,
+        "error_zero_rows_with_validated_length_stops": fields["exact_length_error_zero_rows"],
+        "error_zero_nodes_with_validated_length_stops": fields["exact_length_error_zero_nodes"],
+        "error_zero_row_set_sha256": error_row_set,
+    }
+
+
+def _exact_length_gate_met(trace_audit: Mapping[str, Any]) -> bool:
+    policy = _exact_length_benchmark_policy(trace_audit)
+    return int(policy["benchmark_valid_passes"]) >= TARGET_PASSES
+
+
 def finalize(
     *,
     plan_path: Path,
@@ -529,6 +599,9 @@ def finalize(
                 post_agent_verifier_attempts=VERIFIER_ATTEMPTS,
                 audit_pre_model_sandoq_provisioning_errors=True,
                 sandoq_provisioning_attempts=PROVISIONING_ATTEMPTS,
+                allow_exact_length_benchmark_rows=(
+                    execution.allow_exact_length_benchmark_passes
+                ),
             )
             try:
                 cleanup, cleanup_artifacts = split._validate_sandoq_cleanup(
@@ -594,8 +667,18 @@ def finalize(
                 gpu,
                 str(manifest_record["sha256"]),
             )
-            passes = int(trace_audit["passes"])
-            gate_met = transport._gate_met(trace_audit)
+            passes = int(
+                trace_audit[
+                    "benchmark_valid_passes"
+                    if execution.allow_exact_length_benchmark_passes
+                    else "passes"
+                ]
+            )
+            gate_met = (
+                _exact_length_gate_met(trace_audit)
+                if execution.allow_exact_length_benchmark_passes
+                else transport._gate_met(trace_audit)
+            )
             post_agent_policy = _post_agent_verifier_policy(trace_audit)
             pre_model_provisioning_policy = _pre_model_sandoq_provisioning_policy(trace_audit)
             post_agent_zeroes = int(trace_audit["post_agent_verifier_sandbox_error_zeroes"])
@@ -683,6 +766,22 @@ def finalize(
                 },
                 "results_sha256": recovery._sha256(results_output),
             }
+            if execution.allow_exact_length_benchmark_passes:
+                certificate["counts"].update(
+                    {
+                        "provider_scored_passes": trace_audit["passes"],
+                        "trainable_passes": trace_audit["trainable_passes"],
+                        "benchmark_valid_nontrainable_passes": trace_audit[
+                            "exact_length_nontrainable_passing_rows"
+                        ],
+                    }
+                )
+                certificate["training_eligibility"]["eligible_clean_passes"] = (
+                    trace_audit["trainable_passes"]
+                )
+                certificate["exact_length_benchmark_policy"] = (
+                    _exact_length_benchmark_policy(trace_audit)
+                )
             evidence.revalidate()
             held.revalidate()
             split._publish_private_bundle(
