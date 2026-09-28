@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
 import kimi_stock_small_task_image_soak as soak
 import pytest
+from terminal_bench_vmvm import sandoq_provider_context as provider_context
 
 
 class _State:
@@ -359,6 +361,17 @@ def test_launcher_is_c64_no_inference_and_fails_closed() -> None:
     assert "mini-swe" not in launcher.lower()
     assert "curl" not in launcher
     assert "\nsbatch " not in launcher
+
+
+def test_launcher_termination_grace_is_accepted_by_provider_supervisor(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher = Path(soak.__file__).with_name("run_kimi_stock_small_task_image_soak.sbatch").read_text()
+    match = re.search(r"SANDOQ_PROVIDER_TERMINATION_GRACE_SECONDS=([0-9]+)", launcher)
+    assert match is not None
+    monkeypatch.setenv("SANDOQ_PROVIDER_TERMINATION_GRACE_SECONDS", match.group(1))
+
+    assert provider_context._supervisor_termination_grace_seconds() == 600
 
 
 def test_terminal_status_is_aggregate_only_and_private(

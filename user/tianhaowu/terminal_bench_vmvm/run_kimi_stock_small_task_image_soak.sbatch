@@ -127,7 +127,7 @@ export OCI_RUNNER_POOL_EVENT_LOG="$run_dir/pool_events.jsonl"
 export KIMI_TASK_IMAGE_SOAK_STATUS_FILE="$run_dir/control/task-image-soak-status.json"
 
 set +e
-env SANDOQ_PROVIDER_TERMINATION_GRACE_SECONDS=1200 \
+env SANDOQ_PROVIDER_TERMINATION_GRACE_SECONDS=600 \
     "$x86_uv" run --no-project --offline --python "$python_bin" \
     python3 "$workflow_dir/terminal_bench_vmvm/sandoq_provider_context.py" supervise \
     --profile "$provider_profile" --profile-sha256 "$provider_profile_sha256" \
