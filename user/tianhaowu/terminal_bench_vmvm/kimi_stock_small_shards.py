@@ -32,6 +32,7 @@ import finalize_kimi_tb4_sandoq_small_v8_supersession as tb4_v8
 import finalize_kimi_tb4_sandoq_small_v12 as tb4_v12
 import finalize_kimi_tb4_sandoq_small_v13 as tb4_v13
 import finalize_kimi_tb4_sandoq_small_v14 as tb4_v14
+import finalize_kimi_tb4_sandoq_small_v15 as tb4_v15
 import kimi_sandoq_production as legacy
 import kimi_stock_small_task_image_soak as task_image_soak
 import kimi_tb4_provider_split as split
@@ -179,6 +180,13 @@ TB4_V14_PRODUCTION_SHARED_VARIANT_FILES: frozenset[str] = frozenset()
 TB4_V14_PRODUCTION_LANE_VARIANT_FILES: frozenset[str] = frozenset()
 TB4_V14_PRODUCTION_SANDOQ_VARIANT_FILES: frozenset[str] = frozenset()
 TB4_V14_PRODUCTION_VARIANT_PAIR_SHA256 = TB4_EMPTY_VARIANT_PAIR_SHA256
+# V15 binds the reviewed v14 lifecycle policy to the fresh v5 execution.
+# The certifier is additive, so none of the execution-semantic files differ.
+TB4_V15_SUPERSESSION_SOURCE_REVISION = "c0076df06780647a62e4b19f4b946aeb17a09eb4"
+TB4_V15_PRODUCTION_SHARED_VARIANT_FILES: frozenset[str] = frozenset()
+TB4_V15_PRODUCTION_LANE_VARIANT_FILES: frozenset[str] = frozenset()
+TB4_V15_PRODUCTION_SANDOQ_VARIANT_FILES: frozenset[str] = frozenset()
+TB4_V15_PRODUCTION_VARIANT_PAIR_SHA256 = TB4_EMPTY_VARIANT_PAIR_SHA256
 
 PROXY_SUMMARY_MARKER = b"sandoq: buffered model proxy summary "
 PROXY_SUMMARY_PREFIX_RE = re.compile(rb"[0-9]{2}:[0-9]{2}:[0-9]{2} +INFO \Z")
@@ -1266,6 +1274,64 @@ def _tb4_gate_variant(value: Mapping[str, Any]) -> dict[str, Any]:
             "production_lane_variant_files": TB4_V14_PRODUCTION_LANE_VARIANT_FILES,
             "production_sandoq_variant_files": TB4_V14_PRODUCTION_SANDOQ_VARIANT_FILES,
             "production_variant_pair_sha256": TB4_V14_PRODUCTION_VARIANT_PAIR_SHA256,
+        }
+    if value.get("schema_version") == 2 and reason == tb4_v15.SUPERSESSION_REASON:
+        return {
+            "schema_version": 2,
+            "reason": reason,
+            "extra_certificate_keys": frozenset(
+                {
+                    "exact_length_benchmark_policy",
+                    "execution_completion",
+                    "persisted_verifier_artifacts",
+                    "post_agent_verifier_error_policy",
+                    "pre_model_sandoq_provisioning_error_policy",
+                    "sandoq_assignment_lifecycle",
+                }
+            ),
+            "extra_artifact_keys": frozenset({"execution_completion"}),
+            "extra_count_keys": frozenset(
+                {
+                    "benchmark_scored_failures",
+                    "benchmark_scored_rows",
+                    "benchmark_valid_nontrainable_passes",
+                    "infrastructure_zeroes",
+                    "post_agent_verifier_artifact_write_transport_zeroes",
+                    "post_agent_verifier_exec_transport_zeroes",
+                    "post_agent_verifier_sandbox_error_zeroes",
+                    "pre_model_sandoq_provisioning_error_zeroes",
+                    "provider_scored_passes",
+                    "trainable_passes",
+                }
+            ),
+            "extra_training_keys": frozenset(
+                {
+                    "eligible_clean_passes",
+                    "excluded_post_agent_verifier_artifact_write_transport_rows",
+                    "excluded_post_agent_verifier_sandbox_error_rows",
+                    "excluded_pre_model_sandoq_provisioning_error_rows",
+                    "post_agent_verifier_artifact_write_transport_rows_are_trainable",
+                    "post_agent_verifier_sandbox_error_rows_are_trainable",
+                    "pre_model_sandoq_provisioning_error_rows_are_trainable",
+                }
+            ),
+            "allow_post_agent_verifier_sandbox_errors": True,
+            "audit_pre_model_sandoq_provisioning_errors": True,
+            "allow_exact_length_benchmark_rows": True,
+            "allow_post_agent_exec_transport_errors": True,
+            "allow_post_agent_artifact_write_transport_errors": True,
+            "require_persisted_verifier_artifacts": True,
+            "allow_pre_ready_managed_shell_provisioning_failures": True,
+            "execution_contract": tb4_v15.execution_contract(tb4_v15.EXECUTION_SLURM_JOB_ID),
+            "execution_plan": tb4_v15.EXECUTION_PLAN,
+            "execution_run_dir": tb4_v15.EXECUTION_RUN_DIR,
+            "supersession_source_paths": tb4_v15.SUPERSESSION_SOURCE_FILES,
+            "distinct_supersession_source_revision": True,
+            "expected_supersession_source_revision": TB4_V15_SUPERSESSION_SOURCE_REVISION,
+            "production_shared_variant_files": TB4_V15_PRODUCTION_SHARED_VARIANT_FILES,
+            "production_lane_variant_files": TB4_V15_PRODUCTION_LANE_VARIANT_FILES,
+            "production_sandoq_variant_files": TB4_V15_PRODUCTION_SANDOQ_VARIANT_FILES,
+            "production_variant_pair_sha256": TB4_V15_PRODUCTION_VARIANT_PAIR_SHA256,
         }
     raise StockSmallError("tb4_gate_invalid")
 
