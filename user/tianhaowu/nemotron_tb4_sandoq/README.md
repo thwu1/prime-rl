@@ -211,7 +211,7 @@ TB4 trained tasks, 4 rollouts per task, fully fixed harness (runs under
 | model | runs | 19 tasks pass@1 | pass@4 | original 17 pass@1 | pass@4 |
 |---|---|---|---|---|---|
 | base Nemotron-3-Super, 262k | `base-trained19-x4-v3-1628112` | 0 / 76 (0%) | 0 / 19 | 0% | 0 / 17 |
-| SFT 262k, TB4 overfit 10 ep | `sft262k-trained19-x4-v2-1628060` | 9.2% (75/76 attempts) | 5 / 19 | 8.8% | 4 / 17 |
+| SFT 262k, TB4 overfit 10 ep | `sft262k-trained19-x4-v2-1628060` | 9.2% (7 / 76) | 5 / 19 | 8.8% | 4 / 17 |
 | SFT 512k, TB4 overfit 10 ep, 524k context | `sft512k-trained19-x4-ctx512k-v2-1628061` | 11.8% (60/76 attempts, stopped early) | 3 / 19 | 13.2% | 3 / 17 |
 
 SFT 262k solves embedding-drift-monitor 3/4, batched-eval-parity, fin-saccr-rwa, shadow-relay and
