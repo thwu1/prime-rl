@@ -1905,7 +1905,7 @@ class PoolBroker:
                 [
                     "set -eu",
                     "podman rm -f task >/dev/null 2>&1 || true",
-                    "rm -rf /home/runner/shared/.prime-rl-transfer " + assignment_dir,
+                    "rm -rf /home/runner/shared/.prime-rl-transfer /home/runner/shared/.sandoq-shell " + assignment_dir,
                     "mkdir -p /home/runner/shared/.prime-rl-transfer",
                     'test -z "$(podman ps -aq --filter name=^task$)"',
                     'test -z "$(find /home/runner/shared/.prime-rl-transfer -mindepth 1 -print -quit)"',
