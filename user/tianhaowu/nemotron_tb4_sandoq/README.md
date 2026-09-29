@@ -107,11 +107,24 @@ weight save gathered the full bf16 model on rank 0 and the node ran out of host 
 
 - `be1949dec` makes `WeightCheckpointManager` save layer by layer (gather, `convert_layer_to_hf`,
   write one shard per layer); rank 0 holds about one layer. Output is bit-identical to the gathered
-  save (8-layer test, 3137/3137 tensors). A full-scale 120B save test is job 1623922.
+  save (8-layer test, 3137/3137 tensors). Full-scale check (job 1623922, 120B on 8 nodes): the
+  step-1 save took 441 s, and the 41,643 tensors match the base checkpoint's dtypes and shapes (only
+  the 1,040 `mtp.*` speculative-decoding weights are absent, as with the gathered save). Mid-run
+  saves (`ckpt.interval`) use the same path.
 - The -r2 runs (started before that fix) save a final DCP checkpoint instead
   (`skip_gather_master_weights = true`); `sft/convert_checkpoint.sh` converts it, streaming one layer
-  at a time (bit-identical to the gathered save on the same test). Once the full-scale test passes,
-  new runs can drop `skip_gather_master_weights` and use the default HF weight save.
+  at a time (bit-identical to the gathered save on the same test). New runs use the default HF
+  weight save (see the honeycomb config: streamed HF weights every epoch).
+
+### Honeycomb run
+
+`sft/configs/honeycomb_213_262k_cp2_8node.toml`: 213 traces (`nemotron-honeycomb-216-20260929`,
+filtered to <= 256k tokens and no CJK) over 43 synthetic variants of 5 TB4 tasks (embedding-drift-
+monitor, mvcc-lsm-compaction, protein-autointerp-disulfide, wal-recovery-ordering, fin-saccr-rwa).
+The real TB4 tasks are held out, so `eval/tasks/honeycomb_targets5.tasks.txt` measures transfer.
+5 epochs = 67 steps, HF weights every 14 steps and at the end. Prepared data:
+`/checkpoint/ram/tianhaowu/datasets/nemotron-honeycomb-213-prime` (one context-only assistant turn
+is `trainable: false` by design).
 
 ## Serving
 
