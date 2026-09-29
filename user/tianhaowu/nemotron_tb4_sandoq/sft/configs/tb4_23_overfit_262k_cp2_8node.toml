@@ -72,12 +72,13 @@ sync_environment = false
 pre_run_command = "export SFT_VENV=/storage/home/tianhaowu/.venvs/prime-nemotron-sft-gb300"
 
 [ckpt]
-# Final DCP checkpoint only; convert offline with ../convert_dcp_to_hf.py (nemotron_tb4_sandoq/sft/). The HF weight save
-# gathers the full model on rank 0 and runs out of host RAM next to FSDP CPU-offloaded state.
-interval = 109
-weights_only = false
-skip_gather_master_weights = true
-keep_last = 1
+# HF weights (streamed layer by layer) every ~2 epochs plus the final step; all kept.
+interval = 22
+weights_only = true
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
 
 [wandb]
 project = "nemotron-sft-gb300"

@@ -382,21 +382,29 @@ reported.
 
 ## Nemotron TB4 MiniSWE parity with SFT traces
 
-`user/tianhaowu/terminal_bench_vmvm/nemotron_tb4/` runs Nemotron-3-Super on TB4 v4.0.0 with
+`user/tianhaowu/nemotron_tb4_sandoq/eval/` runs Nemotron-3-Super on TB4 v4.0.0 with
 MiniSWE 2.4.6 over Sandoq, mirroring the GLM-5.3-Flash Harbor traces used for SFT
 (`step_limit=300`, 600 s per command, parallel tool calls allowed). Submit `launch.sh` with
 `NEMOTRON_TB4_BASE_URL`, `NEMOTRON_TB4_MODEL`, `NEMOTRON_TB4_TASK_FILE` and `NEMOTRON_TB4_RUN_NAME`.
 
-Two settings are required for the served prompt to equal the SFT rendering:
+Settings required for the served prompt to equal the SFT rendering:
 
 - `[client] assistant_reasoning_field = "reasoning"`. litellm (inside MiniSWE) replays prior
   thinking as `reasoning_content` (and a copy under `provider_specific_fields`); vLLM 0.20 reads
-  neither and renders `<think></think>` for every historical turn. The LiteLLM proxy in front of
-  vLLM does not translate it either.
+  neither and renders `<think></think>` for every historical turn.
+- `[client] strip_assistant_content = true`. The reasoning parser leaves the newline after
+  `</think>` in `content`; SFT data strips message content.
+- `chat_template_kwargs.truncate_history_thinking = false`. MiniSWE answers a malformed turn with a
+  format-error user message; the template default then drops all earlier reasoning.
 - `[taskset] prompt_style = "harbor"`. Harbor strips the `<!-- harbor-canary GUID ... -->` line
   and leading whitespace from `instruction.md` but keeps the trailing newline.
 
-Verify any run with `nemotron_tb4/check_prompt_parity.py <results.jsonl>`: it rebuilds each
-delta-encoded request and requires `usage.prompt_tokens` to equal the prime-rl `nemotron-3`
-renderer length (`preserve_all_thinking=true`). The only expected text difference from the SFT
-data is the `<system_information>` kernel string, which comes from the sandbox.
+Also clamp resources to the Sandoq grant (`resource_*_cap`), set `enable_compose = false`, and use a
+verifiers build whose rollout token caps apply per branch (a format error starts a new branch; the
+old sum-over-branches check ended rollouts far below the cap).
+
+Verify with `nemotron_tb4_sandoq/eval/check_prompt_parity.py <results.jsonl> --tokenize-url
+http://<vllm host:port>`: it rebuilds each delta-encoded request and requires the served token ids
+to equal the prime-rl `nemotron-3` renderer (`preserve_all_thinking=true`). The only expected text
+difference from the SFT data is the `<system_information>` kernel string, which comes from the
+sandbox.

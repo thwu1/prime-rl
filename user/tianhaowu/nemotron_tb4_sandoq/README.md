@@ -11,14 +11,16 @@ data/prepare.sh              content-part SFT export -> renderer-ready JSONL + r
 sft/launch_sft.sh            submit an SFT run from a frozen snapshot of HEAD
 sft/configs/*.toml           262k CP2 and 512k CP4 run configs (8 nodes x 4 GB300)
 sft/multi_node_sft_g3.sbatch.j2   g3 Slurm template (conda Torch 2.12 stack)
-sft/convert_checkpoint.sh    sbatch: DCP trainer checkpoint -> HF safetensors (convert_dcp_to_hf.py)
-serve/deploy.sh              serve a checkpoint via ram_common serve_api_v2 (nemotron-3-super card)
+sft/convert_checkpoint.sh    sbatch: DCP trainer checkpoint -> HF safetensors (only for DCP-saved runs)
+sft/check_cp_mamba_packing.py, sft/probe_routing_padding.py   CP / routing diagnostics
+serve/deploy.sh              serve a checkpoint via ram_common serve_api_v2 (MAX_CONTEXT, default 262144)
+sft_to_eval.sh               after an SFT job: convert if needed -> deploy -> submit the eval
 eval/run_eval.sh             submit a TB4 eval against a deployment
 eval/launch.sh               the eval job itself (cpu_x86: Sandoq provider supervisor -> Verifiers eval)
 eval/nemotron_tb4.toml       eval config (agent settings mirror the SFT teacher traces)
 eval/check_prompt_parity.py  served prompt tokens == SFT renderer tokens, per request
 eval/aggregate.py            merge runs -> per-task table, pass@1 / pass@k, trained vs held-out
-eval/tasks/                  task lists (oracle-valid 53, trained 19 / 17, retries)
+eval/tasks/                  oracle53, trained19, trained17, honeycomb_targets5, smoke lists
 oracle/                      TB4 oracle results on Sandoq and the launcher used
 ```
 
@@ -28,14 +30,16 @@ oracle/                      TB4 oracle results on Sandoq and the launcher used
 cd user/tianhaowu/nemotron_tb4_sandoq
 env/setup_venv.sh                                  # once
 data/prepare.sh <traces.sft.jsonl> /checkpoint/ram/tianhaowu/datasets/<name>
-sft/launch_sft.sh sft/configs/tb4_23_overfit_262k_cp2_8node.toml tb4-23-262k-rN
-# if the run saved a DCP checkpoint (skip_gather_master_weights = true):
-sbatch sft/convert_checkpoint.sh /checkpoint/ram/tianhaowu/sft_nemotron_gb300/outputs/tb4-23-262k-rN 109
+sft/launch_sft.sh sft/configs/tb4_23_overfit_262k_cp2_8node.toml tb4-23-262k-rN   # prints the job id
+# either run the whole post-training chain in the background (waits for the SFT job):
+nohup ./sft_to_eval.sh <sft_job_id> /checkpoint/ram/tianhaowu/sft_nemotron_gb300/outputs/tb4-23-262k-rN 109 \
+    tianhaowu-nemotron-tb4-sft-262k eval/tasks/trained19.tasks.txt sft262k-trained19 4 > <log> 2>&1 &
+# ... or step by step (MAX_CONTEXT=524288 for the 512k model, on both commands):
 serve/deploy.sh tianhaowu-nemotron-tb4-sft-262k .../outputs/tb4-23-262k-rN/weights/step_109
 eval/run_eval.sh tianhaowu-nemotron-tb4-sft-262k eval/tasks/trained19.tasks.txt sft262k-trained19 4
 python3 eval/aggregate.py /checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/nemotron_tb4/<run dirs> \
     --tasks eval/tasks/trained19.tasks.txt
-python3 ... eval/check_prompt_parity.py <run dir>/results.jsonl     # with the SFT venv python
+<sft venv>/bin/python eval/check_prompt_parity.py <run dir>/results.jsonl --tokenize-url http://<vllm host:port>
 ```
 
 ## Environment
@@ -111,10 +115,13 @@ weight save gathered the full bf16 model on rank 0 and the node ran out of host 
   step-1 save took 441 s, and the 41,643 tensors match the base checkpoint's dtypes and shapes (only
   the 1,040 `mtp.*` speculative-decoding weights are absent, as with the gathered save). Mid-run
   saves (`ckpt.interval`) use the same path.
-- The -r2 runs (started before that fix) save a final DCP checkpoint instead
-  (`skip_gather_master_weights = true`); `sft/convert_checkpoint.sh` converts it, streaming one layer
-  at a time (bit-identical to the gathered save on the same test). New runs use the default HF
-  weight save (see the honeycomb config: streamed HF weights every epoch).
+- `568dc01b4`: the saved config keeps the base `auto_map`, so the remote-code files it names
+  (`configuration_nemotron_h.py`, `modeling_nemotron_h.py`) are copied next to it; without them vLLM
+  (`trust_remote_code`) refuses the checkpoint. `serve/deploy.sh` fills them in for older checkpoints.
+- All configs save streamed HF weights (`weights_only = true`) about every 2 epochs (honeycomb:
+  every epoch) plus the final step. The -r2 overfit runs (started before the fix) saved a final DCP
+  checkpoint instead; `sft/convert_checkpoint.sh` converts such checkpoints one layer at a time
+  (bit-identical to the gathered save).
 
 ### Honeycomb run
 
@@ -132,8 +139,9 @@ is `trainable: false` by design).
 `serve/nemotron-3-super.card.toml` (branch `feat/nemotron-3-super-card` in
 `/storage/home/tianhaowu/ram_common-nemotron`): `vllm/vllm-openai:v0.20.1`, TP 4 on one g3 node,
 `tool_call_parser = qwen3_coder` (the `<tool_call><function=bash><parameter=command>` format the SFT
-data uses), `reasoning_parser = nemotron_v3`, `mamba-ssm-cache-dtype = float32`, max-model-len 262144.
-The base deployment `tianhaowu-nemotron-super-base-probe` is at `http://cpu-128-021:8107`.
+data uses), `reasoning_parser = nemotron_v3`, `mamba-ssm-cache-dtype = float32`, max-model-len 262144
+(`MAX_CONTEXT=524288` adds `VLLM_ALLOW_LONG_MAX_MODEL_LEN`; NemotronH has no RoPE). Deployments have
+a fixed lifetime (default 24h here) that cannot be extended, so size it to the eval.
 
 ## Eval harness
 
@@ -165,6 +173,13 @@ Other required settings:
   probe job 1554280). Tasks declaring more fail provisioning; the oracle ran every task clamped.
 - `enable_compose = false`: Sandoq has no Compose; the two oracle-valid compose tasks pass without
   their sidecar.
+- verifiers `2b3a12ac`: rollout input/total token caps apply to the longest branch. A format error
+  makes mini-swe-agent drop the malformed turn, which starts a new branch; the old check summed
+  branches and ended SFT rollouts at 145k-307k real tokens under a 524k cap.
+- `max_output_tokens` is cumulative over the rollout (set to the context size, like the Kimi lanes);
+  long SFT trajectories sometimes stop on it.
+- `aggregate.py` excludes infrastructure errors but counts `HarnessError` (the agent process died,
+  e.g. OOM-killed by the sandbox after an agent command) as a failed attempt.
 
 ## Oracle (TB4 v4.0.0 on Sandoq)
 
@@ -184,31 +199,30 @@ audited public-network override (verifier has internet), approved for this eval.
 `tb66-oracle-20260929`), whose oracle-runner changes (host task network, tunnel shape) build on
 `fix/kimi-production-resource-coverage` and are not on vmvm-sandbox.
 
-## Results so far
+## Results
 
-Training (262k, first run; the -r2 rerun reproduces it step for step): loss 1.18 -> 0.58 (step 36)
--> 0.26 (step 69) -> 0.05 (step 108); grad norm ~0.3 after warmup, occasional clipped spikes.
-W&B: https://meta-fair.wandb.io/ram/nemotron-sft-gb300 (runs `75v9lcd0` 262k, `seezxvlq` 512k first
-attempt; -r2 runs sync the same way).
+Training (262k; the -r2 rerun reproduces the first run step for step): loss 1.18 -> 0.05 over 109
+steps; 512k: 218 steps to ~0.009; honeycomb: 67 steps to ~0.43. W&B:
+https://meta-fair.wandb.io/ram/nemotron-sft-gb300.
 
-TB4 trained tasks, 4 rollouts per task, identical harness (runs under
+TB4 trained tasks, 4 rollouts per task, fully fixed harness (runs under
 `/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/nemotron_tb4/`):
 
-| model | 19 trained tasks pass@1 | pass@4 | original 17 pass@1 | pass@4 |
-|---|---|---|---|---|
-| base Nemotron-3-Super (`base-trained19-x4-v2-1624995`) | 0 / 76 (0%) | 0 / 19 | 0% | 0 / 17 |
-| SFT 262k, TB4 overfit 10 epochs (`sft262k-trained19-x4-1625875`) | 10 / 76 (13.2%) | 5 / 19 | 14.7% | 5 / 17 |
+| model | runs | 19 tasks pass@1 | pass@4 | original 17 pass@1 | pass@4 |
+|---|---|---|---|---|---|
+| base Nemotron-3-Super, 262k | `base-trained19-x4-v3-1628112` | 0 / 76 (0%) | 0 / 19 | 0% | 0 / 17 |
+| SFT 262k, TB4 overfit 10 ep | `sft262k-trained19-x4-v2-1628060` | 9.2% (73/76 done) | 5 / 19 | 8.8% | 4 / 17 |
+| SFT 512k, TB4 overfit 10 ep, 524k context | `sft512k-trained19-x4-ctx512k-v2-1628061` | 11.8% (50/76 done) | 3 / 19 | 13.2% | 3 / 17 |
 
-Solved by SFT: embedding-drift-monitor 4/4, fin-saccr-rwa 2/4, wal-recovery-ordering 2/4,
-mvcc-lsm-compaction 1/4, react-lead-form 1/4 (the tasks with the most training traces lead). Most
-unsolved SFT rollouts end at the 262k context limit. Exact-token prompt parity on 485 sampled SFT
-requests: 0 mismatches.
+SFT 262k solves embedding-drift-monitor 3/4, batched-eval-parity, fin-saccr-rwa, shadow-relay and
+wal-recovery-ordering 1/4 each; SFT 512k solves shadow-relay 4/4, embedding-drift-monitor 3/4,
+mvcc-lsm-compaction 2/4. Exact-token prompt parity on 485 sampled SFT requests: 0 mismatches.
+Earlier eval runs (`*-1625875`, `*-1627553`, `base-*-v2`) used the branch-summed token caps and are
+superseded.
 
-Honeycomb (transfer to the 5 real target tasks, 4 rollouts each): step 14 0/20 (rollouts die on
-the 3-format-error limit: tool calls emitted inside `<think>`), step 67 0/20 (well-formed
-rollouts, no solves).
-
-The 512k CP4 checkpoint is evaluated with `MAX_CONTEXT=524288` (serving and eval limits).
+Honeycomb (5 real target tasks, 4 rollouts each, fixed harness): step 67 0/20
+(`honeycomb-s67-targets5-x4-v2-1629155`), base 0/16 on the same tasks. Rollouts are well-formed but
+wrong; step 14 (earlier harness) died on the format-error limit.
 
 ## Fixes in the repo
 
@@ -224,3 +238,6 @@ On `vmvm-sandbox` (thwu1/prime-rl) unless noted:
 | `cd504c4aa` | Sandoq background jobs run in non-login bash (image `ENV PATH` kept) |
 | `97da3263b` | Harbor-style artifact dir modes for separate verifiers |
 | `164dc6b46`, `85229b13b`, `95b6304fe` | non-root image users on Sandoq: tmux `SHELL=/bin/bash`, root harness setup via `podman exec --user 0`, runner tmux kept out of the task's `/tmp` (fixed risk-scorer-replay, rs-archive-clone) |
+| `568dc01b4` | HF checkpoints ship the `auto_map` remote-code files |
+| `9b5e8a8f`, `80358a73a` | verifiers `strip_assistant_content`; eval `truncate_history_thinking = false` |
+| `2b3a12ac`, `0090aa367` | verifiers rollout token caps per branch, not branch sum |

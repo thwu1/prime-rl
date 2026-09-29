@@ -1,7 +1,8 @@
 # Nemotron-3-Super-120B full SFT at 524,288-token context on GB300: CP4 Ulysses (KV heads replicated 2 -> 4).
 # 32 GPUs / CP4 = 8 data ranks; batch 8 = one trajectory per rank per step, matching the reference
 # Tinker overfit batch. ceil(10 * 174 / 8) = 218 steps = 10 epochs (reference: 220 updates).
-# fixed_stack keeps one trajectory per row: mamba_cp_forward ignores packed-sequence boundaries.
+# fixed_stack keeps one trajectory per row, matching the 262k run; `cat` packing is also correct
+# under CP now that Mamba CP honors packed-sequence boundaries.
 # Rows in this dataset are <= 261,561 tokens, so each row is at least half padding at 524,288.
 output_dir = "/checkpoint/ram/tianhaowu/sft_nemotron_gb300/outputs/tb4-23-overfit-512k-cp4-8node-lr1e5-10ep"
 max_steps = 218
@@ -73,12 +74,13 @@ sync_environment = false
 pre_run_command = "export SFT_VENV=/storage/home/tianhaowu/.venvs/prime-nemotron-sft-gb300"
 
 [ckpt]
-# Final DCP checkpoint only; convert offline with ../convert_dcp_to_hf.py (nemotron_tb4_sandoq/sft/). The HF weight save
-# gathers the full model on rank 0 and runs out of host RAM next to FSDP CPU-offloaded state.
-interval = 218
-weights_only = false
-skip_gather_master_weights = true
-keep_last = 1
+# HF weights (streamed layer by layer) every ~2 epochs plus the final step; all kept.
+interval = 44
+weights_only = true
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
 
 [wandb]
 project = "nemotron-sft-gb300"
