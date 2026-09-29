@@ -26,8 +26,10 @@ from prime_rl.trainer.models import PreTrainedModelPrimeRL
 from prime_rl.trainer.optim import CPUOffloadOptimizer
 from prime_rl.trainer.runs import Progress, get_multi_run_manager
 from prime_rl.trainer.weights import (
+    LAYER_FQN,
     gather_weights_on_master,
     save_state_dict,
+    save_weights_layer_by_layer,
 )
 from prime_rl.trainer.world import get_world
 from prime_rl.utils.logger import get_logger
@@ -370,6 +372,35 @@ class WeightCheckpointManager:
 
         return lora_state_dict
 
+    @staticmethod
+    def save_metadata(path: Path, model, tokenizer: PreTrainedTokenizer) -> None:
+        """Save model config, generation arguments and tokenizer next to the weights."""
+        model.config.save_pretrained(path)
+        if model.generation_config:
+            # training sets use_cache=False which can conflict with
+            # cache_implementation — save with use_cache=True without
+            # mutating the model's config
+            from copy import deepcopy
+
+            gen_config = deepcopy(model.generation_config)
+            gen_config.use_cache = True
+            gen_config.save_pretrained(path)
+        tokenizer.save_pretrained(path)
+
+    def _can_save_layer_by_layer(self, model: nn.Module) -> bool:
+        """Stream the save when the model converts to HF one decoder layer at a time."""
+        if not (
+            isinstance(model, PreTrainedModelPrimeRL)
+            and type(model).convert_layer_to_hf is not PreTrainedModelPrimeRL.convert_layer_to_hf
+            and self.config.save_format == "safetensors"
+            and self.config.save_sharded
+            and not has_lora_layers(model)
+        ):
+            return False
+        names = dict.fromkeys(model.state_dict())
+        layers = {int(m.group(1)) for name in names if (m := LAYER_FQN.match(name))}
+        return model.is_prime_state_dict(names) and layers == set(range(model.config.num_hidden_layers))
+
     def save_to_path(
         self,
         path: Path,
@@ -391,19 +422,7 @@ class WeightCheckpointManager:
 
                 # Save weights
                 save_state_dict(state_dict, path, self.config.save_format, self.config.save_sharded)
-
-                # Save model config, generation arguments and tokenizer
-                model.config.save_pretrained(path)
-                if model.generation_config:
-                    # training sets use_cache=False which can conflict with
-                    # cache_implementation — save with use_cache=True without
-                    # mutating the model's config
-                    from copy import deepcopy
-
-                    gen_config = deepcopy(model.generation_config)
-                    gen_config.use_cache = True
-                    gen_config.save_pretrained(path)
-                tokenizer.save_pretrained(path)
+                self.save_metadata(path, model, tokenizer)
 
             if lora_state_dict is not None:
                 adapter_path = path / "lora_adapters"
@@ -434,6 +453,24 @@ class WeightCheckpointManager:
         if self.world.is_master:
             step_path.mkdir(parents=True, exist_ok=True)
         torch.distributed.barrier()
+
+        if self._can_save_layer_by_layer(model):
+            self.logger.debug("Saving weight checkpoint layer by layer")
+            start_time = time.perf_counter()
+            drop_keys = (
+                set(getattr(model, "_tied_weights_keys", []))
+                if getattr(model.config, "tie_word_embeddings", False)
+                else set()
+            )
+            save_weights_layer_by_layer(model, step_path, self.world.is_master, drop_keys, dtype=torch.bfloat16)
+            if self.world.is_master:
+                self.save_metadata(step_path, model, tokenizer)
+            self.logger.debug(
+                f"Saved weight checkpoint layer by layer in {time.perf_counter() - start_time:.2f} seconds"
+            )
+            self.mark_stable(step)
+            bisect.insort(self.ckpt_steps, step)
+            return
 
         # Gather all weights on master rank
         self.logger.debug("Gathering weights on master rank for weight checkpoint")
