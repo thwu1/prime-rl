@@ -14,13 +14,14 @@
 # Nemotron-3-Super TB4 eval on Sandoq (mini-swe-agent 2.4.6). Submit from the login node:
 #   NEMOTRON_TB4_BASE_URL=http://host:port/v1 NEMOTRON_TB4_MODEL=<served name> \
 #   NEMOTRON_TB4_TASK_FILE=<tasks.txt> NEMOTRON_TB4_RUN_NAME=<name> \
-#   [NEMOTRON_TB4_MAX_CONCURRENT=8] [NEMOTRON_TB4_STEP_LIMIT=300] sbatch launch.sh
+#   [NEMOTRON_TB4_MAX_CONCURRENT=8] [NEMOTRON_TB4_STEP_LIMIT=300] [NEMOTRON_TB4_ROLLOUTS=1] sbatch launch.sh
 set -euo pipefail
 umask 077
 
 : "${NEMOTRON_TB4_BASE_URL:?}" "${NEMOTRON_TB4_MODEL:?}" "${NEMOTRON_TB4_TASK_FILE:?}" "${NEMOTRON_TB4_RUN_NAME:?}"
 max_concurrent=${NEMOTRON_TB4_MAX_CONCURRENT:-8}
 step_limit=${NEMOTRON_TB4_STEP_LIMIT:-300}
+rollouts=${NEMOTRON_TB4_ROLLOUTS:-1}
 api_key_file=${NEMOTRON_TB4_API_KEY_FILE:-/storage/home/tianhaowu/.config/ram-inference-gateway/nemotron-probe-token}
 [[ "$NEMOTRON_TB4_RUN_NAME" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "unsafe run name" >&2; exit 2; }
 [[ "$(uname -m)" == x86_64 ]] || { echo "model runner requires x86_64" >&2; exit 2; }
@@ -87,7 +88,7 @@ set +e
 "$x86_uv" run --no-project --offline --python python3 \
     python3 -c 'from verifiers.v1.cli.eval.main import main; main()' \
     @ "$config" --output-dir "$output_dir" \
-    --model "$NEMOTRON_TB4_MODEL" --num-tasks "$task_count" \
+    --model "$NEMOTRON_TB4_MODEL" --num-tasks "$task_count" --num-rollouts "$rollouts" \
     --max-concurrent "$max_concurrent" --multiplex "$max_concurrent" \
     --max-turns "$step_limit" \
     --client.base-url "$NEMOTRON_TB4_BASE_URL" \

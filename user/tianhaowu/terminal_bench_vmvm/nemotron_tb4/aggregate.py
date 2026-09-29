@@ -1,12 +1,13 @@
 """Merge Nemotron TB4 eval runs into one per-task table.
 
-For each task the first scored result (a rollout without runtime errors) across the given run
-dirs wins, so later retry runs fill in tasks whose earlier attempt hit infrastructure errors.
-Reports solve rate overall and for the tasks present in the SFT training data.
+Every scored rollout (one without runtime errors) across the given run dirs counts; rollouts
+that hit infrastructure errors are excluded. Per task this reports attempts, solves, pass@1
+(mean solve rate) and pass@k (any solve), overall and split into trained / held-out tasks.
 """
 
 import argparse
 import json
+from collections import defaultdict
 from pathlib import Path
 
 TRAINED = {
@@ -20,12 +21,12 @@ TRAINED = {
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("runs", nargs="+", type=Path, help="eval output dirs (earlier first)")
+    parser.add_argument("runs", nargs="+", type=Path, help="eval output dirs")
     parser.add_argument("--tasks", type=Path, required=True, help="task list defining the denominator")
     args = parser.parse_args()
 
     wanted = [line.strip() for line in args.tasks.read_text().splitlines() if line.strip()]
-    best: dict[str, dict] = {}
+    scored: dict[str, list[dict]] = defaultdict(list)
     errored: dict[str, str] = {}
     for run in args.runs:
         for line in (run / "results.jsonl").read_text().splitlines():
@@ -33,27 +34,35 @@ def main() -> None:
             name = row["task"]["name"].split("/")[-1]
             if row.get("errors"):
                 errored.setdefault(name, row["errors"][0].get("type", "error"))
-                continue
-            best.setdefault(name, row)
+            else:
+                scored[name].append(row)
 
-    def summarize(names: list[str]) -> str:
-        scored = [n for n in names if n in best]
-        solved = sum(best[n].get("rewards", {}).get("solved") == 1.0 for n in scored)
-        return f"solved {solved}/{len(names)} (scored {len(scored)}, missing {len(names) - len(scored)})"
+    def solved(row: dict) -> bool:
+        return row.get("rewards", {}).get("solved") == 1.0
 
-    print(f"{'task':32s} {'trained':7s} {'solved':6s} {'turns':>5s} stop")
+    print(f"{'task':32s} {'trained':7s} {'solves':>7s} {'pass@1':>6s} {'turns':>6s} stops")
     for name in wanted:
-        row = best.get(name)
-        if row is None:
-            print(f"{name:32s} {str(name in TRAINED):7s} {'-':6s} {'-':>5s} {errored.get(name, 'not run')}")
+        rows = scored.get(name, [])
+        if not rows:
+            print(f"{name:32s} {str(name in TRAINED):7s} {'-':>7s} {'-':>6s} {'-':>6s} {errored.get(name, 'not run')}")
             continue
-        turns = sum(1 for node in row["nodes"] if node.get("model_io"))
-        solved = row.get("rewards", {}).get("solved")
-        print(f"{name:32s} {str(name in TRAINED):7s} {str(solved):6s} {turns:5d} {row.get('stop_condition')}")
+        wins = sum(map(solved, rows))
+        turns = sum(sum(1 for node in r["nodes"] if node.get("model_io")) for r in rows) / len(rows)
+        stops = ",".join(sorted({str(r.get("stop_condition")) for r in rows}))
+        print(f"{name:32s} {str(name in TRAINED):7s} {f'{wins}/{len(rows)}':>7s} {wins / len(rows):6.2f} {turns:6.0f} {stops}")
+
+    def summarize(label: str, names: list[str]) -> None:
+        have = [n for n in names if scored.get(n)]
+        pass1 = sum(sum(map(solved, scored[n])) / len(scored[n]) for n in have)
+        passk = sum(any(map(solved, scored[n])) for n in have)
+        attempts = sum(len(scored[n]) for n in have)
+        print(f"{label:16s} pass@1 {pass1:5.2f}/{len(names)} ({pass1 / len(names):.1%})  "
+              f"pass@k {passk}/{len(names)}  attempts {attempts}  missing {len(names) - len(have)}")
+
     print()
-    print("all tasks:     ", summarize(wanted))
-    print("trained tasks: ", summarize([n for n in wanted if n in TRAINED]))
-    print("held-out tasks:", summarize([n for n in wanted if n not in TRAINED]))
+    summarize("all tasks", wanted)
+    summarize("trained tasks", [n for n in wanted if n in TRAINED])
+    summarize("held-out tasks", [n for n in wanted if n not in TRAINED])
 
 
 if __name__ == "__main__":
