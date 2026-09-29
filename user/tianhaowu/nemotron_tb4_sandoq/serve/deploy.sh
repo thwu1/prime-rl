@@ -14,6 +14,20 @@ if ! cmp -s "$HERE/nemotron-3-super.card.toml" "$card_dir/card.toml" 2>/dev/null
     mkdir -p "$card_dir"
     cp "$HERE/nemotron-3-super.card.toml" "$card_dir/card.toml"
 fi
+# Trainer checkpoints keep the base config's auto_map but (before the save_metadata fix) not the
+# remote-code files it names; vLLM with trust_remote_code then refuses to load them.
+BASE_MODEL=${BASE_MODEL:-/checkpoint/ram/tianhaowu/models/NVIDIA-Nemotron-3-Super-120B-A12B-BF16}
+python3 - "$CKPT" "$BASE_MODEL" <<'PY'
+import json, shutil, sys
+from pathlib import Path
+ckpt, base = Path(sys.argv[1]), Path(sys.argv[2])
+auto_map = json.loads((ckpt / "config.json").read_text()).get("auto_map", {})
+for ref in {v.split(".")[0] for v in auto_map.values() if isinstance(v, str)}:
+    name = f"{ref.split('--')[-1]}.py"
+    if not (ckpt / name).exists():
+        shutil.copy2(base / name, ckpt / name)
+        print(f"copied {name} from {base}")
+PY
 cd "$SERVE"
 env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy \
     ./serve.sh deploy "$ID" --model nemotron-3-super --endpoints 1 --checkpoint "$CKPT" \

@@ -376,6 +376,12 @@ class WeightCheckpointManager:
     def save_metadata(path: Path, model, tokenizer: PreTrainedTokenizer) -> None:
         """Save model config, generation arguments and tokenizer next to the weights."""
         model.config.save_pretrained(path)
+        # The saved config keeps the source checkpoint's auto_map; ship the remote-code files it
+        # names so the checkpoint loads with trust_remote_code (e.g. in vLLM).
+        source = Path(model.config._name_or_path)
+        for module in {ref.split(".")[0].split("--")[-1] for ref in getattr(model.config, "auto_map", {}).values()}:
+            if (source / f"{module}.py").is_file():
+                shutil.copy2(source / f"{module}.py", path / f"{module}.py")
         if model.generation_config:
             # training sets use_cache=False which can conflict with
             # cache_implementation — save with use_cache=True without
