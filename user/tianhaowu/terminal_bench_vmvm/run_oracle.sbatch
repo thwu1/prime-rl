@@ -291,6 +291,13 @@ fi
 pool_capacity=$((max_concurrent * 2))
 (( pool_capacity > sandoq_pool_max )) && pool_capacity=$sandoq_pool_max
 export PRIME_RL_OUTPUT_DIR="$output_dir"
+if [[ "${SANDOQ_TASK_NETWORK:-none}" == host ]]; then
+    # Bind the pool control paths the audited public-network override requires
+    # (taskset._sandoq_public_network_override_is_safe), matching the eval launchers.
+    export OCI_RUNNER_POOL_SOCKET="${SLURM_TMPDIR:-/tmp}/oci-runner-pool-$(id -u)/${SLURM_JOB_ID}.sock"
+    export OCI_RUNNER_POOL_WAL="$output_dir/control/sandoq-pool.wal.jsonl"
+    export OCI_RUNNER_POOL_EVENT_LOG="$output_dir/pool_events.jsonl"
+fi
 export OCI_RUNNER_ECR_AUXILIARY_REGISTRIES=${OCI_RUNNER_ECR_AUXILIARY_REGISTRIES:-588845226011.dkr.ecr.us-east-2.amazonaws.com}
 auxiliary_ecr_token_file=${OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILE:-/storage/home/tianhaowu/.config/oci-runner/ecr-dev-token}
 printf -v OCI_RUNNER_ECR_AUXILIARY_TOKEN_FILES \

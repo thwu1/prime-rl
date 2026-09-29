@@ -3013,6 +3013,37 @@ class TerminalBenchVMVMTaskset(
             path = PurePosixPath(task.workdir or "/app") / path
         return str(path)
 
+    async def _open_restored_artifact_dirs(self, task: TerminalBenchTask, verifier: Runtime) -> None:
+        """Match Harbor's separate-verifier artifact upload directory modes.
+
+        Harbor re-materializes each file artifact after ``mkdir -p <parent> &&
+        chmod 777 <parent>`` and each directory artifact after ``chmod 777`` on
+        the directory itself (``ArtifactHandler.upload_artifacts`` with
+        ``ensure_dirs/empty_dirs(chmod=True)``). Verifiers rely on this: e.g. a
+        test that drops untrusted agent code to ``nobody`` expects to write next
+        to ``/app/solve.sage``. Plain ``tar -x`` as root leaves such parents 0755.
+        """
+        sources = [self._runtime_artifact_path(task, spec.source) for spec in task.artifacts]
+        if self.config.capture_convention_artifacts:
+            sources.append("/logs/artifacts")
+        if not sources:
+            return
+        script = (
+            'for p in "$@"; do '
+            'if [ -d "$p" ]; then chmod 777 "$p"; '
+            'elif [ -e "$p" ]; then chmod 777 "$(dirname "$p")"; fi; '
+            "done"
+        )
+        opened = await self._run_root(
+            verifier,
+            " ".join(["sh", "-c", shlex.quote(script), "sh", *(shlex.quote(source) for source in sources)]),
+        )
+        if opened.exit_code != 0:
+            raise RuntimeError(
+                f"{task.name}: opening restored artifact directories failed: "
+                f"{(opened.stdout + opened.stderr)[-4000:]}"
+            )
+
     async def _capture_artifacts(
         self,
         task: TerminalBenchTask,
@@ -4768,6 +4799,8 @@ for requirement in sys.argv[1:]:
                             f"{task.name}: restoring artifacts from {service!r} failed: "
                             f"{(restored.stdout + restored.stderr)[-4000:]}"
                         )
+                if payloads:
+                    await self._open_restored_artifact_dirs(task, verifier)
                 outcome = await self._run_verifier(
                     task,
                     verifier,
