@@ -212,29 +212,30 @@ TB4 trained tasks, 4 rollouts per task, fully fixed harness (runs under
 |---|---|---|---|---|---|
 | base Nemotron-3-Super, 262k | `base-trained19-x4-v3-1628112` | 0 / 76 (0%) | 0 / 19 | 0% | 0 / 17 |
 | SFT 262k, TB4 overfit 10 ep | `sft262k-trained19-x4-v2-1628060` | 9.2% (75/76 attempts) | 5 / 19 | 8.8% | 4 / 17 |
-| SFT 512k, TB4 overfit 10 ep, 524k context | `sft512k-trained19-x4-ctx512k-v2-1628061` | 11.8% (58/76 attempts) | 3 / 19 | 13.2% | 3 / 17 |
+| SFT 512k, TB4 overfit 10 ep, 524k context | `sft512k-trained19-x4-ctx512k-v2-1628061` | 11.8% (60/76 attempts, stopped early) | 3 / 19 | 13.2% | 3 / 17 |
 
 SFT 262k solves embedding-drift-monitor 3/4, batched-eval-parity, fin-saccr-rwa, shadow-relay and
 wal-recovery-ordering 1/4 each; SFT 512k solves shadow-relay 4/4, embedding-drift-monitor 3/4,
-mvcc-lsm-compaction 2/4. Exact-token prompt parity on 485 sampled SFT requests: 0 mismatches.
-Earlier eval runs (`*-1625875`, `*-1627553`, `base-*-v2`) used the branch-summed token caps and are
-superseded. The 512k-vs-262k gap is within noise at 4 rollouts/task and confounded: the 512k run
-used batch 8 for 218 steps (final loss ~0.009 vs ~0.05) and a 524k eval context.
+mvcc-lsm-compaction 2/4. Earlier eval runs used branch-summed rollout token caps and are superseded.
+The 512k-vs-262k gap is within noise at 4 rollouts/task and confounded: the 512k run used batch 8
+for 218 steps (final loss ~0.009 vs ~0.05) and a 524k eval context.
 
-Behaviour (`eval/behavior.py`):
+Behaviour (`eval/behavior.py`; rollouts: base 76, SFT 262k 75, SFT 512k 60, honeycomb 20):
 
 | | base | SFT 262k | SFT 512k | honeycomb s67 |
 |---|---|---|---|---|
-| submitted / context limit / cumulative output limit | 58 / 0 / 18 | 16 / 46 / 15 | 18 / 0 / 42 | 12 / 6 / 2 |
-| format errors (% responses) | 6.6% | 0.6% | 3.2% | 0.7% |
-| responses cut at 32k | 12 | 30 | 130 | 2 |
-| degenerate repetition loops (rollouts) | 7/76 | 2/75 | 35/57 | 0/20 |
+| ended by agent submit / context limit / cumulative output limit | 58 / 0 / 18 | 14 / 46 / 15 | 16 / 0 / 44 | 12 / 6 / 2 |
+| format errors (% responses) | 6.6% | 0.6% | 3.3% | 0.7% |
+| responses cut at 32k | 12 | 30 | 137 | 2 |
 | exact repeated commands | 9.6% | 0.2% | 0.3% | 0.3% |
+| median / max final context | 66k / 153k | 222k / 229k | 242k / 439k | 195k / 229k |
 
-The 512k model's loops ("Hmm. Hmm. ..." until the 32k response cap) occur almost only in the last
-20% of a trajectory, rise with context (0% < 64k, 7.4% > 256k), make further loops ~10x likelier,
-and burn the cumulative `max_output_tokens` budget that then ends the rollout. Base submits early
-and wrong with messy formatting; SFT 262k is clean but usually runs out of context.
+The 512k model falls into degenerate repetition loops ("Hmm. Hmm. ..." until the 32k response cap)
+in 35 of its first 57 rollouts. Loops occur almost only in the last 20% of a trajectory, rise with
+context (0% of responses < 64k, 7.4% > 256k), make further loops ~10x likelier, and burn the
+cumulative `max_output_tokens` budget that then ends the rollout. Base submits early and wrong with
+messy formatting (317 tool calls left inside the reasoning); SFT 262k is clean but usually runs
+out of context.
 
 Honeycomb (5 real target tasks, 4 rollouts each, fixed harness): step 67 0/20
 (`honeycomb-s67-targets5-x4-v2-1629155`), base 0/16 on the same tasks. Rollouts are well-formed but
