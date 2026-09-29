@@ -594,7 +594,12 @@ class NemotronHForCausalLM(NemotronHPreTrainedModel, GenerationMixin):
         )
 
     def init_buffers_post_meta(self):
-        pass
+        # MoE routing statistics are non-persistent, so to_empty() leaves them uninitialized.
+        for layer in self.model.layers:
+            mlp = getattr(layer, "mlp", None)
+            if mlp is not None and hasattr(mlp, "tokens_per_expert"):
+                mlp.tokens_per_expert.zero_()
+                mlp.routing_confidence_sum.zero_()
 
 
 __all__ = [
