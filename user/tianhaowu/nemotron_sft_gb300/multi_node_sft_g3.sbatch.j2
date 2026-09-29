@@ -1,0 +1,99 @@
+#!/bin/bash
+
+#SBATCH --job-name={{ job_name }}
+#SBATCH --nodes={{ num_nodes }}
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:{{ gpus_per_node }}
+#SBATCH --mem=0
+#SBATCH --partition={{ partition }}
+#SBATCH --qos=g3_ram_high
+{%- if account %}
+#SBATCH --account={{ account }}
+{%- endif %}
+{%- if time %}
+#SBATCH --time={{ time }}
+{%- endif %}
+{%- if nodelist %}
+#SBATCH --nodelist={{ nodelist }}
+{%- endif %}
+{%- if exclude %}
+#SBATCH --exclude={{ exclude }}
+{%- endif %}
+#SBATCH --exclusive
+#SBATCH --no-requeue
+#SBATCH --output={{ output_dir }}/job_%j.log
+#SBATCH --error={{ output_dir }}/job_%j.log
+
+# GB300 (aarch64) multi-node SFT. Trainer ranks run on the cluster Torch 2.12 / NCCL 2.29.7
+# conda stack through a --system-site-packages venv that adds prime-rl and its extra deps.
+# NCCL_IB_* settings come from the Slurm prolog; do not hardcode them.
+set -e
+
+export NUM_NODES={{ num_nodes }}
+export GPUS_PER_NODE={{ gpus_per_node }}
+
+export PROJECT_DIR={{ project_dir }}
+export CONFIG_PATH={{ config_path }}
+export OUTPUT_DIR={{ output_dir }}
+mkdir -p $OUTPUT_DIR/logs/trainer
+ln -sfn trainer/node_0.log $OUTPUT_DIR/logs/trainer.log
+
+export HOSTNAMES=( $( scontrol show hostnames $SLURM_JOB_NODELIST ) )
+echo "HOSTNAMES=${HOSTNAMES[@]}"
+export MASTER_ADDR="${HOSTNAMES[0]}"
+export MASTER_PORT=29500
+
+cd $PROJECT_DIR
+
+{% if pre_run_command %}
+{{ pre_run_command }}
+{% endif %}
+
+# Clean stale node-local state left by earlier jobs.
+srun bash -s <<'CLEANUP_SH'
+    pkill -9 -f "[p]rime_rl.trainer" 2>/dev/null
+    sleep 2
+    rm -rf /tmp/torchelastic_* 2>/dev/null
+    gpu=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader,nounits | awk "{s+=\$1} END {print s}")
+    echo "[node-cleanup] $(hostname) gpu_mem=${gpu}MiB"
+CLEANUP_SH
+
+srun --kill-on-bad-exit=1 bash -c '
+    set -o pipefail
+    source "$SFT_VENV/bin/activate"
+    ulimit -n 65536
+    unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy
+    export CUDA_DEVICE_ORDER=PCI_BUS_ID
+    export PYTHONUNBUFFERED=1
+    export OMP_NUM_THREADS=1
+    export CUDA_HOME=/engshare/conda/xlformers_gbunified_conda
+    # Triton bundles a ptxas that does not know sm_103a (GB300).
+    export TRITON_PTXAS_PATH=/engshare/conda/xlformers_gbunified_conda/bin/ptxas
+    export TRITON_CACHE_DIR=/tmp/triton-cache-$USER-$SLURM_JOB_ID
+    export TORCHINDUCTOR_CACHE_DIR=/tmp/inductor-cache-$USER-$SLURM_JOB_ID
+    export HF_HUB_OFFLINE=1
+    export TRANSFORMERS_OFFLINE=1
+    export NCCL_DEBUG=WARN
+    export NCCL_NVLS_ENABLE=0
+    export NCCL_RAS_ENABLE=0
+    export TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=5400
+    export TORCH_NCCL_TRACE_BUFFER_SIZE=20000
+    export TORCH_NCCL_DUMP_ON_TIMEOUT=1
+    export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
+    TRAIN_NODE_RANK=$SLURM_PROCID
+    echo "$(hostname) rank=$TRAIN_NODE_RANK" | tee $OUTPUT_DIR/logs/trainer/node_${TRAIN_NODE_RANK}.log
+    python -m torch.distributed.run \
+        --role=trainer \
+        --nnodes=$NUM_NODES \
+        --nproc-per-node=$GPUS_PER_NODE \
+        --node-rank=$TRAIN_NODE_RANK \
+        --rdzv-endpoint=$MASTER_ADDR:$MASTER_PORT \
+        --rdzv-id=job_$SLURM_JOB_ID \
+        --log-dir=$OUTPUT_DIR/logs/trainer/torchrun \
+        --tee=3 \
+        --redirects=3 \
+        --local-ranks-filter={{ ranks_filter }} \
+        -m prime_rl.trainer.sft.train \
+        @ $CONFIG_PATH \
+        2>&1 | sed -u "s/^\[[a-zA-Z]*[0-9]*\]://" | tee -a $OUTPUT_DIR/logs/trainer/node_${TRAIN_NODE_RANK}.log
+'
