@@ -326,6 +326,10 @@ class TerminalBenchVMVMConfig(HarborConfig):
     """Prefer task.toml docker_image fields over deterministic built image names."""
     enable_compose: bool = False
     """Run an environment/docker-compose.yaml as infrastructure for this dataset."""
+    prompt_style: Literal["strip", "harbor"] = "strip"
+    """How instruction.md becomes the task prompt. ``strip`` trims surrounding whitespace.
+    ``harbor`` removes the harbor-canary comment and leading whitespace but keeps the trailing
+    newline, reproducing the task text Harbor's mini-swe-agent runs send."""
 
     memory_resource_multiplier: Literal[0.375, 0.75] | None = None
     """Fallback-only memory scaling; CPU, disk, and GPU requests remain declared."""
@@ -1659,6 +1663,15 @@ def _authors(task_config: dict, metadata: dict) -> list[Author]:
     ]
 
 
+HARBOR_CANARY = re.compile(r"<!-- harbor-canary GUID [0-9a-f-]+ -->")
+
+
+def _task_prompt(instruction: str, style: str) -> str:
+    if style == "harbor":
+        return HARBOR_CANARY.sub("", instruction).lstrip()
+    return instruction.strip()
+
+
 def _base_task(task_dir: Path, idx: int, raw: dict, config: TerminalBenchVMVMConfig) -> HarborTask:
     task_config = raw.get("task", {})
     metadata = raw.get("metadata", {})
@@ -1669,7 +1682,7 @@ def _base_task(task_dir: Path, idx: int, raw: dict, config: TerminalBenchVMVMCon
         idx=idx,
         name=task_config.get("name") or task_dir.name,
         description=task_config.get("description"),
-        prompt=(task_dir / "instruction.md").read_text().strip(),
+        prompt=_task_prompt((task_dir / "instruction.md").read_text(), config.prompt_style),
         image=None,
         timeout=TaskTimeout(
             harness=harness_timeout * config.timeout_multiplier if harness_timeout is not None else None,
