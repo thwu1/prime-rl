@@ -1,7 +1,9 @@
 """Merge Nemotron TB4 eval runs into one per-task table.
 
-Every scored rollout (one without runtime errors) across the given run dirs counts; rollouts
-that hit infrastructure errors are excluded. Per task this reports attempts, solves, pass@1
+Every scored rollout across the given run dirs counts. Rollouts that hit infrastructure errors
+(sandbox provisioning, taskset setup, tunnels) are excluded; a HarnessError (the agent process
+itself died, e.g. killed by the sandbox OOM killer after an agent command) is agent behaviour and
+counts as a failed attempt. Per task this reports attempts, solves, pass@1
 (mean solve rate) and pass@k (any solve), overall and split into trained / held-out tasks.
 """
 
@@ -19,6 +21,9 @@ TRAINED = {
 }
 
 
+AGENT_ERRORS = {"HarnessError"}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("runs", nargs="+", type=Path, help="eval output dirs")
@@ -32,7 +37,8 @@ def main() -> None:
         for line in (run / "results.jsonl").read_text().splitlines():
             row = json.loads(line)
             name = row["task"]["name"].split("/")[-1]
-            if row.get("errors"):
+            error_types = {error.get("type") for error in row.get("errors") or []}
+            if error_types - AGENT_ERRORS:
                 errored.setdefault(name, row["errors"][0].get("type", "error"))
             else:
                 scored[name].append(row)
@@ -48,7 +54,9 @@ def main() -> None:
             continue
         wins = sum(map(solved, rows))
         turns = sum(sum(1 for node in r["nodes"] if node.get("model_io")) for r in rows) / len(rows)
-        stops = ",".join(sorted({str(r.get("stop_condition")) for r in rows}))
+        stops = ",".join(
+            sorted({"HarnessError" if r.get("errors") else str(r.get("stop_condition")) for r in rows})
+        )
         print(f"{name:32s} {str(name in TRAINED):7s} {f'{wins}/{len(rows)}':>7s} {wins / len(rows):6.2f} {turns:6.0f} {stops}")
 
     def summarize(label: str, names: list[str]) -> None:
