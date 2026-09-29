@@ -1929,18 +1929,7 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
                         f"type=image,source={mount['image']},target={mount['target']}",
                     )
                 )
-            arguments.extend(
-                (
-                    "--volume",
-                    "/home/runner/shared:/shared",
-                    "--entrypoint",
-                    "/bin/bash",
-                    image,
-                    "-lc",
-                    "trap : TERM INT; sleep infinity & wait",
-                )
-            )
-            return shlex.join(arguments) + " >/dev/null"
+            return self._nested_run_script(arguments, image)
         cpu_count = int(effective["cpu_count"])
         arguments = [
             "podman",
@@ -1978,16 +1967,47 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
                 f"MKL_NUM_THREADS={cpu_count}",
                 "--env",
                 f"OPENBLAS_NUM_THREADS={cpu_count}",
-                "--volume",
-                "/home/runner/shared:/shared",
-                "--entrypoint",
-                "/bin/bash",
-                image,
-                "-lc",
-                "trap : TERM INT; sleep infinity & wait",
             )
         )
-        return shlex.join(arguments) + " >/dev/null"
+        return self._nested_run_script(arguments, image)
+
+    @staticmethod
+    def _nested_run_script(arguments: list[str], image: str) -> str:
+        """Finish ``podman run`` with the image-user compatibility shims.
+
+        The task container keeps the image's declared USER, as Harbor's
+        ``docker exec`` does. Two provider internals must not assume root:
+
+        * The runner's persistent shell is tmux without an explicit command, so
+          tmux spawns ``$SHELL`` and otherwise the passwd shell. For accounts
+          such as ``nobody`` that is ``/usr/sbin/nologin``: the only pane exits
+          at once and the tmux server dies (HTTP 500 / 410 on first use).
+          Harbor's tmux session always runs bash explicitly, so default
+          ``SHELL`` to the bash that is already the container entrypoint unless
+          the image declares its own.
+        * Downloads copy files into the shared transfer directory as the image
+          user, so the directory is world-writable (sticky, like /tmp).
+        """
+        tail = [
+            "--volume",
+            "/home/runner/shared:/shared",
+            "--entrypoint",
+            "/bin/bash",
+            image,
+            "-lc",
+            "trap : TERM INT; sleep infinity & wait",
+        ]
+        transfer = shlex.quote(f"/home/runner/shared/{_TRANSFER_DIR}")
+        declared_env = shlex.quote("{{range .Config.Env}}{{println .}}{{end}}")
+        return "\n".join(
+            [
+                f"mkdir -p {transfer} && chmod 1777 {transfer}",
+                "set --",
+                f"podman image inspect {shlex.quote(image)} --format {declared_env} | grep -q '^SHELL=' "
+                "|| set -- --env SHELL=/bin/bash",
+                shlex.join(arguments) + ' "$@" ' + shlex.join(tail) + " >/dev/null",
+            ]
+        )
 
     async def _verify_task_resource_limits(self, info: registry.SessionInfo, deadline: float) -> None:
         effective = info.metadata.get("effective_resources")
@@ -2727,6 +2747,29 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             deadline=deadline,
         )
 
+    async def execute_root_command(
+        self,
+        sandbox_id: str,
+        command: str,
+        timeout: int | None = None,
+    ) -> CommandResponse:
+        """Run one harness-owned management command as root in the task container.
+
+        The persistent shell (and therefore every agent command) runs as the
+        image's declared USER, exactly like Harbor's ``docker exec``. Harness
+        staging into root-owned locations such as /solution and /tests instead
+        mirrors Harbor's ``docker cp`` upload, which always writes as root. The
+        command is sent exactly once: an ambiguous outcome is never replayed.
+        """
+        info = self._info(sandbox_id)
+        if not info.nested_ready:
+            raise APIError(f"nested task container is not ready for {sandbox_id}")
+        return await self._outer_exec(
+            info,
+            f"podman exec --user 0 task sh -c {shlex.quote(command)}",
+            timeout=int(timeout or 60),
+        )
+
     async def _stage_upload(
         self,
         info: registry.SessionInfo,
@@ -2999,9 +3042,13 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             [
                 "set -eu",
                 f"job_dir={shlex.quote(outer_dir)}",
+                # The nested command runs as the image USER (Harbor `docker exec`
+                # parity), which may be unprivileged: it must read command.sh and
+                # publish nested.pgid into the root-created job directory.
                 'mkdir -p "$job_dir"',
+                'chmod 1777 "$job_dir"',
                 f'printf %s {shlex.quote(encoded)} | base64 -d >"$job_dir/command.sh"',
-                'chmod 700 "$job_dir/command.sh"',
+                'chmod 755 "$job_dir/command.sh"',
                 f'printf %s {shlex.quote(supervisor_encoded)} | base64 -d >"$job_dir/supervisor.sh"',
                 'chmod 700 "$job_dir/supervisor.sh"',
                 'setsid bash "$job_dir/supervisor.sh" </dev/null >"$job_dir/supervisor.log" 2>&1 &',

@@ -2942,9 +2942,20 @@ class TerminalBenchVMVMTaskset(
     @staticmethod
     async def _run_root(runtime: Runtime, command: str) -> ProgramResult:
         """Run harness-owned setup as root without changing the agent user."""
-        if not isinstance(runtime, VMVMRuntime):
-            return await runtime.run(["sh", "-c", command], {})
-        return await runtime.run_root(command)
+        if isinstance(runtime, VMVMRuntime):
+            return await runtime.run_root(command)
+        if isinstance(runtime, SandoqRuntime) and runtime.config.mode == "oci-runner":
+            runtime.ensure_usable()
+            try:
+                result = await runtime._client.execute_root_command(runtime.sandbox_id, command, timeout=240)
+            except Exception as error:
+                raise SandboxError(f"Sandoq root exec failed: {error}") from error
+            return ProgramResult(
+                exit_code=result.exit_code if result.exit_code is not None else -1,
+                stdout=result.stdout or "",
+                stderr=result.stderr or "",
+            )
+        return await runtime.run(["sh", "-c", command], {})
 
     async def _stage_directory(self, runtime: Runtime, source: Path, target: str, label: str) -> None:
         if not source.is_dir():
