@@ -52,6 +52,8 @@ def main() -> None:
         print(f"{name:32s} {str(name in TRAINED):7s} {f'{wins}/{len(rows)}':>7s} {wins / len(rows):6.2f} {turns:6.0f} {stops}")
 
     def summarize(label: str, names: list[str]) -> None:
+        if not names:
+            return
         have = [n for n in names if scored.get(n)]
         pass1 = sum(sum(map(solved, scored[n])) / len(scored[n]) for n in have)
         passk = sum(any(map(solved, scored[n])) for n in have)
