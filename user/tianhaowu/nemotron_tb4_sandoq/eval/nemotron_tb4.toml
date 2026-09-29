@@ -15,6 +15,8 @@ type = "eval"
 capture_model_io = true
 # vLLM 0.20 renders historical reasoning only from `reasoning`; mini-swe-agent replays `reasoning_content`.
 assistant_reasoning_field = "reasoning"
+# SFT data strips message content; the reasoning parser leaves "\n" after </think> in content.
+strip_assistant_content = true
 outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]
 api_key_var = "OPENAI_API_KEY"
 timeout = 43200
@@ -27,7 +29,9 @@ max_retries = 0
 temperature = 1.0
 top_p = 1.0
 max_tokens = 32768
-chat_template_kwargs = { enable_thinking = true }
+# Keep past reasoning after mid-trajectory user messages (mini-swe-agent format errors), as the
+# SFT renderer does (preserve_all_thinking); the template's default truncates it.
+chat_template_kwargs = { enable_thinking = true, truncate_history_thinking = false }
 
 [taskset]
 id = "terminal-bench-vmvm"

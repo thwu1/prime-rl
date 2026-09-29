@@ -9,6 +9,7 @@ the served prompt differs from the training format (e.g. dropped historical reas
 import argparse
 import copy
 import json
+import urllib.request
 
 from renderers.base import create_renderer
 from renderers.configs import Nemotron3RendererConfig
@@ -41,6 +42,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("results", help="results.jsonl from an eval run")
     parser.add_argument("--tokenizer", default="/checkpoint/ram/tianhaowu/models/NVIDIA-Nemotron-3-Super-120B-A12B-BF16")
+    parser.add_argument(
+        "--tokenize-url",
+        help="vLLM backend base URL (http://host:port); also compare exact token ids via /tokenize",
+    )
     args = parser.parse_args()
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
@@ -70,10 +75,25 @@ def main() -> None:
                 deserialize_tool_calls(messages), tools=body.get("tools"), add_generation_prompt=True
             ).token_ids
             served = usage.get("prompt_tokens")
+            same_ids = None
+            if args.tokenize_url:
+                request = {key: body[key] for key in ("model", "messages", "tools", "chat_template_kwargs") if key in body}
+                request["add_generation_prompt"] = True
+                served_ids = json.loads(
+                    urllib.request.urlopen(
+                        urllib.request.Request(
+                            args.tokenize_url.rstrip("/") + "/tokenize",
+                            data=json.dumps(request).encode(),
+                            headers={"Content-Type": "application/json"},
+                        ),
+                        timeout=300,
+                    ).read()
+                )["tokens"]
+                same_ids = served_ids == list(rendered)
             historical = sum(1 for m in body["messages"] if m.get("role") == "assistant")
             with_reasoning = sum(1 for m in body["messages"] if m.get("role") == "assistant" and m.get("reasoning"))
             total += 1
-            ok = served == len(rendered)
+            ok = served == len(rendered) and same_ids is not False
             mismatched += not ok
             print(
                 f"{result['task']['name']} node {index}: served={served} rendered={len(rendered)} "
