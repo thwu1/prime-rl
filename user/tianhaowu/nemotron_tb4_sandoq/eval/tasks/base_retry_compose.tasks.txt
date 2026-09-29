@@ -1,3 +1,0 @@
-cumulative-layout-shift
-lake-temp-glm
-nextjs-performance
