@@ -144,11 +144,18 @@ native Sandoq tunnel. Settings mirror the teacher traces: `step_limit = 300`, 60
 parallel tool calls allowed, `temperature = 1.0`, `top_p = 1.0`, 32k max tokens per response, 262k
 context, thinking on.
 
-Required for the served prompt to equal the SFT rendering (verified with `check_prompt_parity.py`:
-`usage.prompt_tokens` equals the renderer length on every turn):
+Required for the served prompt to equal the SFT rendering (verify with
+`check_prompt_parity.py <results.jsonl> --tokenize-url http://<vllm host:port>`, which compares exact
+token ids per request; without the URL only token counts are compared). The one known residual is a
+degenerate model turn whose content contains a stray `</think>`, which never occurs in SFT data:
 - `[client] assistant_reasoning_field = "reasoning"`: litellm inside mini-swe-agent replays prior
   thinking as `reasoning_content`, which vLLM 0.20 ignores, so every past turn was served as
   `<think></think>` (by turn 5 the prompt was 4,345 tokens instead of 8,653).
+- `chat_template_kwargs.truncate_history_thinking = false`: mini-swe-agent answers a malformed
+  turn with a format-error *user* message, and the template's default then drops the reasoning of
+  every earlier assistant turn (the SFT renderer keeps it).
+- `[client] strip_assistant_content = true`: SFT data strips message content; the reasoning parser
+  leaves the newline after `</think>` in `content`, which the template replays.
 - `[taskset] prompt_style = "harbor"`: strip the harbor-canary comment, keep the trailing newline;
   reproduces the teacher task text on all 174 SFT rows. The only remaining difference is the
   `<system_information>` kernel string, which comes from the sandbox.
