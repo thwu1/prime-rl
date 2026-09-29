@@ -4,6 +4,7 @@
 #   nohup ./sft_to_eval.sh 1623745 .../outputs/tb4-23-overfit-262k-cp2-8node-lr1e5-10ep-r2 109 \
 #       tianhaowu-nemotron-tb4-sft-262k eval/tasks/trained19.tasks.txt sft262k-trained19 4 \
 #       > logs/sft_to_eval_262k.log 2>&1 &
+# MAX_CONTEXT (default 262144) is passed to the deployment and the eval context limits.
 set -euo pipefail
 JOB=${1:?SFT slurm job id}
 RUN=${2:?SFT run output dir}
@@ -40,7 +41,7 @@ print(f"weights ok: {len(index['weight_map'])} tensors, {index['metadata']['tota
 EOF
 
 log "deploying $DEPLOYMENT"
-"$HERE/serve/deploy.sh" "$DEPLOYMENT" "$weights" 24h
+MAX_CONTEXT=${MAX_CONTEXT:-262144} "$HERE/serve/deploy.sh" "$DEPLOYMENT" "$weights" 24h
 log "submitting eval $NAME ($ROLLOUTS rollouts per task)"
-eval_job=$("$HERE/eval/run_eval.sh" "$DEPLOYMENT" "$(cd "$HERE" && realpath -e "$TASKS")" "$NAME" "$ROLLOUTS")
+eval_job=$(NEMOTRON_TB4_MAX_CONTEXT=${MAX_CONTEXT:-262144} "$HERE/eval/run_eval.sh" "$DEPLOYMENT" "$(cd "$HERE" && realpath -e "$TASKS")" "$NAME" "$ROLLOUTS")
 log "eval job $eval_job"

@@ -2,10 +2,15 @@
 # Serve a Nemotron-3-Super checkpoint (base or SFT HF dir) on one g3 node via ram_common's
 # serve_api_v2, using the card in this folder. Prints the proxy URL when ready.
 # Usage: serve/deploy.sh <deployment_id> <checkpoint_dir> [lifetime, default 24h]
+# MAX_CONTEXT (default 262144) sets vLLM max-model-len; above the config's 262144 positions it also
+# sets VLLM_ALLOW_LONG_MAX_MODEL_LEN (NemotronH has no RoPE).
 set -euo pipefail
 ID=${1:?deployment id, e.g. tianhaowu-nemotron-tb4-sft-262k}
 CKPT=${2:?HF checkpoint dir}
 LIFETIME=${3:-24h}
+MAX_CONTEXT=${MAX_CONTEXT:-262144}
+context_args=(--set "vllm.extra_args.max-model-len=$MAX_CONTEXT")
+(( MAX_CONTEXT > 262144 )) && context_args+=(--set vllm.env_vars.VLLM_ALLOW_LONG_MAX_MODEL_LEN=1)
 HERE=$(cd "$(dirname "$0")" && pwd)
 SERVE=${SERVE_API_V2:-/storage/home/tianhaowu/ram_common-nemotron/vllm_tools/serve_api_v2}
 card_dir="$SERVE/config/models/nemotron-3-super"
@@ -31,5 +36,5 @@ PY
 cd "$SERVE"
 env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy \
     ./serve.sh deploy "$ID" --model nemotron-3-super --endpoints 1 --checkpoint "$CKPT" \
-    --set defaults.qos=g3_ram_high --lifetime "$LIFETIME"
+    --set defaults.qos=g3_ram_high "${context_args[@]}" --lifetime "$LIFETIME"
 cat "/checkpoint/ram/shared/vllm_deployments_v2/$ID/proxy_info.json"; echo

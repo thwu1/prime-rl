@@ -22,6 +22,7 @@ umask 077
 max_concurrent=${NEMOTRON_TB4_MAX_CONCURRENT:-8}
 step_limit=${NEMOTRON_TB4_STEP_LIMIT:-300}
 rollouts=${NEMOTRON_TB4_ROLLOUTS:-1}
+max_context=${NEMOTRON_TB4_MAX_CONTEXT:-262144}
 api_key_file=${NEMOTRON_TB4_API_KEY_FILE:-/storage/home/tianhaowu/.config/ram-inference-gateway/nemotron-probe-token}
 [[ "$NEMOTRON_TB4_RUN_NAME" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "unsafe run name" >&2; exit 2; }
 [[ "$(uname -m)" == x86_64 ]] || { echo "model runner requires x86_64" >&2; exit 2; }
@@ -91,6 +92,7 @@ set +e
     --model "$NEMOTRON_TB4_MODEL" --num-tasks "$task_count" --num-rollouts "$rollouts" \
     --max-concurrent "$max_concurrent" --multiplex "$max_concurrent" \
     --max-turns "$step_limit" \
+    --max-input-tokens "$max_context" --max-output-tokens "$max_context" --max-total-tokens "$max_context" \
     --client.base-url "$NEMOTRON_TB4_BASE_URL" \
     --taskset.task-file "$task_file" \
     --taskset.task-file-sha256 "$(sha256sum "$task_file" | cut -d' ' -f1)"
