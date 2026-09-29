@@ -70,7 +70,8 @@ def main() -> None:
 
         for message in example["messages"]:
             texts = [message.get("reasoning_content") or "", message["content"] or ""]
-            if message["role"] == "assistant":
+            # Assistant turns marked trainable=false (context-only) must stay out of the loss.
+            if message["role"] == "assistant" and message.get("trainable") is not False:
                 for text in texts:
                     probe = text.strip()[:200]
                     if probe and probe not in trained_text:
