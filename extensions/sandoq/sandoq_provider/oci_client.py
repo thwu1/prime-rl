@@ -2958,7 +2958,10 @@ printf 'OCI_IMAGE_SIZE_BYTES=%s\n' "$size"
             "#!/usr/bin/env bash",
             "set +e",
             f"cd {shlex.quote(workdir)} || exit 127",
-            f"setsid bash -lc {shlex.quote(command)} &",
+            # Non-login shell, like Harbor's `docker exec ... bash -c`: a login shell
+            # sources /etc/profile, which resets PATH and drops image ENV entries
+            # such as a verifier venv's bin directory.
+            f"setsid bash -c {shlex.quote(command)} &",
             "child=$!",
             f'printf "%s\\n" "$child" >{shlex.quote(nested_dir + "/nested.pgid.tmp")}',
             f"mv -f {shlex.quote(nested_dir + '/nested.pgid.tmp')} {shlex.quote(nested_dir + '/nested.pgid')}",
