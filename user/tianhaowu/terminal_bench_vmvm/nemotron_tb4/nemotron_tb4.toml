@@ -36,7 +36,9 @@ image_manifest = "user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-13
 image_manifest_sha256 = "6dd632029af8da52f99f1d364e983a5da2e855afeb6a2ea5fc84fd00e1683513"
 ignore_dockerfile = true
 use_declared_images = true
-enable_compose = true
+# Sandoq cannot run Docker Compose. The oracle-valid compose tasks (cumulative-layout-shift,
+# nextjs-performance) pass without their sidecar because the verifier image bundles its backend.
+enable_compose = false
 # Match the task text of the GLM-5.3-Flash Harbor traces used for SFT (no canary, trailing newline).
 prompt_style = "harbor"
 verifier_runtime_retries = 0
