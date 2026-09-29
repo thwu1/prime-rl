@@ -191,10 +191,24 @@ Training (262k, first run; the -r2 rerun reproduces it step for step): loss 1.18
 W&B: https://meta-fair.wandb.io/ram/nemotron-sft-gb300 (runs `75v9lcd0` 262k, `seezxvlq` 512k first
 attempt; -r2 runs sync the same way).
 
-Base Nemotron-3-Super, pass@1 on oracle-valid tasks (runs under
-`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/nemotron_tb4/`): 0 solved of 42 scored so far,
-0 / 19 trained tasks. Rollouts mostly end with a wrong submission; ~11 hit the 262k context limit.
-SFT evaluation: 4 rollouts per trained task, compared with 4 base rollouts on the same tasks.
+TB4 trained tasks, 4 rollouts per task, identical harness (runs under
+`/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/nemotron_tb4/`):
+
+| model | 19 trained tasks pass@1 | pass@4 | original 17 pass@1 | pass@4 |
+|---|---|---|---|---|
+| base Nemotron-3-Super (`base-trained19-x4-v2-1624995`) | 0 / 76 (0%) | 0 / 19 | 0% | 0 / 17 |
+| SFT 262k, TB4 overfit 10 epochs (`sft262k-trained19-x4-1625875`) | 10 / 76 (13.2%) | 5 / 19 | 14.7% | 5 / 17 |
+
+Solved by SFT: embedding-drift-monitor 4/4, fin-saccr-rwa 2/4, wal-recovery-ordering 2/4,
+mvcc-lsm-compaction 1/4, react-lead-form 1/4 (the tasks with the most training traces lead). Most
+unsolved SFT rollouts end at the 262k context limit. Exact-token prompt parity on 485 sampled SFT
+requests: 0 mismatches.
+
+Honeycomb (transfer to the 5 real target tasks, 4 rollouts each): step 14 0/20 (rollouts die on
+the 3-format-error limit: tool calls emitted inside `<think>`), step 67 0/20 (well-formed
+rollouts, no solves).
+
+The 512k CP4 checkpoint is evaluated with `MAX_CONTEXT=524288` (serving and eval limits).
 
 ## Fixes in the repo
 
