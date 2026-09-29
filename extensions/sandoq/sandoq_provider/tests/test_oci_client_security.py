@@ -147,7 +147,7 @@ def test_nested_run_command_quotes_fallback_image(task_network: str) -> None:
 
     assert f"--network {task_network}" in command
     assert "'registry.example/image:tag; echo unsafe'" in command
-    assert command.endswith("'trap : TERM INT; sleep infinity & wait' >/dev/null")
+    assert "'trap : TERM INT; sleep infinity & wait' >/dev/null" in command
 
 
 def test_nested_run_command_mounts_auxiliary_image_read_only() -> None:

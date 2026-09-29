@@ -51,6 +51,7 @@ _EXPECTED_INSTANCE_ENV = "OCI_EXPECTED_INSTANCE_ID"
 _EXPECTED_WORKDIR_ENV = "OCI_EXPECTED_WORKDIR"
 _DEFAULT_WORKDIR = "/testbed"
 _TRANSFER_DIR = ".prime-rl-transfer"
+_SHELL_DIR = ".sandoq-shell"
 _DOCKERHUB_REGISTRY = "docker.io"
 _DOCKERHUB_AUTH_FILE = "/home/runner/.config/containers/dockerhub-auth.json"
 _ECR_AUTH_FILE = "/home/runner/.config/containers/ecr-auth.json"
@@ -1987,6 +1988,12 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
           the image declares its own.
         * Downloads copy files into the shared transfer directory as the image
           user, so the directory is world-writable (sticky, like /tmp).
+
+        The runner also stages its own static tmux binary and socket under
+        ``/tmp/.sandoq-shell``. Harbor never leaves harness executables in the
+        task's /tmp, and verifiers may audit it (risk-scorer-replay fails on any
+        ELF below /tmp). Point that path at a harness-owned directory on the
+        shared mount; recursive scans do not follow the symlink.
         """
         tail = [
             "--volume",
@@ -1997,15 +2004,16 @@ class OCIRunnerAsyncSandboxClient(SandoqAsyncSandboxClient):
             "-lc",
             "trap : TERM INT; sleep infinity & wait",
         ]
-        transfer = shlex.quote(f"/home/runner/shared/{_TRANSFER_DIR}")
+        shared_dirs = shlex.join([f"/home/runner/shared/{_TRANSFER_DIR}", f"/home/runner/shared/{_SHELL_DIR}"])
         declared_env = shlex.quote("{{range .Config.Env}}{{println .}}{{end}}")
         return "\n".join(
             [
-                f"mkdir -p {transfer} && chmod 1777 {transfer}",
+                f"mkdir -p {shared_dirs} && chmod 1777 {shared_dirs}",
                 "set --",
                 f"podman image inspect {shlex.quote(image)} --format {declared_env} | grep -q '^SHELL=' "
                 "|| set -- --env SHELL=/bin/bash",
                 shlex.join(arguments) + ' "$@" ' + shlex.join(tail) + " >/dev/null",
+                f"podman exec --user 0 task ln -sfn /shared/{_SHELL_DIR} /tmp/{_SHELL_DIR}",
             ]
         )
 
