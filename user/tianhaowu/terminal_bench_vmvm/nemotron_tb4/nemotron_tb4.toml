@@ -42,11 +42,11 @@ prompt_style = "harbor"
 verifier_runtime_retries = 0
 timeout_multiplier = 2.0
 resource_multiplier = 1.0
-# Clamp every task (agent and separate verifier) to the Sandoq Firecracker grant, as the oracle
-# did (tb66_oracle_20260929: 4 CPU / 7.7 GiB / 57 GiB). Larger declarations fail provisioning.
+# Clamp every task (agent and separate verifier) to the maximum Sandoq Firecracker grant
+# (capacity probe job 1554280: 4 CPU / 7914 MB / 58829 MB). Larger declarations fail provisioning.
 resource_cpu_cap = 4
-resource_memory_mb_cap = 7884
-resource_storage_mb_cap = 58368
+resource_memory_mb_cap = 7914
+resource_storage_mb_cap = 58829
 
 [harness]
 id = "mini-swe-agent"
