@@ -221,15 +221,15 @@ and ended in a Sandoq `SandboxError` (poisoned OCI assignment); `aggregate.py` e
 The 512k-vs-262k gap is within noise at 4 rollouts/task and confounded: the 512k run used batch 8
 for 218 steps (final loss ~0.009 vs ~0.05) and a 524k eval context.
 
-Behaviour (`eval/behavior.py`; rollouts: base 76, SFT 262k 75, SFT 512k 60, honeycomb 20):
+Behaviour (`eval/behavior.py`; rollouts: base 76, SFT 262k 75, SFT 512k 76 incl. 1 Sandoq error, honeycomb 20):
 
 | | base | SFT 262k | SFT 512k | honeycomb s67 |
 |---|---|---|---|---|
-| ended by agent submit / context limit / cumulative output limit | 58 / 0 / 18 | 14 / 46 / 15 | 16 / 0 / 44 | 12 / 6 / 2 |
-| format errors (% responses) | 6.6% | 0.6% | 3.3% | 0.7% |
-| responses cut at 32k | 12 | 30 | 137 | 2 |
+| ended by agent submit / context limit / cumulative output limit | 58 / 0 / 18 | 14 / 46 / 15 | 18 / 0 / 57 | 12 / 6 / 2 |
+| format errors (% responses) | 6.6% | 0.6% | 3.2% | 0.7% |
+| responses cut at 32k | 12 | 30 | 161 | 2 |
 | exact repeated commands | 9.6% | 0.2% | 0.3% | 0.3% |
-| median / max final context | 66k / 153k | 222k / 229k | 242k / 439k | 195k / 229k |
+| median / max final context | 66k / 153k | 222k / 229k | 239k / 439k | 195k / 229k |
 
 The 512k model falls into degenerate repetition loops ("Hmm. Hmm. ..." until the 32k response cap)
 in 35 of its first 57 rollouts. Loops occur almost only in the last 20% of a trajectory, rise with
