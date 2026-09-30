@@ -212,11 +212,12 @@ TB4 trained tasks, 4 rollouts per task, fully fixed harness (runs under
 |---|---|---|---|---|---|
 | base Nemotron-3-Super, 262k | `base-trained19-x4-v3-1628112` | 0 / 76 (0%) | 0 / 19 | 0% | 0 / 17 |
 | SFT 262k, TB4 overfit 10 ep | `sft262k-trained19-x4-v2-1628060` | 9.2% (7 / 76) | 5 / 19 | 8.8% | 4 / 17 |
-| SFT 512k, TB4 overfit 10 ep, 524k context | `sft512k-trained19-x4-ctx512k-v2-1628061` | 11.8% (60/76 attempts, stopped early) | 3 / 19 | 13.2% | 3 / 17 |
+| SFT 512k, TB4 overfit 10 ep, 524k context | `sft512k-trained19-x4-ctx512k-v2-1628061` | 14.5% (11 / 75 scored, 1 Sandoq error) | 4 / 19 | 16.2% | 4 / 17 |
 
 SFT 262k solves embedding-drift-monitor 3/4, batched-eval-parity, fin-saccr-rwa, shadow-relay and
 wal-recovery-ordering 1/4 each; SFT 512k solves shadow-relay 4/4, embedding-drift-monitor 3/4,
-mvcc-lsm-compaction 2/4. Earlier eval runs used branch-summed rollout token caps and are superseded.
+mvcc-lsm-compaction 2/4, wal-recovery-ordering 2/4. One vpp-loss-divergence rollout hung for 10 h
+and ended in a Sandoq `SandboxError` (poisoned OCI assignment); `aggregate.py` excludes it. Earlier eval runs used branch-summed rollout token caps and are superseded.
 The 512k-vs-262k gap is within noise at 4 rollouts/task and confounded: the 512k run used batch 8
 for 218 steps (final loss ~0.009 vs ~0.05) and a 524k eval context.
 
