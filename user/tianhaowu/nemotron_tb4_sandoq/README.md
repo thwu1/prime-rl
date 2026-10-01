@@ -15,7 +15,7 @@ sft/multi_node_sft_g3.sbatch.j2   g3 Slurm template (conda Torch 2.12 stack)
 sft/convert_checkpoint.sh    sbatch: DCP trainer checkpoint -> HF safetensors (only for DCP-saved runs)
 sft/check_cp_mamba_packing.py, sft/probe_routing_padding.py   CP / routing diagnostics
 serve/deploy.sh              serve a checkpoint via ram_common serve_api_v2 (MAX_CONTEXT, default 262144)
-sft_to_eval.sh               after an SFT job: convert if needed -> deploy -> submit the eval
+sft_to_eval.sh               per checkpoint step as it lands: convert if needed -> deploy -> submit the eval
 eval/run_eval.sh             submit a TB4 eval against a deployment
 eval/launch.sh               the eval job itself (cpu_x86: Sandoq provider supervisor -> Verifiers eval)
 eval/nemotron_tb4.toml       eval config (agent settings mirror the SFT teacher traces)
@@ -32,8 +32,9 @@ cd user/tianhaowu/nemotron_tb4_sandoq
 env/setup_venv.sh                                  # once
 data/prepare.sh <traces.sft.jsonl> /checkpoint/ram/tianhaowu/datasets/<name>
 sft/launch_sft.sh sft/configs/tb4_23_overfit_262k_cp2_8node.toml tb4-23-262k-rN   # prints the job id
-# either run the whole post-training chain in the background (waits for the SFT job):
-nohup ./sft_to_eval.sh <sft_job_id> /checkpoint/ram/tianhaowu/sft_nemotron_gb300/outputs/tb4-23-262k-rN 109 \
+# either run the post-training chain in the background; it evaluates each listed step as soon as
+# its weights land (deployment <id>-sN, eval <name>-sN):
+nohup ./sft_to_eval.sh <sft_job_id> /checkpoint/ram/tianhaowu/sft_nemotron_gb300/outputs/tb4-23-262k-rN 22,44,66,88,109 \
     tianhaowu-nemotron-tb4-sft-262k eval/tasks/trained19.tasks.txt sft262k-trained19 4 > <log> 2>&1 &
 # ... or step by step (MAX_CONTEXT=524288 for the 512k model, on both commands):
 serve/deploy.sh tianhaowu-nemotron-tb4-sft-262k .../outputs/tb4-23-262k-rN/weights/step_109
@@ -153,8 +154,10 @@ python3 data/convert_native.py --root $D --manifest $D/manifest.json --dst $O/tr
 SEQ_LEN=524288 data/prepare.sh $O/traces.sft.jsonl $O-prime
 ```
 
-244 rows, 28k-497k tokens (median 160k), 28.1M trained tokens, render check 0 problems. 5 epochs =
-153 steps at batch 8, HF weights every 31 steps (~1 epoch) and at the end. The real TB4 tasks are
+244 rows, 28k-497k tokens (median 160k), 28.1M trained tokens, render check 0 problems. 10 epochs =
+305 steps at batch 8, HF weights every 2 epochs (steps 61, 122, 183, 244, 305), each evaluated on
+`eval/tasks/targeted22.tasks.txt` (trained19 + roy-polymorph-cn, telecom-entity-resolution,
+uefi-bootkit) at 524k context, 4 rollouts per task. The real TB4 tasks are
 not in the data, so evals on them measure transfer.
 
 ## Serving

@@ -2,9 +2,9 @@
 # tb4_23_overfit_512k_cp4_8node.toml) on GLM-5.3-Flash traces of *generated* tasks targeting the TB4
 # families (ThWu/tmp glm53flash-targeted-v2-253-passed-20260930 -> data/convert_native.py, 244 rows,
 # 156 generated tasks, 22 families; rows 28k-497k tokens). Eval on the real trained19 TB4 tasks
-# measures transfer, not memorization. 8 data ranks, batch 8: ceil(5 * 244 / 8) = 153 steps = 5 epochs.
-output_dir = "/checkpoint/ram/tianhaowu/sft_nemotron_gb300/outputs/glm53flash-targeted-v2-244-512k-cp4-8node-lr1e5-5ep"
-max_steps = 153
+# measures transfer, not memorization. 8 data ranks, batch 8: ceil(10 * 244 / 8) = 305 steps = 10 epochs, matching the overfit recipe.
+output_dir = "/checkpoint/ram/tianhaowu/sft_nemotron_gb300/outputs/glm53flash-targeted-v2-244-512k-cp4-8node-lr1e5-10ep"
+max_steps = 305
 loss_impl = "chunked"
 dist_timeout_seconds = 3600
 
@@ -73,8 +73,8 @@ sync_environment = false
 pre_run_command = "export SFT_VENV=/storage/home/tianhaowu/.venvs/prime-nemotron-sft-gb300"
 
 [ckpt]
-# HF weights (streamed layer by layer) about once per epoch plus the final step; all kept.
-interval = 31
+# HF weights (streamed layer by layer) every 2 epochs (61 steps): 61, 122, 183, 244, 305; all kept.
+interval = 61
 weights_only = true
 
 [ckpt.weights]
@@ -83,5 +83,5 @@ save_format = "safetensors"
 
 [wandb]
 project = "nemotron-sft-gb300"
-name = "glm53flash-targeted-v2-244-512k-cp4-8node-lr1e5-5ep"
+name = "glm53flash-targeted-v2-244-512k-cp4-8node-lr1e5-10ep"
 offline = true
