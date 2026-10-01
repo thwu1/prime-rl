@@ -39,7 +39,7 @@ wait_for_weights() {
 
 serving() {
     env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy \
-        "$SERVE/serve.sh" status "$1" 2>/dev/null | head -1 | grep -q serving
+        "$SERVE/serve.sh" status "$1" 2>/dev/null | grep -m1 -F "$1" | grep -q serving
 }
 
 run_step() {
