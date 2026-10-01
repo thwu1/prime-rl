@@ -408,3 +408,14 @@ http://<vllm host:port>`: it rebuilds each delta-encoded request and requires th
 to equal the prime-rl `nemotron-3` renderer (`preserve_all_thinking=true`). The only expected text
 difference from the SFT data is the `<system_information>` kernel string, which comes from the
 sandbox.
+
+## ECR token rotation (TB4 OCI evals)
+
+OCI-runner sandboxes pull task images with a 12-hour ECR token at
+`~/.config/oci-runner/ecr-token`, refreshed every 4 h by the login-node rotator in tmux session
+`ecr-rotation` (`user/tianhaowu/terminal_bench_vmvm/sandoq_ecr_rotation.py rotate`). A login-node
+restart kills the rotator; after expiry every sandbox is poisoned with `initialization_failure`
+seconds after `ecr_credential_vended`, and rollouts end `SandboxError` "provisioning failed after
+2 attempts" with no further error text (verifiers raises `from None`). Check
+`expires_at_unix` in `~/.config/oci-runner/ecr-rotation.state.json`; restart the rotator with a new
+`--event-log` file (reusing one fails with `event_log_requires_fresh_namespace`).

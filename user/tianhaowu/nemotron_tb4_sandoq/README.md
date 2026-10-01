@@ -172,6 +172,14 @@ a fixed lifetime (default 24h here) that cannot be extended, so size it to the e
 
 ## Eval harness
 
+Sandoq pulls task images with a 12-hour ECR token that the login-node rotator refreshes every 4 h
+(tmux session `ecr-rotation`: `user/tianhaowu/terminal_bench_vmvm/sandoq_ecr_rotation.py rotate`,
+state `~/.config/oci-runner/ecr-rotation.state.json`). A login-node restart kills it; once the token
+expires every rollout ends `SandboxError` "Sandoq provisioning failed after 2 attempts" with
+`initialization_failure` in `pool_events.jsonl` (the 429 "pool exhausted" lines are normal backpressure).
+Restart the rotator with a fresh `--event-log` path; `eval/run_eval.sh` refuses to submit when the
+token has under 1 h left.
+
 `eval/launch.sh` runs on `cpu_x86`: the Sandoq provider supervisor
 (`kimi_sandoq_firecracker_host.json`, lease profile `kimi-tb4-long`) wraps the Verifiers v1 eval with
 the mini-swe-agent 2.4.6 harness (`mini.yaml`, tool calling), Firecracker host networking and the

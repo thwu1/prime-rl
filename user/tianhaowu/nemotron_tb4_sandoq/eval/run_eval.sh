@@ -9,6 +9,16 @@ NAME=${3:?run name}
 ROLLOUTS=${4:-1}
 CONCURRENT=${5:-16}
 HERE=$(cd "$(dirname "$0")" && pwd)
+# Sandoq pulls task images with a 12h ECR token kept fresh by the login-node rotator (tmux session
+# `ecr-rotation`, user/tianhaowu/terminal_bench_vmvm/sandoq_ecr_rotation.py rotate). An expired
+# token makes every sandbox fail its startup with an opaque "Sandoq provisioning failed".
+python3 - <<'EOF'
+import json, time
+state = json.load(open("/storage/home/tianhaowu/.config/oci-runner/ecr-rotation.state.json"))
+hours = (state["expires_at_unix"] - time.time()) / 3600
+if hours < 1:
+    raise SystemExit(f"ECR token expires in {hours:.1f} h: restart the rotator (tmux session ecr-rotation) first")
+EOF
 info="/checkpoint/ram/shared/vllm_deployments_v2/$ID/proxy_info.json"
 url=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['url'])" "$info")
 model=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['model'])" "$info")
