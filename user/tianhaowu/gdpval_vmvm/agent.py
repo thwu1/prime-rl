@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Annotated, Any
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 from stirrup import Agent
 from stirrup.constants import DEFAULT_FINISH_TOOL_NAME
 from stirrup.core.agent import SessionAgent
@@ -36,15 +36,45 @@ class CoercingFinishParams(BaseModel):
         return value
 
 
-FINISH_TOOL: Tool[CoercingFinishParams, ToolUseCountMetadata] = Tool(
-    name=DEFAULT_FINISH_TOOL_NAME,
-    description=(
-        "Signal task completion with a brief summary and the absolute paths of all files to submit. "
-        "You need a separate turn to call this tool."
-    ),
-    parameters=CoercingFinishParams,
-    executor=_validating_finish_executor,
-)
+class SFTCompatibleFinishParams(CoercingFinishParams):
+    @model_validator(mode="before")
+    @classmethod
+    def accept_summary_alias(cls, value: Any) -> Any:
+        if not isinstance(value, dict) or "summary" not in value:
+            return value
+        normalized = dict(value)
+        summary = normalized.pop("summary")
+        if "reason" in normalized and normalized["reason"] != summary:
+            raise ValueError("finish.reason and finish.summary must match when both are provided")
+        normalized.setdefault("reason", summary)
+        return normalized
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema: Any, handler: Any) -> dict[str, Any]:
+        schema = handler(core_schema)
+        properties = schema.setdefault("properties", {})
+        summary_schema = dict(properties["reason"])
+        summary_schema["description"] = "Compatibility alias for reason."
+        properties["summary"] = summary_schema
+        schema["required"] = [field for field in schema.get("required", []) if field != "reason"]
+        schema["anyOf"] = [{"required": ["reason"]}, {"required": ["summary"]}]
+        return schema
+
+
+def build_finish_tool(*, sft_compatibility_aliases: bool = False) -> Tool[Any, ToolUseCountMetadata]:
+    parameters = SFTCompatibleFinishParams if sft_compatibility_aliases else CoercingFinishParams
+    return Tool(
+        name=DEFAULT_FINISH_TOOL_NAME,
+        description=(
+            "Signal task completion with a brief summary and the absolute paths of all files to submit. "
+            "You need a separate turn to call this tool."
+        ),
+        parameters=parameters,
+        executor=_validating_finish_executor,
+    )
+
+
+FINISH_TOOL = build_finish_tool()
 
 
 class AbandonFinishParams(BaseModel):
