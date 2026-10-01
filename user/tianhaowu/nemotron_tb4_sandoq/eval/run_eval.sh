@@ -25,6 +25,18 @@ model=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['model']
 key=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['api_key'])" "$info")
 key_file=/storage/home/tianhaowu/.config/ram-inference-gateway/$ID-token
 (umask 077; printf '%s' "$key" >"$key_file")
+# The litellm proxy can report ready (or restart) before it accepts the model name; requests in that
+# window fail with "Invalid model name" and the rollouts end ProviderError at turn 0.
+for attempt in $(seq 1 30); do
+    if env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy curl -sf -m 120 \
+        -H "Authorization: Bearer $key" -H "Content-Type: application/json" "$url/v1/chat/completions" \
+        -d "{\"model\": \"$model\", \"messages\": [{\"role\": \"user\", \"content\": \"hi\"}], \"max_tokens\": 4}" \
+        >/dev/null; then
+        break
+    fi
+    ((attempt < 30)) || { echo "$ID does not answer chat completions" >&2; exit 1; }
+    sleep 30
+done
 env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy \
     NEMOTRON_TB4_BASE_URL="$url/v1" NEMOTRON_TB4_MODEL="$model" NEMOTRON_TB4_API_KEY_FILE="$key_file" \
     NEMOTRON_TB4_TASK_FILE="$(realpath -e "$TASKS")" NEMOTRON_TB4_RUN_NAME="$NAME" \
