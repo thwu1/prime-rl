@@ -7,6 +7,7 @@ depends on are in the repo (see [Fixes](#fixes-in-the-repo)).
 
 ```
 env/setup_venv.sh            build the GB300 training venv
+data/convert_native.py       native mini-swe-agent trajectories (+ export manifest) -> content-part SFT export
 data/prepare.sh              content-part SFT export -> renderer-ready JSONL + render check
 sft/launch_sft.sh            submit an SFT run from a frozen snapshot of HEAD
 sft/configs/*.toml           262k CP2 and 512k CP4 run configs (8 nodes x 4 GB300)
@@ -132,6 +133,29 @@ The real TB4 tasks are held out, so `eval/tasks/honeycomb_targets5.tasks.txt` me
 5 epochs = 67 steps, HF weights every 14 steps and at the end. Prepared data:
 `/checkpoint/ram/tianhaowu/datasets/nemotron-honeycomb-213-prime` (one context-only assistant turn
 is `trainable: false` by design).
+
+### Targeted-v2 run
+
+`sft/configs/targeted_v2_244_512k_cp4_8node.toml`: GLM-5.3-Flash (max reasoning, 524k context)
+passing traces of 156 *generated* tasks across 22 TB4 families (`ThWu/tmp`
+`glm53flash-targeted-v2-253-passed-20260930`). That export has only native trajectories, so
+`data/convert_native.py` builds the SFT rows; on the 174-row overfit export it reproduces the
+shipped `traces.sft.jsonl` for 170 rows, and the other 4 differ only where the old exporter's
+mojibake repair misfired. Dropped 9 of 253: 4 not submitted, 4 with user-reported task-quality
+concerns (reward-file/shortcut exploits), 1 over 524,288 tokens (risk-scorer-replay-04, 531k):
+
+```bash
+D=/checkpoint/ram/tianhaowu/datasets/ThWu-tmp/glm53flash-targeted-v2-253-passed-20260930
+O=/checkpoint/ram/tianhaowu/datasets/glm53flash-targeted-v2-244
+python3 data/convert_native.py --root $D --manifest $D/manifest.json --dst $O/traces.sft.jsonl \
+    --exclude-flag not_submitted --exclude-flag user_reported_task_quality_concern \
+    --exclude-trial risk-scorer-replay-04-aqi-breakp__E37srxp
+SEQ_LEN=524288 data/prepare.sh $O/traces.sft.jsonl $O-prime
+```
+
+244 rows, 28k-497k tokens (median 160k), 28.1M trained tokens, render check 0 problems. 5 epochs =
+153 steps at batch 8, HF weights every 31 steps (~1 epoch) and at the end. The real TB4 tasks are
+not in the data, so evals on them measure transfer.
 
 ## Serving
 

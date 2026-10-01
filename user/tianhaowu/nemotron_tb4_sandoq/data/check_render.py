@@ -55,7 +55,7 @@ def main() -> None:
         dataset, tokenizer, shuffle=False, seq_len=args.seq_len, loss_mask_config=LossMaskConfig(), renderer=renderer
     )
 
-    lengths, trained_counts, problems = [], [], []
+    lengths, trained_counts, problems, overlength = [], [], [], []
     for idx, example in enumerate(dataset):
         processed = sft._process(dict(example))
         if processed is None:
@@ -64,6 +64,8 @@ def main() -> None:
         # loss_mask is aligned with target_ids (inputs shifted left by one)
         ids, mask = processed["target_ids"], processed["loss_mask"]
         lengths.append(len(ids))
+        if len(ids) > args.seq_len:
+            overlength.append((idx, example.get("trace_id"), len(ids)))
         trained_counts.append(sum(mask))
         trained_text = "\n".join(tokenizer.decode(ids[a:b]) for a, b in trained_spans(ids, mask))
         untrained_text = tokenizer.decode([t for t, m in zip(ids, mask) if not m])
@@ -105,6 +107,8 @@ def main() -> None:
         f"p50={int(statistics.median(lengths))} max={max(lengths)} total={sum(lengths)} "
         f"trained_tokens={sum(trained_counts)} over_seq_len({args.seq_len})={over}"
     )
+    for idx, trace_id, length in overlength:
+        print(f"   over seq_len: row {idx} {trace_id} {length} tokens")
     print(f"problems={len(problems)}")
     for problem in problems[:40]:
         print("  ", problem)
