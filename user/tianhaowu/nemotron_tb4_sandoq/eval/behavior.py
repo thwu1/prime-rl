@@ -39,7 +39,7 @@ def appended_user_messages(row: dict) -> list[str]:
 
 
 def summarize(label: str, paths: list[Path]) -> None:
-    rows = [json.loads(line) for path in paths for line in path.read_text().splitlines()]
+    rows = [json.loads(line) for path in paths for line in path.read_text().split("\n") if line.strip()]
     stops, finish = Counter(), Counter()
     turns, contexts, completion_lens = [], [], []
     format_errors = think_calls = empty_cmd = repeated = total_calls = calls_turns = 0

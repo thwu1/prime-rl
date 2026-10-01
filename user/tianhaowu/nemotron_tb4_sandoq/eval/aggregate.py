@@ -42,7 +42,10 @@ def main() -> None:
     scored: dict[str, list[dict]] = defaultdict(list)
     errored: dict[str, str] = {}
     for run in args.runs:
-        for line in (run / "results.jsonl").read_text().splitlines():
+        # split on "\n" only: str.splitlines() also breaks on U+2028 etc. inside JSON strings
+        for line in (run / "results.jsonl").read_text().split("\n"):
+            if not line.strip():
+                continue
             row = json.loads(line)
             name = row["task"]["name"].split("/")[-1]
             if infra_error(row):
