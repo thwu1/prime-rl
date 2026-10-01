@@ -3,7 +3,8 @@
 Every scored rollout across the given run dirs counts. Rollouts that hit infrastructure errors
 (sandbox provisioning, taskset setup, tunnels) are excluded; a HarnessError (the agent process
 itself died, e.g. killed by the sandbox OOM killer after an agent command) is agent behaviour and
-counts as a failed attempt. Per task this reports attempts, solves, pass@1
+counts as a failed attempt, except "harness setup" failures (the harness never started, e.g. the uv
+download failed), which are infrastructure. Per task this reports attempts, solves, pass@1
 (mean solve rate) and pass@k (any solve), overall and split into trained / held-out tasks.
 """
 
@@ -24,6 +25,13 @@ TRAINED = {
 AGENT_ERRORS = {"HarnessError"}
 
 
+def infra_error(row: dict) -> bool:
+    errors = row.get("errors") or []
+    if {error.get("type") for error in errors} - AGENT_ERRORS:
+        return True
+    return any(error.get("message", "").startswith("harness setup") for error in errors)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("runs", nargs="+", type=Path, help="eval output dirs")
@@ -37,8 +45,7 @@ def main() -> None:
         for line in (run / "results.jsonl").read_text().splitlines():
             row = json.loads(line)
             name = row["task"]["name"].split("/")[-1]
-            error_types = {error.get("type") for error in row.get("errors") or []}
-            if error_types - AGENT_ERRORS:
+            if infra_error(row):
                 errored.setdefault(name, row["errors"][0].get("type", "error"))
             else:
                 scored[name].append(row)
