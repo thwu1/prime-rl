@@ -160,6 +160,35 @@ SEQ_LEN=524288 data/prepare.sh $O/traces.sft.jsonl $O-prime
 uefi-bootkit) at 524k context, 4 rollouts per task. The real TB4 tasks are
 not in the data, so evals on them measure transfer.
 
+### Targeted-7 run
+
+`sft/configs/targeted7_498_512k_cp4_8node.toml`: passing traces of generated tasks for the 7 targeted
+families (embedding-drift-monitor, fin-saccr-rwa, mvcc-lsm-compaction, protein-autointerp-disulfide,
+wal-recovery-ordering, batched-eval-parity, shadow-relay), pooled by `data/build_targeted7.py` from
+`glm53flash-targeted-v2-720-passed-20261002` (Submitted, no error or quality flag),
+`glm53flash-targeted25-92-traces-20261002` (reward 1, Submitted) and `nemotron-honeycomb-216-20260929`
+(minus the CJK row). No real-task traces.
+
+| family | 720 | targeted-25 | honeycomb | total |
+|---|---|---|---|---|
+| protein-autointerp-disulfide | 54 | 0 | 71 | 125 |
+| embedding-drift-monitor | 33 | 13 | 58 | 104 |
+| mvcc-lsm-compaction | 8 | 12 | 59 | 79 |
+| shadow-relay | 61 | 13 | 0 | 74 |
+| wal-recovery-ordering | 35 | 0 | 24 | 59 |
+| batched-eval-parity | 29 | 20 | 0 | 49 |
+| fin-saccr-rwa | 5 | 0 | 3 | 8 |
+
+```bash
+python3 data/build_targeted7.py --dst /checkpoint/ram/tianhaowu/datasets/targeted7-pooled/traces.sft.jsonl
+SEQ_LEN=524288 data/prepare.sh /checkpoint/ram/tianhaowu/datasets/targeted7-pooled/traces.sft.jsonl \
+    /checkpoint/ram/tianhaowu/datasets/targeted7-pooled-prime
+```
+
+498 rows, 23k-486k tokens (median 132k), 40.2M trained tokens, render check 0 problems. 10 epochs =
+623 steps at batch 8, HF weights every 2 epochs (125, 250, 375, 500, 623), each evaluated on
+`eval/tasks/targeted7.tasks.txt` with 8 rollouts per task at 524k context.
+
 ## Serving
 
 `serve/deploy.sh` deploys through `ram_common/vllm_tools/serve_api_v2` with
