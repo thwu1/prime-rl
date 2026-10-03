@@ -189,6 +189,18 @@ SEQ_LEN=524288 data/prepare.sh /checkpoint/ram/tianhaowu/datasets/targeted7-pool
 623 steps at batch 8, HF weights every 2 epochs (125, 250, 375, 500, 623), each evaluated on
 `eval/tasks/targeted7.tasks.txt` with 8 rollouts per task at 524k context.
 
+| step | epoch | solves | solved tasks |
+|---|---|---|---|
+| 125 | 2 | 0/55 | - |
+| 250 | 4 | 2/56 | embedding-drift-monitor 2/8 |
+| 375 | 6 | 2/56 | embedding-drift-monitor 2/8 |
+| 500 | 8 | 0/56 | - |
+| 623 | 10 | 0/56 | - |
+
+Training loss reached about 0.008 by epoch 9, but no checkpoint solves more than 2 of 56 attempts:
+training on more generated-task variants does not transfer to the real tasks. Rollouts still end on the
+32k output cut-off (`max_output_tokens`, or `agent_completed` after three consecutive cut-offs).
+
 ### Packing (`cat_whole`)
 
 All configs above use `pack_function = "fixed_stack"`, which pads every trajectory to 524,288 tokens:
