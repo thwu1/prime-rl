@@ -23,6 +23,27 @@ info="/checkpoint/ram/shared/vllm_deployments_v2/$ID/proxy_info.json"
 url=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['url'])" "$info")
 model=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['model'])" "$info")
 key=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['api_key'])" "$info")
+# serve_api_v2 can start two proxies on one CPU node with the same port (both bind via SO_REUSEPORT);
+# requests then reach whichever proxy accepts them, i.e. possibly the other deployment's model.
+python3 - "$ID" <<'EOF'
+import json, subprocess, sys
+from pathlib import Path
+target = sys.argv[1]
+root = Path("/checkpoint/ram/shared/vllm_deployments_v2")
+url = json.loads((root / target / "proxy_info.json").read_text())["url"]
+clashes = []
+for info in root.glob("*/proxy_info.json"):
+    if info.parent.name == target:
+        continue
+    other = json.loads(info.read_text())
+    if other.get("url") != url:
+        continue
+    alive = subprocess.run(["squeue", "-h", "-j", str(other.get("proxy_jobid", ""))], capture_output=True, text=True).stdout.strip()
+    if alive:
+        clashes.append(info.parent.name)
+if clashes:
+    raise SystemExit(f"{target} shares proxy {url} with live deployment(s) {clashes}; redeploy one of them first")
+EOF
 key_file=/storage/home/tianhaowu/.config/ram-inference-gateway/$ID-token
 (umask 077; printf '%s' "$key" >"$key_file")
 # The litellm proxy can report ready (or restart) before it accepts the model name; requests in that

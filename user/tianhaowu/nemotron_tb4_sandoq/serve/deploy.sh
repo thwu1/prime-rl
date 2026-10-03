@@ -36,8 +36,33 @@ for ref in {v.split(".")[0] for v in auto_map.values() if isinstance(v, str)}:
         print(f"copied {name} from {base}")
 PY
 cd "$SERVE"
-env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy \
-    ./serve.sh deploy "$ID" --model nemotron-3-super --endpoints 1 --checkpoint "$CKPT" \
-    --set defaults.qos=g3_ram_high "${context_args[@]}" --lifetime "$LIFETIME" \
-    --watch-timeout "${WATCH_TIMEOUT:-1800}"
+# Two proxies started on the same CPU node can both bind one port (SO_REUSEPORT), silently routing
+# this deployment's traffic to another model. Redeploy until the proxy address is unique.
+proxy_clash() {
+    python3 - "$ID" <<'PY'
+import json, subprocess, sys
+from pathlib import Path
+target, root = sys.argv[1], Path("/checkpoint/ram/shared/vllm_deployments_v2")
+url = json.loads((root / target / "proxy_info.json").read_text())["url"]
+for info in root.glob("*/proxy_info.json"):
+    other = json.loads(info.read_text())
+    if info.parent.name != target and other.get("url") == url and subprocess.run(
+        ["squeue", "-h", "-j", str(other.get("proxy_jobid", ""))], capture_output=True, text=True
+    ).stdout.strip():
+        print(f"{url} shared with {info.parent.name}")
+        sys.exit(0)
+sys.exit(1)
+PY
+}
+for attempt in 1 2 3; do
+    env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy \
+        ./serve.sh deploy "$ID" --model nemotron-3-super --endpoints 1 --checkpoint "$CKPT" \
+        --set defaults.qos=g3_ram_high "${context_args[@]}" --lifetime "$LIFETIME" \
+        --watch-timeout "${WATCH_TIMEOUT:-1800}"
+    proxy_clash || break
+    ((attempt < 3)) || { echo "proxy address still shared after 3 deploys" >&2; exit 1; }
+    echo "proxy clash; redeploying $ID (attempt $((attempt + 1)))"
+    env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy ./serve.sh stop "$ID" || true
+    sleep 30
+done
 cat "/checkpoint/ram/shared/vllm_deployments_v2/$ID/proxy_info.json"; echo
