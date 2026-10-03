@@ -189,6 +189,27 @@ SEQ_LEN=524288 data/prepare.sh /checkpoint/ram/tianhaowu/datasets/targeted7-pool
 623 steps at batch 8, HF weights every 2 epochs (125, 250, 375, 500, 623), each evaluated on
 `eval/tasks/targeted7.tasks.txt` with 8 rollouts per task at 524k context.
 
+### Packing (`cat_whole`)
+
+All configs above use `pack_function = "fixed_stack"`, which pads every trajectory to 524,288 tokens:
+only 22-28% of the compute is real tokens on these datasets. `pack_function = "cat_whole"` packs whole
+trajectories into each row (a trajectory that does not fit starts the next row; trajectories longer
+than `seq_len` are skipped), keeping per-trajectory attention/Mamba boundaries and loss masks. Rows are
+81-84% real tokens, about 3x the throughput of `fixed_stack`; plain `cat` truncates the trajectory
+crossing each row boundary (15% of trained tokens lost on the overfit set) and should not be used.
+Each step then holds about 3-4 trajectories per row, so set `max_steps` from rows per epoch.
+
+Overfit validation (same data/LR/batch of 8 rows, 10 epochs; trained19 x4 at 524k):
+
+| run | packing | optimizer steps | eval |
+|---|---|---|---|
+| `sft512k-trained19-x4-ctx512k-v2-1628061` | fixed_stack | 218 | 11/75, pass@4 4/19 |
+| `sft512k-cat-trained19-x4-ctx512k-s48-1697501` | cat | 48 | partial: embedding 2/4, batched 1/4, shadow 1/4 |
+| `sft512k-catwhole-trained19-x4-ctx512k-s57-1698542` | cat_whole | 57 | partial: embedding-drift-monitor 4/4 |
+
+The packed runs take ~4x fewer, larger optimizer steps at the same LR (final loss ~0.3 vs ~0.009), so
+memorization-heavy tasks can trail without packing being wrong.
+
 ## Serving
 
 `serve/deploy.sh` deploys through `ram_common/vllm_tools/serve_api_v2` with
