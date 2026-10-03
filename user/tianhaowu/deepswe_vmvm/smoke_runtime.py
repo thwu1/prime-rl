@@ -4,8 +4,49 @@ import asyncio
 import hashlib
 import json
 import logging
+import os
+import signal
 
-from verifiers.v1.runtimes import VMVMConfig, make_runtime
+from verifiers.v1.runtimes import VMVMConfig, VMVMRuntime, make_runtime
+
+
+async def verify_transport_recovery(runtime: VMVMRuntime) -> tuple[str, int, int]:
+    marker = "/tmp/vmvm-runtime-recovery-count"
+    reset = await runtime.run(["rm", "-f", marker], {})
+    if reset.exit_code != 0:
+        raise RuntimeError(reset.stdout)
+
+    async def drop_tunnel() -> None:
+        await asyncio.sleep(2)
+        lease = getattr(runtime.backend, "_lease", None)
+        process = getattr(lease, "proc", None)
+        if process is None:
+            raise RuntimeError("VMVM backend does not expose a live vacli process")
+        os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+
+    drop = asyncio.create_task(drop_tunnel())
+    try:
+        result = await runtime.run(
+            [
+                "sh",
+                "-c",
+                f"printf '%s\\n' once >> {marker}; sleep 10; printf RECOVERED",
+            ],
+            {},
+        )
+    finally:
+        await drop
+    if result.exit_code != 0 or result.stdout.strip() != "RECOVERED":
+        raise RuntimeError(f"VMVM recovery command failed: {result}")
+    resume_count = int(getattr(getattr(runtime.backend, "_lease", None), "_resume_count", 0))
+    if resume_count < 1:
+        raise RuntimeError("fault injection did not exercise VMVM tunnel recovery")
+
+    count_result = await runtime.run(["wc", "-l", marker], {})
+    count = int(count_result.stdout.split()[0]) if count_result.exit_code == 0 else -1
+    if count != 1:
+        raise RuntimeError(f"VMVM recovery replayed or lost the command: {count_result}")
+    return result.stdout.strip(), count, resume_count
 
 
 async def main() -> None:
@@ -34,6 +75,8 @@ async def main() -> None:
         ),
         name="deepswe-vmvm-smoke",
     )
+    if not isinstance(runtime, VMVMRuntime):
+        raise TypeError(f"expected VMVMRuntime, got {type(runtime).__name__}")
     await runtime.start()
     try:
         await runtime.write("payload.bin", payload)
@@ -67,11 +110,15 @@ async def main() -> None:
             raise RuntimeError(tunnel_result.stdout)
         if tunnel_result.stdout.strip() != tunnel_response.decode():
             raise RuntimeError(f"unexpected tunnel response: {tunnel_result.stdout!r}")
+        recovery_output, recovery_count, recovery_resumes = await verify_transport_recovery(runtime)
         print(
             json.dumps(
                 {
                     "descriptor": runtime.descriptor,
                     "payload_sha256": expected_hash,
+                    "recovery_count": recovery_count,
+                    "recovery_output": recovery_output,
+                    "recovery_resumes": recovery_resumes,
                     "remote_output": result.stdout.strip(),
                     "tunnel_output": tunnel_result.stdout.strip(),
                 },

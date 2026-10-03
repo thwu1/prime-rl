@@ -1,0 +1,112 @@
+# One epoch over the 38,493 attested Qwen-recovered training rows:
+# ceil(38,493 / 32) = 1,203 optimizer steps. The preflight binds the complete
+# task-disjoint validation split and the exact reasoning-preserving renderer.
+output_dir = "/checkpoint/ram/tianhaowu/sft_nemotron/outputs/nemotron-super-120b-qwen-recovered-v6-262144-cp2-ep8-1epoch-seed3"
+max_steps = 1203
+loss_impl = "chunked"
+dist_timeout_seconds = 3600
+
+[model]
+name = "/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3-Super-120B-A12B-BF16/snapshots/d51eab0d1f979ebc26b546e634a04f450d99158e"
+seq_len = 262144
+impl = "custom"
+attn = "flash_attention_2"
+ep = 8
+cp = 2
+cp_style = "ulysses"
+fsdp_cpu_offload = true
+fused_lm_head_token_chunk_size = 8192
+moe_use_grouped_mm = false
+# optimization_dtype/reduce_dtype retain their float32 defaults.
+
+[model.ac]
+
+[model.compile]
+
+[model.ac_offloading]
+max_inflight_activations = 1
+
+[tokenizer]
+name = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+revision = "d51eab0d1f979ebc26b546e634a04f450d99158e"
+trust_remote_code = false
+
+[renderer]
+name = "nemotron-3"
+enable_thinking = true
+preserve_all_thinking = true
+preserve_thinking_between_tool_calls = false
+truncate_history_thinking = false
+normalize_tool_response_wrappers = false
+ultra = false
+
+[data]
+type = "sft"
+name = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/qwen-recovered-v6-pass-only-65cbf770-rendered256k-v1/train"
+seq_len = 262144
+batch_size = 32
+micro_batch_size = 1
+pack_function = "fixed_stack"
+shuffle = true
+seed = 3
+preflight_attestation = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/qwen-recovered-v6-pass-only-65cbf770-rendered256k-v1/sft-render-preflight-v2.json"
+preflight_attestation_sha256 = "c3f129e1019963c6e8c6c6e7dec2b4e625131bf41dc76f1cf25246e2a8fffb44"
+
+[data.loss_mask]
+assistant = true
+system = false
+tool = false
+user = false
+
+[val]
+interval = 100
+eval_on_start = true
+
+[val.data]
+type = "sft"
+name = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/qwen-recovered-v6-pass-only-65cbf770-rendered256k-v1/validation"
+seq_len = 262144
+batch_size = 32
+micro_batch_size = 1
+pack_function = "fixed_stack"
+shuffle = false
+seed = 0
+preflight_attestation = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sft/qwen-recovered-v6-pass-only-65cbf770-rendered256k-v1/sft-render-preflight-v2.json"
+preflight_attestation_sha256 = "c3f129e1019963c6e8c6c6e7dec2b4e625131bf41dc76f1cf25246e2a8fffb44"
+
+[val.data.loss_mask]
+assistant = true
+system = false
+tool = false
+user = false
+
+[optim]
+lr = 1e-6
+
+[deployment]
+type = "multi_node"
+num_nodes = 8
+
+[slurm]
+job_name = "sft-nemo-qwen-recovered-v6-262k-1ep"
+account = "ram"
+partition = "h200"
+exclude = "h200-004-016,h200-045-135,h200-045-216,h200-070-085,h200-086-005,h200-088-234,h200-089-039,h200-093-129,h200-156-160,h200-157-026,h200-194-161,h200-197-003,h200-221-179,h200-233-242,h200-235-051,h200-235-167"
+time = "7-00:00:00"
+project_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-qwen-recovered-sft-65cbf770"
+template_path = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/sources/prime-qwen-recovered-sft-65cbf770/user/tianhaowu/fair-sc-3/templates/multi_node_sft_nemotron_fullmem.sbatch.j2"
+sync_environment = false
+pre_run_command = "export UV_PROJECT_ENVIRONMENT=/storage/home/tianhaowu/.venvs/prime-rl-nemotron-sft; export PRIME_RL_SFT_PREFLIGHT_WORKERS=8; export CUDA_HOME=/public/apps/cuda/12.6.1; export PATH=$CUDA_HOME/bin:$PATH; export HF_HOME=/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface; export HF_HUB_CACHE=$HF_HOME/hub"
+
+[ckpt]
+interval = 100
+weights_only = true
+keep_last = 4
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+
+[wandb]
+name = "sft-nemotron-super-120b-qwen-recovered-v6-262144-cp2-ep8-1epoch-seed3"
+offline = true

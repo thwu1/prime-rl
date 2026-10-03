@@ -1,0 +1,92 @@
+# Five-epoch pass-only DeepSWE SFT with one example per assistant generation.
+# Every retained source trajectory has all expanded turns at or below 102144 tokens.
+# CP1 on 64 GPUs requires global batch 64: ceil(5 * 17226 / 64) = 1346 steps.
+output_dir = "/checkpoint/ram/tianhaowu/sft_nemotron/outputs/nemotron-super-120b-base-deepswe-pass-only-turns-v39-102144-cp1-ep8-fsdp-offload-expert-loop-fullmem-lr1e5-1346steps-5epochs-seed3"
+max_steps = 1346
+loss_impl = "chunked"
+dist_timeout_seconds = 3600
+
+[model]
+name = "/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface/hub/models--nvidia--NVIDIA-Nemotron-3-Super-120B-A12B-BF16/snapshots/d51eab0d1f979ebc26b546e634a04f450d99158e"
+seq_len = 102144
+impl = "custom"
+attn = "flash_attention_2"
+ep = 8
+cp = 1
+cp_style = "ulysses"
+fsdp_cpu_offload = true
+fused_lm_head_token_chunk_size = 8192
+moe_use_grouped_mm = false
+# optimization_dtype/reduce_dtype retain their float32 defaults.
+
+[model.ac]
+
+[model.compile]
+
+[model.ac_offloading]
+max_inflight_activations = 1
+
+[tokenizer]
+name = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+
+[renderer]
+name = "nemotron-3"
+enable_thinking = true
+preserve_all_thinking = false
+truncate_history_thinking = true
+normalize_tool_response_wrappers = false
+
+[data]
+type = "sft"
+name = "/checkpoint/ram/tianhaowu/datasets/deepswe-sft/processed/kimi-k3-v2-sft-deepswe-eval-harness-all-kimi-v3/assistant-turn-expanded-stripped-history-whole-trajectory-max102144-v1/pass-only-matched-task-split-max102144-v1/train"
+seq_len = 102144
+batch_size = 64
+micro_batch_size = 1
+pack_function = "fixed_stack"
+shuffle = true
+seed = 3
+
+[val]
+interval = 8
+eval_on_start = true
+
+[val.data]
+type = "sft"
+name = "/checkpoint/ram/tianhaowu/datasets/deepswe-sft/processed/kimi-k3-v2-sft-deepswe-eval-harness-all-kimi-v3/assistant-turn-expanded-stripped-history-whole-trajectory-max102144-v1/pass-only-matched-task-split-max102144-v1/validation-cp1-64"
+seq_len = 102144
+batch_size = 64
+micro_batch_size = 1
+pack_function = "fixed_stack"
+shuffle = false
+seed = 0
+
+[optim]
+lr = 1e-5
+
+[deployment]
+type = "multi_node"
+num_nodes = 8
+
+[slurm]
+job_name = "sft-nemo-pass-turn-v39-cp1-5ep"
+account = "ram"
+partition = "h200"
+exclude = "h200-004-016,h200-045-135,h200-045-216,h200-070-085,h200-086-005,h200-088-234,h200-089-039,h200-093-129,h200-156-160,h200-157-026,h200-194-161,h200-197-003,h200-221-179,h200-233-242,h200-235-051,h200-235-167"
+time = "120:00:00"
+project_dir = "/storage/home/tianhaowu/prime-rl"
+template_path = "/storage/home/tianhaowu/prime-rl/user/tianhaowu/fair-sc-3/templates/multi_node_sft_nemotron_fullmem.sbatch.j2"
+sync_environment = false
+pre_run_command = "export UV_PROJECT_ENVIRONMENT=/storage/home/tianhaowu/.venvs/prime-rl-nemotron-sft; export CUDA_HOME=/public/apps/cuda/12.6.1; export PATH=$CUDA_HOME/bin:$PATH; export HF_HOME=/checkpoint/ram-h100-2/tianhaowu/.cache/huggingface; export HF_HUB_CACHE=$HF_HOME/hub"
+
+[ckpt]
+interval = 8
+weights_only = true
+keep_last = 4
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+
+[wandb]
+name = "sft-nemotron-super-120b-base-deepswe-pass-only-turns-v39-102144-cp1-ep8-fsdp-offload-expert-loop-fullmem-lr1e5-1346steps-5epochs-seed3"
+offline = false

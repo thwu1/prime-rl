@@ -93,11 +93,21 @@ def head_to_seq_parallel(x: torch.Tensor, cp_group: dist.ProcessGroup, cp_size: 
     return _HeadToSeqParallel.apply(x, cp_group, cp_size)
 
 
-def mamba_cp_forward(mixer, hidden_states: torch.Tensor, cp_group: dist.ProcessGroup, cp_rank: int, cp_size: int):
+def mamba_cp_forward(
+    mixer,
+    hidden_states: torch.Tensor,
+    cp_group: dist.ProcessGroup,
+    cp_rank: int,
+    cp_size: int,
+    cu_seqlens: torch.Tensor | None = None,
+):
     """CP-aware Mamba-2 forward: in_proj -> all-to-all -> conv+SSM(local heads) -> all-to-all -> out_proj.
 
     Replaces the mixer's cuda_kernels_forward when CP > 1. Parameters are
     sliced at runtime so FSDP / checkpoint shapes are unchanged.
+
+    ``cu_seqlens`` describes packed sequences over the *full* (un-sharded) sequence.
+    When given, conv1d runs per sequence and the SSM state resets at each boundary.
     """
     from mamba_ssm.ops.triton.ssd_combined import mamba_chunk_scan_combined
 
@@ -169,16 +179,30 @@ def mamba_cp_forward(mixer, hidden_states: torch.Tensor, cp_group: dist.ProcessG
     local_conv_weight = mixer.conv1d.weight[conv_indices]
     local_conv_bias = mixer.conv1d.bias[conv_indices] if mixer.conv1d.bias is not None else None
 
-    # ── 4. Conv1d on full sequence, local heads ──
-    hidden_states_B_C = torch.nn.functional.silu(
-        torch.nn.functional.conv1d(
-            hidden_states_B_C.transpose(1, 2),
+    # ── 4. Conv1d on full sequence, local heads (per packed sequence) ──
+    def local_conv(segment: torch.Tensor) -> torch.Tensor:
+        return torch.nn.functional.conv1d(
+            segment,
             local_conv_weight,
             local_conv_bias,
             groups=local_conv_dim,
             padding=mixer.conv1d.weight.shape[2] - 1,
-        ).transpose(1, 2)[:, :full_seq_len]
-    )
+        )[:, :, : segment.shape[2]]
+
+    hbc_t = hidden_states_B_C.transpose(1, 2)
+    seq_idx = None
+    if cu_seqlens is None:
+        conv_out = local_conv(hbc_t)
+    else:
+        bounds = cu_seqlens.tolist()
+        assert bounds[0] == 0 and bounds[-1] == full_seq_len, (
+            f"cu_seqlens must span the full sequence ({full_seq_len}), got {bounds[0]}..{bounds[-1]}"
+        )
+        conv_out = torch.cat([local_conv(hbc_t[:, :, s:e]) for s, e in zip(bounds[:-1], bounds[1:]) if e > s], dim=2)
+        positions = torch.arange(full_seq_len, device=cu_seqlens.device)
+        seq_idx = torch.searchsorted(cu_seqlens[1:].contiguous(), positions, right=True).to(torch.int32)
+        seq_idx = seq_idx.unsqueeze(0).expand(batch_size, -1).contiguous()
+    hidden_states_B_C = torch.nn.functional.silu(conv_out.transpose(1, 2))
 
     local_groups_time_state_size = local_n_groups * mixer.ssm_state_size
     hidden_states_local, B_local, C_local = torch.split(
@@ -199,7 +223,7 @@ def mamba_cp_forward(mixer, hidden_states: torch.Tensor, cp_group: dist.ProcessG
         chunk_size=mixer.chunk_size,
         D=local_D,
         z=None,
-        seq_idx=None,
+        seq_idx=seq_idx,
         return_final_states=True,
         dt_bias=local_dt_bias,
         dt_softplus=True,

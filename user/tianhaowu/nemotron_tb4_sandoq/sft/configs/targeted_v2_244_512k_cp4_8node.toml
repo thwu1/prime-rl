@@ -1,0 +1,87 @@
+# Nemotron-3-Super-120B full SFT at 524,288-token context on GB300 (CP4 Ulysses, same recipe as
+# tb4_23_overfit_512k_cp4_8node.toml) on GLM-5.3-Flash traces of *generated* tasks targeting the TB4
+# families (ThWu/tmp glm53flash-targeted-v2-253-passed-20260930 -> data/convert_native.py, 244 rows,
+# 156 generated tasks, 22 families; rows 28k-497k tokens). Eval on the real trained19 TB4 tasks
+# measures transfer, not memorization. 8 data ranks, batch 8: ceil(10 * 244 / 8) = 305 steps = 10 epochs, matching the overfit recipe.
+output_dir = "/checkpoint/ram/tianhaowu/sft_nemotron_gb300/outputs/glm53flash-targeted-v2-244-512k-cp4-8node-lr1e5-10ep"
+max_steps = 305
+loss_impl = "chunked"
+dist_timeout_seconds = 3600
+
+[model]
+name = "/checkpoint/ram/tianhaowu/models/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+seq_len = 524288
+impl = "custom"
+attn = "flash_attention_2"
+ep = 8
+cp = 4
+cp_style = "ulysses"  # NemotronH Mamba layers require Ulysses CP.
+fsdp_cpu_offload = true
+fused_lm_head_token_chunk_size = 8192
+moe_use_grouped_mm = false  # Avoid one 18+ GiB grouped expert intermediate.
+
+[model.ac]
+
+[model.compile]
+
+[model.ac_offloading]
+max_inflight_activations = 1
+
+[tokenizer]
+name = "/checkpoint/ram/tianhaowu/models/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+
+[renderer]
+name = "nemotron-3"
+enable_thinking = true
+preserve_all_thinking = true
+truncate_history_thinking = false
+normalize_tool_response_wrappers = false
+ultra = false
+
+[data]
+type = "sft"
+name = "/checkpoint/ram/tianhaowu/datasets/glm53flash-targeted-v2-244-prime/train"
+seq_len = 524288
+batch_size = 8
+micro_batch_size = 1
+pack_function = "fixed_stack"
+shuffle = true
+seed = 3
+
+[optim]
+lr = 1e-5
+
+[scheduler]
+type = "linear"
+warmup_steps = 5
+decay_steps = 0
+
+[deployment]
+type = "multi_node"
+num_nodes = 8
+gpus_per_node = 4
+
+[slurm]
+job_name = "sft-nemo-targeted-v2-512k"
+partition = "g3"
+account = "ram"
+time = "24:00:00"
+exclude = "g3-130-069,g3-137-[003,005,007,009,011,013,015,017]"  # known GPU/NVLink Xid nodes (from the GLM-5.2 GB300 recipe) that still exist
+project_dir = "/storage/home/tianhaowu/prime-nemotron-sft-512k"
+template_path = "/storage/home/tianhaowu/prime-nemotron-sft-512k/user/tianhaowu/nemotron_tb4_sandoq/sft/multi_node_sft_g3.sbatch.j2"
+sync_environment = false
+pre_run_command = "export SFT_VENV=/storage/home/tianhaowu/.venvs/prime-nemotron-sft-gb300"
+
+[ckpt]
+# HF weights (streamed layer by layer) every 2 epochs (61 steps): 61, 122, 183, 244, 305; all kept.
+interval = 61
+weights_only = true
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+
+[wandb]
+project = "nemotron-sft-gb300"
+name = "glm53flash-targeted-v2-244-512k-cp4-8node-lr1e5-10ep"
+offline = true

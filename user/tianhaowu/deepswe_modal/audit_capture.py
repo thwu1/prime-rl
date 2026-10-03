@@ -11,6 +11,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--inference-job-id", required=True)
     parser.add_argument("--latest-dir", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--truncate-history-thinking", action="store_true")
     return parser.parse_args()
 
 
@@ -24,6 +25,7 @@ def main() -> None:
         latest_dir,
         driver_dir / "request_capture.jsonl",
         output_path,
+        truncate_history_thinking=args.truncate_history_thinking,
     )
     print(f"Thinking trajectory audit passed: {output_path}", flush=True)
 
