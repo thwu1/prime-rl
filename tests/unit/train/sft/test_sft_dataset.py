@@ -570,3 +570,26 @@ def test_messages_take_precedence_over_prompt_and_completion():
     )
 
     assert next(iter(messages_dataset)) == next(iter(expected_dataset))
+
+
+def test_cat_whole_never_splits_samples():
+    def sample(sample_id, length):
+        return {
+            "input_ids": [sample_id] * length,
+            "target_ids": [sample_id] * length,
+            "loss_mask": [True] * length,
+            "position_ids": list(range(length)),
+        }
+
+    lengths = [4, 3, 5, 12, 2, 6]  # 12 > seq_len is skipped
+    rows = list(sft_data.CatWholeDataset([sample(i + 1, n) for i, n in enumerate(lengths)], seq_len=10))
+
+    assert [len(row["input_ids"]) for row in rows] == [10, 10]
+    assert rows[0]["input_ids"] == [1] * 4 + [2] * 3 + [0] * 3
+    assert rows[0]["loss_mask"] == [True] * 7 + [False] * 3
+    assert rows[0]["position_ids"] == [0, 1, 2, 3, 0, 1, 2, 3, 4, 5]
+    assert rows[1]["input_ids"] == [3] * 5 + [5] * 2 + [0] * 3
+    # Every emitted sample is complete; the trailing partial row (sample 6) waits for more data.
+    for row in rows:
+        ids = [i for i, m in zip(row["input_ids"], row["loss_mask"]) if m]
+        assert all(ids.count(i) == lengths[i - 1] for i in set(ids))

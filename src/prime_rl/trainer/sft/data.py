@@ -418,6 +418,50 @@ class CatDataset(StatefulIterableDataset):
                 packed_samples, seq_len = defaultdict(list), 0
 
 
+class CatWholeDataset(StatefulIterableDataset):
+    """Concatenate whole samples into fixed-length rows without ever truncating one.
+
+    A sample that does not fit in the current row starts the next row instead; the current row is
+    padded to ``seq_len``. Samples longer than ``seq_len`` are skipped rather than trained on in part.
+    """
+
+    def __init__(self, dataset: StatefulIterableDataset, seq_len: int):
+        self.logger = get_logger()
+        self.dataset = dataset
+        self.seq_len = seq_len
+
+    def state_dict(self) -> dict:
+        return {"dataset": self.dataset.state_dict()}
+
+    def load_state_dict(self, state_dict: dict):
+        self.dataset.load_state_dict(state_dict["dataset"])
+
+    def _pad(self, row: dict[str, list]) -> dict[str, list]:
+        pad_len = self.seq_len - len(row["input_ids"])
+        for key, value in row.items():
+            if key == "position_ids":
+                start = value[-1] + 1
+                value.extend(range(start, start + pad_len))
+            else:
+                value.extend([False if key == "loss_mask" else 0.0 if key == "loss_weight" else 0] * pad_len)
+        return row
+
+    def __iter__(self):
+        row, row_len = defaultdict(list), 0
+        for sample in self.dataset:
+            sample_len = len(sample["input_ids"])
+            if sample_len > self.seq_len:
+                self.logger.warning(f"Skipping sample of {sample_len} tokens (longer than seq_len={self.seq_len})")
+                continue
+            if row_len + sample_len > self.seq_len:
+                yield self._pad(row)
+                row, row_len = defaultdict(list), 0
+            for key, value in sample.items():
+                assert isinstance(value, list), f"Value for key {key} must be a list"
+                row[key].extend(value)
+            row_len += sample_len
+
+
 class StackDataset(StatefulIterableDataset):
     """A dataset that stacks samples into batch with a fixed area"""
 
@@ -709,6 +753,9 @@ def setup_dataloader(dataset: StatefulIterableDataset, config: DataConfig) -> St
         return StatefulDataLoader(stacking_dataset, batch_size=1, collate_fn=stack_collate)
     elif config.pack_function == "cat":
         packing_dataset = CatDataset(dataset, config.seq_len * config.micro_batch_size)
+        return StatefulDataLoader(packing_dataset, batch_size=1, collate_fn=cat_collate)
+    elif config.pack_function == "cat_whole":
+        packing_dataset = CatWholeDataset(dataset, config.seq_len * config.micro_batch_size)
         return StatefulDataLoader(packing_dataset, batch_size=1, collate_fn=cat_collate)
     else:
         raise ValueError(f"Invalid pack function: {config.pack_function}")

@@ -32,8 +32,8 @@ class BaseDataConfig(BaseConfig):
     seq_len: int = Field(128, ge=1)
     """Sequence length."""
 
-    pack_function: Literal["cat", "stack", "fixed_stack"] = "cat"
-    """Sample packing strategy. ``cat`` concatenates, ``stack`` packs a fixed token area, and ``fixed_stack`` pads or truncates exactly ``micro_batch_size`` examples to ``seq_len``."""
+    pack_function: Literal["cat", "cat_whole", "stack", "fixed_stack"] = "cat"
+    """Sample packing strategy. ``cat`` concatenates and truncates the sample that crosses the row boundary, ``cat_whole`` concatenates whole samples only (a sample that does not fit starts the next row; samples longer than ``seq_len`` are skipped), ``stack`` packs a fixed token area, and ``fixed_stack`` pads or truncates exactly ``micro_batch_size`` examples to ``seq_len``."""
 
     micro_batch_size: int = Field(1, ge=1)
     """Per-step micro batch size. ``batch_size`` must be divisible by this."""
@@ -296,11 +296,13 @@ class SFTConfig(BaseConfig):
     @model_validator(mode="after")
     def validate_pack_function(self):
         if self.model.cp > 1:
-            supported_pack_functions = {"cat", "fixed_stack"}
+            supported_pack_functions = {"cat", "cat_whole", "fixed_stack"}
             if self.data.pack_function not in supported_pack_functions:
-                raise ValueError("Packing function must be 'cat' or 'fixed_stack' when CP is enabled")
+                raise ValueError("Packing function must be 'cat', 'cat_whole' or 'fixed_stack' when CP is enabled")
             if self.val is not None and self.val.data.pack_function not in supported_pack_functions:
-                raise ValueError("Validation packing function must be 'cat' or 'fixed_stack' when CP is enabled")
+                raise ValueError(
+                    "Validation packing function must be 'cat', 'cat_whole' or 'fixed_stack' when CP is enabled"
+                )
         return self
 
     @model_validator(mode="after")
