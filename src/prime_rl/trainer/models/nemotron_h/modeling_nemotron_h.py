@@ -23,6 +23,7 @@ from prime_rl.trainer.models.layers.cp_mamba import mamba_cp_forward
 from prime_rl.trainer.models.layers.lm_head import PrimeLmOutput
 from prime_rl.trainer.models.layers.moe import LatentMoE, NemotronHRouter, NonGatedGroupedExperts
 from prime_rl.trainer.models.layers.rms_norm import RMSNorm, RMSNormConfig
+from prime_rl.trainer.models.layers.ulysses_attn import ULYSSES_PARAMS
 from prime_rl.trainer.models.nemotron_h.configuration_nemotron_h import NemotronHConfig
 from prime_rl.trainer.models.nemotron_h.converting_nemotron_h import (
     convert_hf_layer_to_prime,
@@ -229,9 +230,15 @@ class NemotronHMambaLayer(GradientCheckpointingLayer):
         hidden_states = self.norm(hidden_states)
 
         if self.cp_enabled:
-            # TODO: This path doesnt support cu_seqlens so packing makes it wrong
+            # The local cu_seqlens describe this rank's shard; the Mamba all-to-all
+            # reassembles the full sequence, so it needs the full-sequence boundaries.
             hidden_states = mamba_cp_forward(
-                self.mamba, hidden_states, self._cp_group, self._cp_rank, self._cp_world_size
+                self.mamba,
+                hidden_states,
+                self._cp_group,
+                self._cp_rank,
+                self._cp_world_size,
+                cu_seqlens=ULYSSES_PARAMS["cu_seqlens"],
             )
         else:
             hidden_states = self.mamba(hidden_states, cu_seqlens=cu_seqlens)
@@ -587,7 +594,12 @@ class NemotronHForCausalLM(NemotronHPreTrainedModel, GenerationMixin):
         )
 
     def init_buffers_post_meta(self):
-        pass
+        # MoE routing statistics are non-persistent, so to_empty() leaves them uninitialized.
+        for layer in self.model.layers:
+            mlp = getattr(layer, "mlp", None)
+            if mlp is not None and hasattr(mlp, "tokens_per_expert"):
+                mlp.tokens_per_expert.zero_()
+                mlp.routing_confidence_sum.zero_()
 
 
 __all__ = [

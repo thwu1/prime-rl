@@ -9,6 +9,93 @@ The workflow lives in `user/tianhaowu/deepswe_modal/`. The inference server is
 a separate GPU job; all oracle, smoke, full-eval, gateway, and validation
 drivers must run on the CPU partition.
 
+## Quick start: MiniSWE evaluation
+
+Use the checked-in config for the target provider and model. For the normal
+Nemotron Super evaluation on VMVM, update `inference_job_id` in
+`user/tianhaowu/deepswe_modal/nemotron_super_deepswe_vmvm.toml` to the active
+inference job. Also verify that `model` exactly matches `/v1/models`.
+
+Validate the TOML and rendered Pier config without launching anything:
+
+```bash
+uv run --no-sync python user/tianhaowu/deepswe_modal/submit_eval.py \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_vmvm.toml --dry-run
+```
+
+Launch the evaluator as a CPU Slurm job:
+
+```bash
+sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
+  user/tianhaowu/deepswe_modal/nemotron_super_deepswe_vmvm.toml
+```
+
+Do not run a full evaluator on the login node. The model remains in its
+separate GPU inference job. Slurm writes the driver log to
+`/checkpoint/ram/tianhaowu/deepswe_eval/driver_JOB_ID.log`; Pier results live
+under `/checkpoint/ram/tianhaowu/deepswe_eval/jobs/`.
+
+### Model choices
+
+| Model or deployment | TOML changes |
+| --- | --- |
+| Nemotron Super on a private prime-rl inference job | Set `inference_job_id` and the exact model ID returned by `/v1/models`. Keep `thinking.preserve_previous = true` for the normal full-history evaluation. |
+| Nemotron history-truncation ablation | Set `thinking.preserve_previous = false`. This removes prior reasoning from the rendered prompt while keeping current-turn thinking enabled. |
+| Kimi-K2.6 on shared `serve_api_v2` | Remove `inference_job_id`; set `upstream_info_path`, `render_endpoints_path`, and `upstream_session_header = "x-litellm-session-id"`. Use Kimi's thinking kwargs and the doubled timeouts from `kimi_k26_deepswe_vmvm.toml`. |
+| Another reasoning-capable model | Set its exact served model ID and model-specific `[thinking.template_kwargs]`. Confirm the inference job has compatible reasoning and tool-call parsers, then require the live thinking preflight to pass before a full run. |
+
+Use `nemotron_super_deepswe_modal.toml`,
+`nemotron_super_deepswe_vmvm.toml`, or
+`nemotron_super_deepswe_sandoq.toml` for the corresponding provider. Use
+`nemotron_super_deepswe_vmvm_truncate_history.toml` for the history ablation and
+`kimi_k26_deepswe_vmvm.toml` for the shared Kimi deployment. The full-eval
+default is 113 concurrent trials on a four-node inference deployment; the
+oracle gate may use 64. Keep
+`mini_swe.timeout_sec` at three hours and `sandbox_timeout_sec` at four hours
+for VMVM/Sandoq unless a model such as Kimi needs the documented 2x limits.
+
+The standalone OpenHands SDK alternative lives in
+`user/tianhaowu/deepswe_openhands/`. Do not add OpenHands conditionals to the
+MiniSWE launcher. Its own sbatch launcher, TOML renderer, Pier agent, prompt,
+runner, ATIF conversion, and logs are isolated there; it reuses only the stable
+provider/runtime and request-capture boundaries.
+
+Run its VMVM smoke before a full evaluation:
+
+```bash
+sbatch user/tianhaowu/deepswe_openhands/submit_eval.sbatch \
+  user/tianhaowu/deepswe_openhands/nemotron_super_deepswe_vmvm_smoke.toml
+sbatch user/tianhaowu/deepswe_openhands/submit_eval.sbatch \
+  user/tianhaowu/deepswe_openhands/nemotron_super_deepswe_vmvm.toml
+```
+
+OpenHands is pinned inside the task sandbox, uses TerminalTool plus
+FileEditorTool, disables condensation, and defaults to 200 iterations with a
+three-hour Pier timeout. OpenHands 1.42.1 does not classify the private gateway
+alias as an interleaved-thinking model, so the runner explicitly enables its
+reasoning-history serializer only when `thinking.preserve_previous=true`.
+For the no-preserve mode it verifies that the serializer omits a synthetic
+prior reasoning message before the first live request. The normal
+capture/render audit remains the independent proof for actual requests. Inspect `serializer-contract.json`,
+`openhands-events.json`, `openhands-trajectory.json`, and Pier's ATIF
+`trajectory.json` in each trial's `agent/` directory.
+The no-preserve capture audit requires every outbound prior-assistant reasoning
+count and reasoning-alias normalization count to remain zero; preserve mode
+retains the stricter exact-prefix invariant.
+Its launcher maps `sandbox_startup_timeout_sec` to Pier's environment-build
+timeout multiplier in the same way as the MiniSWE launcher.
+After OpenHands exhausts its internal LLM retries, its adapter classifies only
+explicit API transport/service failures as `SandboxError` for a whole-trial
+retry; other nonzero exits remain evaluation outcomes.
+Match LiteLLM's wrapped gateway failures as well as HTTP reason phrases; its
+`BadGatewayError: Error code: 502 ... Connection refused` wording does not
+necessarily contain the literal `502 Bad Gateway` string.
+
+Keep `top_k` in `LLM.litellm_extra_body`, not the SDK's top-level `top_k`
+field. OpenHands types the top-level field as a float, while the prime-rl vLLM
+endpoint validates `top_k` as an integer and otherwise returns HTTP 422 before
+the first model token.
+
 ## Launch from TOML
 
 Use the explicit full-eval TOML for the selected provider:
@@ -22,7 +109,7 @@ sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch \
   user/tianhaowu/deepswe_modal/nemotron_super_deepswe_sandoq.toml
 ```
 
-The three production configs use concurrency 32, six infrastructure-only
+The three production configs use concurrency 113, six infrastructure-only
 retries, 200 turns, a three-hour agent timeout, a four-hour sandbox/session
 ceiling, a one-hour startup ceiling, a 4x verifier timeout, and full-history
 thinking. Change only `inference_job_id` for a new inference deployment.
@@ -35,6 +122,27 @@ uv run --no-sync python user/tianhaowu/deepswe_modal/submit_eval.py \
   user/tianhaowu/deepswe_modal/nemotron_super_deepswe_vmvm.toml --dry-run
 ```
 
+For a shared `ram_common/vllm_tools/serve_api_v2` deployment, replace
+`inference_job_id` with `upstream_info_path`, point `render_endpoints_path` at
+the deployment's direct worker endpoint directory, and set the proxy's sticky
+header through `upstream_session_header`. The driver reads the upstream API key
+from `proxy_info.json` without copying it into the eval TOML, sends model traffic
+through the normal capture/gateway path, and uses a live direct worker only for
+the render audit. Kimi-K2.6 requires these thinking kwargs:
+
+```toml
+[thinking]
+enabled = true
+preserve_previous = true
+
+[thinking.template_kwargs]
+thinking = true
+preserve_thinking = true
+```
+
+Use `x-litellm-session-id` as the upstream session header for the shared Kimi
+LiteLLM proxy so each task remains sticky to one vLLM replica.
+
 Override the TOML selection with `--provider vmvm`. Modal uses Pier's native
 environment. VMVM and Sandoq use `PierRuntimeEnvironment`, which adapts the
 Verifiers v1 Runtime contract and materializes DeepSWE verifier Dockerfiles in
@@ -44,11 +152,13 @@ separate-verifier mode does not retain them, because their task images are
 registry-backed and keeping every completed agent sandbox would exhaust provider
 capacity.
 
-The checked-in full-eval configs use 32 concurrent trials. The oracle launcher
-defaults to 64. Full evals and oracles use up to six whole-trial retries for
-transient provider provisioning failures. Both launchers propagate the requested concurrency to
-`VACLI_MAX_CONCURRENT_LEASES` or `OCI_RUNNER_POOL_SIZE`, so the runtime pool does
-not silently retain its smaller standalone-smoke default.
+The checked-in full-eval configs use 113 concurrent trials with four inference
+replicas. The oracle launcher defaults to 64. Full evals and oracles use up to
+six whole-trial retries for transient provider provisioning failures. Sandoq
+propagates the requested concurrency to `OCI_RUNNER_POOL_SIZE`. VMVM allows all
+trials to remain active but caps simultaneous lease acquisition at 32 by
+default; set `VACLI_MAX_CONCURRENT_LEASES` explicitly to override that startup
+fanout.
 Set `[mini_swe].step_limit` to bound agent turns and
 `[mini_swe].timeout_sec` to bound agent wall time. Set the top-level
 `sandbox_timeout_sec` at least as high as the agent timeout, with headroom, for
@@ -66,10 +176,25 @@ slower remote execution can finish each task's verifier without changing the
 tests or reward logic.
 Set `sandbox_startup_timeout_sec` separately for VMVM image pulls and Sandoq OCI
 image/bootstrap setup; the checked-in full eval uses one hour.
+The launcher also converts this value into Pier's environment-build and agent-
+setup timeout multipliers against DeepSWE's 1800-second task default and Pier's
+360-second setup default. This prevents an outer Pier watchdog from cancelling
+provider startup or package installation before the configured sandbox startup
+ceiling is reached.
 Whole-trial retries are restricted to `SandboxError`,
 `EnvironmentStartTimeoutError`, and `AgentSetupTimeoutError`. Do not broaden
 that allowlist to agent execution, verifier, reward, or parsing failures; those
 are evaluation outcomes and rerolling them would resample the model.
+The DeepSWE MiniSWE adapter inspects a nonzero agent trajectory before applying
+that rule. If MiniSWE exhausted its own request retries and the trajectory
+explicitly contains a transient API transport/service failure, the adapter
+raises `SandboxError` so the rollout can retry. Other nonzero agent exits remain
+evaluation outcomes.
+For VMVM, the DeepSWE Pier environment first handles command-level connection
+drops in place using VMVM-TB-v2's existing `restart_session()` and
+`recover_last()` methods. This preserves the same container, filesystem, shell
+state, and exactly-once command result without changing either provider's public
+Runtime contract. Only failed recovery becomes a whole-trial `SandboxError`.
 The Runtime adapter classifies a failed agent installation command as
 `SandboxError`, so transient package-index and mirror failures retry the whole
 trial instead of becoming a terminal missing score.
@@ -121,6 +246,15 @@ The TOML launcher renders them to:
 {"enable_thinking": true, "truncate_history_thinking": false}
 ```
 
+For an explicit default-template ablation, set `preserve_previous = false`.
+This keeps current-turn thinking enabled while rendering
+`truncate_history_thinking=true`. Use
+`nemotron_super_deepswe_vmvm_truncate_history.toml`; its preflight requires both
+prior reasoning blocks to be absent from the live turn-3 rendered prompt while
+still verifying that MiniSWE forwarded them unchanged. Its terminal audit uses
+the same expectation. When rerunning that audit manually, pass
+`--truncate-history-thinking` to `audit_capture.sbatch`.
+
 `preserve_all_thinking` is not consumed by the deployed Nemotron Hugging Face
 chat template. vLLM filters undeclared template kwargs, and Nemotron defaults
 `truncate_history_thinking` to true, which removes reasoning before the latest
@@ -148,8 +282,29 @@ through the live vLLM chat renderer. Inspect `request_capture.jsonl`,
 `latest_requests/`, and `thinking_trajectory_audit.json` in the driver job
 directory. Both the summaries and latest requests are checkpoint-backed, and a
 Slurm-requeued CPU driver restores its request counters, attempts, and latest
-reasoning hashes before resuming Pier. Do not move capture state back to local
-`/tmp`; a node requeue would make the final audit incomplete.
+reasoning hashes before resuming Pier. An unfinished Pier `result.json` must use
+`pier job resume --job-path`; running `pier run` again with the same job name does
+not recover its pending trials. Shared `serve_api_v2` deployments validate the
+model through a direct render worker because a saturated LiteLLM proxy can keep
+serving chat completions while its `/v1/models` and health handlers are blocked.
+The live MiniSWE thinking preflight remains the end-to-end proxy readiness gate.
+Do not move capture state back to local `/tmp`; a node requeue would make the
+final audit incomplete.
+After a terminal Slurm node failure, confirm that no writer remains and resume
+the existing Pier directory from a fresh CPU allocation with:
+
+```bash
+sbatch user/tianhaowu/deepswe_modal/submit_eval.sbatch CONFIG.toml \
+  --resume-job-id ORIGINAL_SLURM_JOB_ID
+```
+
+This re-registers the original gateway model alias and uses the saved
+`config.json`, allowing Pier to retain completed trials and rerun only missing
+ones. It refuses active source allocations and already-terminal Pier jobs.
+Pier deletes a result-less trial directory before recreating that missing trial.
+Copy any partial trajectory, submission record, and patch to a separate
+provenance directory before submitting the resume if those interrupted
+artifacts must be retained for diagnosis.
 Run this audit for every terminal Pier aggregate. Benchmark-level errored trials
 are valid scored outcomes and must not suppress the independent thinking audit;
 only an unfinished, running, pending, or cancelled aggregate blocks it.
@@ -212,7 +367,10 @@ At the native boundary, the next preserved prompt may itself render above
 terminal limit, records `accepted_exit_status=ContextWindowExceeded`, and
 commits the current patch. The capture audit records those 400 responses under
 `context_limit_events` and renders the last successful request; it still fails
-on every other HTTP error or any missing/reordered reasoning.
+on every other HTTP error or any missing/reordered reasoning. Recognize both
+direct-vLLM wording (`exceeds the model's maximum context length`) and LiteLLM's
+wrapped wording (`maximum context length is ... requested ...`) when validating
+that terminal condition.
 
 ## Oracle gate
 

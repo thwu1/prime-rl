@@ -1,0 +1,31 @@
+apiVersion: sandoq.io/v1alpha1
+kind: Environment
+metadata:
+  name: ram-prime-rl-sandbox           # DNS-1123 (hyphens); team-prefixed; unique across ALL namespaces; <=63 chars
+                                        # (this is the name it is DEPLOYED under on eks-prod)
+  namespace: default                    # confirm with the sandoq oncall; the fbcode path also encodes cluster+ns
+  annotations:
+    sandoq.io/oncall: autobenchmark
+    # Uncomment ONLY if an env must pip/apt/fetch at runtime (breaks RL determinism; opens external egress):
+    # terminal-bench.io/allow-internet: "true"
+spec:
+  # Warm pool: ~one pod per concurrent rollout. min ~= steady-state, max ~= peak concurrency.
+  # On sustained HTTP 429s (POOL_STARVATION) from create-session, raise both.
+  minReplicas: 8
+  maxReplicas: 256
+  template:
+    containers:
+    - name: environment                 # controller renames containers[0] to "environment" anyway
+      # Must be byte-for-byte the tag you build+push from Dockerfile.prime-rl-sandbox (see build-and-push.md).
+      image: 588845226011.dkr.ecr.us-east-2.amazonaws.com/msl_infra/ram/prime-rl-sandbox:v1
+      workingDir: /sandbox-workspace
+      ports:
+      - { containerPort: 8000, name: exec,     protocol: TCP }   # -> portUrls.exec (structured JSON API; the shim uses this)
+      - { containerPort: 7681, name: terminal, protocol: TCP }   # -> portUrls.terminal (ttyd; human debugging, optional)
+      readinessProbe:                    # only pool a pod once the exec API is up (else create-session 429s forever)
+        httpGet: { path: /healthz, port: 8000 }
+        initialDelaySeconds: 1
+        periodSeconds: 2
+      resources:                         # starting point — tune to rollout size / code_env parallelism
+        requests: { cpu: "2", memory: 4Gi, ephemeral-storage: 10Gi }
+        limits:   { cpu: "4", memory: 8Gi, ephemeral-storage: 20Gi }

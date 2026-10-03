@@ -1,0 +1,16 @@
+{
+	admin off
+	auto_https off
+}
+
+:{$RELAY_LOCAL_PORT} {
+	@authorized header Authorization "Bearer {$OPENAI_API_KEY}"
+
+	handle @authorized {
+		reverse_proxy {$NEMOTRON_ROUTER} {
+			header_up Host {upstream_hostport}
+		}
+	}
+
+	respond "Unauthorized" 401
+}

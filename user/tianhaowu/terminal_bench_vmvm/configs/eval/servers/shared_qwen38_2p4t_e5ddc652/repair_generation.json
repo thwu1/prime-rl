@@ -1,0 +1,66 @@
+{
+  "kind": "qwen-direct-repair-serving-generation-contract",
+  "model": "Qwen3.8-2.4T-A95B",
+  "repair": {
+    "approved_task_count": 2500,
+    "missing_or_errored_count": 1151,
+    "repair_union_count": 1233,
+    "strict_invalid_pass_count": 82
+  },
+  "routing": {
+    "capacity_smoke_requests": 96,
+    "max_concurrent_requests": 48,
+    "policy": "consistent_hash",
+    "queue_size": 48,
+    "request_id_headers": [
+      "x-session-id"
+    ],
+    "rollout_concurrency": 96,
+    "vmvm_lease_concurrency": 4
+  },
+  "schema_version": 1,
+  "server_identifier": "shared_qwen38_2p4t_e5ddc652",
+  "source_generation": {
+    "canonical_path": "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/evals/mobius_qwen_a95b_2500_c64_consistent_hash_cap32_5bf11035_epoch3",
+    "artifacts": {
+      "config.toml": {
+        "sha256": "b74832ba6b3684a8b814de41e374033a1d1b32ddb758966b96a95673a88685bd",
+        "size_bytes": 3018
+      },
+      "direct_workers.json": {
+        "sha256": "33c7f847272272782666c883d26b18617e13f8ef50888508927c3ec313b91ee9",
+        "size_bytes": 4824
+      },
+      "inputs/manifest.json": {
+        "sha256": "0fce4170e588cb91b55bb7240730821a8e6911e91e993fbb095fb20dfcc723f9",
+        "size_bytes": 1266
+      },
+      "inputs/source_config.toml": {
+        "sha256": "708ce4d941404ae17092e01e24779c0a056f45c92a5f8d26636a36b81624d9ef",
+        "size_bytes": 2320
+      },
+      "provenance.txt": {
+        "sha256": "11ef2ad07822658815cf87d653f5738b3c8e29c335ddb1fc43dbdd6a6a3a0161",
+        "size_bytes": 1899
+      },
+      "results.jsonl": {
+        "sha256": "4b4221826019fc7e0615393246e05620b605b3c19a2be35f26afb8adc085a641",
+        "size_bytes": 1639982734
+      }
+    },
+    "endpoint_bundle_sha256": "77b513b09002201df0464586e0ac69932348f7fcdbe298213e910be74275160b",
+    "results_row_count": 1392,
+    "routing_epoch": 3,
+    "spec_sha256": "516c386c646abda61b73ffe2b2a820c38a826e2311327154cd775ed29e60215a",
+    "worker_count": 16
+  },
+  "target_generation": {
+    "deployment_root": "/checkpoint/ram/shared/vllm_deployments_v2/shared_qwen38_2p4t",
+    "endpoint_bundle_sha256": "db0095649feda5d1c8ea66a434c6486a6c91d6b4519664701a26dab44c7a83a0",
+    "expected_added_workers": 9,
+    "expected_overlap_workers": 15,
+    "expected_retired_workers": 1,
+    "spec_sha256": "e5ddc652b1e3dbb99ed65b44b276cf9d9b8ae866b5a4471db42cf0c732a64007",
+    "worker_count": 24
+  }
+}

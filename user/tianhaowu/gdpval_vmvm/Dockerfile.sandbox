@@ -1,0 +1,133 @@
+# Derived from NVIDIA NeMo Gym's GDPval Apptainer definition at:
+# https://github.com/NVIDIA-NeMo/Gym/blob/57c15a22f8b82d3d859b71468fe3329f4e2093b4/responses_api_agents/stirrup_agent/containers/gdpval.def
+FROM python:3.13-bookworm@sha256:62eafe52c91cad83c2c74e630bfde917da8c253673e695665d454def84fc9a13
+
+LABEL org.opencontainers.image.title="GDPval AA sandbox" \
+      org.opencontainers.image.description="Docker translation of the pinned NVIDIA NeMo Gym GDPval sandbox" \
+      org.opencontainers.image.source="https://github.com/NVIDIA-NeMo/Gym/blob/57c15a22f8b82d3d859b71468fe3329f4e2093b4/responses_api_agents/stirrup_agent/containers/gdpval.def" \
+      org.opencontainers.image.revision="57c15a22f8b82d3d859b71468fe3329f4e2093b4" \
+      org.opencontainers.image.base.name="docker.io/library/python:3.13-bookworm" \
+      org.opencontainers.image.base.digest="sha256:0a8602b4fbafe6dd46993ae2f94dbb673d8c9c534100e77641973c43f8469cf0" \
+      ai.docker.base-index.digest="sha256:62eafe52c91cad83c2c74e630bfde917da8c253673e695665d454def84fc9a13" \
+      ai.nvidia.gym.gdpval-definition-sha256="66273c6372fc5bf51b61bde99ada6e1f0f87e4df637e149039170a13aefa7283"
+
+ENV HOME=/root \
+    PATH=/usr/local/bin:${PATH} \
+    DEBIAN_FRONTEND=noninteractive
+
+RUN set -eux; \
+    echo 'APT::Sandbox::User "root";' > /etc/apt/apt.conf.d/99-disable-sandbox; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        git \
+        build-essential \
+        gcc \
+        g++ \
+        cmake \
+        swig \
+        pkg-config \
+        make \
+        coreutils \
+        libpango1.0-dev \
+        libcairo2-dev \
+        libgdk-pixbuf2.0-dev \
+        libreoffice-core \
+        libreoffice-writer \
+        libreoffice-calc \
+        libreoffice-impress \
+        fonts-dejavu-core \
+        fonts-liberation \
+        tesseract-ocr \
+        pandoc \
+        poppler-utils \
+        ghostscript \
+        ffmpeg \
+        graphviz \
+        imagemagick \
+        chromium \
+        jq \
+        texlive-latex-base \
+        texlive-latex-recommended \
+        texlive-latex-extra \
+        texlive-fonts-recommended \
+        texlive-fonts-extra \
+        texlive-xetex \
+        texlive-luatex \
+        texlive-pictures \
+        texlive-science \
+        texlive-plain-generic \
+        texlive-pstricks \
+        texlive-lang-greek \
+        latexmk \
+        biber \
+        default-jre-headless \
+        gdal-bin \
+        libgdal-dev \
+        proj-bin \
+        libproj-dev \
+        libgeos-dev \
+        libgl1 \
+        libglib2.0-0 \
+        libsndfile1 \
+        espeak-ng \
+        libzbar0 \
+        unzip \
+        unar \
+        curl \
+        wget; \
+    command -v libreoffice; \
+    command -v tesseract; \
+    command -v pandoc; \
+    command -v pdftotext; \
+    command -v gs; \
+    command -v ffmpeg; \
+    command -v dot; \
+    command -v convert; \
+    command -v pdflatex; \
+    command -v xelatex; \
+    command -v lualatex; \
+    command -v latexmk; \
+    command -v biber; \
+    command -v java; \
+    command -v gdalinfo; \
+    command -v jq; \
+    command -v unzip; \
+    command -v chromium || command -v chromium-browser; \
+    kpsewhich tikz.sty; \
+    kpsewhich siunitx.sty; \
+    kpsewhich pst-plot.sty; \
+    python -m pip install --no-cache-dir --upgrade pip; \
+    python -m pip install --no-cache-dir \
+        jupyterlab notebook jupyter-server \
+        aiohttp hypercorn fastapi websockets pydantic gradio \
+        numpy numpy-financial scipy pandas polars duckdb pyarrow xarray \
+        matplotlib matplotlib-venn seaborn plotly plotnine bokeh \
+        statsmodels scikit-learn scikit-image xgboost catboost lightgbm imbalanced-learn shap \
+        nltk gensim spacy textblob onnxruntime \
+        opencv-python Pillow pytesseract qrcode pyzbar playwright \
+        ffmpeg-python pydub moviepy av soundfile librosa mutagen gtts pyttsx3 pedalboard pyloudnorm mne SpeechRecognition \
+        python-docx python-pptx openpyxl xlrd xlsxwriter pymupdf pdf2image pdfplumber pypandoc docx2txt odfpy pyxlsb tabula-py camelot-py \
+        mammoth markitdown magika \
+        fpdf2 reportlab weasyprint pdfrw pypdf pypdfium2 pdfminer.six scour \
+        graphviz pydot networkx svgwrite svglib cairosvg trimesh wordcloud \
+        shapely fiona geopandas geopy rasterio contextily folium \
+        sympy pymc casadi h5py tables \
+        rdkit biopython ezdxf \
+        markdownify anytree rarfile chardet srt youtube-transcript-api \
+        tqdm tabulate faker loguru rapidfuzz einops pycountry countryinfo pronouncing exchange-calendars \
+        nashpy rdflib \
+        cryptography pyopenssl requests httpx \
+        boto3 azure-ai-documentintelligence azure-identity \
+        snowflake-connector-python databricks-sql-connector \
+        pytest pytest-cov pytest-json-report coverage pytest-asyncio ddtrace datadog \
+        beautifulsoup4 lxml typing-extensions; \
+    python -m pip install --no-cache-dir \
+        cadquery cadquery-ocp aspose-words kerykeion nlopt \
+        || echo '[gdpval.def] some architecture-specific extras were skipped'; \
+    python -c 'import importlib; modules = ["numpy", "pandas", "polars", "scipy", "matplotlib", "plotly", "sklearn", "docx", "pptx", "openpyxl", "fitz", "pdfplumber", "reportlab", "weasyprint", "PIL", "cv2", "playwright"]; [importlib.import_module(module) for module in modules]; print("[gdpval.def] AA python import smoke check OK")'; \
+    mkdir -p /workspace; \
+    apt-get clean; \
+    rm -rf /var/lib/apt/lists/* /root/.cache/pip
+
+WORKDIR /workspace
+CMD ["/bin/bash"]

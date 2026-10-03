@@ -1,0 +1,23 @@
+output_dir = "/checkpoint/ram/tianhaowu/toolathlon_vmvm/nemotron_super_sft_toolathlon_step200_inference_4node_262k_h100_v3"
+gpu_memory_utilization = 0.90
+
+[model]
+name = "/checkpoint/ram/tianhaowu/sft_nemotron/outputs/nemotron-super-120b-toolathlon-v1-102144-cp1-ep8-fsdp-offload-expert-loop-fullmem-lr1e5-310steps-5epochs-seed3/weights/step_200"
+max_model_len = 262144
+tool_call_parser = "qwen3_xml"
+reasoning_parser = "nemotron_v3"
+
+[parallel]
+tp = 8
+
+[server]
+port = 8000
+
+[vllm_extra]
+language_model_only = true
+gdn_prefill_backend = "triton"
+enable_prefix_caching = true
+mamba_ssm_cache_dtype = "float32"
+served_model_name = ["nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"]
+hf_config_path = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+tokenizer = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"

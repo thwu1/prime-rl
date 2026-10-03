@@ -626,7 +626,11 @@ def get_model(
 
 def setup_tokenizer(config: TokenizerConfig) -> PreTrainedTokenizer:
     logger = get_logger()
-    tokenizer = AutoTokenizer.from_pretrained(config.name, trust_remote_code=config.trust_remote_code)
+    tokenizer = AutoTokenizer.from_pretrained(
+        config.name,
+        revision=config.revision,
+        trust_remote_code=config.trust_remote_code,
+    )
     if config.chat_template is not None:
         path = Path(config.chat_template)
         if path.is_file():
