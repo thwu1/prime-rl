@@ -204,10 +204,10 @@ Overfit validation (same data/LR/batch of 8 rows, 10 epochs; trained19 x4 at 524
 | run | packing | optimizer steps | eval |
 |---|---|---|---|
 | `sft512k-trained19-x4-ctx512k-v2-1628061` | fixed_stack | 218 | 11/75, pass@4 4/19 |
-| `sft512k-cat-trained19-x4-ctx512k-s48-1697501` | cat | 48 | partial: embedding 2/4, batched 1/4, shadow 1/4 |
-| `sft512k-catwhole-trained19-x4-ctx512k-s57-1698542` | cat_whole | 57 | partial: embedding-drift-monitor 4/4 |
+| `sft512k-cat-trained19-x4-ctx512k-s48-1697501` (+ top-ups) | cat | 48 | 6/76, pass@4 4/19 (embedding 2, mvcc 2, batched 1, shadow 1) |
+| `sft512k-catwhole-trained19-x4-ctx512k-s57-1698542` | cat_whole | 57 | 8/76, pass@4 4/19 (embedding 4, shadow 2, mvcc 1, react-lead-form 1) |
 
-The packed runs take ~4x fewer, larger optimizer steps at the same LR (final loss ~0.3 vs ~0.009), so
+Both packed runs match the original pass@4 with ~4x less training time. They take ~4x fewer, larger optimizer steps at the same LR (final loss ~0.3 vs ~0.009), so
 memorization-heavy tasks can trail without packing being wrong.
 
 ## Serving
