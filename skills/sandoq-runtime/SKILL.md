@@ -418,4 +418,4 @@ restart kills the rotator; after expiry every sandbox is poisoned with `initiali
 seconds after `ecr_credential_vended`, and rollouts end `SandboxError` "provisioning failed after
 2 attempts" with no further error text (verifiers raises `from None`). Check
 `expires_at_unix` in `~/.config/oci-runner/ecr-rotation.state.json`; restart the rotator with a new
-`--event-log` file (reusing one fails with `event_log_requires_fresh_namespace`).
+`--event-log` file (reusing one fails with `event_log_requires_fresh_namespace`). Pass the non-symlinked `/storage/home/<user>/.config/oci-runner/...` paths; a symlinked parent such as `/home/<user>` fails with `credential_directory_invalid`.
