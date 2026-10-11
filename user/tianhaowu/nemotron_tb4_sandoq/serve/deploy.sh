@@ -37,7 +37,10 @@ for ref in {v.split(".")[0] for v in auto_map.values() if isinstance(v, str)}:
 PY
 cd "$SERVE"
 # Two proxies started on the same CPU node can both bind one port (SO_REUSEPORT), silently routing
-# this deployment's traffic to another model. Redeploy until the proxy address is unique.
+# this deployment's traffic to another model. Redeploy until the proxy address is unique. Every proxy
+# first tries COORDINATOR_BASE_PORT + 100 (8100 by default) and the free-port check can miss a proxy
+# already holding it, so a redeploy with the default lands on the same address again: retries move
+# the base port.
 proxy_clash() {
     python3 - "$ID" <<'PY'
 import json, subprocess, sys
@@ -61,7 +64,8 @@ for attempt in 1 2 3; do
         --watch-timeout "${WATCH_TIMEOUT:-1800}"
     proxy_clash || break
     ((attempt < 3)) || { echo "proxy address still shared after 3 deploys" >&2; exit 1; }
-    echo "proxy clash; redeploying $ID (attempt $((attempt + 1)))"
+    export COORDINATOR_BASE_PORT=$((8200 + RANDOM % 1600))
+    echo "proxy clash; redeploying $ID (attempt $((attempt + 1)), base port $COORDINATOR_BASE_PORT)"
     env -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy ./serve.sh stop "$ID" || true
     sleep 30
 done
