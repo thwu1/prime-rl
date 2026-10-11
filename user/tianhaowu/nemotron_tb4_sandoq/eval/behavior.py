@@ -2,16 +2,21 @@
 
 Per model: how rollouts end, format errors (turns mini-swe-agent rejected for having no parsable
 tool call), tool calls left inside the reasoning, responses cut at the per-response token limit,
-tool calls per turn, repeated commands, trajectory length and final context size.
+tool calls per turn, repeated commands, trajectory length and final context size, and the degenerate
+style an SFT student can amplify from its teacher: "!!!" runs and "hmm" (the targeted-7 run went from
+1% of teacher turns with "!!!" to 25% of its own, mostly in responses cut at the token limit).
 """
 
 import argparse
 import json
+import re
 import statistics
 from collections import Counter
 from pathlib import Path
 
 FORMAT_ERROR_MARKERS = ("Tool call error", "reached the output token limit")
+EXCLAIM = re.compile(r"!{3,}")
+HMM = re.compile(r"\b[Hh]m{2,}\b")
 
 
 def responses(row: dict) -> list[dict]:
@@ -44,6 +49,7 @@ def summarize(label: str, paths: list[Path]) -> None:
     turns, contexts, completion_lens = [], [], []
     format_errors = think_calls = empty_cmd = repeated = total_calls = calls_turns = 0
     per_rollout_format_errors = []
+    chars = exclaim_runs = exclaim_responses = hmms = capped = capped_exclaim = 0
     for row in rows:
         stop = "HarnessError" if row.get("errors") else row.get("stop_condition")
         solved = row.get("rewards", {}).get("solved") == 1.0
@@ -61,6 +67,15 @@ def summarize(label: str, paths: list[Path]) -> None:
             finish[choice.get("finish_reason")] += 1
             completion_lens.append((body.get("usage") or {}).get("completion_tokens") or 0)
             reasoning = message.get("reasoning") or message.get("reasoning_content") or ""
+            text = reasoning + (message.get("content") or "")
+            runs = len(EXCLAIM.findall(text))
+            chars += len(text)
+            exclaim_runs += runs
+            exclaim_responses += runs > 0
+            hmms += len(HMM.findall(text))
+            if choice.get("finish_reason") == "length":
+                capped += 1
+                capped_exclaim += runs > 0
             calls = message.get("tool_calls") or []
             if not calls and "<tool_call>" in reasoning:
                 think_calls += 1
@@ -89,6 +104,9 @@ def summarize(label: str, paths: list[Path]) -> None:
           f"{sorted(completion_lens)[int(0.95 * len(completion_lens))]}, max {max(completion_lens)}")
     print(f"  tool calls: {total_calls} over {calls_turns} turns ({total_calls / max(calls_turns, 1):.2f}/turn); "
           f"empty commands {empty_cmd}; exact repeated commands {repeated} ({repeated / max(total_calls, 1):.1%})")
+    print(f"  style: responses with '!!!' {exclaim_responses / n_resp:.1%}; per 100k chars '!!!' "
+          f"{1e5 * exclaim_runs / max(chars, 1):.0f}, hmm {1e5 * hmms / max(chars, 1):.0f}; capped responses with "
+          f"'!!!' {capped_exclaim}/{capped}")
 
 
 def main() -> None:
