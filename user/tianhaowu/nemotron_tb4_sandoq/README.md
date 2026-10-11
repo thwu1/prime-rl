@@ -201,6 +201,37 @@ Training loss reached about 0.008 by epoch 9, but no checkpoint solves more than
 training on more generated-task variants does not transfer to the real tasks. Rollouts still end on the
 32k output cut-off (`max_output_tokens`, or `agent_completed` after three consecutive cut-offs).
 
+The student also picked up degenerate teacher output and amplified it:
+
+| | turns with "!!!" | "!!!" per 100k chars | "hmm" per 100k chars |
+|---|---|---|---|
+| training data (498) | 1.1% | 3 | 178 |
+| base model | 0% | 0 | 0.2 |
+| step 125 | 20% | 94 | 818 |
+| step 375 | 25% | 152 | 1678 |
+| step 623 | 24% | 215 | 1666 |
+
+At step 375, 164 of the 210 responses cut at 32k contain "!!!" ("Hmm, h!! Hmm, !!!!" loops or long
+runs of "!"). In the data, the 1.1% of teacher turns with "!!!" hold 11.6% of assistant tokens; 34 turns
+reach the teacher's own 32k cap and 26 have no tool call.
+
+### Targeted-7 clean run
+
+`sft/configs/targeted7_clean519_512k_cp4_8node.toml`: the same recipe on
+`data/build_targeted7.py --fullpass --clean`, which adds the 71 submitted traces of the frontierbench
+fullpass-85 snapshot and drops every trajectory with a turn without a tool call, a turn of 30k+ tokens,
+or 10+ "!!!" runs (79 of 569). "hmm" is in every trace and is not filtered.
+
+```bash
+python data/build_targeted7.py --fullpass --clean --dst /checkpoint/ram/tianhaowu/datasets/targeted7-clean/traces.sft.jsonl
+SEQ_LEN=524288 data/prepare.sh /checkpoint/ram/tianhaowu/datasets/targeted7-clean/traces.sft.jsonl \
+    /checkpoint/ram/tianhaowu/datasets/targeted7-clean-prime
+```
+
+519 rows (batched 51, embedding 119, fin-saccr 5, mvcc 88, protein 134, shadow 69, wal 53), 23k-456k
+tokens, 36.6M trained tokens, render check 0 problems. 649 steps = 10 epochs; checkpoints 130, 260,
+390, 520, 649 are each evaluated on `eval/tasks/targeted7.tasks.txt` x8 at 524k context.
+
 ### Packing (`cat_whole`)
 
 All configs above use `pack_function = "fixed_stack"`, which pads every trajectory to 524,288 tokens:
