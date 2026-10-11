@@ -220,7 +220,7 @@ reach the teacher's own 32k cap and 26 have no tool call.
 `sft/configs/targeted7_clean519_512k_cp4_8node.toml`: the same recipe on
 `data/build_targeted7.py --fullpass --clean`, which adds the 71 submitted traces of the frontierbench
 fullpass-85 snapshot and drops every trajectory with a turn without a tool call, a turn of 30k+ tokens,
-or 10+ "!!!" runs (79 of 569). "hmm" is in every trace and is not filtered.
+or 10+ "!!!" runs (50 of 569). "hmm" is in every trace and is not filtered.
 
 ```bash
 python data/build_targeted7.py --fullpass --clean --dst /checkpoint/ram/tianhaowu/datasets/targeted7-clean/traces.sft.jsonl
