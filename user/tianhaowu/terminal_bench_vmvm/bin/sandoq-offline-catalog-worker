@@ -1,0 +1,33 @@
+#!/bin/sh
+set -eu
+
+: "${SANDOQ_CATALOG_WORKER_PYTHON:?missing pinned worker interpreter}"
+: "${SANDOQ_CATALOG_WORKER_MODULE:?missing pinned worker module}"
+
+exec "$SANDOQ_CATALOG_WORKER_PYTHON" -I -B -S -c '
+import hashlib, os, stat, sys
+path = sys.argv[1]
+if not os.path.isabs(path) or os.path.normpath(path) != path or any(ord(character) < 32 or ord(character) == 127 for character in path):
+    raise SystemExit(126)
+descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+try:
+    before = os.fstat(descriptor)
+    if not stat.S_ISREG(before.st_mode) or before.st_uid != os.geteuid() or before.st_nlink != 1 or before.st_size != 126962:
+        raise SystemExit(126)
+    chunks = []
+    while True:
+        chunk = os.read(descriptor, 1024 * 1024)
+        if not chunk:
+            break
+        chunks.append(chunk)
+    after = os.fstat(descriptor)
+finally:
+    os.close(descriptor)
+payload = b"".join(chunks)
+identity = lambda item: (item.st_dev, item.st_ino, item.st_mode, item.st_nlink, item.st_uid, item.st_size, item.st_mtime_ns, item.st_ctime_ns)
+if identity(before) != identity(after) or hashlib.sha256(payload).hexdigest() != "dea994078079bbed53fc12d7009ce4bdc359fc75991a210f73ad80b6bd3cc275":
+    raise SystemExit(126)
+sys.argv = [path, *sys.argv[2:]]
+namespace = {"__name__": "__main__", "__file__": path}
+exec(compile(payload, path, "exec"), namespace, namespace)
+' "$SANDOQ_CATALOG_WORKER_MODULE" "$@"

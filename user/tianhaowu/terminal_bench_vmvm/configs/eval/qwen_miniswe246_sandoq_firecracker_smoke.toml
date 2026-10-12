@@ -1,0 +1,86 @@
+model = "Qwen3.8-2.4T-A95B"
+num_tasks = 1
+num_rollouts = 1
+max_concurrent = 1
+max_turns = 3
+max_input_tokens = 131072
+max_output_tokens = 8192
+max_total_tokens = 131072
+multiplex = 1
+rich = false
+retain_traces = false
+
+[client]
+type = "eval"
+capture_model_io = true
+outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]
+base_url = "http://127.0.0.1:8000/v1"
+api_key_var = "OPENAI_API_KEY"
+timeout = 80
+connect_timeout = 15
+max_connections = 1
+max_keepalive_connections = 1
+
+[sampling]
+reasoning_effort = "medium"
+temperature = 0.7
+top_p = 0.95
+top_k = 20
+max_tokens = 8192
+chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
+
+[taskset]
+id = "terminal-bench-vmvm"
+dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/mobius-ac1f30b9"
+dataset_revision = "ac1f30b9ac0e6c6a20a9fe423900d9ed28a6d366"
+task_file = "user/tianhaowu/terminal_bench_vmvm/configs/eval/mobius_valid_tasks_2500.txt"
+task_file_sha256 = "d33ef93f9b77ee91a41600934e677ba37988d3b4509e4da05ff1fcf7b4bc3a4b"
+image_prefix = "vmvm-registry.fbinfra.net/terminal_bench"
+image_tag = "mobius-9b6988a3faf0"
+image_manifest = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/mobius_images.sandoq.json"
+image_manifest_sha256 = "a3fb4ec9ac9d1ee8376013013f171584c288321923f2050177157edac58340c8"
+ignore_dockerfile = true
+verifier_runtime_retries = 0
+timeout_multiplier = 0.1
+resource_multiplier = 1.0
+
+[harness]
+id = "mini-swe-agent"
+version = "2.4.6"
+config_file = "mini"
+config_overrides = [
+    "agent.step_limit=3",
+    "environment.environment_class=local",
+    "environment.timeout=60",
+    "model.model_kwargs.drop_params=true",
+    "model.model_kwargs.timeout=80",
+    "model.model_kwargs.temperature=0.7",
+    "model.model_kwargs.top_p=0.95",
+    "model.model_kwargs.parallel_tool_calls=false",
+]
+
+[harness.env]
+MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "1"
+
+[harness.runtime]
+type = "sandoq"
+mode = "oci-runner"
+session_timeout = 240
+network_access = true
+host_tunnel = "sandoq"
+buffered_chat_completions = true
+guest_tunnel_url = "http://127.0.0.1:8485"
+tunnel_pool_size = 4
+tunnel_ready_timeout = 30
+expected_environment = "oci-runner-firecracker-small"
+ecr_token_file = "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
+
+[timeout]
+setup = 120
+rollout = 100
+finalize = 10
+scoring = 30
+
+[retries.rollout]
+max_retries = 0
+include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]

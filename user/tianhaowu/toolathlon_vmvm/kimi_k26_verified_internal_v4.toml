@@ -1,0 +1,75 @@
+name = "toolathlon-verified-kimi-k26-internal-v4"
+output_dir = "/checkpoint/ram/tianhaowu/toolathlon_vmvm/kimi_k26_verified_internal_v4"
+
+[source]
+repository = "https://github.com/hkust-nlp/Toolathlon"
+release = "Toolathlon-Verified"
+commit = "314408ac6140bb04f2f215449c3a9bea7d93c534"
+task_catalog_file = "task_catalog_verified.json"
+tool_schemas_file = "tool_schemas.json"
+task_catalog_sha256 = "d22f73a14e248578504574fe2a3c602a933d635b3e126c4915ecad5d878e352b"
+tool_schemas_sha256 = "422be44a1dccc546406e759e54c36ff75c02c39cff7b62b8f254dd5792bfad1f"
+
+[benchmark]
+suite = "toolathlon-verified-internal-v3"
+expected_tasks = 108
+num_trials = 3
+max_steps = 100
+max_observation_chars = 100000
+task_timeout_seconds = 5400
+dispatch_seed = 20260725
+tool_source = "static"
+
+[model]
+model = "Kimi-K2.6"
+info_path = "/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi26/proxy_info.json"
+max_tokens = 65536
+context_window = 262144
+request_retries = 10
+request_retry_delay_seconds = 10
+request_timeout_seconds = 600
+sticky_session = false
+accept_legacy_tool_names = true
+
+[service]
+http_proxy_url = "http://47.253.57.66:8080"
+server_urls = [
+  "http://47.253.57.66:8080",
+  "http://47.253.57.66:8082",
+  "http://47.253.57.66:8084",
+  "http://47.253.57.66:8086",
+]
+debug = false
+http_timeout_seconds = 300
+status_poll_interval_seconds = 5
+start_retry_interval_seconds = 10
+start_retry_jitter_seconds = 10
+start_timeout_seconds = 5400
+execution_ready_timeout_seconds = 1800
+max_setup_vanishes = 10
+tool_call_retries = 3
+tool_call_retry_backoff_seconds = 5
+
+[runtime]
+workers = 96
+image = "docker.io/lockon0927/toolathlon-task-image:1016beta"
+tenant_id = "async_2347641"
+lease_ttl = "60s"
+cpu = 2
+memory_gb = 8
+command_timeout_seconds = 5700
+request_timeout_seconds = 600
+max_connection_drops = 5
+
+[retry]
+max_infrastructure_retries = 5
+retry_delay_seconds = 10
+
+[reference]
+target_total_passes = 188
+target_any_passes = 78
+target_all_passes = 45
+pass_at_1_percent = 58.0
+pass_at_1_std_percent = 4.9
+pass_at_3_percent = 72.2
+pass_pow_3_percent = 41.7

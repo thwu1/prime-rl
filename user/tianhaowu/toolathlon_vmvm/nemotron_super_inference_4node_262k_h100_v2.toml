@@ -1,0 +1,20 @@
+output_dir = "/checkpoint/ram/tianhaowu/toolathlon_vmvm/nemotron_super_base_inference_4node_262k_h100_v2"
+gpu_memory_utilization = 0.90
+
+[model]
+name = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+max_model_len = 262144
+tool_call_parser = "qwen3_xml"
+reasoning_parser = "nemotron_v3"
+
+[parallel]
+tp = 8
+
+[server]
+port = 8000
+
+[vllm_extra]
+language_model_only = true
+gdn_prefill_backend = "triton"
+enable_prefix_caching = true
+mamba_ssm_cache_dtype = "float32"

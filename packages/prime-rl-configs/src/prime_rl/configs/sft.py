@@ -32,8 +32,8 @@ class BaseDataConfig(BaseConfig):
     seq_len: int = Field(128, ge=1)
     """Sequence length."""
 
-    pack_function: Literal["cat", "stack", "fixed_stack"] = "cat"
-    """Sample packing strategy. ``cat`` concatenates, ``stack`` packs a fixed token area, and ``fixed_stack`` pads or truncates exactly ``micro_batch_size`` examples to ``seq_len``."""
+    pack_function: Literal["cat", "cat_whole", "stack", "fixed_stack"] = "cat"
+    """Sample packing strategy. ``cat`` concatenates and truncates the sample that crosses the row boundary, ``cat_whole`` concatenates whole samples only (a sample that does not fit starts the next row; samples longer than ``seq_len`` are skipped), ``stack`` packs a fixed token area, and ``fixed_stack`` pads or truncates exactly ``micro_batch_size`` examples to ``seq_len``."""
 
     micro_batch_size: int = Field(1, ge=1)
     """Per-step micro batch size. ``batch_size`` must be divisible by this."""
@@ -98,6 +98,12 @@ class SFTDataConfig(BaseDataConfig):
     weight_column: str | None = None
     """Optional finite nonnegative example-weight column applied to every trainable token."""
 
+    preflight_attestation: Path | None = None
+    """Mode-0600 attestation produced by the SFT export rendering preflight."""
+
+    preflight_attestation_sha256: str | None = None
+    """Expected SHA-256 of ``preflight_attestation``."""
+
     # Configuring
     loss_mask: LossMaskConfig = LossMaskConfig()
     """Which message types contribute to the loss."""
@@ -120,6 +126,17 @@ class SFTDataConfig(BaseDataConfig):
                     raise ValueError(
                         "Number of probabilities must be equal to number of splits. Please specify a probability for each split."
                     )
+        return self
+
+    @model_validator(mode="after")
+    def validate_preflight_attestation(self):
+        if (self.preflight_attestation is None) != (self.preflight_attestation_sha256 is None):
+            raise ValueError("preflight_attestation and preflight_attestation_sha256 must be set together")
+        if self.preflight_attestation_sha256 is not None and (
+            len(self.preflight_attestation_sha256) != 64
+            or any(character not in "0123456789abcdef" for character in self.preflight_attestation_sha256)
+        ):
+            raise ValueError("preflight_attestation_sha256 must be a lowercase SHA-256 digest")
         return self
 
 
@@ -279,10 +296,13 @@ class SFTConfig(BaseConfig):
     @model_validator(mode="after")
     def validate_pack_function(self):
         if self.model.cp > 1:
-            if self.data.pack_function != "cat":
-                raise ValueError("Packing function must be 'cat' when CP is enabled")
-            if self.val is not None and self.val.data.pack_function != "cat":
-                raise ValueError("Validation packing function must be 'cat' when CP is enabled")
+            supported_pack_functions = {"cat", "cat_whole", "fixed_stack"}
+            if self.data.pack_function not in supported_pack_functions:
+                raise ValueError("Packing function must be 'cat', 'cat_whole' or 'fixed_stack' when CP is enabled")
+            if self.val is not None and self.val.data.pack_function not in supported_pack_functions:
+                raise ValueError(
+                    "Validation packing function must be 'cat', 'cat_whole' or 'fixed_stack' when CP is enabled"
+                )
         return self
 
     @model_validator(mode="after")

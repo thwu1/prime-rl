@@ -17,8 +17,11 @@ from request_capture import canonical_messages
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--base-url", required=True)
+    parser.add_argument("--render-base-url")
     parser.add_argument("--model-name", required=True)
     parser.add_argument("--log-path", type=Path, required=True)
+    parser.add_argument("--chat-template-kwargs-json")
+    parser.add_argument("--truncate-history-thinking", action="store_true")
     return parser.parse_args()
 
 
@@ -89,7 +92,7 @@ class CaptureHandler(BaseHTTPRequestHandler):
 def reasoning_text(message: dict) -> str:
     reasoning = message.get("reasoning") or message.get("reasoning_content")
     if not isinstance(reasoning, str) or not reasoning.strip():
-        raise RuntimeError(f"Nemotron response did not contain reasoning: {message}")
+        raise RuntimeError(f"Model response did not contain reasoning: {message}")
     return reasoning
 
 
@@ -115,11 +118,17 @@ def query_tool_turn(
 def main() -> None:
     args = parse_args()
     base_url = args.base_url.rstrip("/")
+    render_base_url = (args.render_base_url or base_url).rstrip("/")
     api_key = os.environ["OPENAI_API_KEY"]
-    chat_template_kwargs = {
-        "enable_thinking": True,
-        "truncate_history_thinking": False,
-    }
+    if args.chat_template_kwargs_json is None:
+        chat_template_kwargs = {
+            "enable_thinking": True,
+            "truncate_history_thinking": args.truncate_history_thinking,
+        }
+    else:
+        chat_template_kwargs = json.loads(args.chat_template_kwargs_json)
+        if not isinstance(chat_template_kwargs, dict):
+            raise TypeError("chat template kwargs must be a JSON object")
 
     server = CaptureServer(("127.0.0.1", 0), CaptureHandler)
     server.upstream = base_url
@@ -168,7 +177,7 @@ def main() -> None:
             reasoning = reasoning_text(response)
             tool_calls = response.get("tool_calls") or []
             if len(tool_calls) != 1:
-                raise RuntimeError(f"Nemotron turn {turn} did not call bash exactly once: {response}")
+                raise RuntimeError(f"Model turn {turn} did not call bash exactly once: {response}")
             captured_request = server.captures[-1]
             api_response = server.responses[-1]
             turns.append(
@@ -233,7 +242,7 @@ def main() -> None:
         render_payload = copy.deepcopy(final_request)
         render_payload["messages"] = canonical_messages(final_request["messages"])
         render_response = post_json(
-            f"{base_url}/v1/chat/completions/render",
+            f"{render_base_url}/v1/chat/completions/render",
             render_payload,
             api_key,
         )
@@ -248,7 +257,7 @@ def main() -> None:
                 f"chat usage={actual_prompt_tokens}, render={len(rendered_tokens)}"
             )
         rendered_prompt = post_json(
-            f"{base_url}/detokenize",
+            f"{render_base_url}/detokenize",
             {
                 "model": args.model_name,
                 "tokens": rendered_tokens,
@@ -256,9 +265,12 @@ def main() -> None:
             api_key,
         )["prompt"]
         for item in preserved:
-            if item["reasoning"].strip() not in rendered_prompt:
+            present = item["reasoning"].strip() in rendered_prompt
+            if args.truncate_history_thinking and present:
+                raise RuntimeError(f"vLLM rendered prompt retained reasoning from turn {item['turn']}")
+            if not args.truncate_history_thinking and not present:
                 raise RuntimeError(f"vLLM rendered prompt dropped reasoning from turn {item['turn']}")
-            item["present_in_vllm_rendered_prompt"] = True
+            item["present_in_vllm_rendered_prompt"] = present
 
         args.log_path.parent.mkdir(parents=True, exist_ok=True)
         args.log_path.write_text(
@@ -276,9 +288,10 @@ def main() -> None:
                 indent=2,
             )
         )
+        rendered_action = "truncated both from" if args.truncate_history_thinking else "rendered both into"
         print(
             "Thinking preflight passed: mini-swe forwarded both prior reasoning "
-            "turns and vLLM rendered both into turn 3",
+            f"turns and vLLM {rendered_action} turn 3",
             flush=True,
         )
     finally:

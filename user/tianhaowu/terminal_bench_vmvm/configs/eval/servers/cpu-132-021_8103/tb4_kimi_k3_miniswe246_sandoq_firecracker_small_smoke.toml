@@ -1,0 +1,96 @@
+# Diagnostic-only one-task TB4 gate for the capacity-limited Firecracker pool.
+model = "Kimi-K3"
+num_tasks = 1
+num_rollouts = 1
+max_concurrent = 1
+max_turns = 3
+max_input_tokens = 262144
+max_output_tokens = 262144
+max_total_tokens = 262144
+multiplex = 1
+rich = false
+retain_traces = false
+
+[client]
+type = "eval"
+capture_model_io = true
+outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]
+base_url = "http://127.0.0.1:8000/v1"
+api_key_var = "OPENAI_API_KEY"
+timeout = 1800
+connect_timeout = 15
+max_connections = 1
+max_keepalive_connections = 1
+max_retries = 0
+
+[sampling]
+reasoning_effort = "max"
+temperature = 1.0
+top_p = 1.0
+max_tokens = 512
+chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
+
+[taskset]
+id = "terminal-bench-vmvm"
+dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks"
+task_file = "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_k3_short_smoke.tasks.txt"
+task_file_sha256 = "c1f745d4a1d3861deefb3fba4daa23f52ff3d1d4952a9fe2ba0ccbdc4040af97"
+image_manifest = "user/tianhaowu/terminal_bench_vmvm/configs/eval/servers/cpu-132-021_8103/tb4_images.sandoq.json"
+image_manifest_sha256 = "6dd632029af8da52f99f1d364e983a5da2e855afeb6a2ea5fc84fd00e1683513"
+ignore_dockerfile = true
+use_declared_images = true
+enable_compose = false
+capture_convention_artifacts = true
+verifier_runtime_retries = 0
+timeout_multiplier = 0.5
+resource_multiplier = 1.0
+
+[harness]
+id = "mini-swe-agent"
+version = "2.4.6"
+config_file = "mini"
+config_overrides = [
+    "agent.step_limit=3",
+    "agent.wall_time_limit_seconds=6000",
+    "environment.environment_class=local",
+    "environment.timeout=60",
+    "model.cost_tracking=ignore_errors",
+    "model.model_kwargs.custom_llm_provider=openai",
+    "model.model_kwargs.drop_params=true",
+    "model.model_kwargs.timeout=1800",
+    "model.model_kwargs.max_tokens=512",
+    "model.model_kwargs.temperature=1.0",
+    "model.model_kwargs.top_p=1.0",
+    "model.model_kwargs.parallel_tool_calls=false",
+]
+
+[harness.env]
+# Guest transport retries reuse one logical request ID. The buffered proxy
+# coalesces/replays that identity and never resamples upstream.
+MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "10"
+
+[harness.runtime]
+type = "sandoq"
+mode = "oci-runner"
+session_timeout = 6900
+cpu = 1.0
+memory = 2.0
+disk = 10.0
+network_access = true
+host_tunnel = "sandoq"
+buffered_chat_completions = true
+guest_tunnel_url = "http://127.0.0.1:8485"
+tunnel_pool_size = 4
+tunnel_ready_timeout = 30
+expected_environment = "oci-runner-firecracker-small"
+ecr_token_file = "/storage/home/tianhaowu/.config/oci-runner/ecr-token"
+
+[timeout]
+setup = 180
+rollout = 6600
+finalize = 120
+scoring = 180
+
+[retries.rollout]
+max_retries = 0
+include = ["ProviderError", "SandboxError", "TunnelError", "InterceptionError"]

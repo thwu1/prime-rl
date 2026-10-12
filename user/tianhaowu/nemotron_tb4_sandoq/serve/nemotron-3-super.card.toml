@@ -1,0 +1,51 @@
+# NVIDIA Nemotron-3-Super-120B-A12B (BF16). Hybrid Mamba-2 / MoE (LatentMoE, 512 experts,
+# top-22) with 8 GQA attention layers (2 KV heads) and no RoPE; model_type `nemotron_h`.
+#
+# Parsers match how prime-rl SFT data for this model is rendered: tool calls are the
+# Qwen3-Coder XML form (<tool_call><function=bash><parameter=command>...), and reasoning
+# is <think>...</think> handled by vLLM's nemotron_v3 parser.
+#
+# Weights are not staged on the shared mirror; deploy with
+# `--checkpoint /checkpoint/ram/tianhaowu/models/NVIDIA-Nemotron-3-Super-120B-A12B-BF16`
+# or a prime-rl SFT output `.../weights/step_N` (saved in HF format).
+[checkpoint]
+relative_path = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+
+[model]
+name = "NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+env = "control-plane-x86"
+
+[vllm.tool_calling]
+tool_call_parser = "qwen3_coder"
+enable_auto_tool_choice = true
+reasoning_parser = "nemotron_v3"
+
+[opencode]
+context_limit = 262144
+output_limit = 32768
+
+[defaults]
+tensor_parallel = 4
+gpus_per_endpoint = 4
+num_endpoints = 1
+
+# ===================== GB300 (CoreWeave g3, 4-GPU node) =====================
+# ~240 GB bf16 weights: TP4 puts ~60 GB on each 288 GB GPU, one endpoint per node.
+[variants.hardware.gb300.model]
+env = "control-plane-aarch64"
+image = "docker.io/vllm/vllm-openai:v0.20.1"
+
+[variants.hardware.gb300.defaults]
+tensor_parallel = 4
+gpus_per_endpoint = 4
+num_endpoints = 1
+mem = "900G"
+cpus_per_task = 128
+
+[variants.hardware.gb300.vllm]
+gpu_memory_utilization = 0.90
+
+[variants.hardware.gb300.vllm.extra_args]
+max-model-len = 262144
+# fp32 SSM state, matching how prime-rl trains and serves NemotronH.
+mamba-ssm-cache-dtype = "float32"

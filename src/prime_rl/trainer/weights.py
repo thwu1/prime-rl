@@ -1,4 +1,5 @@
 import json
+import re
 import warnings
 from pathlib import Path
 from typing import Literal, cast
@@ -23,6 +24,9 @@ from prime_rl.trainer.lora import (
     clean_lora_state_dict,
 )
 from prime_rl.utils.logger import get_logger
+
+# FQN of a decoder-layer parameter, e.g. `model.layers.12.mixer.in_proj.weight`.
+LAYER_FQN = re.compile(r"^model\.layers\.(\d+)\.")
 
 PYTORCH_WRAPPER_PREFIXES = ["_fsdp_wrapped_module.", "_orig_module.", "_checkpoint_wrapped_module."]
 
@@ -152,6 +156,64 @@ def gather_weights_on_master(
         cpu_state = clean_lora_state_dict(cpu_state)
 
     return cpu_state
+
+
+def save_weights_layer_by_layer(
+    model: nn.Module,
+    save_dir: Path,
+    is_master: bool,
+    drop_keys: set[str],
+    dtype: torch.dtype = torch.bfloat16,
+) -> None:
+    """Gather, convert to HF format and write one decoder layer at a time.
+
+    Equivalent to `gather_weights_on_master` + `convert_to_hf` + sharded `save_state_dict`, but
+    the master only ever holds one layer (or the non-layer weights) in host memory, so a model
+    that does not fit next to CPU-offloaded training state can still be saved. Every rank must
+    call this: each group is gathered collectively. Requires `model.convert_layer_to_hf`.
+    """
+    local_state = model.state_dict()
+    fqns = {key: next(iter(get_fqns(model, key))) for key in local_state}
+    groups: dict[int, list[str]] = {}
+    for key, fqn in fqns.items():
+        match = LAYER_FQN.match(fqn)
+        groups.setdefault(int(match.group(1)) if match else -1, []).append(key)
+    order = sorted(groups)
+
+    weight_map: dict[str, str] = {}
+    total_size = 0
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", category=FutureWarning, module="torch.distributed")
+        warnings.filterwarnings("ignore", category=UserWarning, module="torch.distributed.*")
+        for shard_idx, layer_idx in enumerate(order):
+            shard: dict[str, Tensor] = {}
+            for key in groups[layer_idx]:
+                value = local_state[key]
+                if isinstance(value, DTensor):
+                    value = cast(DTensor, value.to(dtype)).full_tensor()
+                if is_master and fqns[key] not in drop_keys:
+                    shard[fqns[key]] = value.to("cpu", non_blocking=False)
+            torch.distributed.barrier()
+            if not is_master:
+                continue
+            model.convert_layer_to_hf(shard, layer_idx)
+            shard_file = SAFE_WEIGHTS_NAME.replace(
+                ".safetensors", f"-{shard_idx + 1:05d}-of-{len(order):05d}.safetensors"
+            )
+            save_file(
+                {key: value.contiguous() for key, value in shard.items()},
+                save_dir / shard_file,
+                metadata={"format": "pt"},
+            )
+            for key, value in shard.items():
+                weight_map[key] = shard_file
+                total_size += value.numel() * value.element_size()
+            del shard
+
+    if is_master:
+        index = {"metadata": {"total_size": total_size}, "weight_map": weight_map}
+        with open(save_dir / SAFE_WEIGHTS_INDEX_NAME, "w", encoding="utf-8") as f:
+            f.write(json.dumps(index, indent=2, sort_keys=True) + "\n")
 
 
 def get_adapter_state_dict(model: nn.Module, is_master: bool) -> dict[str, Tensor]:

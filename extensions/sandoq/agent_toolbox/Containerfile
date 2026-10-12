@@ -1,0 +1,13 @@
+FROM scratch
+
+ARG OPENCODE_SOURCE
+ARG PI_SOURCE
+ARG MUSE_SOURCE
+
+LABEL org.opencontainers.image.title="Prime agent toolbox" \
+      org.opencontainers.image.description="Read-only agent payload for nested Sandoq task containers" \
+      com.meta.prime-agent-toolbox.opencode-source="${OPENCODE_SOURCE}" \
+      com.meta.prime-agent-toolbox.pi-source="${PI_SOURCE}" \
+      com.meta.prime-agent-toolbox.muse-source="${MUSE_SOURCE}"
+
+COPY rootfs/ /

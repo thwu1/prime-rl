@@ -1,0 +1,1 @@
+{"base_url":"https://sandoq.eks-prod.cf.aws.metafb.cloud","cluster_identifier":"use2","effective_task_network":"public","environment":"oci-runner-firecracker-small","provider_token_file":"/home/tianhaowu/.config/oci-runner/firecracker-token","schema_version":3,"task_network":"host","transport_mode":"auto"}

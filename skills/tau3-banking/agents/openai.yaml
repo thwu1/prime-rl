@@ -1,0 +1,4 @@
+interface:
+  display_name: "Tau3 Banking"
+  short_description: "Run and audit Tau3 Banking evaluations"
+  default_prompt: "Use $tau3-banking to launch, resume, monitor, and audit a Tau3 Banking evaluation on VMVM."

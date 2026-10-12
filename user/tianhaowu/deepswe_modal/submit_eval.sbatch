@@ -6,6 +6,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
 #SBATCH --time=72:00:00
+#SBATCH --no-requeue
 #SBATCH --output=/checkpoint/ram/tianhaowu/deepswe_eval/driver_%j.log
 
 set -euo pipefail

@@ -20,7 +20,10 @@ all-to-all is purely on Q/K/V tensors, so this works out of the box with
 softmax flash-attn, linear attention, mamba, etc., without rewriting kernels.
 
 Constraints:
-- cp_size must divide both num_attention_heads and num_key_value_heads.
+- cp_size must divide num_attention_heads.
+- cp_size must divide num_key_value_heads, or be a multiple of it. In the latter
+  case each KV head is replicated cp_size / num_key_value_heads times before the
+  all-to-all, so every rank receives the KV head its query-head slice uses.
 - Sequence length must be divisible by cp_size.
 """
 
@@ -74,6 +77,20 @@ def _all_to_all_head_to_seq(t: torch.Tensor, cp_size: int, cp_group: dist.Proces
     return out.transpose(0, 1).contiguous().reshape(s_local, h, d)
 
 
+def _replicate_kv_heads(t: torch.Tensor, cp_size: int) -> torch.Tensor:
+    """Repeat KV heads so the head dim splits evenly across cp_size ranks.
+
+    With H_kv < cp_size, rank i holds query heads [i*H/cp, (i+1)*H/cp), which all
+    belong to KV head i*H_kv/cp. Interleaved repetition places exactly that head
+    at index i. The backward of repeat_interleave sums gradients per source head.
+    """
+    h_kv = t.shape[1]
+    if h_kv % cp_size == 0:
+        return t
+    assert cp_size % h_kv == 0, f"cp_size ({cp_size}) must divide or be a multiple of num_key_value_heads ({h_kv})"
+    return t.repeat_interleave(cp_size // h_kv, dim=1)
+
+
 def ulysses_flash_attn_varlen_func(
     flash_fn,
     q: torch.Tensor,
@@ -98,8 +115,8 @@ def ulysses_flash_attn_varlen_func(
     because after the seq->head all-to-all each rank holds the full sequence.
     """
     q = _all_to_all_seq_to_head(q, cp_size, cp_group)
-    k = _all_to_all_seq_to_head(k, cp_size, cp_group)
-    v = _all_to_all_seq_to_head(v, cp_size, cp_group)
+    k = _all_to_all_seq_to_head(_replicate_kv_heads(k, cp_size), cp_size, cp_group)
+    v = _all_to_all_seq_to_head(_replicate_kv_heads(v, cp_size), cp_size, cp_group)
 
     kwargs: dict = {"causal": causal}
     if window_size != (-1, -1):

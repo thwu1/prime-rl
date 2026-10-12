@@ -1,0 +1,130 @@
+{
+  "archive": {
+    "bytes": 140868934,
+    "compression": "zstd-19-long31",
+    "member_count": 7,
+    "members": [
+      {
+        "bytes": 941,
+        "name": "qwen-2499-recovered-unfiltered-108b713af-v6/merge_manifest.json",
+        "sha256": "979093d477b46aa1fd4ec098bc1fdce042d9e98cf5bcfc9353e66f4fd7b8f0f1"
+      },
+      {
+        "bytes": 1950,
+        "name": "qwen-2499-recovered-unfiltered-108b713af-v6/postrun_receipt-src108b713af-v6.json",
+        "sha256": "950f3713806a54576fac28b9557dc697d385be18f0eb95c37d30a43a20d2fd3b"
+      },
+      {
+        "bytes": 23183,
+        "name": "qwen-2499-recovered-unfiltered-108b713af-v6/postrun_worker.sbatch",
+        "sha256": "7c03d5262eeff54e747dc9ba39772aa42b42d691b84bf5b05feda9b92c9eeb75"
+      },
+      {
+        "bytes": 2278,
+        "name": "qwen-2499-recovered-unfiltered-108b713af-v6/qwen_2499_error_retry_run_certificate.json",
+        "sha256": "1ce10c6cc6815866acfa1d8a0474eaca919030d466eea0d28e2c2ff428656b75"
+      },
+      {
+        "bytes": 3808,
+        "name": "qwen-2499-recovered-unfiltered-108b713af-v6/qwen_2499_error_retry_superseding_certificate.json",
+        "sha256": "025474d6384c5ccbae9159f064c252d9664849a7a1e8f258917c51a7f8366798"
+      },
+      {
+        "bytes": 1609,
+        "name": "qwen-2499-recovered-unfiltered-108b713af-v6/qwen_2499_recovered_results_certificate.json",
+        "sha256": "b4732854e7fa8d7d1f5b7772a8a2f1b6708bfd2bccffe5a16f0d50b850e8c228"
+      },
+      {
+        "bytes": 1987107904,
+        "name": "qwen-2499-recovered-unfiltered-108b713af-v6/results.jsonl",
+        "sha256": "6ecc98adc68b8cad0ba15f160c108e64fe69da89321cd179bbb2dd1a78dd7d31"
+      }
+    ],
+    "name": "qwen-2499-recovered-unfiltered-108b713af-v6.tar.zst",
+    "sha256": "243380a12d95a8a6fc8ef21f684821b9c30117a1cc5a6e300d6247cd8267645b"
+  },
+  "chunk_bytes": 95000000,
+  "chunks": [
+    {
+      "bytes": 95000000,
+      "name": "qwen-2499-recovered-unfiltered-108b713af-v6.tar.zst.000.part",
+      "sha256": "51f060d80b3454036c28fb13a638f828c303decf6180d1443ca4d63e1bfac132"
+    },
+    {
+      "bytes": 45868934,
+      "name": "qwen-2499-recovered-unfiltered-108b713af-v6.tar.zst.001.part",
+      "sha256": "b6158ae991da465f05befa63bf8639ff6cf2272549649cac7d628e73f5d94867"
+    }
+  ],
+  "coverage": {
+    "canonical_tasks": 2499,
+    "outcomes": {
+      "error": 24,
+      "positive": 1588,
+      "zero": 887
+    }
+  },
+  "inputs": {
+    "postrun_receipt": {
+      "bytes": 1950,
+      "sha256": "950f3713806a54576fac28b9557dc697d385be18f0eb95c37d30a43a20d2fd3b"
+    },
+    "postrun_worker": {
+      "bytes": 23183,
+      "sha256": "7c03d5262eeff54e747dc9ba39772aa42b42d691b84bf5b05feda9b92c9eeb75"
+    },
+    "previous_package_manifest": {
+      "bytes": 1045,
+      "sha256": "5ab6b9482d7eff98aea424546592fc5a61e3af11bae9c4ea11f48f4774cb0ac2"
+    },
+    "recovered_certificate": {
+      "bytes": 1609,
+      "sha256": "b4732854e7fa8d7d1f5b7772a8a2f1b6708bfd2bccffe5a16f0d50b850e8c228"
+    },
+    "recovered_merge_manifest": {
+      "bytes": 941,
+      "sha256": "979093d477b46aa1fd4ec098bc1fdce042d9e98cf5bcfc9353e66f4fd7b8f0f1"
+    },
+    "results": {
+      "bytes": 1987107904,
+      "rows": 2499,
+      "sha256": "6ecc98adc68b8cad0ba15f160c108e64fe69da89321cd179bbb2dd1a78dd7d31"
+    },
+    "retry_certificate": {
+      "bytes": 2278,
+      "sha256": "1ce10c6cc6815866acfa1d8a0474eaca919030d466eea0d28e2c2ff428656b75"
+    },
+    "superseding_certificate": {
+      "bytes": 3808,
+      "sha256": "025474d6384c5ccbae9159f064c252d9664849a7a1e8f258917c51a7f8366798"
+    }
+  },
+  "kind": "qwen-2499-recovered-unfiltered-trajectory-package",
+  "lineage": {
+    "canonical_task_file_sha256": "5b2ed7c5b166a6570b46d3dacff680c5ba6ff22f7e02e57e273eb442e6842b8c",
+    "postprocessor_revision": "7b13c37deadab038e7feec5e971d7150a3cc0d48",
+    "postrun_job_id": 1588624,
+    "postrun_receipt_sha256": "950f3713806a54576fac28b9557dc697d385be18f0eb95c37d30a43a20d2fd3b",
+    "postrun_worker_sha256": "7c03d5262eeff54e747dc9ba39772aa42b42d691b84bf5b05feda9b92c9eeb75",
+    "predecessor_revision": "7b13c37deadab038e7feec5e971d7150a3cc0d48",
+    "previous_package_manifest_sha256": "5ab6b9482d7eff98aea424546592fc5a61e3af11bae9c4ea11f48f4774cb0ac2",
+    "recovered_certificate_sha256": "b4732854e7fa8d7d1f5b7772a8a2f1b6708bfd2bccffe5a16f0d50b850e8c228",
+    "recovered_merge_manifest_sha256": "979093d477b46aa1fd4ec098bc1fdce042d9e98cf5bcfc9353e66f4fd7b8f0f1",
+    "retry_certificate_sha256": "1ce10c6cc6815866acfa1d8a0474eaca919030d466eea0d28e2c2ff428656b75",
+    "selection_contract_sha256": "5369194fc1bea5dd72c20457a8fd1fac906144c8beb4bc20d77727fb77c8b228",
+    "source_job": 1579607,
+    "superseding_certificate_sha256": "025474d6384c5ccbae9159f064c252d9664849a7a1e8f258917c51a7f8366798"
+  },
+  "package_version": "v6",
+  "package_worker": {
+    "bytes": 1742,
+    "sha256": "56bbbf9364f8da8810246ec275f5d41879078b255d5e03ec9e74bcebba90a041"
+  },
+  "packager": {
+    "bytes": 42969,
+    "sha256": "36a5a091c9fc0ae2c1fdda42fba33c834d2d831d947a3c8c8336c0118a4ed509"
+  },
+  "project_revision": "b48c2d63a2a257d2ad79ac7ed5520a14005873b2",
+  "schema_version": 1,
+  "state": "ready"
+}

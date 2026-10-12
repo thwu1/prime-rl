@@ -1,0 +1,43 @@
+# prime-rl-sandbox image — the universal sandbox for prime-rl's "agent-outside" envs
+# (SandboxEnv/bash, PythonEnv, code_env, livecodebench, math_env). Extends the
+# ubuntu-terminal recipe with a Python runtime + deps so PythonEnv's `pip install`
+# is a no-op offline and code_env's numpy/pandas imports resolve without egress.
+#
+# Build (see build-and-push.md for the podman/ECR specifics):
+#   podman $PODMAN_STORAGE_OPTS build -f Dockerfile.prime-rl-sandbox \
+#       -t prime-rl-sandbox:v1 .
+FROM ubuntu:22.04
+
+# System packages:
+#  - ttyd            : human debug terminal (portUrls.terminal)
+#  - tini            : PID 1 reaper for the entrypoint
+#  - python-is-python3 : REQUIRED — code_env and PythonEnv invoke bare `python`,
+#                        which ubuntu does not provide by default (only python3).
+#  - procps          : /proc + `ps` — PythonEnv checks its worker pid via /proc.
+#  - tar/curl        : bundle handling / general tooling.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ttyd bash ca-certificates tini vim curl less tar procps \
+        python3 python3-pip python-is-python3 \
+    && pip3 install --no-cache-dir fastapi "uvicorn[standard]" pydantic \
+    && pip3 install --no-cache-dir numpy sympy scipy pandas \
+    && rm -rf /var/lib/apt/lists/*
+
+# Writable scratch dirs the envs assume:
+#   /tmp                 -> PythonEnv worker script, FIFOs, ready/pid files
+#   /sandbox-workspace   -> code_env / livecodebench tar.gz bundle upload + extract
+RUN mkdir -p /sandbox-workspace && chmod 1777 /sandbox-workspace /tmp
+
+COPY exec_server.py /opt/exec_server.py
+COPY entrypoint.sh /opt/entrypoint.sh
+RUN chmod +x /opt/entrypoint.sh
+
+WORKDIR /opt
+EXPOSE 7681 8000
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/opt/entrypoint.sh"]
+
+# If an env strictly needs Python 3.11 (verifiers' default docker_image is
+# python:3.11-slim), either switch `FROM` to python:3.11-slim and install ttyd via
+# the static-binary fallback (see the original Dockerfile), or add the deadsnakes
+# PPA and install python3.11 + point `python` at it. numpy/sympy/scipy/pandas do
+# not require 3.11, so 3.10 (ubuntu:22.04 default) is fine for the current envs.

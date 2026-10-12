@@ -1,0 +1,122 @@
+name = "gdpval-v2-nemotron-super-vs-reference-kimi-judge"
+output_dir = "/checkpoint/ram/tianhaowu/gdpval_vmvm/nemotron_super_kimi_comparison"
+
+[source]
+dataset = "openai/gdpval"
+dataset_revision = "11e7900cdcac61bc4daf59e65feb238acda98fbf"
+dataset_parquet_sha256 = "f8422fab9b21d90c0ee5f0659842ab666d418cb8940842918f9f4b0df7ae0202"
+dataset_mirror_commit = "501e302a9da6d889895b6df693b955c41ca60719"
+dataset_mirror_url = "https://raw.githubusercontent.com/Wrigggy/evolving-quant-agent/501e302a9da6d889895b6df693b955c41ca60719/data/gdpval/gdpval_gold.parquet"
+asset_mirror_repository = "ycm824632241/benchmark-8.13"
+asset_mirror_commit = "ab55c6be877d2da8d7016e809cbfc9cab2ed1e90"
+asset_mirror_tasks_tree = "2a76ef74c516bbebca41150458ab5bb06983a2d1"
+asset_manifest_file = "gdpval_asset_manifest.tsv"
+asset_manifest_sha256 = "3df5445b1d3a321b9c3c2b7abc418a273d189149e0e966cfc6e0a8604ba38b91"
+asset_cache_dir = "/checkpoint/ram/tianhaowu/gdpval_vmvm/assets/ab55c6be877d2da8d7016e809cbfc9cab2ed1e90"
+gym_recipe_commit = "57c15a22f8b82d3d859b71468fe3329f4e2093b4"
+gym_kimi_judge_commit = "13e181aa1779809457d1abbf47ab209d8d0f5ab3"
+stirrup_commit = "3e988e5a1729cea37e6484e5cab2ab0f9eae4ffb"
+catalog_file = "/checkpoint/ram/tianhaowu/gdpval_vmvm/data/gdpval_benchmark.jsonl"
+
+[benchmark]
+expected_tasks = 220
+num_trials = 1
+max_turns = 250
+task_timeout_seconds = 12600
+dispatch_seed = 20260822
+
+[policy]
+model = "nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-BF16"
+deployment_id = "slurm-10913801:model-d51eab0d1f979ebc26b546e634a04f450d99158e:vllm-0.22.0"
+checkpoint_revision = "d51eab0d1f979ebc26b546e634a04f450d99158e"
+server_version = "0.22.0"
+slurm_job_name = "nemotron-super-swebench-h100"
+slurm_job_id = "10913801"
+slurm_job_id_env = "GDPVAL_POLICY_JOB_ID"
+base_url_env = "GDPVAL_POLICY_BASE_URL"
+api_key_env = "GDPVAL_POLICY_API_KEY"
+port = 8000
+context_window = 262144
+max_completion_tokens = 64000
+completion_token_buffer = 1000
+temperature = 1.0
+top_p = 0.95
+thinking = true
+request_retries = 10
+request_retry_delay_seconds = 10
+request_timeout_seconds = 900
+sticky_session = true
+sticky_session_header = "x-session-id"
+
+[judge]
+model = "Kimi-K2.6"
+deployment_id = "shared-kimi26:proxy-job-10643065"
+proxy_jobid = "10643065"
+protocol_checkpoint_revision = "2755962d07cb42aa2d988a35bcb65cd4a9c2de82"
+context_window = 262144
+info_path = "/checkpoint/ram/shared/vllm_deployments_v2/shared-kimi26/proxy_info.json"
+base_url_env = "GDPVAL_JUDGE_BASE_URL"
+api_key_env = "GDPVAL_JUDGE_API_KEY"
+temperature = 1.0
+thinking = true
+max_tokens = 65535
+request_retries = 5
+request_retry_delay_seconds = 5
+request_timeout_seconds = 300
+format_retries = 1
+sticky_session = true
+sticky_session_header = "x-litellm-session-id"
+pdf_render_dpi = 150
+pdf_max_pages = 30
+pdf_include_text = true
+deduplicate_office_pdf_sidecars = true
+max_visual_blocks_per_section = 18
+max_text_characters_per_section = 20000
+max_file_bytes = 262144000
+
+[scoring]
+mode = "comparison"
+num_trials = 4
+exclude_unsupported_artifacts = true
+terminal_failure_policy = "withhold_headline_elo"
+
+[tools]
+require_brave_search = false
+web_fetch_trust_env = false
+
+[[references]]
+id = "kimi_k26"
+deliverables_dir = "/checkpoint/ram/tianhaowu/gdpval_vmvm/references/kimi_k26"
+elo = 1191.0
+
+[runtime]
+workers = 16
+source_image = "docker.io/tianhao0122/optimbench-tb@sha256:31aa69a13dee68d525e49748d937f9a26b05e24aff769f5348b83902f34014df"
+image = "docker.io/tianhao0122/optimbench-tb@sha256:31aa69a13dee68d525e49748d937f9a26b05e24aff769f5348b83902f34014df"
+fallback_image = ""
+preload_image = false
+require_preflight = true
+sandbox_definition_commit = "57c15a22f8b82d3d859b71468fe3329f4e2093b4"
+sandbox_definition_sha256 = "66273c6372fc5bf51b61bde99ada6e1f0f87e4df637e149039170a13aefa7283"
+sandbox_dockerfile_sha256 = "8a078c82c12c7a4eebfd72b47a516c2a5db40f3f8244174cbad3184515dd7001"
+sandbox_base_image_index = "sha256:62eafe52c91cad83c2c74e630bfde917da8c253673e695665d454def84fc9a13"
+sandbox_base_image_amd64 = "sha256:0a8602b4fbafe6dd46993ae2f94dbb673d8c9c534100e77641973c43f8469cf0"
+sandbox_pip_freeze_sha256 = "a7600f936030214eec6d9cd9546599f9d75ff4c891a2e9d583af97e2518bd29e"
+tenant_id = "async_2347641"
+lease_ttl = "60s"
+cpu = 4
+memory_gb = 16
+command_timeout_seconds = 600
+max_connection_drops = 5
+
+[retry]
+max_infrastructure_retries = 2
+max_judge_retries = 2
+retry_delay_seconds = 10
+
+[official_reference]
+snapshot_date = "2026-08-22"
+elo = 698.06
+normalized_score = 9.903
+model_url = "https://artificialanalysis.ai/models/nvidia-nemotron-3-super-120b-a12b"
+snapshot_url = "https://github.com/TabNahida/AInsights/blob/e45e3eac0cf0fa69f4cf9e14e2e45fbd347f00be/ArtificialAnalysis/artificialanalysis_raw_scores_wide.csv"

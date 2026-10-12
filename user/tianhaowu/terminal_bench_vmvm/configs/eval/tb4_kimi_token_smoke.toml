@@ -1,0 +1,73 @@
+model = "Kimi-K3"
+num_tasks = 2
+num_rollouts = 1
+max_concurrent = 2
+max_turns = 8
+max_input_tokens = 262144
+max_output_tokens = 32768
+max_total_tokens = 65536
+multiplex = 2
+rich = false
+
+[client]
+type = "eval"
+capture_model_io = true
+outbound_body_denylist = ["logprobs", "prompt_logprobs", "top_logprobs", "return_token_ids"]
+base_url = "http://127.0.0.1:8000/v1"
+api_key_var = "OPENAI_API_KEY"
+timeout = 43200
+connect_timeout = 120
+
+[sampling]
+temperature = 1.0
+top_p = 1.0
+max_tokens = 4096
+reasoning_effort = "max"
+chat_template_kwargs = { enable_thinking = true, preserve_thinking = true }
+
+[taskset]
+id = "terminal-bench-vmvm"
+dataset_dir = "/checkpoint/ram/tianhaowu/terminal_bench_vmvm/datasets/tb4-prebuilt-v4.0.0/tasks"
+task_file = "user/tianhaowu/terminal_bench_vmvm/configs/eval/tb4_kimi_token_smoke.tasks.txt"
+task_file_sha256 = "ecdcbc6e4f54b690e64b4566de5eecf33467088c8ca3436738cd7308d4e45b83"
+image_prefix = "vmvm-registry.fbinfra.net/terminal_bench"
+image_tag = "tb4-452bf305c6da"
+ignore_dockerfile = true
+use_declared_images = true
+enable_compose = true
+verifier_runtime_retries = 2
+
+[harness]
+id = "mini-swe-agent"
+version = "2.2.8"
+config_file = "mini"
+config_overrides = [
+    "agent.step_limit=8",
+    "environment.environment_class=local",
+    "environment.timeout=600",
+    "model.model_kwargs.drop_params=true",
+    "model.model_kwargs.timeout=43200",
+    "model.model_kwargs.temperature=1.0",
+    "model.model_kwargs.top_p=1.0",
+    "model.model_kwargs.parallel_tool_calls=true",
+]
+
+[harness.env]
+MSWEA_MODEL_RETRY_STOP_AFTER_ATTEMPT = "10"
+
+[harness.runtime]
+type = "vmvm"
+session_timeout = 32400
+tenant_id = "async_2347641"
+lease_ttl = "60s"
+max_session_buffer_size = 67108864
+
+[timeout]
+setup = 3600
+rollout = 28800
+finalize = 3600
+scoring = 21600
+
+[retries.rollout]
+max_retries = 2
+include = ["SandboxError", "TunnelError", "InterceptionError"]
