@@ -232,6 +232,22 @@ SEQ_LEN=524288 data/prepare.sh /checkpoint/ram/tianhaowu/datasets/targeted7-clea
 tokens, 36.6M trained tokens, render check 0 problems. 649 steps = 10 epochs; checkpoints 130, 260,
 390, 520, 649 are each evaluated on `eval/tasks/targeted7.tasks.txt` x8 at 524k context.
 
+| epoch | clean 519 | solved tasks | unfiltered 498 | "!!!" / 100k chars (clean vs unfiltered) | responses cut at 32k |
+|---|---|---|---|---|---|
+| 2 | s130 2/56 | embedding 2/8 | s125 0/55 | 31 vs 94 | 3.9% vs 3.7% |
+| 4 | s260 4/56 | embedding 4/8 | s250 2/56 | 17 vs 118 | 6.2% vs 1.6% |
+| 6 | s390 0/56 | - | s375 2/56 | 4 vs 152 | 11.6% vs 8.6% |
+| 8 | s520 1/56 | mvcc 1/8 | s500 0/56 | 64 vs 257 | 10.6% vs 12.5% |
+| 10 | s649 1/56 | wal 1/8 | s623 0/56 | 4 vs 215 | 8.4% vs 15.3% |
+
+(s390 counts one mvcc rollout re-run after a ProviderError: `t7clean-512k-t7-x8-ctx512k-s390-topup`.)
+The filter removed the shouting ("!!!" back near the data's 3 per 100k chars) and the clean run solves
+slightly more (8 vs 6 over five checkpoints, including the first mvcc and wal solves), but the other
+four tasks stay unsolved. Responses cut at 32k are now mostly long deliberation inside one turn
+rather than "!!!" loops (185 of 206 at s390 have no repeated line). "hmm" is not filtered and stays
+high (555-2940 per 100k chars). Share of verifier tests passed on unsolved attempts peaks at s260
+(wal 84% mean / 98% best, mvcc 65% / 73%); shadow-relay sits at 12% in every checkpoint of both runs.
+
 ### Packing (`cat_whole`)
 
 All configs above use `pack_function = "fixed_stack"`, which pads every trajectory to 524,288 tokens:
